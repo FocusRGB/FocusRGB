@@ -27,21 +27,23 @@ void setup() {
 
 void loop() {
 
-  int input = 2;
-  switch(input){
-    case 1:
-      TestInitRGB();
-      break;
-    case 2:
-      ColorCycle();
-      break;
-    case 3:
-      Breath(255,124,49);
-      break;
-    default:
-      break;
-  }
-  
+  // int input = 2;
+  // switch(input){
+  //   case 1:
+  //     TestInitRGB();
+  //     break;
+  //   case 2:
+  //     ColorCycle();
+  //     break;
+  //   case 3:
+  //     Breath(255,124,49);
+  //     break;
+  //   default:
+  //     break;
+  // }
+  TestInitRGB();
+  ColorCycle();
+  Breath(255,124,49);
 }
 
 // TestInitRGB turns all LEDs in order to Red, Green and blue
@@ -81,32 +83,32 @@ void ColorCycle(){
   single.blue = 0;
   strip.write(LEDSPIN);
 
-  for (int i=0 ; i<255 ; i+=10){
+  for (int i=0 ; i<255 ; i+=5){
     single.green = i;
     strip.write(LEDSPIN);
     delay(REFRESHRATE);
   }
-  for (int i = 255; i > 0; i-=10){
+  for (int i = 255; i > 0; i-=5){
     single.red = i;
     strip.write(LEDSPIN);
     delay(REFRESHRATE);
   }
-  for (int i = 0; i < 255; i+=10){
+  for (int i = 0; i < 255; i+=5){
     single.blue = i;
     strip.write(LEDSPIN);
     delay(REFRESHRATE);
   }
-  for (int i = 255; i > 0; i-=10){
+  for (int i = 255; i > 0; i-=5){
     single.green = i;
     strip.write(LEDSPIN);
     delay(REFRESHRATE);
   }
-  for (int i = 0; i < 255; i+=10){
+  for (int i = 0; i < 255; i+=5){
     single.red = i;
     strip.write(LEDSPIN);
     delay(REFRESHRATE);
   }
-  for (int i = 255; i > 0; i-=10){
+  for (int i = 255; i > 0; i-=5){
     single.blue = i;
     strip.write(LEDSPIN);
     delay(REFRESHRATE);
@@ -145,4 +147,10 @@ void Breath(int R, int G, int B){
     delay(REFRESHRATE);
   }
   
+}
+
+void Rainbow(){
+
+
+
 }
