@@ -1,0 +1,18 @@
+# --- build output ---
+build/
+/dist/
+
+# --- python ---
+__pycache__/
+*.py[cod]
+
+# --- local scratch ---
+*.log
+*.tmp
+/captures/
+
+# --- editor / OS ---
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

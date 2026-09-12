@@ -1,0 +1,17 @@
+# Line endings: normalise to LF in the repository, check out native on each
+# platform. On Windows (core.autocrlf=true) that means CRLF in the working tree.
+* text=auto
+
+# Arduino / build artefacts - never convert
+*.hex   binary
+*.elf   binary
+*.eep   binary
+*.bin   binary
+
+# Assets
+*.png   binary
+*.jpg   binary
+*.ico   binary
+
+# Python bytecode
+*.pyc   binary

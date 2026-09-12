@@ -1,0 +1,68 @@
+<head>
+  <title>API Event Demo</title>
+  <meta description="Reacts to external events sent to SignalRGB's canvas API (game/app integration starter)." />
+  <meta publisher="you" />
+
+  <meta property="senderName" label="Sender name to listen for" type="textfield" default="demo" />
+  <meta property="idleColor"  label="Idle color"  type="color" default="#102040" />
+  <meta property="hitColor"   label="Hit color"   type="color" default="#ff2020" />
+  <meta property="healColor"  label="Heal color"  type="color" default="#20ff60" />
+  <meta property="lowColor"   label="Low HP color" type="color" default="#ff8000" />
+  <meta property="decayMs"    label="Flash decay (ms)" type="number" min="100" max="3000" default="600" />
+</head>
+<body style="margin:0;padding:0;">
+  <canvas id="exCanvas" width="320" height="200"></canvas>
+
+  <script>
+    // Send events with:
+    //   POST http://localhost:16034/canvas/event?sender=demo&event=hit
+    // Any event name works; unknown ones just log. Supported here: hit, heal, low, idle
+    const c = document.getElementById("exCanvas");
+    const ctx = c.getContext("2d");
+    const W = c.width, H = c.height;
+
+    let activeEvent = "idle";
+    let eventAt = 0;
+    let pulse = 0;   // 1 = full flash, decays toward 0
+
+    // Called by SignalRGB whenever any app POSTs to /canvas/event
+    function onCanvasApiEvent(apiEvent) {
+      const want = (typeof senderName !== "undefined") ? senderName : "demo";
+      if (apiEvent["sender"] !== want) return;
+      activeEvent = String(apiEvent["event"] || "idle");
+      eventAt = performance.now();
+      pulse = 1;
+      console.log("event from " + apiEvent["sender"] + ": " + activeEvent);
+    }
+
+    function pick(name, fallback) {
+      return (typeof window[name] !== "undefined") ? window[name] : fallback;
+    }
+
+    function draw() {
+      const decay = Number(pick("decayMs", 600));
+      const now = performance.now();
+      if (pulse > 0) pulse = Math.max(0, 1 - (now - eventAt) / decay);
+
+      const base = pick("idleColor", "#102040");
+      let flash = base;
+      if (activeEvent === "hit")  flash = pick("hitColor",  "#ff2020");
+      if (activeEvent === "heal") flash = pick("healColor", "#20ff60");
+      if (activeEvent === "low")  flash = pick("lowColor",  "#ff8000");
+
+      // "low" is a persistent state: keep it breathing instead of decaying.
+      let alpha = pulse;
+      if (activeEvent === "low") alpha = 0.5 + 0.5 * Math.sin(now / 250);
+
+      ctx.fillStyle = base;
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = flash;
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
+
+      window.requestAnimationFrame(draw);
+    }
+    window.requestAnimationFrame(draw);
+  </script>
+</body>

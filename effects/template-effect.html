@@ -1,0 +1,52 @@
+<head>
+  <title>Template Effect</title>
+  <meta description="Starter lightscript: a moving gradient with user controls." />
+  <meta publisher="you" />
+
+  <!-- User controls appear in SignalRGB's effect sidebar. Each becomes a JS global of the same name. -->
+  <meta property="speed"  label="Speed"      type="number"   min="1" max="20" default="5" />
+  <meta property="color1" label="Color A"    type="color"    default="#00a8ff" />
+  <meta property="color2" label="Color B"    type="color"    default="#ff2d95" />
+  <meta property="mode"   label="Mode"       type="combobox" values="Horizontal,Vertical" default="Horizontal" />
+  <meta property="glow"   label="Extra Glow" type="boolean"  default="0" />
+</head>
+<body style="margin:0;padding:0;">
+  <!-- 320x200 is the standard SignalRGB canvas. Devices sample colors from their region of it. -->
+  <canvas id="exCanvas" width="320" height="200"></canvas>
+
+  <script>
+    const c = document.getElementById("exCanvas");
+    const ctx = c.getContext("2d");
+    const W = c.width, H = c.height;
+    let t = 0;
+
+    function draw() {
+      // Controls are injected as globals; guard with defaults so the file also runs in a browser.
+      const spd = (typeof speed  !== "undefined") ? Number(speed)  : 5;
+      const a   = (typeof color1 !== "undefined") ? color1 : "#00a8ff";
+      const b   = (typeof color2 !== "undefined") ? color2 : "#ff2d95";
+      const m   = (typeof mode   !== "undefined") ? mode   : "Horizontal";
+      const g   = (typeof glow   !== "undefined") ? (glow == 1 || glow === true) : false;
+
+      t += spd / 600;
+      const off = (Math.sin(t) + 1) / 2;   // 0..1
+
+      const grad = (m === "Vertical")
+        ? ctx.createLinearGradient(0, 0, 0, H)
+        : ctx.createLinearGradient(0, 0, W, 0);
+      grad.addColorStop(0, a);
+      grad.addColorStop(off, b);
+      grad.addColorStop(1, a);
+
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      if (g) {
+        ctx.fillStyle = "rgba(255,255,255," + (0.15 * off) + ")";
+        ctx.fillRect(0, 0, W, H);
+      }
+      window.requestAnimationFrame(draw);
+    }
+    window.requestAnimationFrame(draw);
+  </script>
+</body>
