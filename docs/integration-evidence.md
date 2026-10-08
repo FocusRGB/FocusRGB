@@ -32,14 +32,15 @@ guess as the API contract.
 
 **Transport gap:** `device_ledoverrides`/`device_writesetting` are tool names, not established
 wire APIs for the controller. Discover supported transport, connection setup, prerequisites,
-and error behavior before implementing them. Workspace-root `../../signalrgb-mcp.cmd` is a
+and error behavior before implementing them. The module launcher at
+`../modules/signalrgb/tools/signalrgb-mcp.cmd` is a
 lead, not a guaranteed app dependency. Calls took roughly half a second historically;
 animation performance and persistent-connection benefits were not measured.
 
 Current check on 2026-10-08: SignalRGB 2.5.74 answered `/api/v1/app` on port 16038 with
 `authorized: false`. The user `Effects`, `Plugins`, and `Components` folders existed under
 OneDrive Documents and contained no files. The workspace MCP config and launcher are at
-`../../.mcp.json` and `../../signalrgb-mcp.cmd`.
+`../../.mcp.json`; it points to `../modules/signalrgb/tools/signalrgb-mcp.cmd`.
 
 ## WLED/layout/calibration
 
@@ -85,7 +86,7 @@ use DDP; do not equate the packet timeout with WLED's 2500 ms DDP timeout.
 
 - RGB Claude session `ca5cee85-477f-4450-81d7-3fbecb25b67f`.
 - Archived `focus-profiles-plan-v2.md`.
-- `../../WhirlwindFX-SignalRGB/signalrgb-security-findings.md` for later API observations. Its security-testing
+- `../modules/signalrgb/docs/security-findings.md` for later API observations. Its security-testing
   scope is separate from this app, not a development roadmap.
 - `../../WLED/profiles/README.md` and preferred snapshot above.
 

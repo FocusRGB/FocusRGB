@@ -29,7 +29,8 @@ cooldowns. Reactive effects require a separate supported integration.
 ## Design requirements
 
 - Plugins cover focus/app detection, installed-app/game discovery, external integrations,
-  RGB output, and extensible native effects.
+  RGB output, and extensible native effects. Integration-specific files are packaged under
+  `modules/<integration>/`; a module may provide several plugin roles.
 - Core owns rule arbitration, debounce, transitions, settings, logging, and device ownership.
 - Match executable names, launcher-scoped game IDs, and manually added apps/games.
 - Define named keyboard LEDs, mouse zones, strip ranges, and screen zones explicitly.
@@ -52,7 +53,8 @@ then retire SignalRGB. Other application integrations remain supported in the fi
 
 Runtime, language, UI, plugin packaging, and installation method are undecided. Startup
 automation follows reliable cleanup/recovery. The Arduino tester is independent. Existing
-`plugins/` files are SignalRGB device plugins, not this controller's extension system.
+`modules/signalrgb/plugins/` contains SignalRGB device plugins, not this controller's
+extension system.
 
 Current authorization is documentation, not implementation or device reconfiguration.
 Open product/implementation choices are tracked in `../.ai/STATUS.md`.

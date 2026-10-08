@@ -24,6 +24,17 @@ to media effects, not proof of game focus. The core must not depend on SignalRGB
 Steam, or Razer specifics. Other-app integrations remain independently usable after the
 SignalRGB plugin is retired.
 
+## Module packaging
+
+Use `modules/<integration>/` as the ownership boundary for an external system. A module keeps
+its backend code, integration adapters, tools, examples, templates, and specific research
+together, while exposing one or more of the contracts below. Shared rules, layouts, effects,
+and hardware-independent tools stay outside integration modules.
+
+`modules/signalrgb/` is the first such boundary. It contains the current SignalRGB content
+and utilities before a loader exists. A later WLED module should follow the same rule when
+its controller implementation enters this repository.
+
 ## Contract sketch
 
 - Manifest: stable ID, plugin version, contract version, roles, config schema, prerequisites.

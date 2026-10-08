@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Installs active effects/ and plugins/ from this repo into SignalRGB's user folders.
+  Installs active effects/ and plugins/ from this module into SignalRGB's user folders.
 .EXAMPLE
   .\install-signalrgb-content.ps1            # one-shot install
   .\install-signalrgb-content.ps1 -Watch     # re-install whenever a file changes
