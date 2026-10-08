@@ -14,6 +14,14 @@ Updated: 2026-10-08.
   grouped under `modules/signalrgb/`; module ownership is documented for future integrations.
 - Generated builds and tool artifacts are consolidated under the ignored `build/` directory;
   repository Graphify output is stored in `build/graphify-out/`.
+- Runtime selected: .NET 10 with an Avalonia tray/settings UI and UI-independent background
+  core, targeting Windows, macOS, and Linux where platform integrations permit it.
+- Plugin direction selected: open manifests/protocol/schemas and official .NET SDK/templates;
+  plugins run out of process over versioned JSON-RPC and declare platform/resource needs.
+- Selection requirements now include editable deterministic rule priority and a manual mode
+  that suppresses detection until automatic selection is resumed.
+- Game API plugins feed versioned normalized and namespaced events to effects. A local MCP
+  adapter will use the same validated command services as the UI.
 - The repository uses the MIT License. Assistants may use scoped branches, commits, pushes,
   and pull requests for requested work while preserving unrelated changes and history.
 
@@ -31,18 +39,19 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Next step
 
-When implementation is requested, choose the runtime and initial UI, then build milestone 1:
-dry-run focus detection, deterministic profile selection, and fake output plugins.
+When implementation is requested, scaffold the Avalonia/.NET 10 solution and build milestone
+1: dry-run focus detection, deterministic profile selection, manual override, and fake output.
 Before live output, establish WLED ownership and the standalone transport for SignalRGB LED
 overrides. Claude tool availability does not itself establish an app API.
 
 ## Open choices
 
-- Runtime/language and first interface: tray/settings UI, CLI, or another approach.
 - Generic game profile first or individual game profiles.
+- First supported game API and its normalized event capabilities.
 - Interim SignalRGB background effect during games.
 - Capture display and monitor/desk layout editor.
 - Accept native-only WLED ownership while automatic handover is unresolved?
 - Native keyboard first or mouse first?
+- Plugin signing/distribution and installation UX after local packages work.
 
 These remain pending; they do not block documentation work.

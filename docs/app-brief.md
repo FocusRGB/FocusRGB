@@ -4,10 +4,12 @@ Planning only. Updated 2026-10-08 from the RGB chat and user clarification.
 
 ## Goal
 
-Build a Windows RGB controller that selects profiles based on the focused application and
-controls lighting through plugins. Ultimately it should supply its own effects and replace
-SignalRGB, while retaining integrations with other applications through supported APIs and
-interfaces. Removing SignalRGB must not require rewriting detection, rules, or layouts.
+Build a cross-platform desktop RGB controller with a minimal Avalonia UI on .NET 10 and an
+always-running background process. It selects profiles from focused or running applications
+and controls lighting through open extension contracts. Ultimately it should supply its own
+effects and replace SignalRGB, while retaining integrations with other applications through
+supported APIs and interfaces. Removing SignalRGB must not require rewriting detection,
+rules, layouts, or game integrations.
 
 ## Desired behavior
 
@@ -18,6 +20,7 @@ interfaces. Removing SignalRGB must not require rewriting detection, rules, or l
 | Recognized game | Generic or per-game profile with custom keyboard/mouse maps and strip zones |
 | Brief focus change or ignored system window | Avoid disruptive switches |
 | Unmatched app | Keep current profile by default |
+| Manual mode | Keep the user-selected profile active until automatic selection is resumed |
 | Missing or unsupported backend | Explain the limitation; only use an explicitly configured fallback |
 | Game loses focus, profile exits, or app shuts down | Clear app-owned overrides and release output safely |
 
@@ -31,7 +34,13 @@ cooldowns. Reactive effects require a separate supported integration.
 - Plugins cover focus/app detection, installed-app/game discovery, external integrations,
   RGB output, and extensible native effects. Integration-specific files are packaged under
   `modules/<integration>/`; a module may provide several plugin roles.
+- Publish the plugin contract, schemas, templates, and reference plugins as open-source
+  components so third parties can add integrations without modifying the application.
+- Keep platform support explicit in each plugin manifest. A plugin may be portable or may
+  provide separate Windows, macOS, and Linux entry points behind the same contract.
 - Core owns rule arbitration, debounce, transitions, settings, logging, and device ownership.
+- Users can reorder or assign priorities to automatic rules. Manual mode overrides automatic
+  detection; ties are deterministic and the UI explains why the active profile won.
 - Match executable names, launcher-scoped game IDs, and manually added apps/games.
 - Define named keyboard LEDs, mouse zones, strip ranges, and screen zones explicitly.
 - Media mirroring can exclude desk LEDs and respect monitor strip direction.
@@ -44,15 +53,23 @@ cooldowns. Reactive effects require a separate supported integration.
   anti-cheat compatibility from historical tests.
 - Show selection reasons, actual device ownership, and degraded actions.
 - Store versioned settings/profiles and keep documentation usable by any AI model.
+- Game integrations expose versioned events from supported game APIs. Effects consume
+  normalized capabilities where practical and namespaced game-specific data when necessary;
+  unsupported telemetry degrades to a static profile rather than breaking selection.
+- Expose a local MCP server whose tools use the same validated application commands as the UI.
+  It can inspect and change profiles, rules, priorities, manual mode, and effect settings,
+  subject to local authorization and confirmation for risky operations.
 
 ## Scope
 
-First: dry-run detection and rule selection. Next: interim SignalRGB adapter, WLED output,
-and game discovery. Later: native screen mirror/effects and native keyboard/mouse output,
-then retire SignalRGB. Other application integrations remain supported in the final app.
+First: an Avalonia/.NET 10 tray app, background core, dry-run detection, rule selection, and
+fake output. Next: the external plugin protocol and SDK, interim SignalRGB adapter, WLED
+output, and game discovery. Later: game telemetry, native screen mirror/effects, native
+keyboard/mouse output, and local MCP control, then retire SignalRGB. Other application
+integrations remain supported in the final app.
 
-Runtime, language, UI, plugin packaging, and installation method are undecided. Startup
-automation follows reliable cleanup/recovery. The Arduino tester is independent. Existing
+Plugin package signing/distribution and installation UX remain undecided. Startup automation
+follows reliable cleanup/recovery. The Arduino tester is independent. Existing
 `modules/signalrgb/plugins/` contains SignalRGB device plugins, not this controller's
 extension system.
 

@@ -1,8 +1,11 @@
 # rgb-playground
 
-This repo contains existing RGB experiments and the plan for a plugin-based Windows RGB
-controller. The controller will select profiles from the focused application, eventually
-replace SignalRGB with native effects, and retain integrations with other applications.
+This repo contains existing RGB experiments and the plan for a cross-platform Avalonia/.NET
+10 RGB controller. The background app will select profiles from focused or running
+applications, support user-prioritized rules and manual selection, expose an open plugin SDK,
+eventually replace SignalRGB with native effects, and retain integrations with other apps and
+games. A local MCP adapter is planned for model-driven configuration through the same
+validated commands as the UI.
 **The controller is not implemented yet.**
 
 ## Start here

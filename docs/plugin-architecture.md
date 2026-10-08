@@ -24,6 +24,25 @@ to media effects, not proof of game focus. The core must not depend on SignalRGB
 Steam, or Razer specifics. Other-app integrations remain independently usable after the
 SignalRGB plugin is retired.
 
+## Runtime direction
+
+Use .NET 10 for the application and Avalonia for the thin tray/settings UI. Detection,
+selection, profiles, transitions, and command handling live in UI-independent core projects
+so the same background engine can run on Windows, macOS, and Linux.
+
+Controller plugins are external processes, not SignalRGB-style JavaScript files loaded into
+the application. Each package contains a versioned manifest, one or more platform entry
+points, configuration schema, resources, and a license. The app launches explicitly enabled
+plugins and communicates through a versioned JSON-RPC protocol over standard input/output.
+An official .NET SDK and templates implement that protocol, while its published JSON schemas
+leave room for plugins written in other languages.
+
+Process separation contains crashes and permits plugin restart, but is not a security
+sandbox. Manifests declare operating systems, architectures, roles, capabilities, and needed
+resources such as network, screen capture, or USB access. The UI must show those declarations
+before enabling an untrusted plugin. Keep frame messages batched; add a measured binary
+transport only if JSON becomes a demonstrated streaming bottleneck.
+
 ## Module packaging
 
 Use `modules/<integration>/` as the ownership boundary for an external system. A module keeps
@@ -38,6 +57,8 @@ its controller implementation enters this repository.
 ## Contract sketch
 
 - Manifest: stable ID, plugin version, contract version, roles, config schema, prerequisites.
+- Packaging: supported OS/architecture, entry point, license, declared resource access, and
+  optional source/homepage URLs. Reject duplicate IDs and incompatible contract ranges.
 - Lifecycle: initialize, report health, cancel, shut down; calls have bounded timeouts.
   Retry only actions safe to repeat; reject incompatible contract versions clearly.
 - Detectors: executable identity/PID when available, foreground status, optional game ID,
@@ -45,7 +66,9 @@ its controller implementation enters this repository.
   not necessarily foreground focus.
 - Discovery: stable launcher-scoped catalog IDs and match identities; allow manual entries.
 - Integrations: versioned event payloads, source, freshness. Static game profiles work
-  without telemetry.
+  without telemetry. Prefer common capabilities such as health, match phase, cooldown, and
+  status; preserve uncommon fields under a game/plugin namespace instead of forcing a lossy
+  universal schema.
 - Outputs: logical device IDs, resolved current backend IDs, capabilities, and results
   distinguishing applied/rejected/unavailable/unverified. Save/restore only settings changed.
 - Effects: accept time, layout, settings, and optional events; produce colours without
@@ -56,17 +79,27 @@ selection, streaming, and device release/acquisition. Explain unavailable action
 tier, missing API, disconnected hardware, or unverified support. API OK is not proof of
 visible output. Claude's MCP tools do not automatically form a standalone app API.
 
-Begin with explicitly enabled local plugins. Packaging/process isolation depend on runtime;
-no marketplace or arbitrary-code loader exists. Keep secrets outside committed profiles/logs.
+Begin with explicitly installed and enabled local plugins. Do not build a marketplace or
+automatic plugin updater in the first version. Keep secrets outside committed profiles/logs.
 
 ## Selection rules
 
-Proposed defaults: explicit priority, stable rule order for ties, case-insensitive executable
-matches, launcher-scoped game IDs. Foreground beats running-state signals unless a rule
-explicitly asks for background behavior. Debounce ordinary focus changes about two seconds.
-Ignored windows do not replace a profile; unmatched apps keep it. Unchanged profiles are
-no-ops except backend recovery. Manual selection/pause should override automatic rules;
-its UI and persistence behavior remain to be specified.
+Defaults: user-editable integer priority, then match specificity, then stable rule ID for
+ties; case-insensitive executable matches; launcher-scoped game IDs. Foreground beats
+running-state signals unless a higher-priority rule explicitly asks for background behavior.
+Debounce ordinary focus changes about two seconds. Ignored windows do not replace a profile;
+unmatched apps keep it. Unchanged profiles are no-ops except backend recovery. Manual mode
+selects a profile and suppresses automatic switching until the user resumes automatic mode.
+
+## Local MCP boundary
+
+The background app may expose a local MCP server. MCP is an adapter over the same query and
+command services used by the UI; it must not edit profile files directly or bypass validation,
+priority arbitration, plugin capability checks, or ownership transitions. Initial tools can
+list profiles/plugins/devices, explain the active selection, enter or leave manual mode,
+change rule priority, update effect settings, and preview a profile. Loading executable
+plugins, deleting data, or changing persistent hardware ownership requires explicit user
+confirmation. Bind locally and use per-install authentication where the transport permits it.
 
 ## Ownership and transitions
 
