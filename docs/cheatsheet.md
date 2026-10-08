@@ -97,7 +97,7 @@ packets the vendor app sends; see the plugin tutorial.
 
 | Device | VID | PID | Notes |
 |---|---|---|---|
-| Razer BlackWidow V4 | 0x1532 | 0x0287 | LampArray on MI_04 (UP:0059). Driven by Windows Dynamic Lighting. |
+| Razer BlackWidow V4 | 0x1532 | 0x0287 | LampArray interface observed on MI_04 (UP:0059); prior setup used SignalRGB with Dynamic Lighting disabled. Native LampArray control is unverified. |
 | Razer Basilisk V3 | 0x1532 | 0x0099 | No LampArray. Built-in SignalRGB Razer plugin drives it directly. |
 | WLED Desk | net | 10.0.0.36 | 300 LEDs, WLED 16.0.1, discovered over the network |
 | WLED Wall | net | 10.0.0.37 | 300 LEDs, WLED 16.0.1, discovered over the network |

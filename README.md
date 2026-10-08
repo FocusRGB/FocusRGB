@@ -1,6 +1,22 @@
 # rgb-playground
 
-Two RGB projects in one repo:
+This repo contains existing RGB experiments and the plan for a plugin-based RGB controller.
+
+## Planned RGB controller
+
+The desired Windows app selects profiles from the focused application and controls RGB
+through plugins. Its final goal is to replace SignalRGB with its own effects while retaining
+integrations with other apps. **The controller is not implemented yet.**
+
+- [App brief](docs/app-brief.md): requirements and desired behavior.
+- [Plugin architecture](docs/plugin-architecture.md): detection, integrations, output, and ownership.
+- [Delivery plan](docs/focus-profiles-plan.md): milestones and acceptance checks.
+- [Integration evidence](docs/integration-evidence.md): historical results and unresolved support.
+- [AI handoff](.ai/README.md): start here to continue with any AI model.
+- [Agent instructions](.ai/AGENTS.md): shared working rules for coding assistants.
+- [Claude instructions](.ai/CLAUDE.md): points Claude to the shared handoff.
+
+Existing projects:
 
 | Project | Location | What it is |
 |---------|----------|------------|
@@ -43,7 +59,9 @@ User plugins override built-in ones with the same VID/PID and survive SignalRGB 
 
 ## Workflow
 
-1. Install SignalRGB (free tier is enough for everything here).
+1. Install SignalRGB. Available features depend on the effect, device, account, and interface;
+   see [recorded limitations](docs/integration-evidence.md). Custom screen-reading effects
+   on WLED were blocked on the tested free account.
 2. Edit files in `effects/` or `plugins/`.
 3. Run `tools\sync.ps1` (or `tools\sync.ps1 -Watch` to auto-copy on save).
 4. New effect files need a SignalRGB restart to appear under Effects > Installed.
@@ -80,7 +98,11 @@ python tools\send-event.py demo hit
   RGB colour order, 12 mA/LED, 2700 mA limiter against a 12 V 3 A supply. Realtime receive on,
   DDP port 4048, realtime timeout 2500 ms, boot preset 1 (warm white `[255,180,107]` @ 30 %).
   SignalRGB discovers it over the network — no plugin needed, just Link it under Devices.
-- **WLED Desk** `10.0.0.36` — currently offline.
+- **WLED Desk** `10.0.0.36` — recorded working in the October 7 snapshot, with 215 LEDs
+  on IO16 and 85 on IO2. Live availability and settings must be checked again.
+
+These setup notes are historical. The user's later preferred Desk preset is **Blends**;
+see [integration evidence](docs/integration-evidence.md) before restoring older presets.
 
 > WS2815 strips are not colour-corrected: `[255,255,255]` renders visibly blue. Use reduced
 > blue/green values (e.g. `[255,180,107]`) for a neutral or warm white.

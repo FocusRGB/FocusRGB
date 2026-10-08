@@ -1,5 +1,8 @@
 # plugins/
 
+These are **SignalRGB USB device plugins**, not the planned controller's plugin system.
+For app-detection and external-app/RGB adapters, see [controller architecture](../docs/plugin-architecture.md).
+
 One `.js` per USB device. SignalRGB matches the file to hardware by `VendorId()` + `ProductId()`.
 A user plugin here overrides the built-in one with the same IDs, so you can also patch
 SignalRGB's own Razer plugin by copying it from
