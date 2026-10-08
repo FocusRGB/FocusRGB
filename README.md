@@ -27,6 +27,17 @@ Integration-specific files belong under `modules/<integration>/`. Shared control
 documentation, and hardware-independent tools stay at the project level. A module may expose
 one or more plugin roles to the future controller.
 
+## Generated output
+
+All generated builds, reports, caches, and tool output belong under `build/`, which is ignored
+by Git. Keep source files and maintained documentation outside it. Graphify output lives at
+`build/graphify-out/`; generate and query it with:
+
+```powershell
+graphify extract . --out build
+graphify query "question" --graph build/graphify-out/graph.json
+```
+
 ## Arduino WS2812B tester
 
 `arduino/LEDStripTester/LEDStripTester.ino` drives a WS2812B addressable strip from an
@@ -42,3 +53,7 @@ It requires the `WS2812BStrip` library (`#include <WS2812BStrip.h>`, namespace `
 Adjust the constants before flashing. Build output goes to `build/` and is not tracked.
 
 This sketch is independent of the ESP32-based WLED controllers and the SignalRGB module.
+
+## License
+
+This project is available under the [MIT License](LICENSE).

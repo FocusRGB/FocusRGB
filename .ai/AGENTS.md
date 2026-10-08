@@ -15,7 +15,14 @@ plugin contracts are separate; their runtime and packaging are undecided. Other 
 systems should receive their own `modules/<integration>/` boundary when implemented.
 
 Preserve unrelated edits and untracked files. Follow `../.gitattributes` and native Windows
-CRLF working-tree endings (`core.autocrlf=true`). Do not commit Arduino build output.
+CRLF working-tree endings (`core.autocrlf=true`). Put generated builds, reports, caches, and
+tool output under `../build/`; do not commit them. Graphify uses `../build/graphify-out/`, so
+run extraction with `graphify extract . --out build` and pass that graph path to queries.
+
+For requested repository work, assistants may create and switch branches, stage and commit
+their scoped changes, push branches, and open pull requests without separate confirmation.
+Do not include unrelated user changes, force-push, rewrite history, delete branches, or merge
+pull requests unless the user explicitly requests it.
 
 For implementation, start with the dry-run milestone in `../docs/focus-profiles-plan.md`.
 Check capabilities before sending output, enforce one writer per physical device, and

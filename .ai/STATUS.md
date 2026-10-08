@@ -12,6 +12,10 @@ Updated: 2026-10-08.
   active `effects/` and `plugins/` install folders; tools now have explicit names.
 - SignalRGB-specific content, tools, MCP launcher, reference notes, and security research are
   grouped under `modules/signalrgb/`; module ownership is documented for future integrations.
+- Generated builds and tool artifacts are consolidated under the ignored `build/` directory;
+  repository Graphify output is stored in `build/graphify-out/`.
+- The repository uses the MIT License. Assistants may use scoped branches, commits, pushes,
+  and pull requests for requested work while preserving unrelated changes and history.
 
 ## What exists
 
