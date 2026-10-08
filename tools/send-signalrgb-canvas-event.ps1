@@ -2,8 +2,8 @@
 .SYNOPSIS
   Sends a test event to SignalRGB's canvas API so an integration effect can react to it.
 .EXAMPLE
-  .\send-event.ps1 -Sender demo -Event hit
-  .\send-event.ps1 demo low
+  .\send-signalrgb-canvas-event.ps1 -Sender demo -Event hit
+  .\send-signalrgb-canvas-event.ps1 demo low
 #>
 param(
   [Parameter(Position=0)] [string]$Sender = 'demo',

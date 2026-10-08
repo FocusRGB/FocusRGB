@@ -1,7 +1,7 @@
 # Integration evidence
 
-Reviewed 2026-10-08. Historical local observations, not fresh tests or universal guarantees.
-Verify installed versions and current official docs before implementing interfaces.
+Reviewed 2026-10-08. Most observations are historical; the explicitly dated current-state
+checks below were repeated on this machine. Verify versions and official docs before coding.
 
 ## SignalRGB
 
@@ -32,16 +32,22 @@ guess as the API contract.
 
 **Transport gap:** `device_ledoverrides`/`device_writesetting` are tool names, not established
 wire APIs for the controller. Discover supported transport, connection setup, prerequisites,
-and error behavior before implementing them. Workspace-root `../signalrgb-mcp.cmd` is a
+and error behavior before implementing them. Workspace-root `../../signalrgb-mcp.cmd` is a
 lead, not a guaranteed app dependency. Calls took roughly half a second historically;
 animation performance and persistent-connection benefits were not measured.
 
+Current check on 2026-10-08: SignalRGB 2.5.74 answered `/api/v1/app` on port 16038 with
+`authorized: false`. The user `Effects`, `Plugins`, and `Components` folders existed under
+OneDrive Documents and contained no files. The workspace MCP config and launcher are at
+`../../.mcp.json` and `../../signalrgb-mcp.cmd`.
+
 ## WLED/layout/calibration
 
-Desk and Wall were known at `10.0.0.36` and `10.0.0.37`. Availability is variable; the old
-README's Desk-offline note is stale. Do not assume identical current board settings.
+Desk and Wall are known at `10.0.0.36` and `10.0.0.37`. On 2026-10-08, Desk answered with
+WLED 16.0.1, 300 LEDs, IO16:215 plus IO2:85, boot preset 1, and active realtime streaming.
+Wall timed out. Do not assume both boards share the Desk configuration.
 
-Preferred Desk snapshot: `../../WLED/profiles/best-so-far-2026-10-07_0318/`, containing info,
+Preferred Desk snapshot: `../../WLED/profiles/wled-desk-blends-2026-10-07/`, containing info,
 config, state, presets, and SignalRGB settings. Inspect it before tests, but do not overwrite
 later user changes by reapplying it automatically.
 
@@ -79,7 +85,7 @@ use DDP; do not equate the packet timeout with WLED's 2500 ms DDP timeout.
 
 - RGB Claude session `ca5cee85-477f-4450-81d7-3fbecb25b67f`.
 - Archived `focus-profiles-plan-v2.md`.
-- `../../WhirlwindFX-SignalRGB/findings.md` for later API observations. Its security-testing
+- `../../WhirlwindFX-SignalRGB/signalrgb-security-findings.md` for later API observations. Its security-testing
   scope is separate from this app, not a development roadmap.
 - `../../WLED/profiles/README.md` and preferred snapshot above.
 

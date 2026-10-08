@@ -1,8 +1,13 @@
 # effects/
 
-One `.html` per effect. Optional preview image: same basename, `.png`.
+Active custom SignalRGB effects only. The install script copies every `.html` and matching
+`.png` in this folder into SignalRGB's user Effects folder.
 
-- `template-effect.html`   starter with user controls and an animation loop
-- `api-event-demo.html`    game/app integration starter using `onCanvasApiEvent`
+This folder is currently empty because no custom effect is part of the live setup.
 
-Install: `..\tools\sync.ps1`, then restart SignalRGB the first time a new file is added.
+- Starter: `../templates/signalrgb-effect.html`
+- Canvas API example: `../examples/signalrgb-canvas-event-demo.html`
+- Blocked Pro experiment: `../archive/signalrgb/screen-ambience-deskoff-pro-required.html`
+
+Copy a file here only when it should be installed, then run
+`..\tools\install-signalrgb-content.ps1 -Effects`. Restart SignalRGB when adding a new file.

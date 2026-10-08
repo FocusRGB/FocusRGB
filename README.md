@@ -20,7 +20,7 @@ Existing projects:
 
 | Project | Location | What it is |
 |---------|----------|------------|
-| **SignalRGB development** | `effects/` `plugins/` `tools/` `docs/` | Effects (lightscripts), game/app integrations, and device plugins for SignalRGB |
+| **SignalRGB compatibility** | `effects/` `plugins/` `templates/` `examples/` `tools/` | Interim SignalRGB content, examples, and local API utilities |
 | **Arduino WS2812B tester** | `arduino/LEDStripTester/` | Standalone Arduino Uno sketch that drives a WS2812B strip through several patterns |
 
 The two are independent — nothing in `arduino/` is needed to work on SignalRGB content, or vice versa.
@@ -29,17 +29,20 @@ The two are independent — nothing in `arduino/` is needed to work on SignalRGB
 
 # SignalRGB development
 
-Workspace for writing SignalRGB **effects** (lightscripts), **game/app integrations**, and
-**device plugins**. SignalRGB loads user content from your Documents folder; this repo is the
-source of truth and `tools/sync.ps1` copies it there.
+Interim workspace for SignalRGB effects, integrations, and device plugins while the planned
+controller is built. SignalRGB loads user content from Documents. Only files deliberately
+placed in `effects/` or `plugins/` are installed.
 
 ## Layout
 
 ```
-effects/    HTML5 + JS lightscripts (one .html per effect, optional .png preview, same basename)
-plugins/    JS device plugins (one .js per USB device, matched by VendorId/ProductId)
-tools/      sync.ps1 (install into SignalRGB), send-event.ps1 / send-event.py (test integrations)
-docs/       cheatsheet.md (API reference, paths, links)
+effects/    active custom lightscripts; currently empty
+plugins/    active user device plugins; currently empty
+templates/  starters that are not installed automatically
+examples/   integration examples that are not installed automatically
+archive/    retained experiments that are not part of the live setup
+tools/      explicit SignalRGB install/event tools and the screen colour test
+docs/       controller plans, evidence, and SignalRGB reference notes
 ```
 
 ## Where SignalRGB looks
@@ -53,7 +56,7 @@ docs/       cheatsheet.md (API reference, paths, links)
 | Logs           | `%LOCALAPPDATA%\VortxEngine\app-<ver>\Signal-x64\Logs\`|
 
 If Documents is redirected to OneDrive the path is `...\OneDrive\Documents\WhirlwindFX\...`;
-`sync.ps1` detects that automatically.
+`install-signalrgb-content.ps1` detects that automatically.
 
 User plugins override built-in ones with the same VID/PID and survive SignalRGB updates.
 
@@ -62,8 +65,9 @@ User plugins override built-in ones with the same VID/PID and survive SignalRGB 
 1. Install SignalRGB. Available features depend on the effect, device, account, and interface;
    see [recorded limitations](docs/integration-evidence.md). Custom screen-reading effects
    on WLED were blocked on the tested free account.
-2. Edit files in `effects/` or `plugins/`.
-3. Run `tools\sync.ps1` (or `tools\sync.ps1 -Watch` to auto-copy on save).
+2. Copy a starter from `templates/` or `examples/` into `effects/` or `plugins/` only when
+   it should become active SignalRGB user content.
+3. Run `tools\install-signalrgb-content.ps1` (or add `-Watch` to install changed files).
 4. New effect files need a SignalRGB restart to appear under Effects > Installed.
    Existing effects reload when you re-select them. Plugins reload on device reconnect
    or SignalRGB restart.
@@ -78,11 +82,12 @@ POST http://localhost:16034/canvas/event?sender=<app>&event=<event>
 ```
 
 ```powershell
-tools\send-event.ps1 -Sender demo -Event hit
-python tools\send-event.py demo hit
+tools\send-signalrgb-canvas-event.ps1 -Sender demo -Event hit
+python tools\send-signalrgb-canvas-event.py demo hit
 ```
 
-`effects/api-event-demo.html` reacts to `hit`, `heal`, `low`, `idle` from sender `demo`.
+`examples/signalrgb-canvas-event-demo.html` demonstrates `hit`, `heal`, `low`, and `idle`.
+Copy it to `effects/`, install it, and select it manually before sending test events.
 
 ## Devices in this setup
 
@@ -94,15 +99,13 @@ python tools\send-event.py demo hit
   special-key mappings only, no lighting. SignalRGB terminates `RazerAppEngine` during its own
   startup, so Synapse is launched 90 s after logon by the scheduled task
   `Synapse after SignalRGB` rather than from `HKCU\...\Run`. Both then coexist.
-- **WLED Wall** `10.0.0.37` — 300 LEDs (5 m @ 60/m, WS2815 12 V) on a single bus, GPIO 16,
-  RGB colour order, 12 mA/LED, 2700 mA limiter against a 12 V 3 A supply. Realtime receive on,
-  DDP port 4048, realtime timeout 2500 ms, boot preset 1 (warm white `[255,180,107]` @ 30 %).
-  SignalRGB discovers it over the network — no plugin needed, just Link it under Devices.
-- **WLED Desk** `10.0.0.36` — recorded working in the October 7 snapshot, with 215 LEDs
-  on IO16 and 85 on IO2. Live availability and settings must be checked again.
+- **WLED Desk** `10.0.0.36` — checked online on 2026-10-08 with WLED 16.0.1 and 300 LEDs:
+  215 on IO16 plus 85 on IO2. Boot preset 1 is **Blends**. SignalRGB was streaming during
+  the check, so the live state showed no selected WLED preset.
+- **WLED Wall** `10.0.0.37` — did not respond on 2026-10-08. The last recorded setup was
+  300 WS2815 LEDs on GPIO16 with a 2700 mA limiter; verify it before relying on those values.
 
-These setup notes are historical. The user's later preferred Desk preset is **Blends**;
-see [integration evidence](docs/integration-evidence.md) before restoring older presets.
+SignalRGB discovers WLED over the network; no user device plugin is required.
 
 > WS2815 strips are not colour-corrected: `[255,255,255]` renders visibly blue. Use reduced
 > blue/green values (e.g. `[255,180,107]`) for a neutral or warm white.
