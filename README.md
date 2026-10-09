@@ -1,69 +1,52 @@
 # rgb-playground
 
-This repo contains existing RGB experiments and the plan for a cross-platform Avalonia/.NET
-10 RGB controller. The background app will select profiles from focused or running
-applications, support user-prioritized rules and manual selection, expose an open plugin SDK,
-eventually replace SignalRGB with native effects, and retain integrations with other apps and
-games. A local MCP adapter is planned for model-driven configuration through the same
-validated commands as the UI.
-**The controller is not implemented yet.**
+A planned desktop RGB controller with an Avalonia UI and .NET 10 background core.
+The first executable targets Windows; shared code remains portable for future platforms.
+**Implementation has not started.**
 
-Implementation proceeds in three product goals: a working portable core exercised through a
-separate SignalRGB plugin; game profiles that combine an RGB effect with an LED layout; then
-native effects, layouts, and outputs that remove the SignalRGB dependency. The first executable
-targets Windows while the core remains portable.
+The app will select lighting profiles manually or from applications using a user-defined
+priority list. Rules can remain active while an app is running or only while it has focus.
+First launch uses manual mode; subsequent launches restore the saved state.
+
+## Implementation roadmap
+
+1. Build the portable core and a separately packaged SignalRGB integration plugin.
+2. Add game profiles and supported game API integrations.
+3. Build native effects, LED placement layouts, and output plugins to operate without SignalRGB.
+
+SignalRGB owns rendering and its existing layout while its integration is active, including
+its WLED output. A separate WLED plugin supports native operation. Application mappings are
+customizable; the core and UI have no dependency on either provider's implementation.
+
+Native layouts will support a 2D placement canvas, stacked device groups, and device exclusion.
+Game effects can combine canvas animation, semantic zones, and direct key/LED mappings.
+A local MCP interface is planned for controlling the same commands used by the UI.
 
 ## Start here
 
-- [App brief](docs/app-brief.md): requirements and desired behavior.
-- [Plugin architecture](docs/plugin-architecture.md): detection, integrations, output, modules, and ownership.
-- [Delivery plan](docs/focus-profiles-plan.md): milestones and acceptance checks.
-- [Implementation slices](docs/implementation-slices.md): small tasks, dependencies, checks,
-  and prompts for continuing across models or session limits.
-- [Integration evidence](docs/integration-evidence.md): historical results and unresolved support.
-- [AI handoff](.ai/README.md): reading order for any AI model.
-- [Agent instructions](.ai/AGENTS.md): shared working rules for coding assistants.
-- [Claude instructions](.ai/CLAUDE.md): points Claude to the shared handoff.
+- [Current status](.ai/STATUS.md): completed work, active slice, and next action.
+- [Implementation slices](docs/implementation-slices.md): bounded tasks, dependencies,
+  acceptance checks, and start/resume prompts for working across models or session limits.
+- [App brief](docs/app-brief.md): product requirements and user decisions.
+- [Plugin architecture](docs/plugin-architecture.md): integration contracts, selection,
+  rendering authority, fallback, and layouts.
+- [Delivery plan](docs/focus-profiles-plan.md): product goals and acceptance gates.
+- [Integration evidence](docs/integration-evidence.md): dated observations and unverified capabilities.
 
-## Projects
+For AI-assisted development, follow the [agent instructions](.ai/AGENTS.md) and
+[handoff guide](.ai/README.md). Use the [slice checkpoint template](.ai/SLICE-HANDOFF.md)
+to preserve progress when switching models or reaching a session limit.
 
-| Project | Location | What it is |
-|---|---|---|
-| SignalRGB module | [`modules/signalrgb/`](modules/signalrgb/README.md) | Interim backend, content, examples, tools, and research kept behind one module boundary |
-| Screen colour test | [`tools/screen-color-test.html`](tools/screen-color-test.html) | Shared visual calibration aid for current and future RGB backends |
-| Arduino WS2812B tester | `arduino/LEDStripTester/` | Standalone Arduino Uno strip test sketch |
+## Repository conventions
 
-Integration-specific files belong under `modules/<integration>/`. Shared controller code,
-documentation, and hardware-independent tools stay at the project level. A module may expose
-one or more plugin roles to the future controller.
+Integration-specific source and research live under `modules/<integration>/`. The existing
+[SignalRGB module](modules/signalrgb/README.md) contains research and tools; its controller
+plugin is still planned. Earlier hardware experiments remain under `arduino/` and `tools/`.
 
-## Generated output
-
-All generated builds, reports, caches, and tool output belong under `build/`, which is ignored
-by Git. Keep source files and maintained documentation outside it. Graphify output lives at
-`build/graphify-out/`; generate and query it with:
-
-```powershell
-graphify extract . --out build
-graphify query "question" --graph build/graphify-out/graph.json
-```
-
-## Arduino WS2812B tester
-
-`arduino/LEDStripTester/LEDStripTester.ino` drives a WS2812B addressable strip from an
-Arduino Uno through several demonstration patterns.
-
-| Setting | Value | Constant |
-|---|---|---|
-| Data pin | 5 | `LEDSPIN` |
-| LED count | 32 | `LEDSIZE` |
-| Refresh rate | 20 | `REFRESHRATE` |
-
-It requires the `WS2812BStrip` library (`#include <WS2812BStrip.h>`, namespace `WS2812B`).
-Adjust the constants before flashing. Build output goes to `build/` and is not tracked.
-
-This sketch is independent of the ESP32-based WLED controllers and the SignalRGB module.
+Generated builds, packages, reports, caches, and tool artifacts belong under the Git-ignored
+`build/` directory. Maintained source and documentation stay outside it. Generated Graphify
+data lives at `build/graphify-out/` and is optional for development.
 
 ## License
 
-This project is available under the [MIT License](LICENSE).
+[MIT](LICENSE).

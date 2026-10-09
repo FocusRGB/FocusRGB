@@ -4,6 +4,9 @@ Updated: 2026-10-09.
 
 ## Completed
 
+- README refreshed around the current product roadmap, implementation slices, and shared
+  handoff; old Arduino setup details and tool-specific commands removed from the entry page.
+
 - Provider-independent brief, plugin design, roadmap, evidence record, and AI instructions.
 - Final goal confirmed: replace SignalRGB, retain integrations with other apps.
 - Historical v2 plan archived; new plan supports profiles combining plugin actions.
