@@ -18,6 +18,8 @@ targets Windows while the core remains portable.
 - [App brief](docs/app-brief.md): requirements and desired behavior.
 - [Plugin architecture](docs/plugin-architecture.md): detection, integrations, output, modules, and ownership.
 - [Delivery plan](docs/focus-profiles-plan.md): milestones and acceptance checks.
+- [Implementation slices](docs/implementation-slices.md): small tasks, dependencies, checks,
+  and prompts for continuing across models or session limits.
 - [Integration evidence](docs/integration-evidence.md): historical results and unresolved support.
 - [AI handoff](.ai/README.md): reading order for any AI model.
 - [Agent instructions](.ai/AGENTS.md): shared working rules for coding assistants.

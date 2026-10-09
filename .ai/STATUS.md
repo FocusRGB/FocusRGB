@@ -74,6 +74,11 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Next step
 
+Implementation is planned as slices 00–25 in `../docs/implementation-slices.md`. All are pending.
+Start with 00 (minimal data/command contract) when implementation is requested; then 01
+(solution scaffold). Use `SLICE-HANDOFF.md` for exact resume notes and the slice plan's start/
+resume prompts to continue across models or session limits. This planning update adds no app.
+
 When implementation is requested, scaffold the Windows Avalonia/.NET 10 app, portable core,
 integration contracts, fake test integration, and separate SignalRGB plugin. Build milestone
 1 around customizable Default, VS Code, Media Player, and Stremio mappings, provider catalog

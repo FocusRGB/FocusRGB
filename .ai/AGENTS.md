@@ -11,7 +11,8 @@ integrations with other applications through plugins. SignalRGB is an interim ba
 
 Keep all SignalRGB-specific code, content, tools, and research in `../modules/signalrgb/`.
 Its `plugins/` directory is for SignalRGB USB device plugins. The proposed controller's
-plugin contracts are separate; their runtime and packaging are undecided. Other external
+plugin contracts are separate; controller plugins are separate processes over versioned
+JSON-RPC, with a minimal host implemented before the complete public SDK. Other external
 systems should receive their own `modules/<integration>/` boundary when implemented.
 
 Preserve unrelated edits and untracked files. Follow `../.gitattributes` and native Windows
@@ -24,7 +25,8 @@ their scoped changes, push branches, and open pull requests without separate con
 Do not include unrelated user changes, force-push, rewrite history, delete branches, or merge
 pull requests unless the user explicitly requests it.
 
-For implementation, start with the dry-run milestone in `../docs/focus-profiles-plan.md`.
+For implementation, follow the numbered slices in `../docs/implementation-slices.md` and
+resume the active slice in `STATUS.md`. Use `SLICE-HANDOFF.md` to record exact resume state.
 Check capabilities before sending output, enforce one writer per physical device, and
 include cleanup and restart recovery before depending on persistent overrides.
 

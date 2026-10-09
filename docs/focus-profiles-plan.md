@@ -6,6 +6,9 @@ types with composable plugin actions. End goal: replace SignalRGB, retain other 
 Read `app-brief.md`, `plugin-architecture.md`, and `integration-evidence.md` first.
 `focus-profiles-plan-v2.md` is historical, not current guidance.
 
+Use [implementation-slices.md](implementation-slices.md) for the small, ordered execution
+tasks and session handoff prompts. This document remains the product-level acceptance plan.
+
 ## Implementation goals
 
 1. **Working core with a SignalRGB plugin.** Build the Windows Avalonia tray/background shell,

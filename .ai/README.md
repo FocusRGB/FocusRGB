@@ -1,6 +1,6 @@
 # AI handoff
 
-Updated 2026-10-08. Plain Markdown context independent of AI provider or chat history.
+Updated 2026-10-09. Plain Markdown context independent of AI provider or chat history.
 
 ## Read in order
 
@@ -10,6 +10,9 @@ Updated 2026-10-08. Plain Markdown context independent of AI provider or chat hi
 4. `../docs/integration-evidence.md` — dated results and limitations.
 5. `../docs/focus-profiles-plan.md` — milestones and acceptance checks.
 6. `STATUS.md` — current progress and next step.
+
+For implementation, use `../docs/implementation-slices.md` for bounded tasks/dependencies and
+copy-paste start/resume prompts. `SLICE-HANDOFF.md` defines the session checkpoint format.
 
 `WORKFLOWS.md` provides reusable investigation and handoff procedures. They can later be
 packaged as skills for a chosen tool; they are not installed/executable skills today.
