@@ -1,8 +1,10 @@
 # SignalRGB module
 
 Everything specific to the interim SignalRGB backend lives in this directory. The future
-controller can load this module for SignalRGB output and integrations, then remove it without
-rewriting core detection, rules, layouts, or other application integrations.
+controller accesses it only through the provider-neutral integration interface and loads the
+SignalRGB implementation as a separate plugin. SignalRGB code must not be compiled into or
+referenced by the core or Avalonia app projects. Removing this plugin must not require
+rewriting detection, persistence, rules, layouts, or other application integrations.
 
 ## Layout
 

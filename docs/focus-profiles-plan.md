@@ -8,10 +8,11 @@ Read `app-brief.md`, `plugin-architecture.md`, and `integration-evidence.md` fir
 
 ## Implementation goals
 
-1. **Working core with SignalRGB.** Build the Avalonia tray/background shell, detection,
-   persisted rules and priorities, manual mode, profile selection, fake output tests, and a
-   real SignalRGB adapter. Finish when a detected or manually selected profile visibly changes
-   the configured SignalRGB effect and failures are explained.
+1. **Working core with a SignalRGB plugin.** Build the Windows Avalonia tray/background shell,
+   portable core, detection, persisted rules and priorities, manual mode, profile selection,
+   fake integration tests, and a separately packaged SignalRGB plugin. Finish when a detected
+   or manually selected profile visibly changes the configured SignalRGB effect and failures
+   are explained. Neither the core nor app project may reference SignalRGB code.
 2. **Game profiles.** Define each profile as an effect plus LED layout, add game discovery and
    manual mappings, then add supported game APIs for reactive effects. Static game profiles
    must work without telemetry.
@@ -27,7 +28,7 @@ must not become speculative blockers for the first SignalRGB vertical slice.
 | Milestone | Deliverable | Acceptance |
 |---|---|---|
 | 0: documentation | Shared brief, architecture, evidence, handoff | Another model can continue without the chat; completed by this update |
-| 1: core + SignalRGB | Avalonia/.NET 10 tray/background core, detector, persisted rules, manual mode, profile selection, fake output, SignalRGB adapter | Automatic and manual selection visibly switch a configured SignalRGB effect; priorities are deterministic; failures are explained |
+| 1: core + SignalRGB plugin | Windows Avalonia/.NET 10 tray/background app, portable core, detector, persistence, manual mode, fake integration, separate SignalRGB plugin | Core/app have no SignalRGB dependency; automatic and manual selection visibly switch an effect through the plugin; restart restores the last state |
 | 2: game profiles | Effect-plus-layout profile model, Steam/manual discovery, generic and per-game assignments | Installed games can select distinct profiles; background games do not falsely claim focus; layouts and effects are independently reusable |
 | 3: game APIs | First supported telemetry integration and event-driven effect inputs | Telemetry drives an effect when available; stale/missing data degrades safely to the static game profile |
 | 4: native engine | Own effect renderer, layout mappings/editor, screen mirror, calibration | Effects render independently of SignalRGB with correct display/strip direction and validated colours |
@@ -43,21 +44,24 @@ does not satisfy visual acceptance.
 
 ## First implementation slice
 
-Create the Avalonia/.NET 10 shell and UI-independent background core. Build detector, rules,
-fake output, and the narrow SignalRGB effect-selection adapter before hardware ownership or
-third-party plugin loading. Check these behaviors:
+Create the Windows Avalonia/.NET 10 shell and UI-independent portable core. Build detector,
+rules, fake integration, and the narrow separately packaged SignalRGB effect-selection plugin
+before hardware ownership or general third-party plugin loading. Check these behaviors:
 
-1. Code.exe held beyond debounce selects `code` once.
-2. Media foreground held beyond debounce selects `media` once.
-3. Brief focus changes do not switch profiles.
-4. Ignored/unmatched apps keep current profile.
-5. Background Steam game does not become foreground just from its running ID.
-6. Tied priorities resolve deterministically.
-7. Missing/unsupported plugin actions produce a reason without output.
-8. Manual mode prevents automatic switching until automatic mode is explicitly resumed.
-9. Changing rule priority changes the winner predictably and persists across restart.
-10. The selected profile maps to a configured SignalRGB effect and visibly applies it.
-11. SignalRGB absent, incompatible, or rejected actions are reported without launching it or
+1. First start selects `default` in manual mode, independent of the foreground app.
+2. Restart restores and applies the last mode and selected profile.
+3. `Code.exe` held beyond debounce selects `code` once in automatic mode.
+4. Windows Media Player held beyond debounce selects `media-player` once.
+5. Stremio held beyond debounce selects `stremio` once.
+6. Brief focus changes do not switch profiles.
+7. Ignored/unmatched apps keep the current profile.
+8. Tied priorities resolve deterministically.
+9. Missing/unsupported plugin actions produce a reason without output.
+10. Manual mode prevents automatic switching until automatic mode is explicitly resumed.
+11. Changing rule priority changes the winner predictably and persists across restart.
+12. The selected profile maps to a configured SignalRGB effect and visibly applies it through
+    the separate plugin.
+13. SignalRGB absent, incompatible, or rejected actions are reported without launching it or
     pretending the profile was applied.
 
 Before hardware work, establish standalone override transport and WLED ownership. Black

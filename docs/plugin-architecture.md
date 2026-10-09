@@ -28,7 +28,13 @@ SignalRGB plugin is retired.
 
 Use .NET 10 for the application and Avalonia for the thin tray/settings UI. Detection,
 selection, profiles, transitions, and command handling live in UI-independent core projects
-so the same background engine can run on Windows, macOS, and Linux.
+so the same background engine can run on Windows, macOS, and Linux. Ship only a Windows
+executable initially; portable projects must not reference Windows-only APIs.
+
+The dependency direction is strict: the app and plugins depend on shared integration
+contracts; the core depends on neither. SignalRGB is a separate plugin project/package and is
+not compiled into the core or Avalonia application. Removing that plugin must leave profile
+selection, persistence, and fake-integration tests working.
 
 Controller plugins are external processes, not SignalRGB-style JavaScript files loaded into
 the application. Each package contains a versioned manifest, one or more platform entry
@@ -44,7 +50,7 @@ before enabling an untrusted plugin. Keep frame messages batched; add a measured
 transport only if JSON becomes a demonstrated streaming bottleneck.
 
 Do not build the complete external plugin host before the first working integration. Start
-with the smallest internal contracts needed by the SignalRGB adapter and fake test output.
+with the smallest internal contracts needed by the SignalRGB plugin and fake test integration.
 Once that vertical slice works, extract and version the external protocol and SDK from the
 proven boundary rather than guessing the entire public API up front.
 
@@ -56,7 +62,7 @@ logical LEDs/zones onto physical devices; it does not contain application matchi
 Rules only select profiles, and game integrations only provide events to the selected effect.
 
 Initially an effect may resolve through SignalRGB. The app still owns the layout reference,
-but the SignalRGB adapter applies only layout operations it can verify and reports the rest as
+but the SignalRGB plugin applies only layout operations it can verify and reports the rest as
 unavailable. Native effects and layouts later implement the same concepts, allowing gradual
 migration instead of creating a second kind of profile. Provider-specific identifiers and
 capabilities remain in plugin-owned data, not in the rule engine.
@@ -109,6 +115,11 @@ Debounce ordinary focus changes about two seconds. Ignored windows do not replac
 unmatched apps keep it. Unchanged profiles are no-ops except backend recovery. Manual mode
 selects a profile and suppresses automatic switching until the user resumes automatic mode.
 
+Persist the selection mode and active profile after every successful change. First start uses
+manual mode with the Default profile. On restart, restore and apply both before enabling normal
+detection. If automatic mode was restored, a later stable observation can select a different
+profile through the ordinary rules; startup does not receive a special permanent priority.
+
 ## Local MCP boundary
 
 The background app may expose a local MCP server. MCP is an adapter over the same query and
@@ -149,8 +160,17 @@ Proposed IDs/action names, not executable config or a finalized schema:
 ```json
 {
   "schemaVersion": 1,
-  "selection": { "debounceMs": 2000, "unmatched": "keep-current" },
+  "selection": {
+    "debounceMs": 2000,
+    "unmatched": "keep-current",
+    "firstRunMode": "manual",
+    "firstRunProfile": "default",
+    "restoreLastState": true
+  },
   "profiles": {
+    "default": { "actions": [
+      { "plugin": "signalrgb", "action": "select-installed-effect", "effect": "<user-selected-default>" }
+    ] },
     "media": { "actions": [
       { "plugin": "signalrgb", "action": "select-installed-effect", "effect": "Screen Ambience" }
     ] },

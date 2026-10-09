@@ -26,6 +26,11 @@ Updated: 2026-10-09.
   slice; next add game profiles composed from an effect and LED layout; then implement native
   effects/layouts and outputs to remove the SignalRGB dependency. The public plugin SDK must
   be extracted from working internal contracts instead of blocking the first integration.
+- SignalRGB must not be compiled into or referenced by the core/application projects. The app
+  uses a provider-neutral integration interface and SignalRGB is a separate plugin. The first
+  executable targets Windows while portable projects remain free of Windows-only APIs.
+- Initial acceptance profiles are Default, VS Code, Media Player, and Stremio. First start uses
+  Default in manual mode. Later starts restore and apply the last mode and active profile.
 - The repository uses the MIT License. Assistants may use scoped branches, commits, pushes,
   and pull requests for requested work while preserving unrelated changes and history.
 
@@ -43,11 +48,12 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Next step
 
-When implementation is requested, scaffold the Avalonia/.NET 10 solution and build milestone
-1: focus detection, deterministic/manual profile selection, fake-output tests, and real
-SignalRGB effect switching. Do not begin native device ownership or the complete public plugin
-SDK first. Before SignalRGB LED overrides or WLED streaming, establish standalone transport
-and device ownership. Claude tool availability does not itself establish an app API.
+When implementation is requested, scaffold the Windows Avalonia/.NET 10 app, portable core,
+integration contracts, fake test integration, and separate SignalRGB plugin. Build milestone
+1 around Default, VS Code, Media Player, and Stremio profiles, including restart restoration.
+Do not begin native device ownership or the complete public plugin SDK first. Before SignalRGB
+LED overrides or WLED streaming, establish standalone transport and device ownership. Claude
+tool availability does not itself establish an app API.
 
 ## Open choices
 

@@ -15,12 +15,15 @@ rules, layouts, or game integrations.
 
 | Focus/context | Profile behavior |
 |---|---|
+| First start | Enter manual mode with the Default profile |
+| Default profile | Keep the same effect/layout regardless of the focused application |
 | Stremio, PotPlayer, Windows Media Player (classic or new) | Media: SignalRGB Screen Ambience initially, own screen mirror later |
 | VS Code | Code: SignalRGB Aurora initially, native equivalent later |
 | Recognized game | Generic or per-game profile with custom keyboard/mouse maps and strip zones |
 | Brief focus change or ignored system window | Avoid disruptive switches |
 | Unmatched app | Keep current profile by default |
 | Manual mode | Keep the user-selected profile active until automatic selection is resumed |
+| Restart | Restore and apply the last mode and selected profile before normal detection continues |
 | Missing or unsupported backend | Explain the limitation; only use an explicitly configured fallback |
 | Game loses focus, profile exits, or app shuts down | Clear app-owned overrides and release output safely |
 
@@ -41,6 +44,8 @@ rebuilding their rules and game assignments.
 - Plugins cover focus/app detection, installed-app/game discovery, external integrations,
   RGB output, and extensible native effects. Integration-specific files are packaged under
   `modules/<integration>/`; a module may provide several plugin roles.
+- The core references only integration contracts. SignalRGB-specific code is a separate
+  plugin and must never be referenced by the core or Avalonia application projects.
 - Publish the plugin contract, schemas, templates, and reference plugins as open-source
   components so third parties can add integrations without modifying the application.
 - Keep platform support explicit in each plugin manifest. A plugin may be portable or may
@@ -69,10 +74,15 @@ rebuilding their rules and game assignments.
 
 ## Scope
 
-The first implementation goal is a working Avalonia/.NET 10 background core integrated with
-SignalRGB: detection, deterministic/manual selection, profiles, and visible SignalRGB effect
-switching. A fake output remains useful for tests, but a generic public plugin SDK must not
-delay this vertical slice.
+The first implementation goal is a working Avalonia/.NET 10 Windows executable with a portable
+background core and a separately packaged SignalRGB plugin: detection, deterministic/manual
+selection, profiles, and visible SignalRGB effect switching. A fake integration remains useful
+for tests, but a generic public plugin SDK must not delay this vertical slice.
+
+The initial acceptance profiles are Default, VS Code, Media Player, and Stremio. Default is
+application-independent. On the first run it is selected in manual mode. Later starts restore
+and apply the last mode and profile; restored automatic mode may select another profile after
+the detector produces a stable match.
 
 The second goal is game profiles. Each profile combines an effect and LED layout, can be
 selected manually or by game/app rules, and may later consume supported game API events.
