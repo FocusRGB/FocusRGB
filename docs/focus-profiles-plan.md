@@ -73,7 +73,10 @@ before hardware ownership or general third-party plugin loading. Check these beh
     makes focus loss yield to the next eligible rule; closing the app removes eligibility.
 18. Plugin failure follows the configured fallback chain without replacing desired state,
     cycling indefinitely, or acquiring a device still owned by SignalRGB. Reconnect follows
-    the selected recovery policy.
+    user acceptance of an availability notification; dismissing keeps fallback output active.
+19. Initial fallback restores the app's default or last applied native setup. Preview drafts
+    and provider changes do not modify that snapshot. If native output is unavailable or
+    ownership cannot be acquired, report pending output rather than claiming fallback success.
 
 Native layout/effect acceptance later includes: stacked strips with different LED counts sample
 the same area; group transforms preserve LED identity; excluded wall strips receive no frames;

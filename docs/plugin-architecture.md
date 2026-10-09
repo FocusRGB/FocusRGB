@@ -156,13 +156,19 @@ mode may select another profile after a stable observation through the ordinary 
 Each profile defines an ordered fallback policy for unavailable plugins, missing required
 resources, unsupported actions, and disconnected devices. Candidates can be another profile
 or a device-supported preset/static output through an available plugin. Validate references
-and reject fallback cycles; bound traversal and report each skipped candidate. The default
-when no usable fallback exists is a visible pending/degraded state with no new output commands.
+and reject fallback cycles; bound traversal and report each skipped candidate. The initial
+fallback is the app's saved native setup: its default setup until the user applies changes,
+then the last applied native effect/layout/output configuration. Provider changes and temporary
+previews must not overwrite this snapshot. If its output plugins or required resources are also
+unavailable, show a pending/degraded state with no new output commands.
 
 Keep desired profile/mode separate from confirmed applied output and temporary fallback.
-Persist user intent even when output is unavailable. On reconnect, re-evaluate the current
-desired profile and configured recovery policy (automatic return or explicit Apply); do not
-restore a stale selection that a newer user command superseded. Falling back from SignalRGB
+Persist user intent even when output is unavailable. When a plugin becomes available again,
+notify the user and offer to resume using it. Availability alone does not restore rendering
+authority or output. Accept revalidates capabilities, ownership, and the current desired
+selection before resuming; dismissing or declining keeps the native fallback active. Do not
+restore a stale selection that a newer user command superseded. Coalesce repeated availability
+events into one pending notification per plugin. Falling back from SignalRGB
 to WLED still requires verified physical-device release. Plugin disconnection alone is not
 proof that SignalRGB stopped writing. Partial output failure follows the transition rules.
 

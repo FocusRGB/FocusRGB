@@ -78,6 +78,11 @@ SignalRGB ownership. Both plugins must never write to the same physical WLED dev
 - Profiles have explicit ordered fallback policies when required plugins/resources are
   unavailable. Preserve desired selection separately from fallback output; reconnect behavior
   is configurable and device ownership must remain exclusive.
+- Initial fallback uses the app's default native setup or its last applied native setup after
+  user modification. Temporary previews and provider settings do not replace that saved setup.
+  A recovered plugin raises a notification; it resumes output only after the user accepts.
+  Dismissing/declining keeps the fallback active. Acceptance revalidates current selection and
+  device ownership rather than blindly restoring an old profile.
 - A Live preview checkbox applies completed edits after pointer release. Without it, output
   waits for Apply. Draft/preview changes do not overwrite saved settings; Cancel restores the
   previously applied state where supported.

@@ -56,6 +56,12 @@ stacked groups with different LED counts, scaling, and unassigned-device exclusi
 rendering is designed as canvas, semantic-zone, and direct named-key/LED layers. Detailed
 behavior is in `../docs/plugin-architecture.md`; none of it is implemented yet.
 
+Fallback/reconnect choices are confirmed: use the app's default native setup until modified,
+then its last applied native setup. Recovered plugins generate a notification and resume use
+only after user acceptance. Decline/dismiss keeps the fallback active; acceptance revalidates
+the current desired selection, capabilities, and ownership. Native fallback can remain pending
+until native rendering/output exists or the target hardware is released.
+
 The SignalRGB module contains templates, a Canvas API example, and an archived Pro-blocked
 effect. The shared screen colour test and Arduino sketch remain available. No custom
 SignalRGB effects or user device plugins are active in the repo or Documents folders.
@@ -82,7 +88,6 @@ tool availability does not itself establish an app API.
 - First supported game API and its normalized event capabilities.
 - Interim SignalRGB background effect during games.
 - Capture display, initial placement geometry, and keyboard calibration approach.
-- Initial fallback profile/output and reconnect policy (automatic return or explicit Apply).
 - Accept native-only WLED ownership while automatic handover is unresolved?
 - Native keyboard first or mouse first?
 - Plugin signing/distribution and installation UX after local packages work.
