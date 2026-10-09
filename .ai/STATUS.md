@@ -48,6 +48,14 @@ Updated: 2026-10-09.
 
 ## What exists
 
+Latest design decisions: profile priority lists use per-rule while-running/while-focused
+eligibility; higher-priority running apps can retain control without focus. Profiles require
+fallback/recovery policies and separate desired versus applied state. Editing supports optional
+Live preview on pointer release, with explicit Apply otherwise. Native placement layouts support
+stacked groups with different LED counts, scaling, and unassigned-device exclusion. Game
+rendering is designed as canvas, semantic-zone, and direct named-key/LED layers. Detailed
+behavior is in `../docs/plugin-architecture.md`; none of it is implemented yet.
+
 The SignalRGB module contains templates, a Canvas API example, and an archived Pro-blocked
 effect. The shared screen colour test and Arduino sketch remain available. No custom
 SignalRGB effects or user device plugins are active in the repo or Documents folders.
@@ -73,7 +81,8 @@ tool availability does not itself establish an app API.
 - Generic game profile first or individual game profiles.
 - First supported game API and its normalized event capabilities.
 - Interim SignalRGB background effect during games.
-- Capture display and monitor/desk layout editor.
+- Capture display, initial placement geometry, and keyboard calibration approach.
+- Initial fallback profile/output and reconnect policy (automatic return or explicit Apply).
 - Accept native-only WLED ownership while automatic handover is unresolved?
 - Native keyboard first or mouse first?
 - Plugin signing/distribution and installation UX after local packages work.

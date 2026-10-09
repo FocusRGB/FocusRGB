@@ -72,6 +72,20 @@ SignalRGB ownership. Both plugins must never write to the same physical WLED dev
 - Core owns rule arbitration, debounce, transitions, settings, logging, and device ownership.
 - Users can reorder or assign priorities to automatic rules. Manual mode overrides automatic
   detection; ties are deterministic and the UI explains why the active profile won.
+- Each rule can stay eligible while its application is running or only while focused. A higher
+  priority running rule can beat a lower priority focused app; focus loss advances to the next
+  eligible rule only when configured. Closing an app removes its eligibility.
+- Profiles have explicit ordered fallback policies when required plugins/resources are
+  unavailable. Preserve desired selection separately from fallback output; reconnect behavior
+  is configurable and device ownership must remain exclusive.
+- A Live preview checkbox applies completed edits after pointer release. Without it, output
+  waits for Apply. Draft/preview changes do not overwrite saved settings; Cancel restores the
+  previously applied state where supported.
+- The 2D layout canvas supports position, rotation, stretching/compression, and stacked groups.
+  Group members sample the same area at their own LED resolution. Registered devices may be
+  left unassigned and excluded; exclusion releases prior app output rather than forcing black.
+- Native game profiles combine canvas animation, semantic zones, and named-key/LED mappings.
+  Direct key mappings do not require precise keyboard placement; canvas sampling does.
 - Match executable names, launcher-scoped game IDs, and manually added apps/games.
 - Define named keyboard LEDs, mouse zones, strip ranges, and screen zones explicitly.
 - Media mirroring can exclude desk LEDs and respect monitor strip direction.

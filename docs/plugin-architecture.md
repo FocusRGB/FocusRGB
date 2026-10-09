@@ -133,17 +133,80 @@ automatic plugin updater in the first version. Keep secrets outside committed pr
 
 ## Selection rules
 
-Defaults: user-editable integer priority, then match specificity, then stable rule ID for
-ties; case-insensitive executable matches; launcher-scoped game IDs. Foreground beats
-running-state signals unless a higher-priority rule explicitly asks for background behavior.
-Debounce ordinary focus changes about two seconds. Ignored windows do not replace a profile;
-unmatched apps keep it. Unchanged profiles are no-ops except backend recovery. Manual mode
-selects a profile and suppresses automatic switching until the user resumes automatic mode.
+Users order profile/application rules in a priority list. Each rule specifies either
+`while-running` or `while-focused` eligibility. A higher-priority `while-running` rule wins
+even when a lower-priority application has focus. A `while-focused` rule becomes ineligible
+when focus is lost, allowing the next eligible rule in the list to win. This is configurable
+per rule, including the top rule; process exit makes either rule ineligible. Manual mode
+overrides the entire list until automatic mode is resumed.
 
-Persist the selection mode and active profile after every successful change. First start uses
-manual mode with the Default profile. On restart, restore and apply both before enabling normal
-detection. If automatic mode was restored, a later stable observation can select a different
-profile through the ordinary rules; startup does not receive a special permanent priority.
+Resolve equal priorities by saved list order, then stable rule ID. Match executable identities
+case-insensitively and scope game IDs by launcher. Debounce ordinary focus changes about two
+seconds. Ignored transient windows do not trigger focus-loss transitions. When no rule is
+eligible, use the user's unmatched policy (keep-current or Default). Reapplying an unchanged
+profile is a no-op except for output recovery.
+
+Persist the desired selection mode and profile after every validated user change. First start
+uses manual mode with the Default profile. On restart, restore and attempt to apply both
+before normal detection. An unavailable output follows the fallback policy. Restored automatic
+mode may select another profile after a stable observation through the ordinary priority rules.
+
+## Plugin fallback and recovery
+
+Each profile defines an ordered fallback policy for unavailable plugins, missing required
+resources, unsupported actions, and disconnected devices. Candidates can be another profile
+or a device-supported preset/static output through an available plugin. Validate references
+and reject fallback cycles; bound traversal and report each skipped candidate. The default
+when no usable fallback exists is a visible pending/degraded state with no new output commands.
+
+Keep desired profile/mode separate from confirmed applied output and temporary fallback.
+Persist user intent even when output is unavailable. On reconnect, re-evaluate the current
+desired profile and configured recovery policy (automatic return or explicit Apply); do not
+restore a stale selection that a newer user command superseded. Falling back from SignalRGB
+to WLED still requires verified physical-device release. Plugin disconnection alone is not
+proof that SignalRGB stopped writing. Partial output failure follows the transition rules.
+
+## Layout editing and preview
+
+Native layouts use a shared 2D canvas. Device geometry retains physical LED identities while
+placement transforms provide position, rotation, and independent horizontal/vertical scale.
+Users can stretch or compress a strip without changing its hardware LED count.
+
+A `group` stacks selected devices on one shared placement footprint. Each member samples the
+same canvas area using its own LED count and normalized LED positions, so a 30-LED and a
+100-LED strip reproduce the same spatial effect with different resolution. Preserve per-member
+orientation/reversal and geometry; grouping changes sampling placement, not device identity.
+Group move/scale/rotation affects all members. Named key/LED mappings still target individual
+members. Group membership and transforms belong to a layout, not the global device registry.
+
+Only assigned devices participate in a layout. Registered but unassigned devices are excluded:
+they receive no new frames from that layout and are not implicitly made black. On layout
+change, stop prior app streams/overrides on newly excluded devices and release ownership using
+the backend's supported policy. For screen ambience, assign the three monitor strips and leave
+the two wall strips unassigned. Direct mappings must also respect layout participation.
+Devices can be explicitly included for direct/zone mappings without a canvas placement; this
+lets a keyboard use named keys alone. An entirely unassigned device remains excluded.
+
+The editor has a Live preview checkbox. When enabled, commit a preview after pointer release
+for placement/resize operations and after a completed edit for other controls; dragging does
+not continuously send hardware updates. When disabled, edits remain drafts until Apply.
+Previews are temporary and do not overwrite saved profile/layout state. Apply validates,
+persists, and activates the draft; Cancel restores the previously applied state where supported.
+Preview uses the same authority, capabilities, and ownership checks as normal output.
+
+## Native game rendering
+
+Use hybrid layers: a canvas effect supplies spatial animation, semantic zones provide reusable
+targets such as health/cooldown/ambient, and direct named-key/LED mappings override selected
+LEDs. Default composition is canvas base, then zone layers, then direct mappings, with stable
+user-editable ordering and explicit blending where requested. A layer only claims its targets.
+
+Plugins expose semantic keys (for example W, A, S, D), device zones, and strip ranges when
+available. Users bind game events to these targets without exact keyboard placement. Canvas
+sampling remains optional for keyboards and requires placement calibration if used. Strips and
+fans can use canvas animation or named zones/ranges, avoiding per-LED configuration. Missing
+keys/zones produce an actionable mapping warning. Native hybrid layers apply only under
+application authority; provider-owned SignalRGB rendering remains authoritative.
 
 ## Local MCP boundary
 

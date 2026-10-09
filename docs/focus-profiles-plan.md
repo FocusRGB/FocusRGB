@@ -69,6 +69,17 @@ before hardware ownership or general third-party plugin loading. Check these beh
 15. SignalRGB absent, incompatible, or rejected actions are reported without launching it or
     pretending the profile was applied.
 16. SignalRGB-managed WLED devices receive no direct commands from the app's WLED plugin.
+17. Higher-priority while-running rules win without focus. Changing a rule to while-focused
+    makes focus loss yield to the next eligible rule; closing the app removes eligibility.
+18. Plugin failure follows the configured fallback chain without replacing desired state,
+    cycling indefinitely, or acquiring a device still owned by SignalRGB. Reconnect follows
+    the selected recovery policy.
+
+Native layout/effect acceptance later includes: stacked strips with different LED counts sample
+the same area; group transforms preserve LED identity; excluded wall strips receive no frames;
+Live preview updates on pointer release and Cancel restores applied state; unchecked preview
+waits for Apply; direct-only keyboard maps work without canvas placement; direct key layers
+override the canvas only on their assigned targets.
 
 For the first tests without SignalRGB, add a separate WLED integration/output plugin and a
 placement layout, optionally imported from an available SignalRGB layout through verified
