@@ -8,6 +8,10 @@ games. A local MCP adapter is planned for model-driven configuration through the
 validated commands as the UI.
 **The controller is not implemented yet.**
 
+Implementation proceeds in three product goals: a working core integrated with SignalRGB;
+game profiles that combine an RGB effect with an LED layout; then native effects, layouts,
+and outputs that remove the SignalRGB dependency.
+
 ## Start here
 
 - [App brief](docs/app-brief.md): requirements and desired behavior.

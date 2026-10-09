@@ -1,6 +1,6 @@
 # RGB controller: product brief
 
-Planning only. Updated 2026-10-08 from the RGB chat and user clarification.
+Planning only. Updated 2026-10-09 from the RGB chat and user clarification.
 
 ## Goal
 
@@ -28,6 +28,13 @@ Profiles can combine backends: direct WLED strip output and SignalRGB keyboard o
 for example. They are not restricted to one exclusive `signalrgb` or `native` type.
 Game detection is separate from telemetry: recognizing Dota 2 does not provide health or
 cooldowns. Reactive effects require a separate supported integration.
+
+Conceptually, every profile combines an RGB effect with an LED layout. The effect describes
+which colours to produce; the layout maps logical LEDs and zones onto actual devices. During
+the SignalRGB phase the effect can select a SignalRGB resource, while the layout is stored as
+part of our profile and only applied where the adapter has a verified capability. The later
+native engine must preserve the profile concept so users can replace the provider without
+rebuilding their rules and game assignments.
 
 ## Design requirements
 
@@ -62,11 +69,18 @@ cooldowns. Reactive effects require a separate supported integration.
 
 ## Scope
 
-First: an Avalonia/.NET 10 tray app, background core, dry-run detection, rule selection, and
-fake output. Next: the external plugin protocol and SDK, interim SignalRGB adapter, WLED
-output, and game discovery. Later: game telemetry, native screen mirror/effects, native
-keyboard/mouse output, and local MCP control, then retire SignalRGB. Other application
-integrations remain supported in the final app.
+The first implementation goal is a working Avalonia/.NET 10 background core integrated with
+SignalRGB: detection, deterministic/manual selection, profiles, and visible SignalRGB effect
+switching. A fake output remains useful for tests, but a generic public plugin SDK must not
+delay this vertical slice.
+
+The second goal is game profiles. Each profile combines an effect and LED layout, can be
+selected manually or by game/app rules, and may later consume supported game API events.
+
+The third goal is the app's own effect renderer and layout system, followed by native output
+plugins, so profiles can migrate away from SignalRGB without changing selection rules. The
+external plugin SDK, local MCP control, reliability, and distribution work should grow around
+these goals rather than becoming prerequisites for the first visible result.
 
 Plugin package signing/distribution and installation UX remain undecided. Startup automation
 follows reliable cleanup/recovery. The Arduino tester is independent. Existing

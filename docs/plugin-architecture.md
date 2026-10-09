@@ -43,6 +43,24 @@ resources such as network, screen capture, or USB access. The UI must show those
 before enabling an untrusted plugin. Keep frame messages batched; add a measured binary
 transport only if JSON becomes a demonstrated streaming bottleneck.
 
+Do not build the complete external plugin host before the first working integration. Start
+with the smallest internal contracts needed by the SignalRGB adapter and fake test output.
+Once that vertical slice works, extract and version the external protocol and SDK from the
+proven boundary rather than guessing the entire public API up front.
+
+## Profile composition
+
+A profile has one effect reference and one layout reference, plus their settings and output
+bindings. An effect produces colours or selects an external provider effect. A layout maps
+logical LEDs/zones onto physical devices; it does not contain application matching rules.
+Rules only select profiles, and game integrations only provide events to the selected effect.
+
+Initially an effect may resolve through SignalRGB. The app still owns the layout reference,
+but the SignalRGB adapter applies only layout operations it can verify and reports the rest as
+unavailable. Native effects and layouts later implement the same concepts, allowing gradual
+migration instead of creating a second kind of profile. Provider-specific identifiers and
+capabilities remain in plugin-owned data, not in the rule engine.
+
 ## Module packaging
 
 Use `modules/<integration>/` as the ownership boundary for an external system. A module keeps

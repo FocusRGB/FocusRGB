@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-08.
+Updated: 2026-10-09.
 
 ## Completed
 
@@ -22,6 +22,10 @@ Updated: 2026-10-08.
   that suppresses detection until automatic selection is resumed.
 - Game API plugins feed versioned normalized and namespaced events to effects. A local MCP
   adapter will use the same validated command services as the UI.
+- Implementation order confirmed: first deliver a working core and real SignalRGB vertical
+  slice; next add game profiles composed from an effect and LED layout; then implement native
+  effects/layouts and outputs to remove the SignalRGB dependency. The public plugin SDK must
+  be extracted from working internal contracts instead of blocking the first integration.
 - The repository uses the MIT License. Assistants may use scoped branches, commits, pushes,
   and pull requests for requested work while preserving unrelated changes and history.
 
@@ -40,9 +44,10 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 ## Next step
 
 When implementation is requested, scaffold the Avalonia/.NET 10 solution and build milestone
-1: dry-run focus detection, deterministic profile selection, manual override, and fake output.
-Before live output, establish WLED ownership and the standalone transport for SignalRGB LED
-overrides. Claude tool availability does not itself establish an app API.
+1: focus detection, deterministic/manual profile selection, fake-output tests, and real
+SignalRGB effect switching. Do not begin native device ownership or the complete public plugin
+SDK first. Before SignalRGB LED overrides or WLED streaming, establish standalone transport
+and device ownership. Claude tool availability does not itself establish an app API.
 
 ## Open choices
 
