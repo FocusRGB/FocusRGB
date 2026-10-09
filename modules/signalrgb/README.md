@@ -7,10 +7,15 @@ referenced by the core or Avalonia app projects. Removing this plugin must not r
 rewriting detection, persistence, rules, layouts, or other application integrations.
 
 The controller plugin must expose SignalRGB's available effects and layouts through the shared
-catalog contract and apply the user's selected pair with provider rendering authority. While
+catalog contract where supported and apply the user's effect with provider rendering authority.
+An explicit layout is optional: omission retains SignalRGB's existing LED placements. While
 active, SignalRGB's effect/layout wins and the controller must not run its native renderer on
 the same owned devices. Catalog discovery and application success must be reported honestly;
 do not invent resources or treat a submitted URL as proof of visible output.
+
+SignalRGB already outputs to WLED. Its authority supersedes app rendering, placements, routing,
+and calibration on managed devices; a separate WLED plugin is used after release for native
+tests. Optional layout export supplies placement data only and does not grant device ownership.
 
 ## Layout
 

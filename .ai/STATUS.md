@@ -36,8 +36,13 @@ Updated: 2026-10-09.
   defaults to provider authority, so its selected effect/layout suppresses the app renderer on
   overlapping devices.
 - Initial SignalRGB effect fixtures: Default → Aurora, VS Code → Aurora, Media Player →
-  Logarithmic Visualizer, and Stremio → Screen Ambient. Layouts are selected from the provider
-  catalog rather than hard-coded.
+  Logarithmic Visualizer, and Stremio → Screen Ambient. Initial SignalRGB tests omit the layout
+  and retain its existing LED placements; explicit provider layout selection remains optional.
+- Layout means LED placement configuration. Native tests can import an available SignalRGB
+  layout where read/export support is verified. A separate WLED plugin is required for native
+  tests; SignalRGB already handles WLED while active. Provider authority supersedes app effect,
+  layout, output routing, and native calibration on managed devices while preserving app rules,
+  priorities, manual mode, and persistence. Never allow both writers on the same WLED device.
 - The repository uses the MIT License. Assistants may use scoped branches, commits, pushes,
   and pull requests for requested work while preserving unrelated changes and history.
 

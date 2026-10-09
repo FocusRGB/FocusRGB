@@ -34,11 +34,11 @@ Game detection is separate from telemetry: recognizing Dota 2 does not provide h
 cooldowns. Reactive effects require a separate supported integration.
 
 Conceptually, every profile combines an RGB effect with an LED layout. The effect describes
-which colours to produce; the layout maps logical LEDs and zones onto actual devices. During
-the SignalRGB phase the effect can select a SignalRGB resource, while the layout is stored as
-part of our profile and only applied where the adapter has a verified capability. The later
-native engine must preserve the profile concept so users can replace the provider without
-rebuilding their rules and game assignments.
+which colours to produce; the layout configures LED placements, including device positions,
+LED coordinates, orientation, and zone mappings. SignalRGB profiles may omit an explicit
+layout and retain SignalRGB's current placements. Native profiles need a placement layout;
+an available SignalRGB layout can seed native testing through a verified import/export path.
+The profile concept survives migration without rebuilding rules and game assignments.
 
 Application matches and provider resources are user-configurable. The UI lists detected or
 manually entered applications and asks the active integration for its available effects and
@@ -49,6 +49,12 @@ Each integration binding declares rendering authority. With `provider` authority
 provider's effect and layout take priority and the app must not render its own effect/layout
 to the same owned devices. With `application` authority, the app's native effect/layout is
 used and normal device-ownership rules apply. SignalRGB profiles default to `provider`.
+
+SignalRGB authority also takes precedence over app output routing and native calibration for
+the devices it manages. App rules, mode, priorities, and persistence remain effective. Preserve
+superseded app rendering settings for later native use. SignalRGB already drives its WLED
+devices; a separate WLED integration plugin is required only for operation/testing without
+SignalRGB ownership. Both plugins must never write to the same physical WLED device together.
 
 ## Design requirements
 
@@ -93,8 +99,8 @@ selection, profiles, and visible SignalRGB effect switching. A fake integration 
 for tests, but a generic public plugin SDK must not delay this vertical slice.
 
 The initial acceptance profiles are Default → Aurora, VS Code → Aurora, Media Player →
-Logarithmic Visualizer, and Stremio → Screen Ambient. Their SignalRGB layouts remain
-user-selected from the plugin catalog. Default is application-independent. On the first run it
+Logarithmic Visualizer, and Stremio → Screen Ambient. These tests leave the layout unset and
+use SignalRGB's existing LED placements. Default is application-independent. On the first run it
 is selected in manual mode. Later starts restore and apply the last mode and profile; restored
 automatic mode may select another profile after the detector produces a stable match.
 

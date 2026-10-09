@@ -64,10 +64,15 @@ before hardware ownership or general third-party plugin loading. Check these beh
 12. Changing rule priority changes the winner predictably and persists across restart.
 13. Provider authority prevents the app's effect/layout renderer from writing to devices
     governed by the SignalRGB selection.
-14. The selected profile maps to configured SignalRGB resources and visibly applies them through
-    the separate plugin.
+14. Initial SignalRGB mappings apply only the effect and retain its current placement layout.
+    The UI supports optional explicit layout selection when the plugin verifies that capability.
 15. SignalRGB absent, incompatible, or rejected actions are reported without launching it or
     pretending the profile was applied.
+16. SignalRGB-managed WLED devices receive no direct commands from the app's WLED plugin.
+
+For the first tests without SignalRGB, add a separate WLED integration/output plugin and a
+placement layout, optionally imported from an available SignalRGB layout through verified
+read/export support. Confirm SignalRGB has released the target device before native output.
 
 Before hardware work, establish standalone override transport and WLED ownership. Black
 SignalRGB output does not release devices. `enabled` writes are unresolved. Avoid competing

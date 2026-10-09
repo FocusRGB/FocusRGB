@@ -56,9 +56,10 @@ proven boundary rather than guessing the entire public API up front.
 
 ## Profile composition
 
-A profile has one effect reference and one layout reference, plus their settings and output
-bindings. An effect produces colours or selects an external provider effect. A layout maps
-logical LEDs/zones onto physical devices; it does not contain application matching rules.
+A profile has an effect reference and an optional explicit layout reference, plus settings and
+output bindings. An effect produces colours or selects an external provider effect. A layout
+is the configuration of LED placements: device positions, individual LED coordinates,
+orientation, and logical LED/zone mappings. It does not contain application matching rules.
 Rules only select profiles, and game integrations only provide events to the selected effect.
 
 Each binding has `renderingAuthority: provider | application`. Provider authority delegates
@@ -68,11 +69,19 @@ app's native effect/layout and requires ordinary device acquisition. SignalRGB b
 provider authority by default. There is no implicit fallback between authorities: unavailable
 provider resources are reported until the user configures an explicit fallback.
 
-Initially an effect may resolve through SignalRGB. The app still owns the layout reference,
-but the SignalRGB plugin applies only layout operations it can verify and reports the rest as
-unavailable. Native effects and layouts later implement the same concepts, allowing gradual
-migration instead of creating a second kind of profile. Provider-specific identifiers and
-capabilities remain in plugin-owned data, not in the rule engine.
+SignalRGB profiles may omit the layout reference to retain SignalRGB's current LED placements.
+The initial SignalRGB tests require only effect selection. Explicit provider layout selection
+remains optional and requires verified support. For native testing, an available SignalRGB
+layout may be imported as an app-owned placement snapshot when export/read support is proven;
+importing placements does not enable SignalRGB rendering or transfer device ownership.
+
+Active SignalRGB provider authority overrides the app's effect, placement layout, output
+routing, and native calibration for devices SignalRGB manages. Preserve the app settings for
+later native use. App selection rules, priorities, manual mode, and persistence still apply.
+SignalRGB already handles WLED output: do not send direct WLED commands or frames to those
+devices while SignalRGB owns them. A separate WLED integration/output plugin under
+`modules/wled/` is required for testing and operation without SignalRGB, after ownership is
+confirmed. Provider-specific identifiers remain outside the rule engine.
 
 ## Module packaging
 
@@ -106,7 +115,10 @@ its controller implementation enters this repository.
 - Outputs: logical device IDs, resolved current backend IDs, capabilities, and results
   distinguishing applied/rejected/unavailable/unverified. Save/restore only settings changed.
 - Provider rendering: validate selected effect/layout IDs, apply both in provider-defined
-  order, and return the actual selection where observable. Provider authority blocks native
+  order when explicitly supplied; an omitted layout retains the provider's existing layout.
+  Return the actual selection where observable. Expose optional layout export/import and the
+  configuration fields/device scope controlled by provider authority as capabilities.
+  Provider authority blocks native
   rendering on the same owned devices until release.
 - Effects: accept time, layout, settings, and optional events; produce colours without
   knowing transport. Apply native per-device calibration once at an explicit stage.
@@ -182,16 +194,16 @@ Proposed IDs/action names, not executable config or a finalized schema:
   },
   "profiles": {
     "default": { "actions": [
-      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Aurora", "layout": "<user-selected-layout>" }
+      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Aurora" }
     ] },
     "media-player": { "actions": [
-      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Logarithmic Visualizer", "layout": "<user-selected-layout>" }
+      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Logarithmic Visualizer" }
     ] },
     "code": { "actions": [
-      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Aurora", "layout": "<user-selected-layout>" }
+      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Aurora" }
     ] },
     "stremio": { "actions": [
-      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Screen Ambient", "layout": "<user-selected-layout>" }
+      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Screen Ambient" }
     ] },
     "game": { "actions": [
       { "plugin": "signalrgb", "action": "led-overrides", "device": "keyboard", "colours": { "W": "#ff0000", "A": "#ff0000", "S": "#ff0000", "D": "#ff0000" } },
