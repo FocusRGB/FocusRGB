@@ -16,9 +16,10 @@ rules, layouts, or game integrations.
 | Focus/context | Profile behavior |
 |---|---|
 | First start | Enter manual mode with the Default profile |
-| Default profile | Keep the same effect/layout regardless of the focused application |
-| Stremio, PotPlayer, Windows Media Player (classic or new) | Media: SignalRGB Screen Ambience initially, own screen mirror later |
-| VS Code | Code: SignalRGB Aurora initially, native equivalent later |
+| Default profile | Keep the same effect/layout regardless of the focused application; test with SignalRGB Aurora |
+| VS Code | Test with SignalRGB Aurora |
+| Media Player | Test with SignalRGB Logarithmic Visualizer |
+| Stremio | Test with SignalRGB Screen Ambient |
 | Recognized game | Generic or per-game profile with custom keyboard/mouse maps and strip zones |
 | Brief focus change or ignored system window | Avoid disruptive switches |
 | Unmatched app | Keep current profile by default |
@@ -39,6 +40,16 @@ part of our profile and only applied where the adapter has a verified capability
 native engine must preserve the profile concept so users can replace the provider without
 rebuilding their rules and game assignments.
 
+Application matches and provider resources are user-configurable. The UI lists detected or
+manually entered applications and asks the active integration for its available effects and
+layouts. Profiles store provider resource IDs when available and display names for the user;
+missing resources remain visible as unavailable instead of silently selecting another one.
+
+Each integration binding declares rendering authority. With `provider` authority, the
+provider's effect and layout take priority and the app must not render its own effect/layout
+to the same owned devices. With `application` authority, the app's native effect/layout is
+used and normal device-ownership rules apply. SignalRGB profiles default to `provider`.
+
 ## Design requirements
 
 - Plugins cover focus/app detection, installed-app/game discovery, external integrations,
@@ -46,6 +57,8 @@ rebuilding their rules and game assignments.
   `modules/<integration>/`; a module may provide several plugin roles.
 - The core references only integration contracts. SignalRGB-specific code is a separate
   plugin and must never be referenced by the core or Avalonia application projects.
+- Integration contracts expose provider effect/layout catalogs and accept a rendering-authority
+  choice. The UI persists the user's application, effect, layout, and authority mappings.
 - Publish the plugin contract, schemas, templates, and reference plugins as open-source
   components so third parties can add integrations without modifying the application.
 - Keep platform support explicit in each plugin manifest. A plugin may be portable or may
@@ -79,10 +92,11 @@ background core and a separately packaged SignalRGB plugin: detection, determini
 selection, profiles, and visible SignalRGB effect switching. A fake integration remains useful
 for tests, but a generic public plugin SDK must not delay this vertical slice.
 
-The initial acceptance profiles are Default, VS Code, Media Player, and Stremio. Default is
-application-independent. On the first run it is selected in manual mode. Later starts restore
-and apply the last mode and profile; restored automatic mode may select another profile after
-the detector produces a stable match.
+The initial acceptance profiles are Default → Aurora, VS Code → Aurora, Media Player →
+Logarithmic Visualizer, and Stremio → Screen Ambient. Their SignalRGB layouts remain
+user-selected from the plugin catalog. Default is application-independent. On the first run it
+is selected in manual mode. Later starts restore and apply the last mode and profile; restored
+automatic mode may select another profile after the detector produces a stable match.
 
 The second goal is game profiles. Each profile combines an effect and LED layout, can be
 selected manually or by game/app rules, and may later consume supported game API events.

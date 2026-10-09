@@ -31,6 +31,13 @@ Updated: 2026-10-09.
   executable targets Windows while portable projects remain free of Windows-only APIs.
 - Initial acceptance profiles are Default, VS Code, Media Player, and Stremio. First start uses
   Default in manual mode. Later starts restore and apply the last mode and active profile.
+- Application/profile mappings are user-configurable. Integrations expose available provider
+  effects/layouts. Bindings select `provider` or `application` rendering authority; SignalRGB
+  defaults to provider authority, so its selected effect/layout suppresses the app renderer on
+  overlapping devices.
+- Initial SignalRGB effect fixtures: Default → Aurora, VS Code → Aurora, Media Player →
+  Logarithmic Visualizer, and Stremio → Screen Ambient. Layouts are selected from the provider
+  catalog rather than hard-coded.
 - The repository uses the MIT License. Assistants may use scoped branches, commits, pushes,
   and pull requests for requested work while preserving unrelated changes and history.
 
@@ -50,7 +57,8 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 When implementation is requested, scaffold the Windows Avalonia/.NET 10 app, portable core,
 integration contracts, fake test integration, and separate SignalRGB plugin. Build milestone
-1 around Default, VS Code, Media Player, and Stremio profiles, including restart restoration.
+1 around customizable Default, VS Code, Media Player, and Stremio mappings, provider catalog
+discovery/authority, and restart restoration.
 Do not begin native device ownership or the complete public plugin SDK first. Before SignalRGB
 LED overrides or WLED streaming, establish standalone transport and device ownership. Claude
 tool availability does not itself establish an app API.

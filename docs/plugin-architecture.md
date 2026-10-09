@@ -61,6 +61,13 @@ bindings. An effect produces colours or selects an external provider effect. A l
 logical LEDs/zones onto physical devices; it does not contain application matching rules.
 Rules only select profiles, and game integrations only provide events to the selected effect.
 
+Each binding has `renderingAuthority: provider | application`. Provider authority delegates
+effect and layout interpretation to the integration; its result wins, and the coordinator
+must suppress application rendering for overlapping devices. Application authority uses the
+app's native effect/layout and requires ordinary device acquisition. SignalRGB bindings use
+provider authority by default. There is no implicit fallback between authorities: unavailable
+provider resources are reported until the user configures an explicit fallback.
+
 Initially an effect may resolve through SignalRGB. The app still owns the layout reference,
 but the SignalRGB plugin applies only layout operations it can verify and reports the rest as
 unavailable. Native effects and layouts later implement the same concepts, allowing gradual
@@ -83,6 +90,9 @@ its controller implementation enters this repository.
 - Manifest: stable ID, plugin version, contract version, roles, config schema, prerequisites.
 - Packaging: supported OS/architecture, entry point, license, declared resource access, and
   optional source/homepage URLs. Reject duplicate IDs and incompatible contract ranges.
+- Provider catalog: enumerate available effects and layouts with stable provider IDs, display
+  names, availability, and refresh time. If enumeration is unsupported, report that capability
+  as unavailable rather than returning a guessed catalog.
 - Lifecycle: initialize, report health, cancel, shut down; calls have bounded timeouts.
   Retry only actions safe to repeat; reject incompatible contract versions clearly.
 - Detectors: executable identity/PID when available, foreground status, optional game ID,
@@ -95,6 +105,9 @@ its controller implementation enters this repository.
   universal schema.
 - Outputs: logical device IDs, resolved current backend IDs, capabilities, and results
   distinguishing applied/rejected/unavailable/unverified. Save/restore only settings changed.
+- Provider rendering: validate selected effect/layout IDs, apply both in provider-defined
+  order, and return the actual selection where observable. Provider authority blocks native
+  rendering on the same owned devices until release.
 - Effects: accept time, layout, settings, and optional events; produce colours without
   knowing transport. Apply native per-device calibration once at an explicit stage.
 
@@ -169,13 +182,16 @@ Proposed IDs/action names, not executable config or a finalized schema:
   },
   "profiles": {
     "default": { "actions": [
-      { "plugin": "signalrgb", "action": "select-installed-effect", "effect": "<user-selected-default>" }
+      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Aurora", "layout": "<user-selected-layout>" }
     ] },
-    "media": { "actions": [
-      { "plugin": "signalrgb", "action": "select-installed-effect", "effect": "Screen Ambience" }
+    "media-player": { "actions": [
+      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Logarithmic Visualizer", "layout": "<user-selected-layout>" }
     ] },
     "code": { "actions": [
-      { "plugin": "signalrgb", "action": "select-installed-effect", "effect": "Aurora" }
+      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Aurora", "layout": "<user-selected-layout>" }
+    ] },
+    "stremio": { "actions": [
+      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Screen Ambient", "layout": "<user-selected-layout>" }
     ] },
     "game": { "actions": [
       { "plugin": "signalrgb", "action": "led-overrides", "device": "keyboard", "colours": { "W": "#ff0000", "A": "#ff0000", "S": "#ff0000", "D": "#ff0000" } },
@@ -183,7 +199,8 @@ Proposed IDs/action names, not executable config or a finalized schema:
     ] }
   },
   "rules": [
-    { "priority": 100, "foreground": true, "exe": ["stremio-shell-ng.exe", "PotPlayerMini64.exe", "PotPlayer64.exe", "wmplayer.exe", "Microsoft.Media.Player.exe"], "profile": "media" },
+    { "priority": 100, "foreground": true, "exe": ["wmplayer.exe", "Microsoft.Media.Player.exe"], "profile": "media-player" },
+    { "priority": 100, "foreground": true, "exe": ["stremio-shell-ng.exe"], "profile": "stremio" },
     { "priority": 100, "foreground": true, "exe": ["Code.exe"], "profile": "code" },
     { "priority": 100, "foreground": true, "game": { "launcher": "steam", "id": "570" }, "profile": "game" }
   ]

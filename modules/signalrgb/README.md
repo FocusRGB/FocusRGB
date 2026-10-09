@@ -6,6 +6,12 @@ SignalRGB implementation as a separate plugin. SignalRGB code must not be compil
 referenced by the core or Avalonia app projects. Removing this plugin must not require
 rewriting detection, persistence, rules, layouts, or other application integrations.
 
+The controller plugin must expose SignalRGB's available effects and layouts through the shared
+catalog contract and apply the user's selected pair with provider rendering authority. While
+active, SignalRGB's effect/layout wins and the controller must not run its native renderer on
+the same owned devices. Catalog discovery and application success must be reported honestly;
+do not invent resources or treat a submitted URL as proof of visible output.
+
 ## Layout
 
 ```text

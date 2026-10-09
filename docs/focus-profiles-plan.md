@@ -48,20 +48,25 @@ Create the Windows Avalonia/.NET 10 shell and UI-independent portable core. Buil
 rules, fake integration, and the narrow separately packaged SignalRGB effect-selection plugin
 before hardware ownership or general third-party plugin loading. Check these behaviors:
 
-1. First start selects `default` in manual mode, independent of the foreground app.
+1. First start selects `default` in manual mode, independent of the foreground app, and maps
+   it to provider-owned SignalRGB Aurora.
 2. Restart restores and applies the last mode and selected profile.
-3. `Code.exe` held beyond debounce selects `code` once in automatic mode.
-4. Windows Media Player held beyond debounce selects `media-player` once.
-5. Stremio held beyond debounce selects `stremio` once.
-6. Brief focus changes do not switch profiles.
-7. Ignored/unmatched apps keep the current profile.
-8. Tied priorities resolve deterministically.
-9. Missing/unsupported plugin actions produce a reason without output.
-10. Manual mode prevents automatic switching until automatic mode is explicitly resumed.
-11. Changing rule priority changes the winner predictably and persists across restart.
-12. The selected profile maps to a configured SignalRGB effect and visibly applies it through
+3. The user can choose detected/manual applications and effects/layouts returned by the
+   SignalRGB plugin; each mapping persists.
+4. `Code.exe` held beyond debounce selects `code` → Aurora once in automatic mode.
+5. Windows Media Player held beyond debounce selects `media-player` → Logarithmic Visualizer.
+6. Stremio held beyond debounce selects `stremio` → Screen Ambient.
+7. Brief focus changes do not switch profiles.
+8. Ignored/unmatched apps keep the current profile.
+9. Tied priorities resolve deterministically.
+10. Missing/unsupported plugin actions produce a reason without output.
+11. Manual mode prevents automatic switching until automatic mode is explicitly resumed.
+12. Changing rule priority changes the winner predictably and persists across restart.
+13. Provider authority prevents the app's effect/layout renderer from writing to devices
+    governed by the SignalRGB selection.
+14. The selected profile maps to configured SignalRGB resources and visibly applies them through
     the separate plugin.
-13. SignalRGB absent, incompatible, or rejected actions are reported without launching it or
+15. SignalRGB absent, incompatible, or rejected actions are reported without launching it or
     pretending the profile was applied.
 
 Before hardware work, establish standalone override transport and WLED ownership. Black
