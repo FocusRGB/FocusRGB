@@ -66,7 +66,9 @@ the current desired selection, capabilities, and ownership. Native fallback can 
 until native rendering/output exists or the target hardware is released.
 
 The SignalRGB module contains templates, a Canvas API example, and an archived Pro-blocked
-effect. The shared screen colour test and Arduino sketch remain available. No custom
+effect. The shared screen colour test remains under `tools/`; the Arduino sketch moved to
+`../modules/arduino/sketches/` for a future Arduino plugin. `../src/` holds only a README
+until slice 01 creates the projects. No custom
 SignalRGB effects or user device plugins are active in the repo or Documents folders.
 There is no controller app, plugin loader,
 implemented profile schema, or new startup task. Architecture JSON is illustrative.
