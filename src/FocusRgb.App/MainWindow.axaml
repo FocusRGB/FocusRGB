@@ -1,0 +1,13 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="FocusRgb.App.MainWindow"
+        Title="FocusRGB"
+        Width="480" Height="260"
+        WindowStartupLocation="CenterScreen">
+  <StackPanel Margin="24" Spacing="8">
+    <TextBlock Text="FocusRGB" FontSize="24" FontWeight="SemiBold" />
+    <TextBlock x:Name="VersionText" Opacity="0.7" />
+    <TextBlock TextWrapping="Wrap"
+               Text="Scaffold build. The background engine, profiles, and plugins are added in later slices." />
+  </StackPanel>
+</Window>

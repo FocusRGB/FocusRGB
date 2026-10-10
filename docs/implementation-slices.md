@@ -1,6 +1,6 @@
 # Implementation slices
 
-Updated 2026-10-10. Slice 00 is complete (`minimal-contract.md`); later slices are pending. This is the execution breakdown of
+Updated 2026-10-10. Slices 00–01 are complete; later slices are pending. This is the execution breakdown of
 `focus-profiles-plan.md`. Requirements live in `app-brief.md`, contracts and behavior in
 `plugin-architecture.md`, and verified external-system facts in `integration-evidence.md`.
 
@@ -283,5 +283,6 @@ Maintain this compact ledger as implementation progresses:
 The active slice's detailed resume notes belong only in `.ai/STATUS.md`. Unlisted slices are pending.
 
 ```text
-00 | complete | see git log for docs/minimal-contract.md | first run, restart, absent plugin, explicit selection, priority examples; JSON parsed; no provider types
+00 | complete | 0c9a8c3 (PR #1) | first run, restart, absent plugin, explicit selection, priority examples; JSON parsed; no provider types
+01 | complete | PR from slice/01-solution-scaffold | build passes; 7 boundary/smoke tests pass; app window opens and closes with exit 0; output only under build/
 ```

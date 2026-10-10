@@ -79,31 +79,40 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 00 — Freeze the minimal data and command contract
-- State: complete
-- Branch and latest relevant commit: `slice/00-minimal-contract` (branched from
-  `chore/repository-housekeeping` at 58bbbc3); commit "Freeze minimal data and command contract"
-- Scope and dependencies verified: no dependencies; documentation only, no runtime code
-- Implemented files and entry points: `../docs/minimal-contract.md`
-- Verification: every JSON example in the document parsed with Python `json` (8 blocks, pass)
-- External/live evidence: not requested; no SignalRGB or device calls
-- Remaining acceptance criteria: none. Examples cover first run, restart, absent plugin,
-  explicit user selection, and priority eligibility; shared shapes contain no provider types
-- Current blocker or required product input: none; proposed defaults listed below
+- Slice: 01 — Solution scaffold and repeatable checks
+- State: complete (pending pull request review into `develop`)
+- Branch, latest relevant commit, and pull request into `develop`: `slice/01-solution-scaffold`
+  from `develop` at 022b0bb; commit "Scaffold .NET 10 solution with boundary checks"
+- Scope and dependencies verified: slice 00 merged (PR #1); .NET SDK 10.0.401 installed
+- Implemented files and entry points: `../FocusRGB.slnx`, `../global.json`,
+  `../Directory.Build.props` (output to `build/artifacts`), `../Directory.Packages.props`
+  (Avalonia 12.1.4, xunit.v3 4.0.2), `../src/FocusRgb.{Contracts,Core,Platform.Windows,App}`,
+  `../tests/FocusRgb.Core.Tests`, `../.github/workflows/ci.yml`
+- Verification: `dotnet build FocusRGB.slnx -c Release` succeeded with warnings as errors;
+  `dotnet test --solution FocusRGB.slnx -c Release` passed 7/7. Mutation checks: adding an
+  Avalonia package to Core failed `PortableProjectHasOnlyAllowedReferences`; retargeting Core to
+  `net10.0-windows` failed the build (NU1201). `FocusRGB.exe` opened a "FocusRGB" window and
+  exited 0 on close. `git status` showed no generated files outside `build/`.
+- External/live evidence: none required; no SignalRGB or device calls
+- Remaining acceptance criteria: none
+- Current blocker or required product input: none
 - Uncommitted work to preserve: none
-- Next action: slice 01 — create the .NET 10 solution under `src/` and `tests/` with output
-  redirected to `build/`, following the source boundaries in `implementation-slices.md`
-- Next slice: 01
+- Next action: slice 02 — implement the `settings.json` model and validation from
+  `../docs/minimal-contract.md` in `FocusRgb.Core`, with fixture tests
+- Next slice: 02 (03 and 06 follow; 08 can run in parallel as read-only investigation)
+
+Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
+`global.json`; use `dotnet test --solution …`, not the VSTest form. The App and Windows
+platform projects target `net10.0-windows`; Contracts and Core stay `net10.0`.
 
 Project name (2026-10-10): FocusRGB. The repository is `MAJ224/FocusRGB`; .NET projects
 use the `FocusRgb.*` prefix (`FocusRgb.Contracts`, `FocusRgb.Core`, `FocusRgb.Platform.Windows`,
 `FocusRgb.App`). The archived SignalRGB effect keeps its historical publisher metadata.
 
 Git workflow (2026-10-10): `develop` is the default branch; all work reaches it through pull
-requests (`../docs/git-workflow.md`). Pending pull requests into `develop`:
-`slice/00-minimal-contract` (repository housekeeping plus slice 00), then
-`chore/develop-git-workflow` (this workflow, stacked on the slice 00 branch). Start slice 01
-from `origin/develop` after both merge.
+requests (`../docs/git-workflow.md`). Rulesets protect `develop` and `main`; `develop` requires
+the `branch-policy` check. Add `branch-policy` to `main` after the first release merge, and the
+CI `build` check to both rulesets after CI first runs on `develop`.
 
 Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
 (`settings.json`, `state.json`, `native-setup.json`); seeded rules are `while-focused` at equal

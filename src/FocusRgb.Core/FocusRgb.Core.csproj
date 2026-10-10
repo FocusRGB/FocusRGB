@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Portable core. May reference only FocusRgb.Contracts; never platform or provider projects. -->
+  <ItemGroup>
+    <ProjectReference Include="..\FocusRgb.Contracts\FocusRgb.Contracts.csproj" />
+  </ItemGroup>
+</Project>
