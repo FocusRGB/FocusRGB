@@ -19,7 +19,7 @@ packaged as skills for a chosen tool; they are not installed/executable skills t
 
 ## Prompt for another model
 
-> Work in rgb-playground. Read .ai/AGENTS.md and .ai/README.md, then their reading list.
+> Work in FocusRGB. Read .ai/AGENTS.md and .ai/README.md, then their reading list.
 > Continue from .ai/STATUS.md within my requested scope. Distinguish proposed design,
 > historical observations, and tests you perform now. Update the shared handoff when done.
 

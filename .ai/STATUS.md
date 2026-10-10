@@ -93,6 +93,10 @@ not respond. No live settings, presets, layouts, registry values, services, or t
   redirected to `build/`, following the source boundaries in `implementation-slices.md`
 - Next slice: 01
 
+Project name (2026-10-10): FocusRGB. The repository is `MAJ224/FocusRGB`; .NET projects
+use the `FocusRgb.*` prefix (`FocusRgb.Contracts`, `FocusRgb.Core`, `FocusRgb.Platform.Windows`,
+`FocusRgb.App`). The archived SignalRGB effect keeps its historical publisher metadata.
+
 Git workflow (2026-10-10): `develop` is the default branch; all work reaches it through pull
 requests (`../docs/git-workflow.md`). Pending pull requests into `develop`:
 `slice/00-minimal-contract` (repository housekeeping plus slice 00), then

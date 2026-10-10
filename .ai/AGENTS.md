@@ -1,4 +1,4 @@
-# Working on rgb-playground
+# Working on FocusRGB
 
 Read `README.md` first and follow its reading order. These instructions apply to any
 AI assistant; access to the original Claude chat is unnecessary.
