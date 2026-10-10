@@ -10,4 +10,7 @@
     <ProjectReference Include="..\..\src\FocusRgb.Contracts\FocusRgb.Contracts.csproj" />
     <ProjectReference Include="..\..\src\FocusRgb.Core\FocusRgb.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
 </Project>

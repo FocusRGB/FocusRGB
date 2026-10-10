@@ -49,6 +49,25 @@ plugin is still planned. The [Arduino module](modules/arduino/README.md)
 holds the earlier LED strip sketch and a future Arduino plugin. Application projects will
 live under [src/](src/README.md); the shared screen colour test remains under `tools/`.
 
+## Project structure
+
+```text
+FocusRGB.slnx
+src/
+  FocusRgb.Contracts/          net10.0, provider-neutral plugin protocol types
+  FocusRgb.Core/               net10.0, profiles, selection, persistence, commands
+  FocusRgb.Platform.Windows/   net10.0-windows, focus/process detection
+  FocusRgb.App/                net10.0-windows, Avalonia shell (FocusRGB.exe)
+tests/
+  FocusRgb.Core.Tests/         xUnit; dependency-boundary and core tests
+modules/
+  signalrgb/                   SignalRGB research, tools, future controller plugin
+  arduino/                     Arduino sketches, future controller plugin
+docs/                          brief, architecture, contract, slices, workflow
+.ai/                           shared AI instructions, status, handoff
+build/                         generated output (git-ignored)
+```
+
 ## Build and test
 
 Requires the .NET SDK pinned in `global.json` (10.0.401 or a later 10.0 feature band).

@@ -1,17 +1,18 @@
 using Avalonia;
 
-namespace FocusRgb.App;
-
-internal static class Program
+namespace FocusRgb.App
 {
-    [STAThread]
-    public static int Main(string[] args) =>
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+    internal static class Program
+    {
+        [STAThread]
+        public static int Main(string[] args) =>
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
 
-    // Also used by the Avalonia previewer.
-    public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<App>()
-            .UsePlatformDetect()
-            .WithInterFont()
-            .LogToTrace();
+        /// <summary>Configures Avalonia; also used by the Avalonia previewer.</summary>
+        public static AppBuilder BuildAvaloniaApp() =>
+            AppBuilder.Configure<App>()
+                .UsePlatformDetect()
+                .WithInterFont()
+                .LogToTrace();
+    }
 }

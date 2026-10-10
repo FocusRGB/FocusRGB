@@ -1,13 +1,15 @@
 using Avalonia.Controls;
 using FocusRgb.Contracts;
 
-namespace FocusRgb.App;
-
-public sealed partial class MainWindow : Window
+namespace FocusRgb.App
 {
-    public MainWindow()
+    /// <summary>Placeholder settings window until the tray shell arrives in slice 10.</summary>
+    public sealed partial class MainWindow : Window
     {
-        InitializeComponent();
-        VersionText.Text = $"Plugin contract {ContractVersion.Current}";
+        public MainWindow()
+        {
+            InitializeComponent();
+            VersionText.Text = $"Plugin contract {ContractVersion.Current}";
+        }
     }
 }
