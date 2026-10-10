@@ -1,9 +1,9 @@
-// SignalRGB device plugin template.
+// SignalRGB device plugin template. Copy it into plugins/ before installing.
 // Copy, rename, fill in VID/PID/endpoint/packet format. Loaded from Documents\WhirlwindFX\Plugins\.
 // Reference: https://docs.signalrgb.com/developer/plugins/plugin-exports/
 // Tutorial (capture USB traffic with Wireshark, then map it): https://docs.signalrgb.com/developer/plugins/tutorial/
 
-export function Name()            { return "Template Device"; }
+export function Name()            { return "SignalRGB Device Template"; }
 export function Publisher()       { return "you"; }
 export function VendorId()        { return 0x0000; }   // USB VID, e.g. 0x1532 for Razer
 export function ProductId()       { return 0x0000; }   // USB PID

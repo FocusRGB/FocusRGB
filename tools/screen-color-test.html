@@ -1,0 +1,128 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Screen Color Test</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;cursor:none}
+  #fill{position:fixed;inset:0;transition:background .1s}
+  #disk{position:fixed;inset:0;width:100%;height:100%;display:none}
+  /* label sits dead-center = where the masked desk LEDs are, so it never
+     pollutes the monitor-edge LEDs that Screen Ambience samples */
+  #lbl{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+       font:600 28px system-ui,sans-serif;color:#888;background:rgba(0,0,0,.55);
+       padding:14px 22px;border-radius:10px;text-align:center;line-height:1.5}
+  #lbl b{font-size:40px;color:#bbb}
+  kbd{background:#222;color:#aaa;border-radius:4px;padding:1px 6px;font-size:14px}
+</style>
+</head>
+<body>
+<div id="fill"></div>
+<canvas id="disk"></canvas>
+<div id="lbl"></div>
+<script>
+  const COLORS = {
+    '1': ['White',      '#FFFFFF', [255,255,255]],
+    '2': ['Red',        '#FF0000', [255,0,0]],
+    '3': ['Green',      '#00FF00', [0,255,0]],
+    '4': ['Blue',       '#0000FF', [0,0,255]],
+    '5': ['Grey 50%',   '#808080', [128,128,128]],
+    '6': ['Warm white', '#FFB46B', [255,180,107]],
+    '7': ['Cyan',       '#00FFFF', [0,255,255]],
+    '8': ['Magenta',    '#FF00FF', [255,0,255]],
+    '9': ['Yellow',     '#FFFF00', [255,255,0]],
+    '0': ['Black (off)','#000000', [0,0,0]],
+  };
+  const HINT = `<br><span style="font-size:14px">keys <kbd>1</kbd>-<kbd>9</kbd> colours · <kbd>0</kbd> black · <kbd>R</kbd> spinning rainbow · <kbd>H</kbd> hide label · <kbd>Esc</kbd> exit</span>`;
+  const fill = document.getElementById('fill');
+  const lbl  = document.getElementById('lbl');
+
+  // ---------- rainbow disk ----------
+  // Every hue around a centre point, spinning, filling the whole screen (set DISK below to true for
+  // a round disk on black, or TURNS to wind it into a spiral). Angle and radius per pixel are computed once; each frame is just a
+  // hue lookup, so it stays cheap. The rim is anti-aliased by fading to black.
+  const disk = document.getElementById('disk');
+  const dctx = disk.getContext('2d');
+  const W = 640, H = 360;
+  disk.width = W; disk.height = H;
+  const img = dctx.createImageData(W, H);
+  const ANG = new Float32Array(W * H);   // angle around the centre, 0..1
+  const RAD = new Float32Array(W * H);   // distance from centre, 1 = half the screen height
+  (function precompute() {
+    const aspect = W / H;
+    for (let y = 0; y < H; y++) {
+      const ny = (y / H - 0.5) * 2;
+      for (let x = 0; x < W; x++) {
+        const nx = (x / W - 0.5) * 2 * aspect, i = y * W + x;
+        RAD[i] = Math.hypot(nx, ny);
+        ANG[i] = Math.atan2(ny, nx) / (2 * Math.PI) + 0.5;
+      }
+    }
+  })();
+  const DISK   = false;    // false = rainbow fills the whole screen; true = a round disk on black
+  const DISK_R = 0.96;     // disk radius when DISK is true (1.0 touches the top and bottom of the screen)
+  const TURNS  = 0;        // 0 = a pure colour wheel; raise it (e.g. 1.5) to wind the wheel into a spiral
+  const SPEED  = 0.25;     // revolutions per second (one full spin every 4 seconds)
+  let raf = null, t0 = 0;
+
+  function hueToRgb(h) {   // full-saturation, full-value hue (0..1) -> [r,g,b]
+    const s = h * 6, i = Math.floor(s) % 6, f = s - Math.floor(s), q = 1 - f;
+    switch (i) {
+      case 0: return [255, 255 * f, 0];
+      case 1: return [255 * q, 255, 0];
+      case 2: return [0, 255, 255 * f];
+      case 3: return [0, 255 * q, 255];
+      case 4: return [255 * f, 0, 255];
+      default: return [255, 0, 255 * q];
+    }
+  }
+  function frame(ts) {
+    const t = (ts - t0) / 1000, d = img.data;
+    for (let i = 0, p = 0; i < ANG.length; i++, p += 4) {
+      const r = RAD[i];
+      if (DISK && r >= DISK_R + 0.02) { d[p] = d[p+1] = d[p+2] = 0; d[p+3] = 255; continue; }
+      const k = DISK ? Math.max(0, Math.min(1, (DISK_R - r) * 60 + 0.5)) : 1;   // soft rim in disk mode only
+      const h = (((ANG[i] + r * TURNS - t * SPEED) % 1) + 1) % 1;
+      const c = hueToRgb(h);
+      d[p] = c[0] * k; d[p+1] = c[1] * k; d[p+2] = c[2] * k; d[p+3] = 255;
+    }
+    dctx.putImageData(img, 0, 0);
+    raf = requestAnimationFrame(frame);
+  }
+  function startDisk() {
+    if (raf) return;
+    fill.style.background = '#000';
+    disk.style.display = 'block';
+    t0 = performance.now();
+    raf = requestAnimationFrame(frame);
+    lbl.innerHTML = `<b>Spinning rainbow</b><br>every hue, full screen` + HINT;
+    lbl.style.display = 'none';          // keep the centre of the disk clear; press H to show the keys
+  }
+  function stopDisk() {
+    if (raf) cancelAnimationFrame(raf);
+    raf = null;
+    disk.style.display = 'none';
+  }
+
+  // ---------- flat colours ----------
+  function show(k) {
+    const c = COLORS[k]; if (!c) return;
+    stopDisk();
+    lbl.style.display = 'block';
+    fill.style.background = c[1];
+    lbl.innerHTML = `<b>${c[0]}</b><br>${c[1]} &nbsp; rgb(${c[2].join(', ')})` + HINT;
+  }
+
+  addEventListener('keydown', e => {
+    if (e.key === 'Escape') { window.close(); document.exitFullscreen?.(); return; }
+    if (e.key === 'h' || e.key === 'H') { lbl.style.display = lbl.style.display === 'none' ? 'block' : 'none'; return; }
+    if (e.key === 'r' || e.key === 'R') { startDisk(); return; }
+    show(e.key);
+  });
+  // go fullscreen on first interaction (kiosk already is, this is a fallback)
+  addEventListener('click', () => document.documentElement.requestFullscreen?.());
+  // Open straight onto the rainbow with ...screen-color-test.html#r
+  if (location.hash.slice(1).toLowerCase() === 'r') startDisk(); else show('1');
+</script>
+</body>
+</html>

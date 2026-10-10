@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-  Copies effects/ and plugins/ from this repo into SignalRGB's user folders.
+  Installs active effects/ and plugins/ from this module into SignalRGB's user folders.
 .EXAMPLE
-  .\sync.ps1            # one-shot copy
-  .\sync.ps1 -Watch     # keep running, re-copy whenever a file changes
-  .\sync.ps1 -Effects   # only effects
-  .\sync.ps1 -Plugins   # only plugins
+  .\install-signalrgb-content.ps1            # one-shot install
+  .\install-signalrgb-content.ps1 -Watch     # re-install whenever a file changes
+  .\install-signalrgb-content.ps1 -Effects   # only effects
+  .\install-signalrgb-content.ps1 -Plugins   # only plugins
 #>
 param(
   [switch]$Watch,
