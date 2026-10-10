@@ -8,7 +8,7 @@ Use actual paths, commands, and results. Do not report planned behavior as imple
 
 - Slice: NN — title from docs/implementation-slices.md
 - State: pending / in-progress / blocked / complete
-- Branch and latest relevant commit:
+- Branch, latest relevant commit, and pull request into `develop`:
 - Scope and dependencies verified:
 - Implemented files and entry points:
 - Verification: exact command, pass/fail, relevant result (or not run + reason)

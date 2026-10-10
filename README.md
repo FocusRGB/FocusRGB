@@ -35,7 +35,8 @@ A local MCP interface is planned for controlling the same commands used by the U
 - [Delivery plan](docs/focus-profiles-plan.md): product goals and acceptance gates.
 - [Integration evidence](docs/integration-evidence.md): dated observations and unverified capabilities.
 
-For AI-assisted development, follow the [agent instructions](.ai/AGENTS.md) and
+Changes reach `develop` (the default branch) through pull requests; see the
+[Git workflow](docs/git-workflow.md). For AI-assisted development, follow the [agent instructions](.ai/AGENTS.md) and
 [handoff guide](.ai/README.md). Use the [slice checkpoint template](.ai/SLICE-HANDOFF.md)
 to preserve progress when switching models or reaching a session limit.
 

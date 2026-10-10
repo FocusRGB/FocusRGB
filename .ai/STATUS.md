@@ -93,6 +93,12 @@ not respond. No live settings, presets, layouts, registry values, services, or t
   redirected to `build/`, following the source boundaries in `implementation-slices.md`
 - Next slice: 01
 
+Git workflow (2026-10-10): `develop` is the default branch; all work reaches it through pull
+requests (`../docs/git-workflow.md`). Pending pull requests into `develop`:
+`slice/00-minimal-contract` (repository housekeeping plus slice 00), then
+`chore/develop-git-workflow` (this workflow, stacked on the slice 00 branch). Start slice 01
+from `origin/develop` after both merge.
+
 Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
 (`settings.json`, `state.json`, `native-setup.json`); seeded rules are `while-focused` at equal
 priority 100 in list order Media Player, Stremio, VS Code; fixture effects carry display names
