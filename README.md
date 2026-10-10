@@ -2,7 +2,7 @@
 
 A planned desktop RGB controller with an Avalonia UI and .NET 10 background core.
 The first executable targets Windows; shared code remains portable for future platforms.
-**Implementation has not started.**
+**Implementation has started:** slice 00 (minimal contract) is complete.
 
 The app will select lighting profiles manually or from applications using a user-defined
 priority list. Rules can remain active while an app is running or only while it has focus.
@@ -28,6 +28,8 @@ A local MCP interface is planned for controlling the same commands used by the U
 - [Implementation slices](docs/implementation-slices.md): bounded tasks, dependencies,
   acceptance checks, and start/resume prompts for working across models or session limits.
 - [App brief](docs/app-brief.md): product requirements and user decisions.
+- [Minimal contract](docs/minimal-contract.md): frozen settings, state, status, command,
+  and plugin protocol shapes for the first implementation goal.
 - [Plugin architecture](docs/plugin-architecture.md): integration contracts, selection,
   rendering authority, fallback, and layouts.
 - [Delivery plan](docs/focus-profiles-plan.md): product goals and acceptance gates.

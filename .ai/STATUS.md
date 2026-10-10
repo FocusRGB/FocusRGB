@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-09.
+Updated: 2026-10-10.
 
 ## Completed
 
@@ -75,12 +75,34 @@ Read-only checks on 2026-10-08 confirmed SignalRGB 2.5.74, WLED Desk 16.0.1 with
 split, Dynamic Lighting disabled, and the Synapse delayed task still present. WLED Wall did
 not respond. No live settings, presets, layouts, registry values, services, or tasks changed.
 
+## Active implementation slice
+
+- Slice: 00 — Freeze the minimal data and command contract
+- State: complete
+- Branch and latest relevant commit: `slice/00-minimal-contract` (branched from
+  `chore/repository-housekeeping` at 58bbbc3); commit "Freeze minimal data and command contract"
+- Scope and dependencies verified: no dependencies; documentation only, no runtime code
+- Implemented files and entry points: `../docs/minimal-contract.md`
+- Verification: every JSON example in the document parsed with Python `json` (8 blocks, pass)
+- External/live evidence: not requested; no SignalRGB or device calls
+- Remaining acceptance criteria: none. Examples cover first run, restart, absent plugin,
+  explicit user selection, and priority eligibility; shared shapes contain no provider types
+- Current blocker or required product input: none; proposed defaults listed below
+- Uncommitted work to preserve: none
+- Next action: slice 01 — create the .NET 10 solution under `src/` and `tests/` with output
+  redirected to `build/`, following the source boundaries in `implementation-slices.md`
+- Next slice: 01
+
+Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
+(`settings.json`, `state.json`, `native-setup.json`); seeded rules are `while-focused` at equal
+priority 100 in list order Media Player, Stremio, VS Code; fixture effects carry display names
+with `resourceId: null`, resolved by exact catalog match; SignalRGB bindings use a
+`provider-managed` device scope; JSON-RPC requests time out after 5000 ms by default.
+
 ## Next step
 
-Implementation is planned as slices 00–25 in `../docs/implementation-slices.md`. All are pending.
-Start with 00 (minimal data/command contract) when implementation is requested; then 01
-(solution scaffold). Use `SLICE-HANDOFF.md` for exact resume notes and the slice plan's start/
-resume prompts to continue across models or session limits. This planning update adds no app.
+Slices 01–25 are pending. Continue with 01 (solution scaffold), then 02 (profiles and
+configuration validation) implementing `../docs/minimal-contract.md`.
 
 When implementation is requested, scaffold the Windows Avalonia/.NET 10 app, portable core,
 integration contracts, fake test integration, and separate SignalRGB plugin. Build milestone
