@@ -20,10 +20,13 @@ CRLF working-tree endings (`core.autocrlf=true`). Put generated builds, reports,
 tool output under `../build/`; do not commit them. Graphify uses `../build/graphify-out/`, so
 run extraction with `graphify extract . --out build` and pass that graph path to queries.
 
-For requested repository work, assistants may create and switch branches, stage and commit
-their scoped changes, push branches, and open pull requests without separate confirmation.
-Do not include unrelated user changes, force-push, rewrite history, delete branches, or merge
-pull requests unless the user explicitly requests it.
+Follow `../docs/git-workflow.md`. `develop` is the default branch: start work from
+`origin/develop`, push a scoped branch, and open a pull request into `develop`. Never commit
+or push directly to `develop` or `main`; `main` changes only through the owner's release pull
+request from `develop`. For requested repository work, assistants may create and switch
+branches, commit scoped changes, push working branches, and open pull requests into `develop`
+without separate confirmation. Do not include unrelated user changes, force-push, rewrite
+history, delete branches, or merge pull requests unless the user explicitly requests it.
 
 For implementation, follow the numbered slices in `../docs/implementation-slices.md` and
 resume the active slice in `STATUS.md`. Use `SLICE-HANDOFF.md` to record exact resume state.

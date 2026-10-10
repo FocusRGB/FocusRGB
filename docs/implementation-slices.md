@@ -259,7 +259,8 @@ Start:
 > Implement slice NN from docs/implementation-slices.md. Read .ai/AGENTS.md and .ai/STATUS.md,
 > then that slice and its relevant requirement/architecture sections. Verify dependencies
 > against actual code and checks. Implement only this slice, run its acceptance checks, and
-> update .ai/STATUS.md using .ai/SLICE-HANDOFF.md. Commit/push scoped work when complete.
+> update .ai/STATUS.md using .ai/SLICE-HANDOFF.md. Commit on a slice branch from develop, push it,
+> and open a pull request into develop when complete.
 > Report external gates honestly and do not run live hardware tests unless I request them.
 
 Resume after a limit:
