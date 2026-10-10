@@ -311,7 +311,7 @@ late response. Examples below are wrapped for readability; on the wire each is o
 ### Handshake
 
 ```json
-{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"contractVersion":"0.1","host":{"name":"rgb-playground","version":"0.1.0"}}}
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"contractVersion":"0.1","host":{"name":"FocusRGB","version":"0.1.0"}}}
 {"jsonrpc":"2.0","id":1,"result":{"pluginId":"signalrgb","pluginVersion":"0.1.0","contractVersion":"0.1","capabilities":[
   {"id":"provider.effect.catalog","support":"supported"},
   {"id":"provider.effect.select","support":"supported"},

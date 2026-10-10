@@ -22,10 +22,10 @@ invented data or pretend an acceptance gate passed.
 
 ## Planned source boundaries
 
-- `src/Rgb.Contracts/`: provider-neutral plugin messages, capabilities, results, and resource IDs.
-- `src/Rgb.Core/`: profiles, arbitration, persistence, commands, fallback, and ownership.
-- `src/Rgb.Platform.Windows/`: Windows process/focus detection and later screen capture.
-- `src/Rgb.App/`: Avalonia tray/settings UI and generic plugin host wiring.
+- `src/FocusRgb.Contracts/`: provider-neutral plugin messages, capabilities, results, and resource IDs.
+- `src/FocusRgb.Core/`: profiles, arbitration, persistence, commands, fallback, and ownership.
+- `src/FocusRgb.Platform.Windows/`: Windows process/focus detection and later screen capture.
+- `src/FocusRgb.App/`: Avalonia tray/settings UI and generic plugin host wiring.
 - `modules/signalrgb/controller-plugin/`: separate controller plugin executable/package;
   existing `modules/signalrgb/plugins/` remains SignalRGB USB plugin content.
 - `modules/wled/controller-plugin/`: separate WLED controller plugin executable/package.

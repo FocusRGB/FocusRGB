@@ -1,4 +1,4 @@
-# rgb-playground
+# FocusRGB
 
 A planned desktop RGB controller with an Avalonia UI and .NET 10 background core.
 The first executable targets Windows; shared code remains portable for future platforms.
