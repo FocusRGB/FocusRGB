@@ -44,7 +44,9 @@ to preserve progress when switching models or reaching a session limit.
 
 Integration-specific source and research live under `modules/<integration>/`. The existing
 [SignalRGB module](modules/signalrgb/README.md) contains research and tools; its controller
-plugin is still planned. Earlier hardware experiments remain under `arduino/` and `tools/`.
+plugin is still planned. The [Arduino module](modules/arduino/README.md)
+holds the earlier LED strip sketch and a future Arduino plugin. Application projects will
+live under [src/](src/README.md); the shared screen colour test remains under `tools/`.
 
 Generated builds, packages, reports, caches, and tool artifacts belong under the Git-ignored
 `build/` directory. Maintained source and documentation stay outside it. Generated Graphify
