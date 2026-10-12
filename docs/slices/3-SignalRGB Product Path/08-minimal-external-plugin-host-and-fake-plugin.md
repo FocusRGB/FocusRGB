@@ -1,10 +1,17 @@
-# 08 — Minimal external plugin host and fake plugin
+# 08 — Minimal plugin SDK, host, and fake plugin
 
 [← All implementation slices](../../implementation-slices.md)
 
-Depends on: 02. Scope: explicitly enabled local package manifest, version handshake,
-JSON-RPC stdin/stdout requests, cancellation/timeouts, health, and process shutdown. Implement
-one fake executable using the shared contract. Keep protocol logs off stdout.
+Depends on: 02. Scope: add `FocusRgb.PluginSdk` to the main repository with only the plugin-side
+manifest, handshake, JSON-RPC stdin/stdout, cancellation, logging, and shutdown helpers required
+by one fake executable. Add the app-side host for explicitly enabled local packages, including
+timeouts and health. Produce a versioned `0.x` SDK package and JSON schemas; keep protocol logs
+off stdout. The fake plugin remains a main-repository conformance fixture.
+
 Acceptance: fake catalog/apply works; unsupported version, malformed responses, timeout, and
-plugin exit do not crash the app or hang a request. Removing fake plugin leaves core usable.
+plugin exit do not crash the app or hang a request; the SDK packs reproducibly; an external
+clean-room fixture restores/builds against the declared package feed or versioned release
+artifact without a FocusRGB source checkout; the app has no project reference to the fake
+plugin; removing the fake executable leaves core and app usable. No marketplace, automatic
+plugin updater, or complete version-1 SDK design.
 
