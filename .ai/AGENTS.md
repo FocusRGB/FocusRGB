@@ -3,7 +3,8 @@
 Read `README.md` first and follow its reading order. These instructions apply to any
 AI assistant; access to the original Claude chat is unnecessary.
 
-The RGB controller is **planned, not implemented**. Keep work within the user's request;
+The RGB controller is in early implementation; consult `STATUS.md` for completed slices.
+Keep work within the user's request;
 a documentation request does not authorize implementing the app or changing live devices.
 
 Final goal: replace SignalRGB with our own controller and effects, while retaining
