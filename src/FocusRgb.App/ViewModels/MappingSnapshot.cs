@@ -4,7 +4,7 @@ namespace FocusRgb.App.ViewModels
     public sealed record MappingSnapshot(
         string Id,
         string ApplicationName,
-        string Executable,
+        string Executables,
         string ProfileId,
         string Eligibility,
         int Priority,

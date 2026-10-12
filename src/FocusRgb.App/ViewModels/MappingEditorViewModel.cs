@@ -87,11 +87,10 @@ namespace FocusRgb.App.ViewModels
             var snapshots = settings.Rules!.Select(rule =>
             {
                 var profile = profiles.Single(item => item.Id == rule.Profile);
-                // shortcut: preview edits the first executable; add list editing with real persistence.
                 return new MappingSnapshot(
                     rule.Id!,
                     profile.DisplayName,
-                    rule.Match!.Executables![0],
+                    string.Join(", ", rule.Match!.Executables!),
                     profile.Id,
                     rule.Eligibility!,
                     rule.Priority!.Value,

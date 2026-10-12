@@ -125,6 +125,11 @@ namespace FocusRgb.Core.Configuration
                 }
             }
 
+            if (!profiles.ContainsKey("default"))
+            {
+                Error("profiles", "must contain the protected profile 'default'");
+            }
+
             void ProfileReference(string? id, string path)
             {
                 if (id is null || !profiles.ContainsKey(id))
@@ -138,8 +143,15 @@ namespace FocusRgb.Core.Configuration
             }
             else
             {
-                ProfileReference(document.Selection.DefaultProfile, "selection.defaultProfile");
-                Choice(document.Selection.Unmatched, "selection.unmatched", "keep-current", "default-profile");
+                if (document.Selection.DefaultProfile != "default")
+                {
+                    Error("selection.defaultProfile", "must reference the protected profile 'default'");
+                }
+                else
+                {
+                    ProfileReference(document.Selection.DefaultProfile, "selection.defaultProfile");
+                }
+                Choice(document.Selection.Unmatched, "selection.unmatched", "default-profile");
                 if (document.Selection.DebounceMs is null or < 0)
                 {
                     Error("selection.debounceMs", "required non-negative integer milliseconds");
