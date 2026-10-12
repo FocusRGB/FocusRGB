@@ -87,7 +87,7 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Slice: 04 — Profile mapping editor with preview state
 - State: complete (pending pull request review into `develop`)
 - Branch, latest relevant code commit, and pull request into `develop`:
-  `slice/04-profile-mapping-editor`, `dc32b07`; PR recorded after push.
+  `slice/04-profile-mapping-editor`, `dc32b07`, PR #10.
 - Scope and dependencies verified: based on complete slice 03 and stacked on open PR #9.
 - Implemented files and entry points: the Mappings tab in
   `../src/FocusRgb.App/MainWindow.axaml`, `MappingEditorViewModel`,
