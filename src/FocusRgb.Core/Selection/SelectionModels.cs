@@ -29,6 +29,12 @@ namespace FocusRgb.Core.Selection
         };
 
         public static SelectionReason UnmatchedDefault() => new() { Kind = "unmatched-default" };
+
+        public static SelectionReason FirstRun() => new() { Kind = "first-run" };
+
+        public static SelectionReason Restored() => new() { Kind = "restored" };
+
+        public static SelectionReason InvalidStateReset() => new() { Kind = "invalid-state-reset" };
     }
 
     /// <summary>Returns the desired profile and the reason independently of any output provider.</summary>
