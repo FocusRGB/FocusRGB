@@ -93,7 +93,7 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Slice: 05 — Pure selection engine
 - State: complete (pending pull request review into `develop`)
 - Branch, latest relevant code commit, and pull request into `develop`:
-  `slice/05-selection-engine`, `eb68a82`, pull request pending.
+  `slice/05-selection-engine`, `eb68a82`, PR #12.
 - Scope and dependencies verified: follows slice 02 and uses the grouped settings fixtures;
   branch is stacked on open PR #11.
 - Implemented files and entry points: `../src/FocusRgb.Core/Selection/SelectionEngine.cs`,
@@ -105,7 +105,7 @@ not respond. No live settings, presets, layouts, registry values, services, or t
   intentionally separate.
 - Current blocker or required product input: none; merge PRs #6, #8, #9, #10, and #11 before
   this stacked slice.
-- Uncommitted work to preserve: documentation and final handoff changes until committed.
+- Uncommitted work to preserve: none after the final handoff commit.
 - Next action: implement slice 06 versioned local settings and startup restoration.
 - Next slice: 06.
 
