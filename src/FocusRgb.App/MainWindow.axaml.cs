@@ -11,5 +11,19 @@ namespace FocusRgb.App
             InitializeComponent();
             DataContext = MainWindowViewModel.CreatePreview();
         }
+
+        private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
+
+        private void MoveMappingUp_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+            ViewModel.MappingEditor.MoveSelected(-1);
+
+        private void MoveMappingDown_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+            ViewModel.MappingEditor.MoveSelected(1);
+
+        private void ApplyMappings_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+            ViewModel.MappingEditor.Apply();
+
+        private void CancelMappings_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+            ViewModel.MappingEditor.Cancel();
     }
 }
