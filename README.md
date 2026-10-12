@@ -33,8 +33,8 @@ A local MCP interface is planned for controlling the same commands used by the U
 ## Start here
 
 - [Current status](.ai/STATUS.md): completed work, active slice, and next action.
-- [Implementation slices](docs/implementation-slices.md): bounded tasks, dependencies,
-  acceptance checks, and start/resume prompts for working across models or session limits.
+- [Implementation slices](docs/implementation-slices.md): compact status index linking to each
+  slice's dependency, scope, acceptance checks, and shared start/resume prompts.
 - [App brief](docs/app-brief.md): product requirements and user decisions.
 - [Minimal contract](docs/minimal-contract.md): frozen settings, state, status, command,
   and plugin protocol shapes for the first implementation goal.

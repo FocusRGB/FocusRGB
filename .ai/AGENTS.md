@@ -29,8 +29,9 @@ branches, commit scoped changes, push working branches, and open pull requests i
 without separate confirmation. Do not include unrelated user changes, force-push, rewrite
 history, delete branches, or merge pull requests unless the user explicitly requests it.
 
-For implementation, follow the numbered slices in `../docs/implementation-slices.md` and
-resume the active slice in `STATUS.md`. Use `SLICE-HANDOFF.md` to record exact resume state.
+For implementation, use the numbered index in `../docs/implementation-slices.md`, open the
+linked detail file for the active slice, and resume its exact state from `STATUS.md`. Use
+`SLICE-HANDOFF.md` to record exact resume state.
 Check capabilities before sending output, enforce one writer per physical device, and
 include cleanup and restart recovery before depending on persistent overrides.
 

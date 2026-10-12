@@ -6,7 +6,7 @@ Use actual paths, commands, and results. Do not report planned behavior as imple
 ```markdown
 ## Active implementation slice
 
-- Slice: NN — title from docs/implementation-slices.md
+- Slice: NN — title from the detail file linked by docs/implementation-slices.md
 - State: pending / in-progress / blocked / complete
 - Branch, latest relevant commit, and pull request into `develop`:
 - Scope and dependencies verified:

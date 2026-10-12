@@ -8,7 +8,7 @@ Adopted 2026-10-10. Applies to people and AI assistants.
 |---|---|---|
 | `develop` | Default and integration branch; every change lands here first | Pull requests only |
 | `main` | Stable releases | Pull requests from `develop` only, merged by the repository owner |
-| `slice/NN-short-name` | One implementation slice from `implementation-slices.md` | Its author |
+| `slice/NN-short-name` | One detail file linked from `implementation-slices.md` | Its author |
 | `feature/…`, `fix/…`, `chore/…`, `docs/…` | Other scoped work | Its author |
 
 ## Rules

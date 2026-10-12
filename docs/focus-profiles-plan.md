@@ -6,8 +6,9 @@ types with composable plugin actions. End goal: replace SignalRGB, retain other 
 Read `app-brief.md`, `plugin-architecture.md`, and `integration-evidence.md` first.
 `focus-profiles-plan-v2.md` is historical, not current guidance.
 
-Use [implementation-slices.md](implementation-slices.md) for the small, ordered execution
-tasks and session handoff prompts. This document remains the product-level acceptance plan.
+Use [implementation-slices.md](implementation-slices.md) for the ordered status index and links
+to each detailed task, plus session handoff prompts. This document remains the product-level
+acceptance plan.
 
 ## Implementation goals
 

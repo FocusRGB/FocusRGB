@@ -4,6 +4,8 @@ Updated: 2026-10-12.
 
 ## Completed
 
+- The implementation roadmap is now a compact status index; all 28 dependency/scope/acceptance
+  definitions live in numbered group folders under `../docs/slices/`.
 - README refreshed around the current product roadmap, implementation slices, and shared
   handoff; old Arduino setup details and tool-specific commands removed from the entry page.
 
