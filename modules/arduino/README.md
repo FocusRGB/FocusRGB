@@ -1,9 +1,9 @@
 # Arduino module
 
-Everything specific to Arduino-driven LED hardware lives in this directory. A future FocusRGB
-controller plugin for Arduino outputs will be added here as a separate plugin, following the
-same rule as other modules: the core and app projects reference only the shared contracts,
-never this module. No controller plugin exists yet.
+Earlier Arduino-driven LED experiments live in this directory. If FocusRGB later supports an
+Arduino output, create a `FocusRGB-Plugin-Arduino` repository when that work is scheduled. The
+core and app reference only shared contracts, never integration-specific source. No controller
+plugin exists yet.
 
 ## Layout
 
@@ -15,6 +15,5 @@ sketches/   standalone Arduino sketches; each sketch keeps its own same-named fo
 patterns on a 32-LED WS2812B strip on pin 5 and needs the `WS2812BStrip` library. It does
 not talk to FocusRGB or SignalRGB.
 
-A future `controller-plugin/` directory will hold the Arduino output plugin. Define its
-transport (for example serial) and device ownership through the plugin contract before
-adding firmware that depends on it.
+Define a future plugin's transport (for example serial) and device ownership through the
+published plugin contract before adding firmware that depends on it.

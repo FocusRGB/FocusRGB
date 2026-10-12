@@ -28,6 +28,18 @@ Adopted 2026-10-10. Applies to people and AI assistants.
 6. Merge slice pull requests into `develop` with squash or a merge commit. Merge `develop`
    into `main` with a merge commit, not a squash, so the two branches do not diverge.
 
+## External plugin repositories
+
+Production plugins use peer repositories named `FocusRGB-Plugin-<Name>`. Create a repository
+only when its implementation slice starts; do not create empty placeholders. Each plugin has
+its own history, issues, CI, releases, license, and branch protection.
+
+Plugin repositories consume a published `FocusRgb.PluginSdk` version and must build without a
+FocusRGB source checkout. Do not connect repositories with Git submodules or cross-repository
+project references. When a protocol change spans repositories, use separate linked pull
+requests: publish the compatible SDK prerelease first, then update the plugin and the app's
+compatibility fixtures to the exact declared versions.
+
 ## Branch protection
 
 Both branches are protected on GitHub by rulesets; the exported definitions are in

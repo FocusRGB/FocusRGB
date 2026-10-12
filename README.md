@@ -17,8 +17,8 @@ returns to Default.
 
 ## Implementation roadmap
 
-1. Shape the minimal UI with preview state, then connect the portable core and separate
-   SignalRGB integration plugin.
+1. Shape the minimal UI with preview state, then connect the portable core and the external
+   `FocusRGB-Plugin-SignalRGB` integration.
 2. Add game profiles and supported game API integrations.
 3. Build native effects, LED placement layouts, and output plugins to operate without SignalRGB.
 
@@ -52,11 +52,15 @@ to preserve progress when switching models or reaching a session limit.
 
 ## Repository conventions
 
-Integration-specific source and research live under `modules/<integration>/`. The existing
-[SignalRGB module](modules/signalrgb/README.md) contains research and tools; its controller
-plugin is still planned. The [Arduino module](modules/arduino/README.md)
-holds the earlier LED strip sketch and a future Arduino plugin. Application projects will
-live under [src/](src/README.md); the shared screen colour test remains under `tools/`.
+The main repository owns contracts, the future .NET plugin SDK, host, schemas, conformance
+tests, and fake/reference plugin. Production integrations live in independent repositories
+named `FocusRGB-Plugin-<Name>` and consume a published SDK version; they are not Git submodules
+or app project references. Repositories are created when their implementation slice starts.
+
+The existing [SignalRGB module](modules/signalrgb/README.md) temporarily holds research and
+tools that will move to `FocusRGB-Plugin-SignalRGB` in slice 11. The
+[Arduino module](modules/arduino/README.md) holds the earlier LED strip sketch. Application
+projects live under [src/](src/README.md); the shared screen colour test remains under `tools/`.
 
 ## Project structure
 
@@ -71,8 +75,8 @@ tests/
   FocusRgb.App.Tests/          xUnit; UI-facing preview-state tests
   FocusRgb.Core.Tests/         xUnit; dependency-boundary and core tests
 modules/
-  signalrgb/                   SignalRGB research, tools, future controller plugin
-  arduino/                     Arduino sketches, future controller plugin
+  signalrgb/                   Temporary SignalRGB research/tool staging
+  arduino/                     Earlier Arduino sketches
 docs/                          brief, architecture, contract, slices, workflow
 .ai/                           shared AI instructions, status, handoff
 build/                         generated output (git-ignored)
