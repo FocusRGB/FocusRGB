@@ -1,6 +1,6 @@
 # FocusRgb.Core
 
-Portable .NET 10 application logic. Configuration is implemented in slice 02; selection,
+Portable .NET 10 application logic. Configuration and pure profile selection are implemented;
 persistence, coordination, and output remain later slices. Only shared Contracts may be
 referenced. There are no provider SDKs, OS calls, file writes, or lighting calls here.
 
@@ -11,6 +11,9 @@ Configuration/
   SettingsJson.cs           in-memory load/serialize, seed loading, empty native snapshot
   ConfigurationError.cs     path-specific errors and load result
   default-settings.json     editable acceptance mappings, embedded as seed data
+Selection/
+  SelectionModels.cs        observation, mode, decision, and reason types
+  SelectionEngine.cs        manual/automatic arbitration and focus debounce
 ```
 
 ## Loading settings
@@ -31,6 +34,19 @@ reserved game/device scope shapes can validate, but this does not claim runtime 
 `CreateDefaultNativeSetup()` returns an independent empty app-default snapshot. Slice 06
 handles its storage; slices 17–18 add native rendering/output. It is not derived from provider
 bindings. Runtime intent (`state.json`) remains outside this slice.
+
+## Selecting a profile
+
+Construct `SelectionEngine` with validated settings, then pass `SelectionMode`, the retained
+manual profile ID, an `ApplicationObservation`, and its timestamp to `Select`. Automatic mode
+uses case-insensitive executable matching, higher numeric priority, saved rule order, and stable
+rule ID. Focus-only rules wait for `debounceMs`; ignored foreground executables preserve the
+previous stable focus. A process must still appear in `RunningExecutables`, so exit removes
+eligibility immediately. No eligible rule returns protected Default. The result reports
+`manual`, `rule` (with its rule ID), or `unmatched-default`.
+
+The caller owns process observation and time. The selector does not read the OS, persist state,
+or call an integration or device. Runtime observation wiring arrives in slice 07.
 
 ## Adding a profile
 
