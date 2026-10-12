@@ -70,9 +70,12 @@ effect. The shared screen colour test remains under `tools/`; the Arduino sketch
 `../modules/arduino/sketches/` for a future Arduino plugin. `../src/` contains the app scaffold
 and portable configuration code. No custom
 SignalRGB effects or user device plugins are active in the repo or Documents folders.
-The controller app now opens a minimal preview shell with Overview, Profiles, and Integrations
-navigation. It loads the four validated defaults, starts in manual Default, and labels desired
-and applied values as preview-only. No selection engine, tray behavior, plugin loader, file
+The controller app now opens a minimal preview shell with Overview, Profiles, Mappings, and
+Integrations navigation. It loads the validated defaults, starts in manual Default, and labels
+desired/applied values as preview-only. The in-memory mapping editor supports application and
+executable identity, profile/effect choices, eligibility, numeric priority, ordered movement,
+Apply/Cancel, and optional Live preview. Layout selection is visibly disabled because the fake
+catalog does not expose layouts. No selection engine, tray behavior, plugin loader, file
 persistence, hardware output, or startup task exists yet.
 
 Read-only checks on 2026-10-08 confirmed SignalRGB 2.5.74, WLED Desk 16.0.1 with its 215/85
@@ -81,24 +84,24 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 03 — UI shell with preview state
+- Slice: 04 — Profile mapping editor with preview state
 - State: complete (pending pull request review into `develop`)
 - Branch, latest relevant code commit, and pull request into `develop`:
-  `slice/03-ui-shell`, `2104f40`, PR #9.
-- Scope and dependencies verified: based on complete slice 02 and its validated defaults;
-  stacked on open PR #8, which is itself stacked on open scaffold PR #6.
-- Implemented files and entry points: `../src/FocusRgb.App/MainWindow.axaml`,
-  `../src/FocusRgb.App/ViewModels/`, and `../tests/FocusRgb.App.Tests/`.
+  `slice/04-profile-mapping-editor`, `dc32b07`; PR recorded after push.
+- Scope and dependencies verified: based on complete slice 03 and stacked on open PR #9.
+- Implemented files and entry points: the Mappings tab in
+  `../src/FocusRgb.App/MainWindow.axaml`, `MappingEditorViewModel`,
+  `MappingEditorItemViewModel`, and `../tests/FocusRgb.App.Tests/MappingEditorViewModelTests.cs`.
 - Verification: `dotnet build FocusRGB.slnx -c Release` passed with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release` passed 56/56; a local launch confirmed a
-  visible FocusRGB window with manual Default and preview-only status.
+  `dotnet test --solution FocusRGB.slnx -c Release` passed 62/62; a local launch confirmed the
+  editor renders its rule list, details, movement, Live preview, and Apply/Cancel controls.
 - External/live evidence: none requested or required; no SignalRGB, network, or device calls.
-- Remaining acceptance criteria: none. This slice intentionally has no persistence, process
-  detection, tray behavior, plugin process, background engine, or hardware output.
-- Current blocker or required product input: none; merge PRs #6 and #8 before this slice's PR.
+- Remaining acceptance criteria: none. Drafts remain in memory; fake effect resources do not
+  claim real provider availability, and the layout control stays disabled.
+- Current blocker or required product input: none; merge PRs #6, #8, and #9 before this PR.
 - Uncommitted work to preserve: none after the final handoff commit.
-- Next action: implement slice 04's in-memory profile mapping editor in the existing shell.
-- Next slice: 04; pure selection engine is now slice 05.
+- Next action: implement slice 05's pure selection engine against validated settings.
+- Next slice: 05.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -122,9 +125,8 @@ with `resourceId: null`, resolved by exact catalog match; SignalRGB bindings use
 
 ## Next step
 
-Slices 04–27 are pending. Continue with 04 (profile mapping editor with preview state), then
-slice 05 (pure selection engine). Reuse the configuration model from slice 02; file persistence
-and output remain separate later slices.
+Slices 05–27 are pending. Continue with 05 (pure selection engine). Reuse the configuration
+model from slice 02; file persistence and output remain separate later slices.
 
 Build milestone 1 around the existing Windows Avalonia/.NET 10 shell, portable core,
 integration contracts, fake test integration, and separate SignalRGB plugin. Keep Default,

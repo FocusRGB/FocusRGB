@@ -2,9 +2,10 @@
 
 A planned desktop RGB controller with an Avalonia UI and .NET 10 background core.
 The first executable targets Windows; shared code remains portable for future platforms.
-**Early implementation:** slices 00–03 provide the contract, solution scaffold, validated
-profile configuration, and a runnable UI preview. Selection, persistence, tray behavior, and
-plugin integration are still pending. See [Core configuration](src/FocusRgb.Core/README.md).
+**Early implementation:** slices 00–04 provide the contract, solution scaffold, validated
+profile configuration, a runnable UI preview, and an in-memory profile mapping editor.
+Selection, persistence, tray behavior, and plugin integration are still pending. See
+[Core configuration](src/FocusRgb.Core/README.md).
 
 The app will select lighting profiles manually or from applications using a user-defined
 priority list. Rules can remain active while an app is running or only while it has focus.
