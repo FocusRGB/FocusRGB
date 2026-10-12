@@ -87,21 +87,20 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 04 — Profile mapping editor with preview state
+- Slice: 04 follow-up — Grouped testing profiles
 - State: complete (pending pull request review into `develop`)
 - Branch, latest relevant code commit, and pull request into `develop`:
-  `slice/04-profile-mapping-editor`, `dc32b07`, PR #10.
-- Scope and dependencies verified: based on complete slice 03 and stacked on open PR #9.
-- Implemented files and entry points: the Mappings tab in
-  `../src/FocusRgb.App/MainWindow.axaml`, `MappingEditorViewModel`,
-  `MappingEditorItemViewModel`, and `../tests/FocusRgb.App.Tests/MappingEditorViewModelTests.cs`.
+  `feature/test-profile-fixtures`, `ac7d195`, PR #11.
+- Scope and dependencies verified: follows complete slice 04 and is stacked on open PR #10.
+- Implemented files and entry points: `../src/FocusRgb.Core/Configuration/default-settings.json`,
+  protected-default checks in `SettingsValidator`, grouped executable projection in the
+  mapping editor, and corresponding core/app tests.
 - Verification: `dotnet build FocusRGB.slnx -c Release` passed with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release` passed 62/62; a local launch confirmed the
-  editor renders its rule list, details, movement, Live preview, and Apply/Cancel controls.
+  `dotnet test --solution FocusRGB.slnx -c Release` passed 64/64.
 - External/live evidence: none requested or required; no SignalRGB, network, or device calls.
-- Remaining acceptance criteria: none. Drafts remain in memory; fake effect resources do not
-  claim real provider availability, and the layout control stays disabled.
-- Current blocker or required product input: none; merge PRs #6, #8, and #9 before this PR.
+- Remaining acceptance criteria: Slice 05 must implement actual unmatched selection; this
+  follow-up only establishes validated settings and UI preview state.
+- Current blocker or required product input: none; merge PRs #6, #8, #9, and #10 before this PR.
 - Uncommitted work to preserve: none after the final handoff commit.
 - Next action: implement slice 05's pure selection engine against validated settings.
 - Next slice: 05.

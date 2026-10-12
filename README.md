@@ -10,6 +10,9 @@ Selection, persistence, tray behavior, and plugin integration are still pending.
 The app will select lighting profiles manually or from applications using a user-defined
 priority list. Rules can remain active while an app is running or only while it has focus.
 First launch uses manual mode; subsequent launches restore the saved state.
+The seeded profiles are protected Default plus Programming (VS Code/Visual Studio), Movie
+(PotPlayer/Stremio), and Music (Media Player/Spotify). In automatic mode, no eligible mapping
+returns to Default.
 
 ## Implementation roadmap
 
