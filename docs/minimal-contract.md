@@ -44,14 +44,16 @@ configuration, runtime intent, and the native fallback snapshot from overwriting
 
 ### `settings.json` — frozen
 
-Seeded on first run with the four acceptance profiles. Every value is user-editable.
+Seeded on first run with four acceptance profiles. The `default` profile identity is protected:
+it must exist, cannot be removed, and remains `selection.defaultProfile`. Other profile values
+and all automatic mappings are user-editable.
 
 ```json
 {
   "schemaVersion": 1,
   "selection": {
     "defaultProfile": "default",
-    "unmatched": "keep-current",
+    "unmatched": "default-profile",
     "debounceMs": 2000,
     "ignoredExecutables": ["ShellExperienceHost.exe", "SearchHost.exe", "LockApp.exe"]
   },
@@ -72,8 +74,8 @@ Seeded on first run with the four acceptance profiles. Every value is user-edita
       "fallback": [{ "kind": "native-setup" }]
     },
     {
-      "id": "code",
-      "displayName": "VS Code",
+      "id": "programming",
+      "displayName": "Programming",
       "bindings": [
         {
           "id": "main",
@@ -87,23 +89,8 @@ Seeded on first run with the four acceptance profiles. Every value is user-edita
       "fallback": [{ "kind": "native-setup" }]
     },
     {
-      "id": "media-player",
-      "displayName": "Media Player",
-      "bindings": [
-        {
-          "id": "main",
-          "plugin": "signalrgb",
-          "renderingAuthority": "provider",
-          "deviceScope": { "kind": "provider-managed" },
-          "effect": { "resourceId": null, "displayName": "Logarithmic Visualizer" },
-          "layout": null
-        }
-      ],
-      "fallback": [{ "kind": "native-setup" }]
-    },
-    {
-      "id": "stremio",
-      "displayName": "Stremio",
+      "id": "movie",
+      "displayName": "Movie",
       "bindings": [
         {
           "id": "main",
@@ -115,29 +102,44 @@ Seeded on first run with the four acceptance profiles. Every value is user-edita
         }
       ],
       "fallback": [{ "kind": "native-setup" }]
+    },
+    {
+      "id": "music",
+      "displayName": "Music",
+      "bindings": [
+        {
+          "id": "main",
+          "plugin": "signalrgb",
+          "renderingAuthority": "provider",
+          "deviceScope": { "kind": "provider-managed" },
+          "effect": { "resourceId": null, "displayName": "Logarithmic Visualizer" },
+          "layout": null
+        }
+      ],
+      "fallback": [{ "kind": "native-setup" }]
     }
   ],
   "rules": [
     {
-      "id": "media-player",
-      "profile": "media-player",
-      "match": { "executables": ["wmplayer.exe", "Microsoft.Media.Player.exe"] },
+      "id": "programming",
+      "profile": "programming",
+      "match": { "executables": ["Code.exe", "devenv.exe"] },
       "eligibility": "while-focused",
       "priority": 100,
       "enabled": true
     },
     {
-      "id": "stremio",
-      "profile": "stremio",
-      "match": { "executables": ["stremio-shell-ng.exe"] },
+      "id": "movie",
+      "profile": "movie",
+      "match": { "executables": ["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"] },
       "eligibility": "while-focused",
       "priority": 100,
       "enabled": true
     },
     {
-      "id": "code",
-      "profile": "code",
-      "match": { "executables": ["Code.exe"] },
+      "id": "music",
+      "profile": "music",
+      "match": { "executables": ["Microsoft.Media.Player.exe", "wmplayer.exe", "Spotify.exe"] },
       "eligibility": "while-focused",
       "priority": 100,
       "enabled": true
@@ -148,6 +150,9 @@ Seeded on first run with the four acceptance profiles. Every value is user-edita
 
 Profiles:
 
+- `default` is a protected profile ID. Validation rejects settings that remove it or assign
+  `selection.defaultProfile` to a different profile. With the seeded `default-profile`
+  unmatched policy, it becomes desired whenever automatic mode has no eligible application rule.
 - `bindings` is an ordered list; a profile may combine plugins. Binding IDs are unique within
   a profile. An empty list is valid and means the profile produces no output.
 - `renderingAuthority` is `provider` or `application`. Only `provider` is implemented before
@@ -183,7 +188,7 @@ Rules:
 
 Selection:
 
-- `unmatched` is `keep-current` or `default-profile`.
+- `unmatched` is `default-profile`; automatic mode selects protected Default when no rule is eligible.
 - `ignoredExecutables` never produce focus changes; while one is foreground, the previous
   focused application keeps its focus eligibility.
 
@@ -242,12 +247,12 @@ The core exposes this snapshot to the UI and later the MCP adapter. It is not pe
 {
   "mode": "automatic",
   "desired": {
-    "profile": "code",
-    "reason": { "kind": "rule", "ruleId": "code", "detail": "Code.exe focused for 2000 ms" }
+    "profile": "programming",
+    "reason": { "kind": "rule", "ruleId": "programming", "detail": "Code.exe focused for 2000 ms" }
   },
-  "effective": { "profile": "code", "source": "desired" },
+  "effective": { "profile": "programming", "source": "desired" },
   "applied": {
-    "profile": "code",
+    "profile": "programming",
     "bindings": [
       { "bindingId": "main", "plugin": "signalrgb", "outcome": "unverified",
         "reason": { "code": "selection-not-observable", "message": "Provider accepted the request but cannot report its current effect." },
@@ -353,7 +358,7 @@ empty `items` list, and a reason. It never returns a guessed list.
 ### Apply and release
 
 ```json
-{"jsonrpc":"2.0","id":4,"method":"binding/apply","params":{"profile":"code","bindingId":"main","renderingAuthority":"provider","deviceScope":{"kind":"provider-managed"},"effect":{"resourceId":"opaque-id-1","displayName":"Aurora"},"layout":null}}
+{"jsonrpc":"2.0","id":4,"method":"binding/apply","params":{"profile":"programming","bindingId":"main","renderingAuthority":"provider","deviceScope":{"kind":"provider-managed"},"effect":{"resourceId":"opaque-id-1","displayName":"Aurora"},"layout":null}}
 {"jsonrpc":"2.0","id":4,"result":{"outcome":"unverified","reason":{"code":"selection-not-observable","message":"Request accepted; current effect cannot be read back."},"actual":null}}
 ```
 
@@ -396,9 +401,9 @@ foreground application is ignored. The coordinator resolves `Aurora` from the ca
 
 ### Restart
 
-`state.json` contains `{ "mode": "automatic", "lastSelectedProfile": "stremio" }`. Before
-detection starts, the core applies `stremio` with `desired.reason.kind: restored`. After VS Code
-holds focus beyond `debounceMs`, rule `code` wins and the reason changes to `rule`. With
+`state.json` contains `{ "mode": "automatic", "lastSelectedProfile": "movie" }`. Before
+detection starts, the core applies `movie` with `desired.reason.kind: restored`. After VS Code
+holds focus beyond `debounceMs`, rule `programming` wins and the reason changes to `rule`. With
 `mode: manual`, the restored `manualProfile` stays active regardless of focus.
 
 ### Absent plugin
@@ -412,17 +417,17 @@ later appears, one `plugin-recovered` notification is shown; output resumes only
 
 ### Explicit user selection
 
-In automatic mode with `code` active, the user picks Media Player. `selectProfile` persists
-`{ "mode": "manual", "manualProfile": "media-player", "lastSelectedProfile": "media-player" }`
+In automatic mode with `programming` active, the user picks Music. `selectProfile` persists
+`{ "mode": "manual", "manualProfile": "music", "lastSelectedProfile": "music" }`
 before applying, and the reason becomes `manual`. Focus changes no longer alter the selection
-until `setMode automatic`. If apply then fails, desired state remains `media-player` and the
+until `setMode automatic`. If apply then fails, desired state remains `music` and the
 fallback chain runs as for an absent plugin.
 
 ### Priority with eligibility
 
-Rule `media-player` is changed to `while-running` and moved above `code`. With Media Player
-running in the background and VS Code focused, `media-player` wins. Setting it back to
-`while-focused` lets `code` win on the next evaluation. Closing Media Player removes its
+Rule `music` is changed to `while-running` and moved above `programming`. With Spotify running
+in the background and VS Code focused, `music` wins. Setting it back to `while-focused` lets
+`programming` win on the next evaluation. Closing Spotify removes its
 eligibility in either case.
 
 ## Out of scope for this contract

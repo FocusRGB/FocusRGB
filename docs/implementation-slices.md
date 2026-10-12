@@ -60,9 +60,10 @@ no Windows or provider references, generated files remain ignored. Pin actual pa
 ### 02 — Profiles and configuration validation
 
 Depends on: 01. Scope: implement the minimal model from 00; validate IDs, rule targets,
-authority, and required fields. Seed user-editable fixtures: Default/Aurora, VS Code/Aurora,
-Media Player/Logarithmic Visualizer, Stremio/Screen Ambient; provider layout stays unset.
-Acceptance: valid fixtures load; duplicates/missing references fail with usable errors;
+authority, and required fields. Seed fixtures: protected Default/Aurora; Programming/Aurora
+for VS Code and Visual Studio; Movie/Screen Ambient for PotPlayer and Stremio; Music/
+Logarithmic Visualizer for Media Player and Spotify. Provider layout stays unset.
+Acceptance: valid fixtures load; removing/reassigning Default and duplicates/missing references fail with usable errors;
 SignalRGB display names are fixtures, not core constants. Native setup is a separate snapshot.
 
 ### 03 — UI shell with preview state
@@ -106,7 +107,7 @@ destroying the previous file. Desired state can persist while applied output is 
 Depends on: 05. Scope: foreground and running-process observations behind the detector
 boundary. Handle disappearing processes/access denial; identify actual Stremio window owner.
 Acceptance: observation fixtures cover app close/helpers/ignored windows; a read-only local
-run reports VS Code, Media Player, and Stremio identities where installed. No lights change.
+run reports the configured Programming, Movie, and Music app identities where installed. No lights change.
 
 ### 08 — Minimal external plugin host and fake plugin
 
