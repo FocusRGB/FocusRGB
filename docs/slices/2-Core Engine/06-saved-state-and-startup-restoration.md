@@ -2,6 +2,9 @@
 
 [← All implementation slices](../../implementation-slices.md)
 
+**Status:** Complete — `51c4b45`, PR #13 dependent on PR #12. Build and 99 tests passed,
+covering atomic replacement, first run, restart, recovery, and native snapshot isolation.
+
 Depends on: 05. Scope: versioned local settings, atomic save, preserved prior valid data on
 failure, first-run manual Default, restart restoration, and saved native fallback snapshot.
 Acceptance: restart restores desired mode/profile; preview/provider changes never overwrite

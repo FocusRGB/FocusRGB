@@ -2,6 +2,9 @@
 
 [← All implementation slices](../../implementation-slices.md)
 
+**Status:** Complete — `0c9a8c3`, PR #1. JSON examples cover first run, restart, absent
+plugin, explicit selection, and priority without provider types.
+
 Depends on: none. Scope: one small design document with JSON examples for profiles, ordered
 rules, mode, desired/applied state, saved native fallback, and integration capabilities.
 Include optional layout, rendering authority, while-running/while-focused eligibility,
