@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace FocusRgb.Core.Configuration
 {
-    /// <summary>Reads and validates settings in memory; file persistence belongs to slice 04.</summary>
+    /// <summary>Reads and validates settings in memory; file persistence belongs to slice 06.</summary>
     public static class SettingsJson
     {
         private static readonly JsonSerializerOptions Options = new()
