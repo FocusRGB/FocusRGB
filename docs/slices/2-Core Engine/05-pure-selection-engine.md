@@ -2,6 +2,9 @@
 
 [← All implementation slices](../../implementation-slices.md)
 
+**Status:** Complete — `eb68a82`, PR #12 dependent on PR #11. Build and 74 tests passed,
+covering manual override, arbitration, debounce, ignored windows, exit, and Default fallback.
+
 Depends on: 02. Scope: supplied observations select a profile with deterministic ordered
 priority and per-rule eligibility. Implement manual override, ignored windows, debounce,
 process exit, and unmatched policy. Inject time/observations for tests; no OS or lighting calls.

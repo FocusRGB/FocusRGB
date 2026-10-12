@@ -2,6 +2,9 @@
 
 [← All implementation slices](../../implementation-slices.md)
 
+**Status:** Complete — `2104f40`, PR #9 dependent on PR #8. Build and 56 tests passed; the app
+opened with four fixture profiles and explicit preview-only state.
+
 Depends on: 02. Scope: replace the placeholder window with the minimal settings shell,
 navigation, manual/automatic control, profile picker, desired/applied/reason status, and clear
 preview-only integration status. Populate it from validated default settings through a small

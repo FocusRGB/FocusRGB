@@ -2,6 +2,9 @@
 
 [← All implementation slices](../../implementation-slices.md)
 
+**Status:** Complete — `dc32b07`, PR #10 dependent on PR #9. Build and 62 tests passed,
+covering draft/apply/cancel, live preview, priority, fake effects, and unavailable layouts.
+
 Depends on: 03. Scope: build the applications/profile mapping editor against draft in-memory
 state: application identity, profile, priority order, while-running/while-focused eligibility,
 Apply/Cancel, and optional Live preview after completed edits. Show provider effect and optional
