@@ -82,6 +82,31 @@ use DDP; do not equate the packet timeout with WLED's 2500 ms DDP timeout.
 - App executable names in the brief are candidates to confirm on the actual foreground
   process. Stremio's runtime helper should not be the primary match.
 
+## Comparable application settings
+
+Reviewed 2026-10-12 from project-owned documentation and repositories:
+
+- [OpenRGB settings documentation](https://gitlab.com/OpenRGBDevelopers/OpenRGB-Wiki/-/blob/stable/User-Documentation/OpenRGB-Settings.md)
+  exposes minimize-on-close versus exit, a tray restore path, System/Light/Dark themes,
+  detector enablement, and HID safe mode.
+- [SignalRGB startup guidance](https://docs.signalrgb.com/troubleshooting/startup-issues/)
+  documents user-controlled startup and silent/minimized launch. Its
+  [dashboard guide](https://docs.signalrgb.com/quick-start/understanding-the-dashboard/)
+  groups application preferences, updates, account details, and device permissions under
+  Settings. Its
+  [device troubleshooting guide](https://docs.signalrgb.com/troubleshooting/common-issues/device-rgb-freezing/)
+  exposes verbose logging under Application > Advanced, and its tray has an explicit Quit.
+- [Fan Control's official repository](https://github.com/Rem0o/FanControl.Releases) lists
+  theme/color customization and user-controlled Windows startup. An
+  [official maintainer response](https://github.com/Rem0o/FanControl.Releases/discussions/804)
+  confirms that closing the window keeps the background app in the tray, an explicit tray Exit
+  closes it, and Start with Windows and Start minimized are separate options.
+
+The common useful pattern for FocusRGB is a clear background lifecycle, an explicit real-exit
+path, separate startup/minimized controls, theme selection, and opt-in diagnostic logging.
+Account, cloud, updater, capture, and device-specific settings depend on product capabilities
+and should not be copied into the application settings page without their owning feature.
+
 ## Sources
 
 - RGB Claude session `ca5cee85-477f-4450-81d7-3fbecb25b67f`.
