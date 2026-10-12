@@ -80,9 +80,11 @@ Apply/Cancel, and optional Live preview. Grouped mappings retain all comma-separ
 names. Layout selection is visibly disabled because the fake catalog does not expose layouts.
 The portable selection engine now evaluates supplied observations with manual override,
 while-running/while-focused eligibility, deterministic priority, focus debounce, ignored
-windows, process-exit handling, protected Default fallback, and explicit reasons. No tray
-behavior, detector wiring, plugin loader, file persistence, hardware output, or startup task
-exists yet.
+windows, process-exit handling, protected Default fallback, and explicit reasons. The portable
+local store validates and atomically persists settings, desired selection state, and an
+independent native fallback snapshot; it seeds first run, restores restarts, and archives
+malformed or invalid-reference documents with explicit recovery details. No tray behavior,
+detector wiring, app persistence wiring, plugin loader, hardware output, or startup task exists yet.
 
 Read-only checks on 2026-10-08 confirmed SignalRGB 2.5.74, WLED Desk 16.0.1 with its 215/85
 split, Dynamic Lighting disabled, and the Synapse delayed task still present. WLED Wall did
@@ -90,24 +92,23 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 05 — Pure selection engine
+- Slice: 06 — Saved state and startup restoration
 - State: complete (pending pull request review into `develop`)
 - Branch, latest relevant code commit, and pull request into `develop`:
-  `slice/05-selection-engine`, `eb68a82`, PR #12.
-- Scope and dependencies verified: follows slice 02 and uses the grouped settings fixtures;
-  branch is stacked on open PR #11.
-- Implemented files and entry points: `../src/FocusRgb.Core/Selection/SelectionEngine.cs`,
-  `SelectionModels.cs`, and `../tests/FocusRgb.Core.Tests/SelectionEngineTests.cs`.
+  `slice/06-persistence`, `51c4b45`, pull request pending.
+- Scope and dependencies verified: follows slice 05 and is stacked on open PR #12.
+- Implemented files and entry points: `../src/FocusRgb.Core/Configuration/StateJson.cs`,
+  `NativeSetupJson.cs`, `../src/FocusRgb.Core/Persistence/LocalStateStore.cs`, persistence
+  result models, and focused document/store tests.
 - Verification: `dotnet build FocusRGB.slnx -c Release` passed with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release` passed 74/74.
+  `dotnet test --solution FocusRGB.slnx -c Release` passed 99/99.
 - External/live evidence: none requested or required; no SignalRGB, network, or device calls.
-- Remaining acceptance criteria: none for Slice 05; platform observation and saved state remain
-  intentionally separate.
-- Current blocker or required product input: none; merge PRs #6, #8, #9, #10, and #11 before
-  this stacked slice.
-- Uncommitted work to preserve: none after the final handoff commit.
-- Next action: implement slice 06 versioned local settings and startup restoration.
-- Next slice: 06.
+- Remaining acceptance criteria: none for Slice 06; choosing the OS per-user directory and
+  wiring startup into the app remain intentionally outside this portable storage slice.
+- Current blocker or required product input: none; merge prerequisite PRs through #12 first.
+- Uncommitted work to preserve: documentation and final handoff changes until committed.
+- Next action: implement slice 07 Windows foreground/running-process observations.
+- Next slice: 07.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -132,8 +133,8 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slices 06–27 are pending. Continue with 06 (saved state and startup restoration). Reuse the
-selection result from slice 05; file persistence must remain separate from output coordination.
+Slices 07–27 are pending. Continue with 07 (Windows application observations). Supply portable
+observations to the slice 05 selector; do not move process APIs into Core.
 
 Build milestone 1 around the existing Windows Avalonia/.NET 10 shell, portable core,
 integration contracts, fake test integration, and separate SignalRGB plugin. Keep protected
