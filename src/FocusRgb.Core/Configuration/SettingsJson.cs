@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace FocusRgb.Core.Configuration
 {
-    /// <summary>Reads and validates settings in memory; file persistence belongs to slice 06.</summary>
+    /// <summary>Reads and validates settings in memory before LocalStateStore persists them.</summary>
     public static class SettingsJson
     {
         public static SettingsLoadResult Load(string json)

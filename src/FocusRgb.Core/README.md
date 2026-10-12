@@ -1,8 +1,8 @@
 # FocusRgb.Core
 
-Portable .NET 10 application logic. Configuration and pure profile selection are implemented;
-persistence, coordination, and output remain later slices. Only shared Contracts may be
-referenced. There are no provider SDKs, OS calls, file writes, or lighting calls here.
+Portable .NET 10 application logic. Configuration, pure profile selection, and atomic local
+persistence are implemented; coordination and output remain later slices. Only shared Contracts
+may be referenced. There are no provider SDKs, platform APIs, or lighting calls here.
 
 ```text
 Configuration/
@@ -14,6 +14,9 @@ Configuration/
 Selection/
   SelectionModels.cs        observation, mode, decision, and reason types
   SelectionEngine.cs        manual/automatic arbitration and focus debounce
+Persistence/
+  PersistenceModels.cs      startup snapshot, recovery notice, and result types
+  LocalStateStore.cs        validated load/save, atomic replacement, startup recovery
 ```
 
 ## Loading settings
@@ -28,12 +31,13 @@ The `default` profile ID is protected: validation requires it and requires
 `default-profile`.
 
 Missing fields stay distinguishable from valid zero/false values. Only schema version 1 is
-accepted. Migration/atomic file persistence arrives in slice 06. Application authority and
-reserved game/device scope shapes can validate, but this does not claim runtime support.
+accepted. Unsupported versions are preserved and reported rather than overwritten. Application
+authority and reserved game/device scope shapes can validate, but this does not claim runtime
+support.
 
-`CreateDefaultNativeSetup()` returns an independent empty app-default snapshot. Slice 06
-handles its storage; slices 17–18 add native rendering/output. It is not derived from provider
-bindings. Runtime intent (`state.json`) remains outside this slice.
+`NativeSetupJson.CreateDefault()` returns an independent empty app-default snapshot, and
+`LocalStateStore` handles its storage. Slices 17–18 add native rendering/output. The snapshot
+is not derived from provider bindings. Runtime intent is stored separately in `state.json`.
 
 ## Selecting a profile
 
@@ -45,8 +49,31 @@ previous stable focus. A process must still appear in `RunningExecutables`, so e
 eligibility immediately. No eligible rule returns protected Default. The result reports
 `manual`, `rule` (with its rule ID), or `unmatched-default`.
 
-The caller owns process observation and time. The selector does not read the OS, persist state,
-or call an integration or device. Runtime observation wiring arrives in slice 07.
+The caller owns process observation and time. The selector does not read the OS or call an
+integration or device. `LocalStateStore` persists its desired result independently of output.
+Runtime observation wiring arrives in slice 07.
+
+## Persisting startup state
+
+Construct `LocalStateStore` with the per-user data directory selected by the application, then
+call `InitializeAsync`. It owns `settings.json`, `state.json`, and `native-setup.json` within
+that directory. Missing files receive validated defaults; the first missing state starts in
+manual Default. A valid restart restores the saved mode and desired profile before detection.
+
+Writes serialize and flush a unique temporary file before atomically replacing the target. A
+validation, serialization, or replacement failure leaves the prior target untouched. Malformed
+documents are renamed with a timestamp before a replacement is seeded, and the returned startup
+snapshot includes a `RecoveryNotice`. Unknown state profile references are archived and reset
+to manual Default with `invalid-state-reset`. Unsupported schema versions are left in place and
+returned as errors so a newer document is never silently downgraded.
+
+Use `SaveSettingsAsync`, `SaveStateAsync`, and `SaveNativeSetupAsync` only for their named
+documents. Saving desired state requires no applied output. Provider edits, previews, and
+fallback activation must never call `SaveNativeSetupAsync`; only an explicit user-applied
+native setup owns that snapshot.
+
+The store does not choose an OS data path, read processes, or call an integration or device.
+The Windows app will select its per-user directory when persistence is wired into the shell.
 
 ## Adding a profile
 
