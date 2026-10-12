@@ -1,6 +1,7 @@
 # RGB controller: product brief
 
-Planning only. Updated 2026-10-09 from the RGB chat and user clarification.
+Planning only. Updated 2026-10-12 from the RGB chat, user clarification, and application
+settings decision.
 
 ## Goal
 
@@ -25,6 +26,8 @@ rules, layouts, or game integrations.
 | Unmatched app | Select the protected Default profile |
 | Manual mode | Keep the user-selected profile active until automatic selection is resumed |
 | Restart | Restore and apply the last mode and selected profile before normal detection continues |
+| Close main window | Minimize to the system tray by default, or exit when the user selects that behavior |
+| Tray Quit or operating-system shutdown | Exit cleanly and release plugin processes and owned output |
 | Missing or unsupported backend | Explain the limitation; only use an explicitly configured fallback |
 | Game loses focus, profile exits, or app shuts down | Clear app-owned overrides and release output safely |
 
@@ -70,6 +73,10 @@ SignalRGB ownership. Both plugins must never write to the same physical WLED dev
 - Keep platform support explicit in each plugin manifest. A plugin may be portable or may
   provide separate Windows, macOS, and Linux entry points behind the same contract.
 - Core owns rule arbitration, debounce, transitions, settings, logging, and device ownership.
+- Application-wide preferences are limited to desktop behavior, appearance, and diagnostics.
+  Close-button behavior is user-selectable between minimize to tray and exit, with minimize to
+  tray as the default. Profile, mapping, integration, device, layout, and effect controls stay
+  in their own editors; see [`application-settings.md`](application-settings.md).
 - Users can reorder or assign priorities to automatic rules. Manual mode overrides automatic
   detection; ties are deterministic and the UI explains why the active profile won.
 - Each rule can stay eligible while its application is running or only while focused. A higher
@@ -134,7 +141,8 @@ external plugin SDK, local MCP control, reliability, and distribution work shoul
 these goals rather than becoming prerequisites for the first visible result.
 
 Plugin package signing/distribution and installation UX remain undecided. Startup automation
-follows reliable cleanup/recovery. The Arduino tester is independent. Existing
+is off by default, remains user-controlled, and follows reliable cleanup/recovery. The Arduino
+tester is independent. Existing
 `modules/signalrgb/plugins/` contains SignalRGB device plugins, not this controller's
 extension system.
 
