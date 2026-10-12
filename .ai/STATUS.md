@@ -95,7 +95,7 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Slice: 06 — Saved state and startup restoration
 - State: complete (pending pull request review into `develop`)
 - Branch, latest relevant code commit, and pull request into `develop`:
-  `slice/06-persistence`, `51c4b45`, pull request pending.
+  `slice/06-persistence`, `51c4b45`, PR #13.
 - Scope and dependencies verified: follows slice 05 and is stacked on open PR #12.
 - Implemented files and entry points: `../src/FocusRgb.Core/Configuration/StateJson.cs`,
   `NativeSetupJson.cs`, `../src/FocusRgb.Core/Persistence/LocalStateStore.cs`, persistence
@@ -106,7 +106,7 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Remaining acceptance criteria: none for Slice 06; choosing the OS per-user directory and
   wiring startup into the app remain intentionally outside this portable storage slice.
 - Current blocker or required product input: none; merge prerequisite PRs through #12 first.
-- Uncommitted work to preserve: documentation and final handoff changes until committed.
+- Uncommitted work to preserve: none after the final handoff commit.
 - Next action: implement slice 07 Windows foreground/running-process observations.
 - Next slice: 07.
 
