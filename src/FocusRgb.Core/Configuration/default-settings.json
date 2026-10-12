@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "selection": {
     "defaultProfile": "default",
-    "unmatched": "keep-current",
+    "unmatched": "default-profile",
     "debounceMs": 2000,
     "ignoredExecutables": ["ShellExperienceHost.exe", "SearchHost.exe", "LockApp.exe"]
   },
@@ -23,8 +23,8 @@
       "fallback": [{ "kind": "native-setup" }]
     },
     {
-      "id": "code",
-      "displayName": "VS Code",
+      "id": "programming",
+      "displayName": "Programming",
       "bindings": [
         {
           "id": "main",
@@ -38,23 +38,8 @@
       "fallback": [{ "kind": "native-setup" }]
     },
     {
-      "id": "media-player",
-      "displayName": "Media Player",
-      "bindings": [
-        {
-          "id": "main",
-          "plugin": "signalrgb",
-          "renderingAuthority": "provider",
-          "deviceScope": { "kind": "provider-managed" },
-          "effect": { "resourceId": null, "displayName": "Logarithmic Visualizer" },
-          "layout": null
-        }
-      ],
-      "fallback": [{ "kind": "native-setup" }]
-    },
-    {
-      "id": "stremio",
-      "displayName": "Stremio",
+      "id": "movie",
+      "displayName": "Movie",
       "bindings": [
         {
           "id": "main",
@@ -66,29 +51,44 @@
         }
       ],
       "fallback": [{ "kind": "native-setup" }]
+    },
+    {
+      "id": "music",
+      "displayName": "Music",
+      "bindings": [
+        {
+          "id": "main",
+          "plugin": "signalrgb",
+          "renderingAuthority": "provider",
+          "deviceScope": { "kind": "provider-managed" },
+          "effect": { "resourceId": null, "displayName": "Logarithmic Visualizer" },
+          "layout": null
+        }
+      ],
+      "fallback": [{ "kind": "native-setup" }]
     }
   ],
   "rules": [
     {
-      "id": "media-player",
-      "profile": "media-player",
-      "match": { "executables": ["wmplayer.exe", "Microsoft.Media.Player.exe"] },
+      "id": "programming",
+      "profile": "programming",
+      "match": { "executables": ["Code.exe", "devenv.exe"] },
       "eligibility": "while-focused",
       "priority": 100,
       "enabled": true
     },
     {
-      "id": "stremio",
-      "profile": "stremio",
-      "match": { "executables": ["stremio-shell-ng.exe"] },
+      "id": "movie",
+      "profile": "movie",
+      "match": { "executables": ["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"] },
       "eligibility": "while-focused",
       "priority": 100,
       "enabled": true
     },
     {
-      "id": "code",
-      "profile": "code",
-      "match": { "executables": ["Code.exe"] },
+      "id": "music",
+      "profile": "music",
+      "match": { "executables": ["Microsoft.Media.Player.exe", "wmplayer.exe", "Spotify.exe"] },
       "eligibility": "while-focused",
       "priority": 100,
       "enabled": true

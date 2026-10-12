@@ -20,6 +20,9 @@ JSON paths and no settings object. `LoadDefaults()` loads the seed resource thro
 validation path. `SettingsValidator.Validate(document)` also validates programmatically edited
 settings. Serialization preserves unknown fields on each modeled object and opaque provider
 IDs; it does not validate or write a file. Call validation before accepting/saving edits.
+The `default` profile ID is protected: validation requires it and requires
+`selection.defaultProfile` to keep referencing it. Seeded unmatched selection is always
+`default-profile`.
 
 Missing fields stay distinguishable from valid zero/false values. Only schema version 1 is
 accepted. Migration/atomic file persistence arrives in slice 06. Application authority and
@@ -38,8 +41,9 @@ bindings. Runtime intent (`state.json`) remains outside this slice.
    placements. Empty bindings are valid for a profile that produces no output.
 3. Add an optional rule targeting that profile with executable names, eligibility, priority,
    and enabled state. Array order is the saved priority tie order.
-4. Validate the whole document. Repeated profile/rule IDs, duplicate bindings within a
-   profile, missing references, and fallback cycles are rejected with field paths.
+4. Validate the whole document. The protected `default` profile cannot be removed or replaced.
+   Repeated profile/rule IDs, duplicate bindings within a profile, missing references, and
+   fallback cycles are rejected with field paths.
 5. Add an acceptance case in `tests/FocusRgb.Core.Tests/SettingsTests.cs` if new behavior is
    introduced. Do not add plugin-specific C# constants or resolve provider catalogs here.
 

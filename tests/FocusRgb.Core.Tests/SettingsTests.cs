@@ -6,9 +6,9 @@ namespace FocusRgb.Core.Tests
     /// <summary>Checks configuration boundaries before later slices persist or apply lighting.</summary>
     public sealed class SettingsTests
     {
-        private static readonly string[] ProfileIds = ["default", "code", "media-player", "stremio"];
-        private static readonly string[] EffectNames = ["Aurora", "Aurora", "Logarithmic Visualizer", "Screen Ambient"];
-        private static readonly string[] RuleOrder = ["media-player", "stremio", "code"];
+        private static readonly string[] ProfileIds = ["default", "programming", "movie", "music"];
+        private static readonly string[] EffectNames = ["Aurora", "Aurora", "Screen Ambient", "Logarithmic Visualizer"];
+        private static readonly string[] RuleOrder = ["programming", "movie", "music"];
 
         [Fact]
         public void LoadDefaults_LoadsAcceptanceMappings_WithNoProviderLayout()
@@ -28,7 +28,15 @@ namespace FocusRgb.Core.Tests
                 Assert.Equal("provider", binding.RenderingAuthority);
                 Assert.Equal("native-setup", Assert.Single(profile.Fallback!).Kind);
             });
-            Assert.Equal(RuleOrder, result.Settings.Rules!.Select(r => r.Id));
+            var rules = Assert.IsType<List<RuleSettings>>(result.Settings.Rules);
+            Assert.Equal(RuleOrder, rules.Select(r => r.Id));
+            Assert.Equal("default", result.Settings.Selection!.DefaultProfile);
+            Assert.Equal("default-profile", result.Settings.Selection.Unmatched);
+            Assert.Equal(["Code.exe", "devenv.exe"], rules[0].Match!.Executables);
+            Assert.Equal(["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"],
+                rules[1].Match!.Executables);
+            Assert.Equal(["Microsoft.Media.Player.exe", "wmplayer.exe", "Spotify.exe"],
+                rules[2].Match!.Executables);
         }
 
         [Theory]
@@ -40,9 +48,10 @@ namespace FocusRgb.Core.Tests
         [InlineData("profiles.0.bindings.0.effect.displayName", "", "profiles[0].bindings[0].effect.displayName")]
         [InlineData("profiles.0.bindings.0.effect.resourceId", " ", "profiles[0].bindings[0].effect.resourceId")]
         [InlineData("rules.0.profile", "missing", "rules[0].profile")]
-        [InlineData("rules.1.id", "media-player", "rules[1].id")]
+        [InlineData("rules.1.id", "programming", "rules[1].id")]
         [InlineData("rules.0.eligibility", "WhileFocused", "rules[0].eligibility")]
         [InlineData("selection.defaultProfile", "missing", "selection.defaultProfile")]
+        [InlineData("selection.unmatched", "keep-current", "selection.unmatched")]
         [InlineData("selection.unmatched", "anything", "selection.unmatched")]
         [InlineData("profiles.0.fallback.0.kind", "random", "profiles[0].fallback[0].kind")]
         public void Load_RejectsInvalidValue_WithFieldPath(string field, string value, string errorPath)
@@ -143,7 +152,7 @@ namespace FocusRgb.Core.Tests
             var root = Defaults();
             Set(root, "profiles.0.fallback.0", JsonNode.Parse(direct
                 ? """{"kind":"profile","profile":"default"}"""
-                : """{"kind":"profile","profile":"code"}"""));
+                : """{"kind":"profile","profile":"programming"}"""));
             if (!direct)
             {
                 Set(root, "profiles.1.fallback.0", JsonNode.Parse("""{"kind":"profile","profile":"default"}"""));
@@ -155,10 +164,22 @@ namespace FocusRgb.Core.Tests
         public void Load_AcceptsAcyclicFallback_AndEmptyOutputProfile()
         {
             var root = Defaults();
-            Set(root, "profiles.0.fallback.0", JsonNode.Parse("""{"kind":"profile","profile":"code"}"""));
+            Set(root, "profiles.0.fallback.0", JsonNode.Parse("""{"kind":"profile","profile":"programming"}"""));
             Set(root, "profiles.1.bindings", new JsonArray());
             Set(root, "rules", new JsonArray());
             Assert.True(SettingsJson.Load(root.ToJsonString()).IsSuccess);
+        }
+
+        [Fact]
+        public void Load_RejectsRemovingOrReassigningProtectedDefaultProfile()
+        {
+            var missingDefault = Defaults();
+            ((JsonArray)missingDefault["profiles"]!).RemoveAt(0);
+            AssertError(missingDefault, "profiles");
+
+            var reassignedDefault = Defaults();
+            Set(reassignedDefault, "selection.defaultProfile", JsonValue.Create("programming"));
+            AssertError(reassignedDefault, "selection.defaultProfile");
         }
 
         [Fact]

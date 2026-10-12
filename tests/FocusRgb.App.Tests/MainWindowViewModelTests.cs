@@ -20,7 +20,7 @@ namespace FocusRgb.App.Tests
         {
             var viewModel = MainWindowViewModel.CreatePreview();
 
-            Assert.Equal(["Default", "VS Code", "Media Player", "Stremio"],
+            Assert.Equal(["Default", "Programming", "Movie", "Music"],
                 viewModel.Profiles.Select(profile => profile.DisplayName));
         }
 
@@ -29,10 +29,10 @@ namespace FocusRgb.App.Tests
         {
             var viewModel = MainWindowViewModel.CreatePreview();
 
-            viewModel.SelectedProfile = viewModel.Profiles.Single(profile => profile.Id == "stremio");
+            viewModel.SelectedProfile = viewModel.Profiles.Single(profile => profile.Id == "movie");
 
-            Assert.Equal("Stremio", viewModel.DesiredProfileName);
-            Assert.Equal("Stremio (preview)", viewModel.AppliedProfileName);
+            Assert.Equal("Movie", viewModel.DesiredProfileName);
+            Assert.Equal("Movie (preview)", viewModel.AppliedProfileName);
         }
 
         [Fact]

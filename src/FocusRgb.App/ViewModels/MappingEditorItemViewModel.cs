@@ -8,7 +8,7 @@ namespace FocusRgb.App.ViewModels
     {
         private readonly MappingEditorViewModel _editor;
         private string _applicationName;
-        private string _executable;
+        private string _executables;
         private string _eligibility;
         private ResourceOptionViewModel _selectedEffect;
         private ProfileOptionViewModel _selectedProfile;
@@ -27,7 +27,7 @@ namespace FocusRgb.App.ViewModels
             Effects = effects;
             EligibilityOptions = ["while-focused", "while-running"];
             _applicationName = snapshot.ApplicationName;
-            _executable = snapshot.Executable;
+            _executables = snapshot.Executables;
             _selectedProfile = profiles.Single(profile => profile.Id == snapshot.ProfileId);
             _eligibility = snapshot.Eligibility;
             _priority = snapshot.Priority;
@@ -55,10 +55,10 @@ namespace FocusRgb.App.ViewModels
             set => Set(ref _applicationName, value);
         }
 
-        public string Executable
+        public string Executables
         {
-            get => _executable;
-            set => Set(ref _executable, value);
+            get => _executables;
+            set => Set(ref _executables, value);
         }
 
         public ProfileOptionViewModel SelectedProfile
@@ -105,7 +105,7 @@ namespace FocusRgb.App.ViewModels
         internal MappingSnapshot CreateSnapshot() => new(
             Id,
             ApplicationName,
-            Executable,
+            Executables,
             SelectedProfile.Id,
             Eligibility,
             Priority,

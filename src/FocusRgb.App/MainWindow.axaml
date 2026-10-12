@@ -118,7 +118,8 @@
                   <DataTemplate x:DataType="vm:MappingEditorItemViewModel">
                     <StackPanel Margin="4" Spacing="2">
                       <TextBlock Text="{Binding ApplicationName}" FontWeight="SemiBold" />
-                      <TextBlock Text="{Binding Executable}" FontSize="12" Opacity="0.65" />
+                      <TextBlock Text="{Binding Executables}" FontSize="12" Opacity="0.65"
+                                 TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                   </DataTemplate>
                 </ListBox.ItemTemplate>
@@ -139,8 +140,9 @@
                         <TextBlock Text="Mapping details" FontSize="18" FontWeight="SemiBold" />
                         <TextBlock Text="Application name" FontWeight="SemiBold" />
                         <TextBox Text="{Binding ApplicationName}" />
-                        <TextBlock Text="Executable" FontWeight="SemiBold" />
-                        <TextBox Text="{Binding Executable}" />
+                        <TextBlock Text="Executables" FontWeight="SemiBold" />
+                        <TextBox Text="{Binding Executables}" />
+                        <TextBlock Text="Separate executable names with commas." FontSize="12" Opacity="0.6" />
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                           <StackPanel Spacing="6">
                             <TextBlock Text="Profile" FontWeight="SemiBold" />

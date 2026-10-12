@@ -9,29 +9,32 @@ namespace FocusRgb.App.Tests
         {
             var editor = MainWindowViewModel.CreatePreview().MappingEditor;
 
-            Assert.Equal(["Media Player", "Stremio", "VS Code"],
+            Assert.Equal(["Programming", "Movie", "Music"],
                 editor.Mappings.Select(mapping => mapping.ApplicationName));
             Assert.Equal([1, 2, 3], editor.Mappings.Select(mapping => mapping.Position));
+            Assert.Equal("Code.exe, devenv.exe", editor.Mappings[0].Executables);
+            Assert.Contains("stremio-shell-ng.exe", editor.Mappings[1].Executables, StringComparison.Ordinal);
+            Assert.Contains("Spotify.exe", editor.Mappings[2].Executables, StringComparison.Ordinal);
         }
 
         [Fact]
         public void DraftChange_WaitsForApply_WhenLivePreviewIsOff()
         {
             var editor = MainWindowViewModel.CreatePreview().MappingEditor;
-            var originalExecutable = editor.AppliedMappings[0].Executable;
+            var originalExecutables = editor.AppliedMappings[0].Executables;
 
-            editor.SelectedMapping!.Executable = "player-preview.exe";
+            editor.SelectedMapping!.Executables = "player-preview.exe, second-player.exe";
 
             Assert.True(editor.IsDirty);
             Assert.Equal(0, editor.PreviewRevision);
-            Assert.Equal(originalExecutable, editor.AppliedMappings[0].Executable);
+            Assert.Equal(originalExecutables, editor.AppliedMappings[0].Executables);
 
             editor.Apply();
 
             Assert.False(editor.IsDirty);
             Assert.Equal(1, editor.AppliedRevision);
             Assert.Equal(1, editor.PreviewRevision);
-            Assert.Equal("player-preview.exe", editor.AppliedMappings[0].Executable);
+            Assert.Equal("player-preview.exe, second-player.exe", editor.AppliedMappings[0].Executables);
         }
 
         [Fact]
@@ -58,7 +61,7 @@ namespace FocusRgb.App.Tests
             editor.Cancel();
 
             Assert.False(editor.IsDirty);
-            Assert.Equal("Media Player", editor.Mappings[0].ApplicationName);
+            Assert.Equal("Programming", editor.Mappings[0].ApplicationName);
             Assert.Equal(changedPreviewRevision + 1, editor.PreviewRevision);
             Assert.Contains("restored", editor.PreviewStatus, StringComparison.OrdinalIgnoreCase);
         }
@@ -71,7 +74,7 @@ namespace FocusRgb.App.Tests
 
             editor.MoveSelected(-1);
 
-            Assert.Equal(["media-player", "code", "stremio"], editor.Mappings.Select(mapping => mapping.Id));
+            Assert.Equal(["programming", "music", "movie"], editor.Mappings.Select(mapping => mapping.Id));
             Assert.Equal([1, 2, 3], editor.Mappings.Select(mapping => mapping.Position));
             Assert.True(editor.IsDirty);
         }
@@ -81,7 +84,7 @@ namespace FocusRgb.App.Tests
         {
             var mapping = MainWindowViewModel.CreatePreview().MappingEditor.SelectedMapping!;
 
-            Assert.Equal(["Aurora", "Logarithmic Visualizer", "Screen Ambient"],
+            Assert.Equal(["Aurora", "Screen Ambient", "Logarithmic Visualizer"],
                 mapping.Effects.Select(effect => effect.DisplayName));
             Assert.All(mapping.Effects, effect => Assert.True(effect.IsAvailable));
             Assert.False(mapping.CanChooseLayout);
