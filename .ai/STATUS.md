@@ -67,8 +67,8 @@ until native rendering/output exists or the target hardware is released.
 
 The SignalRGB module contains templates, a Canvas API example, and an archived Pro-blocked
 effect. The shared screen colour test remains under `tools/`; the Arduino sketch moved to
-`../modules/arduino/sketches/` for a future Arduino plugin. `../src/` contains the app scaffold and portable configuration code
-alongside the scaffold and configuration model. No custom
+`../modules/arduino/sketches/` for a future Arduino plugin. `../src/` contains the app scaffold
+and portable configuration code. No custom
 SignalRGB effects or user device plugins are active in the repo or Documents folders.
 The controller app opens a placeholder window. Slice 02 implements the settings model and
 validation; no selection engine, plugin loader, file persistence, or startup task exists yet.
