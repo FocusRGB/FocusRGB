@@ -4,7 +4,11 @@ Updated: 2026-10-12.
 
 ## Completed
 
-- The implementation roadmap is now a compact status index; all 28 dependency/scope/acceptance
+- Application settings are now specified with researched defaults and ownership boundaries.
+  Close-button behavior defaults to minimize to tray and can be changed to real exit; startup
+  registration remains opt-in work for slice 26. Implementation is isolated in new slice 12a
+  after tray support (PR #15).
+- The implementation roadmap is now a compact status index; all 29 dependency/scope/acceptance
   definitions live in numbered group folders under `../docs/slices/` (PR #14).
 - README refreshed around the current product roadmap, implementation slices, and shared
   handoff; old Arduino setup details and tool-specific commands removed from the entry page.
@@ -87,6 +91,8 @@ local store validates and atomically persists settings, desired selection state,
 independent native fallback snapshot; it seeds first run, restores restarts, and archives
 malformed or invalid-reference documents with explicit recovery details. No tray behavior,
 detector wiring, app persistence wiring, plugin loader, hardware output, or startup task exists yet.
+The planned Settings page is documented in `../docs/application-settings.md`; no preference
+schema, settings UI, tray behavior, startup registration, or diagnostics implementation was added.
 
 Read-only checks on 2026-10-08 confirmed SignalRGB 2.5.74, WLED Desk 16.0.1 with its 215/85
 split, Dynamic Lighting disabled, and the Synapse delayed task still present. WLED Wall did
