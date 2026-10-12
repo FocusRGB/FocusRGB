@@ -62,14 +62,17 @@ SignalRGB ownership. Both plugins must never write to the same physical WLED dev
 ## Design requirements
 
 - Plugins cover focus/app detection, installed-app/game discovery, external integrations,
-  RGB output, and extensible native effects. Integration-specific files are packaged under
-  `modules/<integration>/`; a module may provide several plugin roles.
+  RGB output, and extensible native effects. Production plugins use independent
+  `FocusRGB-Plugin-<Name>` repositories; a plugin may provide several roles.
 - The core references only integration contracts. SignalRGB-specific code is a separate
-  plugin and must never be referenced by the core or Avalonia application projects.
+  repository/package and must never be referenced by the core or Avalonia application projects.
 - Integration contracts expose provider effect/layout catalogs and accept a rendering-authority
   choice. The UI persists the user's application, effect, layout, and authority mappings.
 - Publish the plugin contract, schemas, templates, and reference plugins as open-source
   components so third parties can add integrations without modifying the application.
+- Keep contracts, the .NET plugin SDK, host, schemas, conformance tests, template, and fake
+  reference plugin in the main repository. External plugin repositories consume a published
+  SDK version and must build without a local FocusRGB checkout or Git submodule.
 - Keep platform support explicit in each plugin manifest. A plugin may be portable or may
   provide separate Windows, macOS, and Linux entry points behind the same contract.
 - Core owns rule arbitration, debounce, transitions, settings, logging, and device ownership.
@@ -120,9 +123,10 @@ SignalRGB ownership. Both plugins must never write to the same physical WLED dev
 ## Scope
 
 The first implementation goal is a working Avalonia/.NET 10 Windows executable with a portable
-background core and a separately packaged SignalRGB plugin: detection, deterministic/manual
-selection, profiles, and visible SignalRGB effect switching. A fake integration remains useful
-for tests, but a generic public plugin SDK must not delay this vertical slice.
+background core and a separately packaged SignalRGB plugin from
+`FocusRGB-Plugin-SignalRGB`: detection, deterministic/manual selection, profiles, and visible
+SignalRGB effect switching. The main repository keeps the minimal SDK and fake integration
+needed to prove this path; stabilizing a complete public SDK must not delay the vertical slice.
 
 The initial acceptance profiles are Default → Aurora; Programming → Aurora for VS Code and
 Visual Studio; Movie → Screen Ambient for PotPlayer and Stremio; and Music → Logarithmic

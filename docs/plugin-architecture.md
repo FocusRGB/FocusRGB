@@ -31,17 +31,21 @@ selection, profiles, transitions, and command handling live in UI-independent co
 so the same background engine can run on Windows, macOS, and Linux. Ship only a Windows
 executable initially; portable projects must not reference Windows-only APIs.
 
-The dependency direction is strict: the app and plugins depend on shared integration
-contracts; the core depends on neither. SignalRGB is a separate plugin project/package and is
-not compiled into the core or Avalonia application. Removing that plugin must leave profile
+The dependency direction is strict: the app host depends on shared integration contracts;
+.NET plugins depend on the SDK, which depends on those contracts; the core depends on neither
+the SDK nor any plugin. SignalRGB is a separate plugin package and repository and is not
+compiled into the core or Avalonia application. Removing that plugin must leave profile
 selection, persistence, and fake-integration tests working.
 
 Controller plugins are external processes, not SignalRGB-style JavaScript files loaded into
 the application. Each package contains a versioned manifest, one or more platform entry
 points, configuration schema, resources, and a license. The app launches explicitly enabled
 plugins and communicates through a versioned JSON-RPC protocol over standard input/output.
-An official .NET SDK and templates implement that protocol, while its published JSON schemas
-leave room for plugins written in other languages.
+The main FocusRGB repository owns the official .NET SDK, contracts, schemas, host, conformance
+tests, template, and a fake/reference plugin. The SDK implements the plugin side of the
+protocol, while published JSON schemas leave room for plugins written in other languages.
+The host launches and supervises plugins; it never loads third-party assemblies into the app
+process.
 
 Process separation contains crashes and permits plugin restart, but is not a security
 sandbox. Manifests declare operating systems, architectures, roles, capabilities, and needed
@@ -49,10 +53,10 @@ resources such as network, screen capture, or USB access. The UI must show those
 before enabling an untrusted plugin. Keep frame messages batched; add a measured binary
 transport only if JSON becomes a demonstrated streaming bottleneck.
 
-Do not build the complete external plugin host before the first working integration. Start
-with the smallest internal contracts needed by the SignalRGB plugin and fake test integration.
-Once that vertical slice works, extract and version the external protocol and SDK from the
-proven boundary rather than guessing the entire public API up front.
+Start with the smallest SDK and host surface needed by the fake test integration. Pack it as a
+versioned `0.x` prerelease before the first external plugin repository consumes it. Once the
+SignalRGB and WLED integrations prove the boundary, stabilize the public SDK rather than
+guessing its complete version-1 API up front.
 
 ## Profile composition
 
@@ -79,20 +83,35 @@ Active SignalRGB provider authority overrides the app's effect, placement layout
 routing, and native calibration for devices SignalRGB manages. Preserve the app settings for
 later native use. App selection rules, priorities, manual mode, and persistence still apply.
 SignalRGB already handles WLED output: do not send direct WLED commands or frames to those
-devices while SignalRGB owns them. A separate WLED integration/output plugin under
-`modules/wled/` is required for testing and operation without SignalRGB, after ownership is
-confirmed. Provider-specific identifiers remain outside the rule engine.
+devices while SignalRGB owns them. A separate WLED integration/output plugin repository is
+required for testing and operation without SignalRGB, after ownership is confirmed.
+Provider-specific identifiers remain outside the rule engine.
 
-## Module packaging
+## Repository and package ownership
 
-Use `modules/<integration>/` as the ownership boundary for an external system. A module keeps
-its backend code, integration adapters, tools, examples, templates, and specific research
-together, while exposing one or more of the contracts below. Shared rules, layouts, effects,
-and hardware-independent tools stay outside integration modules.
+Production plugins live in independent repositories named `FocusRGB-Plugin-<Name>`, such as
+`MAJ224/FocusRGB-Plugin-SignalRGB` and `MAJ224/FocusRGB-Plugin-WLED`. A plugin repository owns
+its executable, manifest, provider-specific code, tests, documentation, packaging, license,
+and releases. Official and community plugins follow the same package contract.
 
-`modules/signalrgb/` is the first such boundary. It contains the current SignalRGB content
-and utilities before a loader exists. A later WLED module should follow the same rule when
-its controller implementation enters this repository.
+Repository separation must not become a runtime source dependency. A plugin consumes a
+published version of `FocusRgb.PluginSdk`; it does not use a project reference, Git submodule,
+or source checkout of the app. Its CI must build against its declared package source without a
+local FocusRGB clone. The app installs or discovers the plugin's packaged release and validates
+the manifest's plugin and contract versions before launch.
+
+Create each repository when its implementation slice starts, not as an empty placeholder.
+The current `modules/signalrgb/` directory is temporary staging for existing research and
+tools. Slice 11 moves maintained SignalRGB-specific material into
+`FocusRGB-Plugin-SignalRGB` and leaves only a short migration link if historical references
+require it. Slice 18 creates `FocusRGB-Plugin-WLED`. A selected game integration follows the
+same convention in slice 16. Shared rules, layouts, native effects, and hardware-independent
+tools remain in the main repository.
+
+The main repository retains a fake/reference plugin so host and SDK compatibility can be
+tested in one checkout. A lightweight catalog may later point to approved plugin releases;
+plugins are never included through Git submodules. GitHub repositories are peers rather than
+literal child repositories, so the naming convention and catalog express their relationship.
 
 ## Contract sketch
 
