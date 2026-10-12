@@ -3,4 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\FocusRgb.Contracts\FocusRgb.Contracts.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration\default-settings.json" />
+  </ItemGroup>
 </Project>

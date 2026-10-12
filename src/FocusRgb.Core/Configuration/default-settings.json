@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "selection": {
+    "defaultProfile": "default",
+    "unmatched": "keep-current",
+    "debounceMs": 2000,
+    "ignoredExecutables": ["ShellExperienceHost.exe", "SearchHost.exe", "LockApp.exe"]
+  },
+  "profiles": [
+    {
+      "id": "default",
+      "displayName": "Default",
+      "bindings": [
+        {
+          "id": "main",
+          "plugin": "signalrgb",
+          "renderingAuthority": "provider",
+          "deviceScope": { "kind": "provider-managed" },
+          "effect": { "resourceId": null, "displayName": "Aurora" },
+          "layout": null
+        }
+      ],
+      "fallback": [{ "kind": "native-setup" }]
+    },
+    {
+      "id": "code",
+      "displayName": "VS Code",
+      "bindings": [
+        {
+          "id": "main",
+          "plugin": "signalrgb",
+          "renderingAuthority": "provider",
+          "deviceScope": { "kind": "provider-managed" },
+          "effect": { "resourceId": null, "displayName": "Aurora" },
+          "layout": null
+        }
+      ],
+      "fallback": [{ "kind": "native-setup" }]
+    },
+    {
+      "id": "media-player",
+      "displayName": "Media Player",
+      "bindings": [
+        {
+          "id": "main",
+          "plugin": "signalrgb",
+          "renderingAuthority": "provider",
+          "deviceScope": { "kind": "provider-managed" },
+          "effect": { "resourceId": null, "displayName": "Logarithmic Visualizer" },
+          "layout": null
+        }
+      ],
+      "fallback": [{ "kind": "native-setup" }]
+    },
+    {
+      "id": "stremio",
+      "displayName": "Stremio",
+      "bindings": [
+        {
+          "id": "main",
+          "plugin": "signalrgb",
+          "renderingAuthority": "provider",
+          "deviceScope": { "kind": "provider-managed" },
+          "effect": { "resourceId": null, "displayName": "Screen Ambient" },
+          "layout": null
+        }
+      ],
+      "fallback": [{ "kind": "native-setup" }]
+    }
+  ],
+  "rules": [
+    {
+      "id": "media-player",
+      "profile": "media-player",
+      "match": { "executables": ["wmplayer.exe", "Microsoft.Media.Player.exe"] },
+      "eligibility": "while-focused",
+      "priority": 100,
+      "enabled": true
+    },
+    {
+      "id": "stremio",
+      "profile": "stremio",
+      "match": { "executables": ["stremio-shell-ng.exe"] },
+      "eligibility": "while-focused",
+      "priority": 100,
+      "enabled": true
+    },
+    {
+      "id": "code",
+      "profile": "code",
+      "match": { "executables": ["Code.exe"] },
+      "eligibility": "while-focused",
+      "priority": 100,
+      "enabled": true
+    }
+  ]
+}
