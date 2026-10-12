@@ -44,6 +44,8 @@ Status: **00–06 complete on the stacked pull-request chain. 07 is next.**
   implement provider status, catalogs, effect/layout application, and honest unsupported results.
 - ⏳ [12 — Tray runtime and real status](<slices/3-SignalRGB Product Path/12-tray-runtime-and-real-status-wiring.md>):
   run the engine in the tray app and connect real status and recovery commands.
+- ⏳ [12a — Application settings](<slices/3-SignalRGB Product Path/12a-application-settings-and-lifecycle-preferences.md>):
+  persist desktop lifecycle, theme, and diagnostic preferences in a small Settings page.
 - ⏳ [13 — Wire mappings](<slices/3-SignalRGB Product Path/13-wire-profile-mappings-to-catalogs-and-persistence.md>):
   connect the editor to persistence, detected apps, and provider catalogs.
 - ⏳ [14 — First acceptance gate](<slices/3-SignalRGB Product Path/14-first-product-acceptance-gate.md>):

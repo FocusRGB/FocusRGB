@@ -36,6 +36,8 @@ A local MCP interface is planned for controlling the same commands used by the U
 - [Implementation slices](docs/implementation-slices.md): compact status index linking to each
   slice's dependency, scope, acceptance checks, and shared start/resume prompts.
 - [App brief](docs/app-brief.md): product requirements and user decisions.
+- [Application settings](docs/application-settings.md): planned desktop lifecycle, appearance,
+  diagnostics, ownership boundaries, and defaults.
 - [Minimal contract](docs/minimal-contract.md): frozen settings, state, status, command,
   and plugin protocol shapes for the first implementation goal.
 - [Plugin architecture](docs/plugin-architecture.md): integration contracts, selection,
