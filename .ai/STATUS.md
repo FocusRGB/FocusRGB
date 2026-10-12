@@ -83,8 +83,8 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 - Slice: 03 — UI shell with preview state
 - State: complete (pending pull request review into `develop`)
-- Branch, latest relevant commit, and pull request into `develop`: `slice/03-ui-shell`;
-  commit and PR recorded after final verification.
+- Branch, latest relevant code commit, and pull request into `develop`:
+  `slice/03-ui-shell`, `2104f40`, PR #9.
 - Scope and dependencies verified: based on complete slice 02 and its validated defaults;
   stacked on open PR #8, which is itself stacked on open scaffold PR #6.
 - Implemented files and entry points: `../src/FocusRgb.App/MainWindow.axaml`,
