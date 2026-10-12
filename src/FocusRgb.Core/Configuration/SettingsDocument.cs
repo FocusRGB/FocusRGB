@@ -102,4 +102,14 @@ namespace FocusRgb.Core.Configuration
         public DateTimeOffset? AppliedAt { get; init; }
         public List<BindingSettings>? Bindings { get; init; }
     }
+
+    /// <summary>Persists desired selection intent without claiming that any output was applied.</summary>
+    public sealed class SelectionStateDocument : ExtensibleConfiguration
+    {
+        public int? SchemaVersion { get; init; }
+        public string? Mode { get; init; }
+        public string? ManualProfile { get; init; }
+        public string? LastSelectedProfile { get; init; }
+        public DateTimeOffset? UpdatedAt { get; init; }
+    }
 }

@@ -17,4 +17,33 @@ namespace FocusRgb.Core.Configuration
         public static SettingsLoadResult Ok(SettingsDocument settings) => new() { Settings = settings };
         public static SettingsLoadResult Fail(IReadOnlyList<ConfigurationError> errors) => new() { Errors = errors };
     }
+
+    /// <summary>Rejects invalid selection intent without returning a partial state document.</summary>
+    public sealed class StateLoadResult
+    {
+        public bool IsSuccess => State is not null;
+        public SelectionStateDocument? State { get; private init; }
+        public IReadOnlyList<ConfigurationError> Errors { get; private init; } = [];
+
+        public static StateLoadResult Ok(SelectionStateDocument state) => new() { State = state };
+        public static StateLoadResult Fail(IReadOnlyList<ConfigurationError> errors) => new() { Errors = errors };
+    }
+
+    /// <summary>Rejects an invalid native fallback snapshot without exposing partial bindings.</summary>
+    public sealed class NativeSetupLoadResult
+    {
+        public bool IsSuccess => NativeSetup is not null;
+        public NativeSetupDocument? NativeSetup { get; private init; }
+        public IReadOnlyList<ConfigurationError> Errors { get; private init; } = [];
+
+        public static NativeSetupLoadResult Ok(NativeSetupDocument nativeSetup) => new()
+        {
+            NativeSetup = nativeSetup
+        };
+
+        public static NativeSetupLoadResult Fail(IReadOnlyList<ConfigurationError> errors) => new()
+        {
+            Errors = errors
+        };
+    }
 }
