@@ -78,8 +78,11 @@ desired/applied values as preview-only. The in-memory mapping editor supports ap
 executable identity, profile/effect choices, eligibility, numeric priority, ordered movement,
 Apply/Cancel, and optional Live preview. Grouped mappings retain all comma-separated executable
 names. Layout selection is visibly disabled because the fake catalog does not expose layouts.
-No selection engine, tray behavior, plugin loader, file
-persistence, hardware output, or startup task exists yet.
+The portable selection engine now evaluates supplied observations with manual override,
+while-running/while-focused eligibility, deterministic priority, focus debounce, ignored
+windows, process-exit handling, protected Default fallback, and explicit reasons. No tray
+behavior, detector wiring, plugin loader, file persistence, hardware output, or startup task
+exists yet.
 
 Read-only checks on 2026-10-08 confirmed SignalRGB 2.5.74, WLED Desk 16.0.1 with its 215/85
 split, Dynamic Lighting disabled, and the Synapse delayed task still present. WLED Wall did
@@ -87,23 +90,24 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 04 follow-up — Grouped testing profiles
+- Slice: 05 — Pure selection engine
 - State: complete (pending pull request review into `develop`)
 - Branch, latest relevant code commit, and pull request into `develop`:
-  `feature/test-profile-fixtures`, `ac7d195`, PR #11.
-- Scope and dependencies verified: follows complete slice 04 and is stacked on open PR #10.
-- Implemented files and entry points: `../src/FocusRgb.Core/Configuration/default-settings.json`,
-  protected-default checks in `SettingsValidator`, grouped executable projection in the
-  mapping editor, and corresponding core/app tests.
+  `slice/05-selection-engine`, `eb68a82`, pull request pending.
+- Scope and dependencies verified: follows slice 02 and uses the grouped settings fixtures;
+  branch is stacked on open PR #11.
+- Implemented files and entry points: `../src/FocusRgb.Core/Selection/SelectionEngine.cs`,
+  `SelectionModels.cs`, and `../tests/FocusRgb.Core.Tests/SelectionEngineTests.cs`.
 - Verification: `dotnet build FocusRGB.slnx -c Release` passed with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release` passed 64/64.
+  `dotnet test --solution FocusRGB.slnx -c Release` passed 74/74.
 - External/live evidence: none requested or required; no SignalRGB, network, or device calls.
-- Remaining acceptance criteria: Slice 05 must implement actual unmatched selection; this
-  follow-up only establishes validated settings and UI preview state.
-- Current blocker or required product input: none; merge PRs #6, #8, #9, and #10 before this PR.
-- Uncommitted work to preserve: none after the final handoff commit.
-- Next action: implement slice 05's pure selection engine against validated settings.
-- Next slice: 05.
+- Remaining acceptance criteria: none for Slice 05; platform observation and saved state remain
+  intentionally separate.
+- Current blocker or required product input: none; merge PRs #6, #8, #9, #10, and #11 before
+  this stacked slice.
+- Uncommitted work to preserve: documentation and final handoff changes until committed.
+- Next action: implement slice 06 versioned local settings and startup restoration.
+- Next slice: 06.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -128,8 +132,8 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slices 05–27 are pending. Continue with 05 (pure selection engine). Reuse the configuration
-model from slice 02; file persistence and output remain separate later slices.
+Slices 06–27 are pending. Continue with 06 (saved state and startup restoration). Reuse the
+selection result from slice 05; file persistence must remain separate from output coordination.
 
 Build milestone 1 around the existing Windows Avalonia/.NET 10 shell, portable core,
 integration contracts, fake test integration, and separate SignalRGB plugin. Keep protected
