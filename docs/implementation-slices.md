@@ -1,6 +1,6 @@
 # Implementation slices
 
-Updated 2026-10-12. Slices 00–03 are complete; later slices are pending. This is the execution breakdown of
+Updated 2026-10-12. Slices 00–04 are complete; later slices are pending. This is the execution breakdown of
 `focus-profiles-plan.md`. Requirements live in `app-brief.md`, contracts and behavior in
 `plugin-architecture.md`, and verified external-system facts in `integration-evidence.md`.
 
@@ -308,4 +308,5 @@ The active slice's detailed resume notes belong only in `.ai/STATUS.md`. Unliste
 01 | complete | PR from slice/01-solution-scaffold | build passes; 7 boundary/smoke tests pass; app window opens and closes with exit 0; output only under build/
 02 | complete | PR from slice/02-profile-validation (depends on PR #6) | build passes; 52 tests pass including 45 settings cases; default fixtures, validation, unknown-field preservation, separate native snapshot
 03 | complete | 2104f40 (PR #9, depends on PR #8) | build passes; 56 tests pass; app opens with four fixture profiles and explicit preview-only state
+04 | complete | dc32b07 (PR from slice/04-profile-mapping-editor, depends on PR #9) | build passes; 62 tests pass; draft/apply/cancel/live-preview, priority order, fake effects, disabled layout catalog
 ```
