@@ -308,5 +308,5 @@ The active slice's detailed resume notes belong only in `.ai/STATUS.md`. Unliste
 01 | complete | PR from slice/01-solution-scaffold | build passes; 7 boundary/smoke tests pass; app window opens and closes with exit 0; output only under build/
 02 | complete | PR from slice/02-profile-validation (depends on PR #6) | build passes; 52 tests pass including 45 settings cases; default fixtures, validation, unknown-field preservation, separate native snapshot
 03 | complete | 2104f40 (PR #9, depends on PR #8) | build passes; 56 tests pass; app opens with four fixture profiles and explicit preview-only state
-04 | complete | dc32b07 (PR from slice/04-profile-mapping-editor, depends on PR #9) | build passes; 62 tests pass; draft/apply/cancel/live-preview, priority order, fake effects, disabled layout catalog
+04 | complete | dc32b07 (PR #10, depends on PR #9) | build passes; 62 tests pass; draft/apply/cancel/live-preview, priority order, fake effects, disabled layout catalog
 ```
