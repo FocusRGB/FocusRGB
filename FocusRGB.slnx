@@ -6,6 +6,7 @@
     <Project Path="src/FocusRgb.Platform.Windows/FocusRgb.Platform.Windows.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/FocusRgb.App.Tests/FocusRgb.App.Tests.csproj" />
     <Project Path="tests/FocusRgb.Core.Tests/FocusRgb.Core.Tests.csproj" />
   </Folder>
 </Solution>
