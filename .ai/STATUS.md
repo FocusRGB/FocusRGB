@@ -4,6 +4,11 @@ Updated: 2026-10-12.
 
 ## Completed
 
+- Plugin repository ownership is decided: contracts, the minimal .NET SDK, host, schemas,
+  conformance tests, template, and fake plugin stay in FocusRGB; production plugins use peer
+  `FocusRGB-Plugin-<Name>` repositories and published SDK versions. Empty repositories are not
+  created early: SignalRGB is created in slice 11, the selected game adapter in 16, and WLED
+  in 18. Slice 24 stabilizes the proven `0.x` SDK as version 1 (PR #16).
 - Application settings are now specified with researched defaults and ownership boundaries.
   Close-button behavior defaults to minimize to tray and can be changed to real exit; startup
   registration remains opt-in work for slice 26. Implementation is isolated in new slice 12a
@@ -73,10 +78,11 @@ only after user acceptance. Decline/dismiss keeps the fallback active; acceptanc
 the current desired selection, capabilities, and ownership. Native fallback can remain pending
 until native rendering/output exists or the target hardware is released.
 
-The SignalRGB module contains templates, a Canvas API example, and an archived Pro-blocked
-effect. The shared screen colour test remains under `tools/`; the Arduino sketch moved to
-`../modules/arduino/sketches/` for a future Arduino plugin. `../src/` contains the app scaffold
-and portable configuration code. No custom
+The SignalRGB staging module contains templates, a Canvas API example, and an archived
+Pro-blocked effect; maintained content moves to its external plugin repository in slice 11.
+The shared screen colour test remains under `tools/`; the Arduino sketch moved to
+`../modules/arduino/sketches/`. `../src/` contains the app scaffold and portable configuration
+code. No custom
 SignalRGB effects or user device plugins are active in the repo or Documents folders.
 The controller app now opens a minimal preview shell with Overview, Profiles, Mappings, and
 Integrations navigation. It loads the validated defaults, starts in manual Default, and labels
