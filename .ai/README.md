@@ -11,7 +11,8 @@ Updated 2026-10-09. Plain Markdown context independent of AI provider or chat hi
 5. `../docs/focus-profiles-plan.md` — milestones and acceptance checks.
 6. `STATUS.md` — current progress and next step.
 
-For implementation, use `../docs/implementation-slices.md` for bounded tasks/dependencies and
+For implementation, use `../docs/implementation-slices.md` as the status index, then open its
+linked slice file for dependencies, scope, and acceptance checks. The index also provides
 copy-paste start/resume prompts. `SLICE-HANDOFF.md` defines the session checkpoint format.
 
 `WORKFLOWS.md` provides reusable investigation and handoff procedures. They can later be
