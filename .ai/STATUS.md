@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-10.
+Updated: 2026-10-12.
 
 ## Completed
 
@@ -67,11 +67,11 @@ until native rendering/output exists or the target hardware is released.
 
 The SignalRGB module contains templates, a Canvas API example, and an archived Pro-blocked
 effect. The shared screen colour test remains under `tools/`; the Arduino sketch moved to
-`../modules/arduino/sketches/` for a future Arduino plugin. `../src/` holds only a README
-until slice 01 creates the projects. No custom
+`../modules/arduino/sketches/` for a future Arduino plugin. `../src/` contains the app scaffold and portable configuration code
+alongside the scaffold and configuration model. No custom
 SignalRGB effects or user device plugins are active in the repo or Documents folders.
-There is no controller app, plugin loader,
-implemented profile schema, or new startup task. Architecture JSON is illustrative.
+The controller app opens a placeholder window. Slice 02 implements the settings model and
+validation; no selection engine, plugin loader, file persistence, or startup task exists yet.
 
 Read-only checks on 2026-10-08 confirmed SignalRGB 2.5.74, WLED Desk 16.0.1 with its 215/85
 split, Dynamic Lighting disabled, and the Synapse delayed task still present. WLED Wall did
@@ -79,27 +79,30 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 01 — Solution scaffold and repeatable checks
+- Slice: 02 — Profiles and configuration validation
 - State: complete (pending pull request review into `develop`)
-- Branch, latest relevant commit, and pull request into `develop`: `slice/01-solution-scaffold`
-  from `develop` at 022b0bb; commit "Scaffold .NET 10 solution with boundary checks"
-- Scope and dependencies verified: slice 00 merged (PR #1); .NET SDK 10.0.401 installed
-- Implemented files and entry points: `../FocusRGB.slnx`, `../global.json`,
-  `../Directory.Build.props` (output to `build/artifacts`), `../Directory.Packages.props`
-  (Avalonia 12.1.4, xunit.v3 4.0.2), `../src/FocusRgb.{Contracts,Core,Platform.Windows,App}`,
-  `../tests/FocusRgb.Core.Tests`, `../.github/workflows/ci.yml`
-- Verification: `dotnet build FocusRGB.slnx -c Release` succeeded with warnings as errors;
-  `dotnet test --solution FocusRGB.slnx -c Release` passed 7/7. Mutation checks: adding an
-  Avalonia package to Core failed `PortableProjectHasOnlyAllowedReferences`; retargeting Core to
-  `net10.0-windows` failed the build (NU1201). `FocusRGB.exe` opened a "FocusRGB" window and
-  exited 0 on close. `git status` showed no generated files outside `build/`.
-- External/live evidence: none required; no SignalRGB or device calls
-- Remaining acceptance criteria: none
-- Current blocker or required product input: none
-- Uncommitted work to preserve: none
-- Next action: slice 02 — implement the `settings.json` model and validation from
-  `../docs/minimal-contract.md` in `FocusRgb.Core`, with fixture tests
-- Next slice: 02 (03 and 06 follow; 08 can run in parallel as read-only investigation)
+- Branch and latest relevant code commit: `slice/02-profile-validation`, `54484b0`
+- Dependency: based on `slice/01-solution-scaffold` at `572ae2a`; PR #6 is still open.
+  Merge slice 01 before this slice's PR; no protected branch was changed.
+- Scope verified: frozen `../docs/minimal-contract.md` settings shape, defaults, validation,
+  and separate native snapshot only.
+- Implemented files/entry points: `../src/FocusRgb.Core/Configuration/`,
+  `SettingsJson.Load/LoadDefaults/Serialize/CreateDefaultNativeSetup`,
+  `SettingsValidator.Validate`, and `../tests/FocusRgb.Core.Tests/SettingsTests.cs`.
+- Verification: `dotnet build FocusRGB.slnx -c Release` passed, 0 warnings/errors;
+  `dotnet test --solution FocusRGB.slnx -c Release` passed 52/52 (45 new configuration cases).
+  Checks cover seeds, missing/null/wrong fields, duplicate IDs, invalid references, cycles,
+  reserved shapes, opaque IDs, unknown-field preservation, and independent native fallback.
+- External/live evidence: none required; no SignalRGB, network, or device calls.
+- Remaining acceptance criteria: none for slice 02. Persistence/migrations belong to slice 04,
+  catalog resolution to coordination/plugin slices; validated reserved shapes do not imply
+  runtime support.
+- Current blocker or required product input: none; PR depends on open scaffold PR #6.
+- Uncommitted work to preserve: none after handoff commit.
+- Next action: implement slice 03's pure selection engine using the validated settings model,
+  injected observations/time, priority eligibility, debounce, and manual mode.
+- Next slice: 03; 06 is independently eligible after 02.
+
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
 `global.json`; use `dotnet test --solution …`, not the VSTest form. The App and Windows
@@ -122,8 +125,8 @@ with `resourceId: null`, resolved by exact catalog match; SignalRGB bindings use
 
 ## Next step
 
-Slices 01–25 are pending. Continue with 01 (solution scaffold), then 02 (profiles and
-configuration validation) implementing `../docs/minimal-contract.md`.
+Slices 03–25 are pending. Continue with 03 (pure selection engine). Reuse the configuration
+model from slice 02; file persistence and output remain separate later slices.
 
 When implementation is requested, scaffold the Windows Avalonia/.NET 10 app, portable core,
 integration contracts, fake test integration, and separate SignalRGB plugin. Build milestone
