@@ -70,8 +70,10 @@ effect. The shared screen colour test remains under `tools/`; the Arduino sketch
 `../modules/arduino/sketches/` for a future Arduino plugin. `../src/` contains the app scaffold
 and portable configuration code. No custom
 SignalRGB effects or user device plugins are active in the repo or Documents folders.
-The controller app opens a placeholder window. Slice 02 implements the settings model and
-validation; no selection engine, plugin loader, file persistence, or startup task exists yet.
+The controller app now opens a minimal preview shell with Overview, Profiles, and Integrations
+navigation. It loads the four validated defaults, starts in manual Default, and labels desired
+and applied values as preview-only. No selection engine, tray behavior, plugin loader, file
+persistence, hardware output, or startup task exists yet.
 
 Read-only checks on 2026-10-08 confirmed SignalRGB 2.5.74, WLED Desk 16.0.1 with its 215/85
 split, Dynamic Lighting disabled, and the Synapse delayed task still present. WLED Wall did
@@ -79,29 +81,24 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 02 — Profiles and configuration validation
+- Slice: 03 — UI shell with preview state
 - State: complete (pending pull request review into `develop`)
-- Branch and latest relevant code commit: `slice/02-profile-validation`, `54484b0`
-- Dependency: based on `slice/01-solution-scaffold` at `572ae2a`; PR #6 is still open.
-  Merge slice 01 before this slice's PR; no protected branch was changed.
-- Scope verified: frozen `../docs/minimal-contract.md` settings shape, defaults, validation,
-  and separate native snapshot only.
-- Implemented files/entry points: `../src/FocusRgb.Core/Configuration/`,
-  `SettingsJson.Load/LoadDefaults/Serialize/CreateDefaultNativeSetup`,
-  `SettingsValidator.Validate`, and `../tests/FocusRgb.Core.Tests/SettingsTests.cs`.
-- Verification: `dotnet build FocusRGB.slnx -c Release` passed, 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release` passed 52/52 (45 new configuration cases).
-  Checks cover seeds, missing/null/wrong fields, duplicate IDs, invalid references, cycles,
-  reserved shapes, opaque IDs, unknown-field preservation, and independent native fallback.
-- External/live evidence: none required; no SignalRGB, network, or device calls.
-- Remaining acceptance criteria: none for slice 02. Persistence/migrations belong to slice 04,
-  catalog resolution to coordination/plugin slices; validated reserved shapes do not imply
-  runtime support.
-- Current blocker or required product input: none; PR depends on open scaffold PR #6.
-- Uncommitted work to preserve: none after handoff commit.
-- Next action: implement slice 03's pure selection engine using the validated settings model,
-  injected observations/time, priority eligibility, debounce, and manual mode.
-- Next slice: 03; 06 is independently eligible after 02.
+- Branch, latest relevant commit, and pull request into `develop`: `slice/03-ui-shell`;
+  commit and PR recorded after final verification.
+- Scope and dependencies verified: based on complete slice 02 and its validated defaults;
+  stacked on open PR #8, which is itself stacked on open scaffold PR #6.
+- Implemented files and entry points: `../src/FocusRgb.App/MainWindow.axaml`,
+  `../src/FocusRgb.App/ViewModels/`, and `../tests/FocusRgb.App.Tests/`.
+- Verification: `dotnet build FocusRGB.slnx -c Release` passed with 0 warnings/errors;
+  `dotnet test --solution FocusRGB.slnx -c Release` passed 56/56; a local launch confirmed a
+  visible FocusRGB window with manual Default and preview-only status.
+- External/live evidence: none requested or required; no SignalRGB, network, or device calls.
+- Remaining acceptance criteria: none. This slice intentionally has no persistence, process
+  detection, tray behavior, plugin process, background engine, or hardware output.
+- Current blocker or required product input: none; merge PRs #6 and #8 before this slice's PR.
+- Uncommitted work to preserve: none after the final handoff commit.
+- Next action: implement slice 04's in-memory profile mapping editor in the existing shell.
+- Next slice: 04; pure selection engine is now slice 05.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -125,13 +122,14 @@ with `resourceId: null`, resolved by exact catalog match; SignalRGB bindings use
 
 ## Next step
 
-Slices 03–25 are pending. Continue with 03 (pure selection engine). Reuse the configuration
-model from slice 02; file persistence and output remain separate later slices.
+Slices 04–27 are pending. Continue with 04 (profile mapping editor with preview state), then
+slice 05 (pure selection engine). Reuse the configuration model from slice 02; file persistence
+and output remain separate later slices.
 
-When implementation is requested, scaffold the Windows Avalonia/.NET 10 app, portable core,
-integration contracts, fake test integration, and separate SignalRGB plugin. Build milestone
-1 around customizable Default, VS Code, Media Player, and Stremio mappings, provider catalog
-discovery/authority, and restart restoration.
+Build milestone 1 around the existing Windows Avalonia/.NET 10 shell, portable core,
+integration contracts, fake test integration, and separate SignalRGB plugin. Keep Default,
+VS Code, Media Player, and Stremio mappings customizable, with provider catalog
+discovery/authority and restart restoration.
 Do not begin native device ownership or the complete public plugin SDK first. Before SignalRGB
 LED overrides or WLED streaming, establish standalone transport and device ownership. Claude
 tool availability does not itself establish an app API.
