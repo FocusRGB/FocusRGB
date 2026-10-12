@@ -2,9 +2,9 @@
 
 A planned desktop RGB controller with an Avalonia UI and .NET 10 background core.
 The first executable targets Windows; shared code remains portable for future platforms.
-**Early implementation:** slices 00–02 provide the contract, solution scaffold, and validated
-profile configuration. The app currently opens a placeholder window; selection and plugin
-integration are still pending. See [Core configuration](src/FocusRgb.Core/README.md).
+**Early implementation:** slices 00–03 provide the contract, solution scaffold, validated
+profile configuration, and a runnable UI preview. Selection, persistence, tray behavior, and
+plugin integration are still pending. See [Core configuration](src/FocusRgb.Core/README.md).
 
 The app will select lighting profiles manually or from applications using a user-defined
 priority list. Rules can remain active while an app is running or only while it has focus.
@@ -12,7 +12,8 @@ First launch uses manual mode; subsequent launches restore the saved state.
 
 ## Implementation roadmap
 
-1. Build the portable core and a separately packaged SignalRGB integration plugin.
+1. Shape the minimal UI with preview state, then connect the portable core and separate
+   SignalRGB integration plugin.
 2. Add game profiles and supported game API integrations.
 3. Build native effects, LED placement layouts, and output plugins to operate without SignalRGB.
 
@@ -60,6 +61,7 @@ src/
   FocusRgb.Platform.Windows/   net10.0-windows, focus/process detection
   FocusRgb.App/                net10.0-windows, Avalonia shell (FocusRGB.exe)
 tests/
+  FocusRgb.App.Tests/          xUnit; UI-facing preview-state tests
   FocusRgb.Core.Tests/         xUnit; dependency-boundary and core tests
 modules/
   signalrgb/                   SignalRGB research, tools, future controller plugin
