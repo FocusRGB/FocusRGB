@@ -34,14 +34,14 @@ Status: **00–06 complete on the stacked pull-request chain. 07 is next.**
 
 - ▶️ [07 — Windows application observations](<slices/3-SignalRGB Product Path/07-windows-application-observations.md>):
   detect foreground and running applications behind the platform boundary. **Next.**
-- ⏳ [08 — Plugin host and fake plugin](<slices/3-SignalRGB Product Path/08-minimal-external-plugin-host-and-fake-plugin.md>):
-  host an external JSON-RPC plugin with health, timeouts, and shutdown.
+- ⏳ [08 — Plugin SDK, host, and fake plugin](<slices/3-SignalRGB Product Path/08-minimal-external-plugin-host-and-fake-plugin.md>):
+  package the minimal SDK and host an external JSON-RPC fake plugin.
 - ⏳ [09 — Command coordination and fallback](<slices/3-SignalRGB Product Path/09-command-coordination-and-fallback-state.md>):
   track desired/applied/pending state, fallback, ownership, and reconnect approval.
 - ⏳ [10 — SignalRGB investigation](<slices/3-SignalRGB Product Path/10-signalrgb-capability-investigation.md>):
   verify supported APIs, catalogs, selection, layouts, and limitations.
-- ⏳ [11 — SignalRGB plugin](<slices/3-SignalRGB Product Path/11-separate-signalrgb-plugin.md>):
-  implement provider status, catalogs, effect/layout application, and honest unsupported results.
+- ⏳ [11 — External SignalRGB plugin](<slices/3-SignalRGB Product Path/11-separate-signalrgb-plugin.md>):
+  create its repository and implement provider status, catalogs, and effect/layout application.
 - ⏳ [12 — Tray runtime and real status](<slices/3-SignalRGB Product Path/12-tray-runtime-and-real-status-wiring.md>):
   run the engine in the tray app and connect real status and recovery commands.
 - ⏳ [12a — Application settings](<slices/3-SignalRGB Product Path/12a-application-settings-and-lifecycle-preferences.md>):
@@ -77,8 +77,8 @@ Status: **00–06 complete on the stacked pull-request chain. 07 is next.**
 
 ## 6 — Follow-on Delivery
 
-- ⏳ [24 — Public plugin SDK](<slices/6-Follow-on Delivery/24-public-sdk-and-contributor-example.md>):
-  extract stable contracts, templates, compatibility guidance, and an example.
+- ⏳ [24 — Stabilize the public plugin SDK](<slices/6-Follow-on Delivery/24-public-sdk-and-contributor-example.md>):
+  promote the proven SDK to version 1 with templates, compatibility guidance, and an example.
 - ⏳ [25 — Local MCP commands](<slices/6-Follow-on Delivery/25-local-mcp-commands.md>):
   expose the same validated UI commands to a local model.
 - ⏳ [26 — Packaging and recovery gate](<slices/6-Follow-on Delivery/26-startup-packaging-and-recovery-gate.md>):
@@ -101,12 +101,13 @@ Status: **00–06 complete on the stacked pull-request chain. 07 is next.**
 ## Source boundaries
 
 - `src/FocusRgb.Contracts/`: provider-neutral plugin messages, capabilities, results, and IDs.
+- `src/FocusRgb.PluginSdk/`: plugin-side protocol helpers, packaged from the main repository.
 - `src/FocusRgb.Core/`: profiles, arbitration, persistence, commands, fallback, and ownership.
 - `src/FocusRgb.Platform.Windows/`: Windows process/focus detection and later screen capture.
 - `src/FocusRgb.App/`: Avalonia tray/settings UI and generic plugin-host wiring.
-- `modules/signalrgb/controller-plugin/`: separate SignalRGB controller plugin.
-- `modules/wled/controller-plugin/`: separate WLED controller plugin.
-- `tests/`: core, contract, integration, platform, and UI checks.
+- `tests/`: core, contract, integration, platform, UI, and fake-plugin conformance checks.
+- `FocusRGB-Plugin-<Name>` repositories: production integration executables and releases.
+- `modules/signalrgb/`: temporary research/tool staging until slice 11 migration.
 - `build/`: ignored generated output, reports, packages, and tool artifacts.
 
 Core may reference shared contracts; neither Core nor App references provider projects. Portable
