@@ -1,11 +1,11 @@
 # Minimal data and command contract
 
-Slice 00. Frozen 2026-10-10 as the starting contract for slices 01–12. It covers only what the
+Slice 00. Frozen 2026-10-10 as the starting contract for slices 01–14. It covers only what the
 core, the fake integration, and the first SignalRGB plugin need. It is not the public SDK
-schema; that is extracted later (slice 22) from working code. Requirements remain in
+schema; that is extracted later (slice 24) from working code. Requirements remain in
 `app-brief.md` and behavior rules in `plugin-architecture.md`; this document fixes shapes.
 
-Status words below: **frozen** means slices 01–12 implement it as written unless a slice
+Status words below: **frozen** means slices 01–14 implement it as written unless a slice
 records a deliberate amendment here; **reserved** means the name is held but not implemented.
 
 ## Conventions
@@ -178,8 +178,8 @@ Rules:
 - `eligibility` is `while-running` or `while-focused`. Process exit removes eligibility for
   both. `enabled: false` keeps the rule but never makes it eligible.
 - `match.executables` compares file names case-insensitively. **Reserved:** `match.game` with
-  `{ "launcher": "steam", "id": "570" }` for slice 13. A rule must have at least one matcher.
-- Executable names are candidates until slice 05 confirms the real foreground owners.
+  `{ "launcher": "steam", "id": "570" }` for slice 15. A rule must have at least one matcher.
+- Executable names are candidates until slice 07 confirms the real foreground owners.
 
 Selection:
 
@@ -285,7 +285,7 @@ UI and MCP use the same commands. Each returns `{ "ok": true, "status": { ... } 
 | `respondToNotification` | `id`, `response` (`accept`, `decline`) | Recovery choice; dismiss equals decline |
 | `getStatus` | none | Returns the runtime status |
 
-Preview, draft, and editor commands are added in slice 11 and must reuse these validation paths.
+Preview and draft UI behavior begins in slice 04; slice 13 connects it to these validation paths.
 
 ## Plugin protocol — frozen for the first plugin
 
@@ -323,7 +323,7 @@ late response. Examples below are wrapped for readability; on the wire each is o
 ]}}
 ```
 
-The values above are an illustration of shape; slice 08 determines the real SignalRGB support.
+The values above are an illustration of shape; slice 10 determines the real SignalRGB support.
 `support` is `supported`, `unsupported`, or `unverified`. Unknown capability IDs are ignored.
 A capability absent from the list is `unsupported`.
 

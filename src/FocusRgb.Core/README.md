@@ -22,11 +22,11 @@ settings. Serialization preserves unknown fields on each modeled object and opaq
 IDs; it does not validate or write a file. Call validation before accepting/saving edits.
 
 Missing fields stay distinguishable from valid zero/false values. Only schema version 1 is
-accepted. Migration/atomic file persistence arrives in slice 04. Application authority and
+accepted. Migration/atomic file persistence arrives in slice 06. Application authority and
 reserved game/device scope shapes can validate, but this does not claim runtime support.
 
-`CreateDefaultNativeSetup()` returns an independent empty app-default snapshot. Slice 04
-handles its storage; slices 15–16 add native rendering/output. It is not derived from provider
+`CreateDefaultNativeSetup()` returns an independent empty app-default snapshot. Slice 06
+handles its storage; slices 17–18 add native rendering/output. It is not derived from provider
 bindings. Runtime intent (`state.json`) remains outside this slice.
 
 ## Adding a profile
