@@ -1,13 +1,120 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:FocusRgb.App.ViewModels"
         x:Class="FocusRgb.App.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
         Title="FocusRGB"
-        Width="480" Height="260"
+        Width="960" Height="620"
+        MinWidth="760" MinHeight="520"
         WindowStartupLocation="CenterScreen">
-  <StackPanel Margin="24" Spacing="8">
-    <TextBlock Text="FocusRGB" FontSize="24" FontWeight="SemiBold" />
-    <TextBlock x:Name="VersionText" Opacity="0.7" />
-    <TextBlock TextWrapping="Wrap"
-               Text="Scaffold build. The background engine, profiles, and plugins are added in later slices." />
-  </StackPanel>
+  <Grid RowDefinitions="Auto,*">
+    <Border Grid.Row="0" Padding="22,16" BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Text="FocusRGB" FontSize="24" FontWeight="SemiBold" />
+          <TextBlock Text="Lighting profiles that follow what you do" Opacity="0.65" />
+        </StackPanel>
+        <Border Grid.Column="1" Padding="10,5" CornerRadius="12" Background="#253B82F6">
+          <TextBlock Text="UI preview · no hardware output" Foreground="#93C5FD" />
+        </Border>
+      </Grid>
+    </Border>
+
+    <TabControl Grid.Row="1" TabStripPlacement="Left" Margin="12">
+      <TabItem Header="Overview">
+        <ScrollViewer>
+          <StackPanel Margin="28,16" Spacing="20" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Overview" FontSize="26" FontWeight="SemiBold" />
+              <TextBlock Text="Preview the controls that will drive the background engine." Opacity="0.7" />
+            </StackPanel>
+
+            <Border Padding="20" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Spacing="16">
+                <TextBlock Text="Selection mode" FontSize="18" FontWeight="SemiBold" />
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                  <RadioButton Content="Manual" GroupName="SelectionMode" IsChecked="{Binding IsManual}" />
+                  <RadioButton Content="Automatic" GroupName="SelectionMode" IsChecked="{Binding IsAutomatic}" />
+                </StackPanel>
+                <TextBlock Text="Profile" FontWeight="SemiBold" />
+                <ComboBox ItemsSource="{Binding Profiles}"
+                          SelectedItem="{Binding SelectedProfile}"
+                          HorizontalAlignment="Stretch"
+                          MinHeight="40">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ProfileOptionViewModel">
+                      <TextBlock Text="{Binding DisplayName}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </StackPanel>
+            </Border>
+
+            <Border Padding="20" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="150,*" RowSpacing="12">
+                <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="Current state" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Desired profile" Opacity="0.65" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DesiredProfileName}" FontWeight="SemiBold" />
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Applied profile" Opacity="0.65" />
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AppliedProfileName}" FontWeight="SemiBold" />
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Reason" Opacity="0.65" />
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectionReason}" TextWrapping="Wrap" />
+              </Grid>
+            </Border>
+
+            <Border Padding="16" CornerRadius="10" Background="#20F59E0B">
+              <StackPanel Spacing="4">
+                <TextBlock Text="Integration unavailable" FontWeight="SemiBold" Foreground="#FBBF24" />
+                <TextBlock Text="No integration plugin is connected in this UI slice. Changes update preview state only."
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Profiles">
+        <ScrollViewer>
+          <StackPanel Margin="28,16" Spacing="16" MaxWidth="680" HorizontalAlignment="Left">
+            <TextBlock Text="Profiles" FontSize="26" FontWeight="SemiBold" />
+            <TextBlock Text="These validated defaults become editable in the next UI slice." Opacity="0.7" />
+            <ItemsControl ItemsSource="{Binding Profiles}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ProfileOptionViewModel">
+                  <Border Padding="16" Margin="0,0,0,10" CornerRadius="8"
+                          BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <StackPanel Spacing="3">
+                        <TextBlock Text="{Binding DisplayName}" FontSize="17" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding EffectName}" Opacity="0.7" />
+                      </StackPanel>
+                      <TextBlock Grid.Column="1" Text="{Binding LayoutName}" VerticalAlignment="Center" Opacity="0.55" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Integrations">
+        <StackPanel Margin="28,16" Spacing="16" MaxWidth="680" HorizontalAlignment="Left">
+          <TextBlock Text="Integrations" FontSize="26" FontWeight="SemiBold" />
+          <Border Padding="18" CornerRadius="8" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="4">
+                <TextBlock Text="No plugins connected" FontSize="17" FontWeight="SemiBold" />
+                <TextBlock Text="Integrations run as separate processes." Opacity="0.7" />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="Preview only" VerticalAlignment="Center" Foreground="#FBBF24" />
+            </Grid>
+          </Border>
+        </StackPanel>
+      </TabItem>
+
+      <TabItem Header="Devices" IsEnabled="False" />
+      <TabItem Header="Settings" IsEnabled="False" />
+    </TabControl>
+  </Grid>
 </Window>
