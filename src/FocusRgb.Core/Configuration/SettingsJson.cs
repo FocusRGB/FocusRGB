@@ -5,18 +5,12 @@ namespace FocusRgb.Core.Configuration
     /// <summary>Reads and validates settings in memory; file persistence belongs to slice 06.</summary>
     public static class SettingsJson
     {
-        private static readonly JsonSerializerOptions Options = new()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = true
-        };
-
         public static SettingsLoadResult Load(string json)
         {
             ArgumentNullException.ThrowIfNull(json);
             try
             {
-                var document = JsonSerializer.Deserialize<SettingsDocument>(json, Options);
+                var document = JsonSerializer.Deserialize<SettingsDocument>(json, ConfigurationJson.Options);
                 var errors = SettingsValidator.Validate(document);
                 return errors.Count == 0 ? SettingsLoadResult.Ok(document!) : SettingsLoadResult.Fail(errors);
             }
@@ -33,7 +27,7 @@ namespace FocusRgb.Core.Configuration
         public static string Serialize(SettingsDocument settings)
         {
             ArgumentNullException.ThrowIfNull(settings);
-            return JsonSerializer.Serialize(settings, Options);
+            return JsonSerializer.Serialize(settings, ConfigurationJson.Options);
         }
 
         public static SettingsLoadResult LoadDefaults()
@@ -45,11 +39,6 @@ namespace FocusRgb.Core.Configuration
             return Load(reader.ReadToEnd());
         }
 
-        public static NativeSetupDocument CreateDefaultNativeSetup() => new()
-        {
-            SchemaVersion = 1,
-            Origin = "app-default",
-            Bindings = []
-        };
+        public static NativeSetupDocument CreateDefaultNativeSetup() => NativeSetupJson.CreateDefault();
     }
 }
