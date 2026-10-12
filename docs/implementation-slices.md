@@ -307,5 +307,5 @@ The active slice's detailed resume notes belong only in `.ai/STATUS.md`. Unliste
 00 | complete | 0c9a8c3 (PR #1) | first run, restart, absent plugin, explicit selection, priority examples; JSON parsed; no provider types
 01 | complete | PR from slice/01-solution-scaffold | build passes; 7 boundary/smoke tests pass; app window opens and closes with exit 0; output only under build/
 02 | complete | PR from slice/02-profile-validation (depends on PR #6) | build passes; 52 tests pass including 45 settings cases; default fixtures, validation, unknown-field preservation, separate native snapshot
-03 | complete | PR from slice/03-ui-shell (depends on PR #8) | build passes; 56 tests pass; app opens with four fixture profiles and explicit preview-only state
+03 | complete | 2104f40 (PR #9, depends on PR #8) | build passes; 56 tests pass; app opens with four fixture profiles and explicit preview-only state
 ```
