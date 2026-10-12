@@ -32,15 +32,17 @@ Updated: 2026-10-12.
 - SignalRGB must not be compiled into or referenced by the core/application projects. The app
   uses a provider-neutral integration interface and SignalRGB is a separate plugin. The first
   executable targets Windows while portable projects remain free of Windows-only APIs.
-- Initial acceptance profiles are Default, VS Code, Media Player, and Stremio. First start uses
-  Default in manual mode. Later starts restore and apply the last mode and active profile.
+- Initial acceptance profiles are protected Default, Programming, Movie, and Music. Programming
+  maps VS Code and Visual Studio; Movie maps PotPlayer and Stremio; Music maps Media Player and
+  Spotify. First start uses Default in manual mode; automatic mode returns to Default when no
+  mapping is eligible. Later starts restore and apply the last mode and active profile.
 - Application/profile mappings are user-configurable. Integrations expose available provider
   effects/layouts. Bindings select `provider` or `application` rendering authority; SignalRGB
   defaults to provider authority, so its selected effect/layout suppresses the app renderer on
   overlapping devices.
-- Initial SignalRGB effect fixtures: Default → Aurora, VS Code → Aurora, Media Player →
-  Logarithmic Visualizer, and Stremio → Screen Ambient. Initial SignalRGB tests omit the layout
-  and retain its existing LED placements; explicit provider layout selection remains optional.
+- Initial SignalRGB effect fixtures: Default → Aurora, Programming → Aurora, Movie → Screen
+  Ambient, and Music → Logarithmic Visualizer. Initial SignalRGB tests omit the layout and
+  retain its existing LED placements; explicit provider layout selection remains optional.
 - Layout means LED placement configuration. Native tests can import an available SignalRGB
   layout where read/export support is verified. A separate WLED plugin is required for native
   tests; SignalRGB already handles WLED while active. Provider authority supersedes app effect,
@@ -74,8 +76,9 @@ The controller app now opens a minimal preview shell with Overview, Profiles, Ma
 Integrations navigation. It loads the validated defaults, starts in manual Default, and labels
 desired/applied values as preview-only. The in-memory mapping editor supports application and
 executable identity, profile/effect choices, eligibility, numeric priority, ordered movement,
-Apply/Cancel, and optional Live preview. Layout selection is visibly disabled because the fake
-catalog does not expose layouts. No selection engine, tray behavior, plugin loader, file
+Apply/Cancel, and optional Live preview. Grouped mappings retain all comma-separated executable
+names. Layout selection is visibly disabled because the fake catalog does not expose layouts.
+No selection engine, tray behavior, plugin loader, file
 persistence, hardware output, or startup task exists yet.
 
 Read-only checks on 2026-10-08 confirmed SignalRGB 2.5.74, WLED Desk 16.0.1 with its 215/85
@@ -119,8 +122,9 @@ CI `build` check to both rulesets after CI first runs on `develop`.
 
 Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
 (`settings.json`, `state.json`, `native-setup.json`); seeded rules are `while-focused` at equal
-priority 100 in list order Media Player, Stremio, VS Code; fixture effects carry display names
-with `resourceId: null`, resolved by exact catalog match; SignalRGB bindings use a
+priority 100 in list order Programming, Movie, Music; protected Default handles unmatched
+automatic selection. Fixture effects carry display names with `resourceId: null`, resolved by
+exact catalog match; SignalRGB bindings use a
 `provider-managed` device scope; JSON-RPC requests time out after 5000 ms by default.
 
 ## Next step
@@ -129,8 +133,8 @@ Slices 05–27 are pending. Continue with 05 (pure selection engine). Reuse the 
 model from slice 02; file persistence and output remain separate later slices.
 
 Build milestone 1 around the existing Windows Avalonia/.NET 10 shell, portable core,
-integration contracts, fake test integration, and separate SignalRGB plugin. Keep Default,
-VS Code, Media Player, and Stremio mappings customizable, with provider catalog
+integration contracts, fake test integration, and separate SignalRGB plugin. Keep protected
+Default and the Programming, Movie, and Music mappings customizable, with provider catalog
 discovery/authority and restart restoration.
 Do not begin native device ownership or the complete public plugin SDK first. Before SignalRGB
 LED overrides or WLED streaming, establish standalone transport and device ownership. Claude

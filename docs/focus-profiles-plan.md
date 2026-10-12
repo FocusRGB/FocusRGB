@@ -56,11 +56,11 @@ before hardware ownership or general third-party plugin loading. Check these beh
 2. Restart restores and applies the last mode and selected profile.
 3. The user can choose detected/manual applications and effects/layouts returned by the
    SignalRGB plugin; each mapping persists.
-4. `Code.exe` held beyond debounce selects `code` → Aurora once in automatic mode.
-5. Windows Media Player held beyond debounce selects `media-player` → Logarithmic Visualizer.
-6. Stremio held beyond debounce selects `stremio` → Screen Ambient.
+4. VS Code or Visual Studio held beyond debounce selects `programming` → Aurora in automatic mode.
+5. PotPlayer or Stremio held beyond debounce selects `movie` → Screen Ambient.
+6. Media Player or Spotify held beyond debounce selects `music` → Logarithmic Visualizer.
 7. Brief focus changes do not switch profiles.
-8. Ignored/unmatched apps keep the current profile.
+8. With no eligible mapped app, automatic mode selects the protected `default` profile.
 9. Tied priorities resolve deterministically.
 10. Missing/unsupported plugin actions produce a reason without output.
 11. Manual mode prevents automatic switching until automatic mode is explicitly resumed.
@@ -96,5 +96,5 @@ SignalRGB output does not release devices. `enabled` writes are unresolved. Avoi
 streams while investigating ownership.
 
 Open game style/API, capture display, interim game effect, ownership fallback, plugin
-distribution, and native-peripheral order are in `../.ai/STATUS.md`. About two seconds debounce and
-keep-current unmatched behavior are inherited proposed defaults, adjustable by the user.
+distribution, and native-peripheral order are in `../.ai/STATUS.md`. About two seconds debounce
+is the proposed default; unmatched automatic selection uses the protected Default profile.

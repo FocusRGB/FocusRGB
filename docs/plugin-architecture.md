@@ -143,7 +143,7 @@ overrides the entire list until automatic mode is resumed.
 Resolve equal priorities by saved list order, then stable rule ID. Match executable identities
 case-insensitively and scope game IDs by launcher. Debounce ordinary focus changes about two
 seconds. Ignored transient windows do not trigger focus-loss transitions. When no rule is
-eligible, use the user's unmatched policy (keep-current or Default). Reapplying an unchanged
+eligible, use the protected Default profile. Reapplying an unchanged
 profile is a no-op except for output recovery.
 
 Persist the desired selection mode and profile after every validated user change. First start
@@ -256,7 +256,7 @@ Proposed IDs/action names, not executable config or a finalized schema:
   "schemaVersion": 1,
   "selection": {
     "debounceMs": 2000,
-    "unmatched": "keep-current",
+    "unmatched": "default-profile",
     "firstRunMode": "manual",
     "firstRunProfile": "default",
     "restoreLastState": true
@@ -265,14 +265,14 @@ Proposed IDs/action names, not executable config or a finalized schema:
     "default": { "actions": [
       { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Aurora" }
     ] },
-    "media-player": { "actions": [
-      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Logarithmic Visualizer" }
-    ] },
-    "code": { "actions": [
+    "programming": { "actions": [
       { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Aurora" }
     ] },
-    "stremio": { "actions": [
+    "movie": { "actions": [
       { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Screen Ambient" }
+    ] },
+    "music": { "actions": [
+      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Logarithmic Visualizer" }
     ] },
     "game": { "actions": [
       { "plugin": "signalrgb", "action": "led-overrides", "device": "keyboard", "colours": { "W": "#ff0000", "A": "#ff0000", "S": "#ff0000", "D": "#ff0000" } },
@@ -280,9 +280,9 @@ Proposed IDs/action names, not executable config or a finalized schema:
     ] }
   },
   "rules": [
-    { "priority": 100, "foreground": true, "exe": ["wmplayer.exe", "Microsoft.Media.Player.exe"], "profile": "media-player" },
-    { "priority": 100, "foreground": true, "exe": ["stremio-shell-ng.exe"], "profile": "stremio" },
-    { "priority": 100, "foreground": true, "exe": ["Code.exe"], "profile": "code" },
+    { "priority": 100, "foreground": true, "exe": ["Code.exe", "devenv.exe"], "profile": "programming" },
+    { "priority": 100, "foreground": true, "exe": ["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"], "profile": "movie" },
+    { "priority": 100, "foreground": true, "exe": ["Microsoft.Media.Player.exe", "wmplayer.exe", "Spotify.exe"], "profile": "music" },
     { "priority": 100, "foreground": true, "game": { "launcher": "steam", "id": "570" }, "profile": "game" }
   ]
 }

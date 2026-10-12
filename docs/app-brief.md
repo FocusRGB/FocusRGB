@@ -16,13 +16,13 @@ rules, layouts, or game integrations.
 | Focus/context | Profile behavior |
 |---|---|
 | First start | Enter manual mode with the Default profile |
-| Default profile | Keep the same effect/layout regardless of the focused application; test with SignalRGB Aurora |
-| VS Code | Test with SignalRGB Aurora |
-| Media Player | Test with SignalRGB Logarithmic Visualizer |
-| Stremio | Test with SignalRGB Screen Ambient |
+| Default profile | Protected and always present; use when no automatic application mapping matches; test with SignalRGB Aurora |
+| Programming | VS Code or Visual Studio; test with SignalRGB Aurora |
+| Movie | PotPlayer or Stremio; test with SignalRGB Screen Ambient |
+| Music | Media Player or Spotify; test with SignalRGB Logarithmic Visualizer |
 | Recognized game | Generic or per-game profile with custom keyboard/mouse maps and strip zones |
 | Brief focus change or ignored system window | Avoid disruptive switches |
-| Unmatched app | Keep current profile by default |
+| Unmatched app | Select the protected Default profile |
 | Manual mode | Keep the user-selected profile active until automatic selection is resumed |
 | Restart | Restore and apply the last mode and selected profile before normal detection continues |
 | Missing or unsupported backend | Explain the limitation; only use an explicitly configured fallback |
@@ -117,11 +117,13 @@ background core and a separately packaged SignalRGB plugin: detection, determini
 selection, profiles, and visible SignalRGB effect switching. A fake integration remains useful
 for tests, but a generic public plugin SDK must not delay this vertical slice.
 
-The initial acceptance profiles are Default → Aurora, VS Code → Aurora, Media Player →
-Logarithmic Visualizer, and Stremio → Screen Ambient. These tests leave the layout unset and
-use SignalRGB's existing LED placements. Default is application-independent. On the first run it
-is selected in manual mode. Later starts restore and apply the last mode and profile; restored
-automatic mode may select another profile after the detector produces a stable match.
+The initial acceptance profiles are Default → Aurora; Programming → Aurora for VS Code and
+Visual Studio; Movie → Screen Ambient for PotPlayer and Stremio; and Music → Logarithmic
+Visualizer for Media Player and Spotify. These tests leave the layout unset and use SignalRGB's
+existing LED placements. Default is application-independent, protected from removal, and chosen
+when automatic mode has no eligible mapped application. On first run it is selected in manual
+mode. Later starts restore and apply the last mode and profile; restored automatic mode may
+select another profile after the detector produces a stable match.
 
 The second goal is game profiles. Each profile combines an effect and LED layout, can be
 selected manually or by game/app rules, and may later consume supported game API events.
