@@ -10,15 +10,20 @@ namespace FocusRgb.App.ViewModels
         private bool _isManual = true;
         private ProfileOptionViewModel _selectedProfile;
 
-        private MainWindowViewModel(IReadOnlyList<ProfileOptionViewModel> profiles, ProfileOptionViewModel selectedProfile)
+        private MainWindowViewModel(
+            IReadOnlyList<ProfileOptionViewModel> profiles,
+            ProfileOptionViewModel selectedProfile,
+            MappingEditorViewModel mappingEditor)
         {
             Profiles = profiles;
             _selectedProfile = selectedProfile;
+            MappingEditor = mappingEditor;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public IReadOnlyList<ProfileOptionViewModel> Profiles { get; }
+        public MappingEditorViewModel MappingEditor { get; }
 
         public bool IsManual
         {
@@ -86,7 +91,8 @@ namespace FocusRgb.App.ViewModels
             }).ToList();
             var defaultId = result.Settings.Selection!.DefaultProfile;
             var selectedProfile = profiles.Single(profile => profile.Id == defaultId);
-            return new MainWindowViewModel(profiles, selectedProfile);
+            var mappingEditor = MappingEditorViewModel.Create(result.Settings, profiles);
+            return new MainWindowViewModel(profiles, selectedProfile, mappingEditor);
         }
 
         private void NotifyStateChanged([CallerMemberName] string? propertyName = null)
