@@ -60,6 +60,10 @@ this repository, and one into `develop` unless its branch uses an allowed prefix
 on `pull_request_target`, so the version on the base branch decides and a pull request
 cannot weaken its own check. It does not check out or run pull request code.
 
+Both pull-request workflows run for every base branch so stacked changes receive policy and
+build checks. CI also handles the `edited` event, ensuring a base-branch retarget starts a
+fresh build without requiring another source commit.
+
 Bootstrap: a required check runs from the workflow on the target branch, so it is added
 to each ruleset only after `branch-policy.yml` exists on that branch. Until then the ruleset
 is active without the `required_status_checks` rule. Add it to `develop` once the workflow
