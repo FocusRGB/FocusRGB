@@ -55,5 +55,38 @@ namespace FocusRgb.App.Tests
 
             Assert.Throws<ArgumentException>(() => MainWindowViewModel.CreatePreview(settings));
         }
+
+        [Fact]
+        public void ProfileEditor_SaveAndSaveAsFollowGlobalItemActions()
+        {
+            var viewModel = MainWindowViewModel.CreatePreview();
+            viewModel.EditingProfile = viewModel.Profiles.Single(profile => profile.Id == "movie");
+            viewModel.ProfileName = "Cinema";
+            viewModel.SaveProfile();
+
+            Assert.Equal("Cinema", viewModel.EditingProfile.DisplayName);
+
+            viewModel.ProfileName = "Cinema Copy";
+            viewModel.SaveProfileAs();
+
+            Assert.Equal(5, viewModel.Profiles.Count);
+            Assert.Equal("Cinema Copy", viewModel.EditingProfile.DisplayName);
+        }
+
+        [Fact]
+        public void ApplicationGroupEditor_SavesDraftExecutablesAndProtectsReferencedGroup()
+        {
+            var viewModel = MainWindowViewModel.CreatePreview();
+            viewModel.EditingApplicationGroup = viewModel.ApplicationGroups[0];
+            viewModel.ApplicationGroupName = "Editors";
+            viewModel.AddDraftExecutable(@"C:\Tools\Rider.exe");
+            viewModel.SaveApplicationGroup();
+
+            Assert.Equal("Editors", viewModel.ApplicationGroups[0].DisplayName);
+            Assert.Contains("Rider.exe", viewModel.ApplicationGroups[0].Executables);
+
+            viewModel.RemoveApplicationGroup();
+            Assert.Contains("first", viewModel.ApplicationGroupEditorStatus, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

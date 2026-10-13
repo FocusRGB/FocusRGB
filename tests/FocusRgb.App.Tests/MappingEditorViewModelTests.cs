@@ -50,7 +50,7 @@ namespace FocusRgb.App.Tests
         {
             var editor = MainWindowViewModel.CreatePreview().MappingEditor;
             editor.Move(editor.Mappings[2], -1);
-            editor.MoveTo(editor.Mappings[1], editor.Mappings[0]);
+            editor.MoveBefore(editor.Mappings[1], editor.Mappings[0]);
 
             Assert.Equal(["music", "programming", "movie"], editor.Mappings.Select(mapping => mapping.Id));
             Assert.Equal([1, 2, 3], editor.Mappings.Select(mapping => mapping.Position));
@@ -64,11 +64,34 @@ namespace FocusRgb.App.Tests
             editor.NewApplicationGroup = editor.ApplicationGroups.Single(group => group.Id == "music");
             editor.NewProfile = editor.Profiles.Single(profile => profile.Id == "movie");
 
-            editor.AddMapping();
+            editor.SaveMappingAs();
 
             var added = editor.Mappings[^1];
             Assert.Equal("music", added.SelectedApplicationGroup.Id);
             Assert.Equal("movie", added.SelectedProfile.Id);
+        }
+
+        [Fact]
+        public void MoveBeforeAndMoveToEnd_UseInsertionPositions()
+        {
+            var editor = MainWindowViewModel.CreatePreview().MappingEditor;
+
+            editor.MoveBefore(editor.Mappings[2], editor.Mappings[0]);
+            Assert.Equal(["music", "programming", "movie"], editor.Mappings.Select(mapping => mapping.Id));
+
+            editor.MoveToEnd(editor.Mappings[0]);
+            Assert.Equal(["programming", "movie", "music"], editor.Mappings.Select(mapping => mapping.Id));
+        }
+
+        [Fact]
+        public void Remove_DeletesSelectedMappingAndRenumbersRows()
+        {
+            var editor = MainWindowViewModel.CreatePreview().MappingEditor;
+
+            editor.Remove(editor.Mappings[1]);
+
+            Assert.Equal(["programming", "music"], editor.Mappings.Select(mapping => mapping.Id));
+            Assert.Equal([1, 2], editor.Mappings.Select(mapping => mapping.Position));
         }
 
         [Fact]

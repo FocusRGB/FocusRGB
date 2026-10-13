@@ -80,7 +80,7 @@ namespace FocusRgb.App.ViewModels
             return group;
         }
 
-        public void AddMapping()
+        public void SaveMappingAs()
         {
             if (NewApplicationGroup is null || NewProfile is null) return;
             var baseId = $"{NewApplicationGroup.Id}-{NewProfile.Id}";
@@ -92,6 +92,16 @@ namespace FocusRgb.App.ViewModels
             Mappings.Add(item);
             UpdatePositions();
             SelectedMapping = item;
+            NotifyDraftChanged();
+        }
+
+        public void Remove(MappingEditorItemViewModel item)
+        {
+            var index = Mappings.IndexOf(item);
+            if (index < 0) return;
+            Mappings.RemoveAt(index);
+            UpdatePositions();
+            SelectedMapping = Mappings.Count == 0 ? null : Mappings[Math.Min(index, Mappings.Count - 1)];
             NotifyDraftChanged();
         }
 
@@ -124,12 +134,23 @@ namespace FocusRgb.App.ViewModels
             NotifyDraftChanged();
         }
 
-        public void MoveTo(MappingEditorItemViewModel item, MappingEditorItemViewModel target)
+        public void MoveBefore(MappingEditorItemViewModel item, MappingEditorItemViewModel target)
         {
             var oldIndex = Mappings.IndexOf(item);
-            var newIndex = Mappings.IndexOf(target);
-            if (oldIndex < 0 || newIndex < 0 || oldIndex == newIndex) return;
+            var targetIndex = Mappings.IndexOf(target);
+            if (oldIndex < 0 || targetIndex < 0 || oldIndex == targetIndex) return;
+            var newIndex = oldIndex < targetIndex ? targetIndex - 1 : targetIndex;
+            if (oldIndex == newIndex) return;
             Mappings.Move(oldIndex, newIndex);
+            UpdatePositions();
+            NotifyDraftChanged();
+        }
+
+        public void MoveToEnd(MappingEditorItemViewModel item)
+        {
+            var oldIndex = Mappings.IndexOf(item);
+            if (oldIndex < 0 || oldIndex == Mappings.Count - 1) return;
+            Mappings.Move(oldIndex, Mappings.Count - 1);
             UpdatePositions();
             NotifyDraftChanged();
         }
