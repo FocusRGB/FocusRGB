@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
 using FocusRgb.Core.Configuration;
 
@@ -24,6 +25,7 @@ namespace FocusRgb.App.ViewModels
 
         public IReadOnlyList<ProfileOptionViewModel> Profiles { get; }
         public MappingEditorViewModel MappingEditor { get; }
+        public ObservableCollection<ApplicationGroupViewModel> ApplicationGroups => MappingEditor.ApplicationGroups;
 
         public bool IsManual
         {
