@@ -63,7 +63,8 @@ a global switch that can silently grant a recovered plugin output authority.
   defaults above; unknown enum values fail validation and use the existing recovery path.
 - Hand-edited JSON accepts comments and trailing commas. Semantic validation remains atomic;
   partially accepting linked profiles, rules, and bindings could create a different setup than
-  the user intended.
+  the user intended. Comments and trailing-comma formatting are not preserved: the next save
+  rewrites the document as canonical JSON without comments.
 - Save changes atomically through the existing local store. A failed save leaves the last
   valid preferences active and reports the error.
 - Maintain a last-known-good settings recovery copy once the Settings UI is implemented. If
