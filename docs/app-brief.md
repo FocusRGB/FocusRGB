@@ -31,8 +31,9 @@ rules, layouts, or game integrations.
 | Missing or unsupported backend | Explain the limitation; only use an explicitly configured fallback |
 | Game loses focus, profile exits, or app shuts down | Clear app-owned overrides and release output safely |
 
-Profiles can combine backends: direct WLED strip output and SignalRGB keyboard overrides,
-for example. They are not restricted to one exclusive `signalrgb` or `native` type.
+Each profile contains exactly one effect and one layout. Its rendering authority decides
+whether an external provider renders them or FocusRGB renders them natively; output plugins may
+fan that result out to their owned devices without changing the profile's effect/layout pair.
 Game detection is separate from telemetry: recognizing Dota 2 does not provide health or
 cooldowns. Reactive effects require a separate supported integration.
 
@@ -81,10 +82,10 @@ SignalRGB ownership. Both plugins must never write to the same physical WLED dev
   Close-button behavior is user-selectable between minimize to tray and exit, with minimize to
   tray as the default. Profile, mapping, integration, device, layout, and effect controls stay
   in their own editors; see [`application-settings.md`](application-settings.md).
-- Users can reorder or assign priorities to automatic rules. Manual mode overrides automatic
-  detection; ties are deterministic and the UI explains why the active profile won.
-- Each rule can stay eligible while its application is running or only while focused. A higher
-  priority running rule can beat a lower priority focused app; focus loss advances to the next
+- Users reorder automatic mappings; the top eligible row has highest priority. Manual mode
+  overrides automatic detection and the UI explains why the active profile won.
+- Each rule can stay eligible while its application is running or only while focused. An earlier
+  running rule can beat a later focused app; focus loss advances to the next
   eligible rule only when configured. Closing an app removes its eligibility.
 - Profiles have explicit ordered fallback policies when required plugins/resources are
   unavailable. Preserve desired selection separately from fallback output; reconnect behavior
@@ -118,7 +119,7 @@ SignalRGB ownership. Both plugins must never write to the same physical WLED dev
   normalized capabilities where practical and namespaced game-specific data when necessary;
   unsupported telemetry degrades to a static profile rather than breaking selection.
 - Expose a local MCP server whose tools use the same validated application commands as the UI.
-  It can inspect and change profiles, rules, priorities, manual mode, and effect settings,
+  It can inspect and change profiles, application groups, mapping order, manual mode, and effect settings,
   subject to local authorization and confirmation for risky operations.
 
 ## Scope

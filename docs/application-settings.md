@@ -48,7 +48,7 @@ Keep these controls with the feature that can implement and validate them:
 | Automatic update checks and release channel | A future updater/distribution slice |
 | Capture monitor, frame rate, and compatibility mode | The screen-ambience feature/editor |
 | Plugin enablement, permissions, reconnect policy, and provider diagnostics | Integrations page |
-| Focus debounce, ignored applications, rule priority, and eligibility | Mappings/automation editor |
+| Focus debounce, ignored applications, mapping list order, and eligibility | Mappings/automation editor |
 | Device calibration, placement, grouping, and exclusion | Devices/layout editor |
 | Effect parameters | Profile/effect editor |
 
