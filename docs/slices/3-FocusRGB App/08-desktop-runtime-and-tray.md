@@ -10,4 +10,3 @@ slice 20. Use minimize-to-tray as the temporary default; slice 09 makes it confi
 Acceptance: the last manual profile is restored and shown after restart; closing the window
 leaves the local engine running; Quit saves valid state and exits cleanly; the UI stays responsive
 during storage failure and reports it. No process observation, external plugin, or hardware output.
-

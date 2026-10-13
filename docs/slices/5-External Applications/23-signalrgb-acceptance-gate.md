@@ -12,4 +12,3 @@ plugin, and recovery notification match requirements. User verifies visible effe
 catalog or application limitations are recorded as remaining gates. The UI stays responsive
 during provider timeout, and reconnect never resumes output without approval. Exact catalog
 matches save provider resource IDs; unsupported catalogs never fabricate choices. No native WLED writes.
-

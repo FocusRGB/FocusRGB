@@ -7,4 +7,3 @@ participation, persistence, and existing preview controls.
 Acceptance: monitor-only layout excludes wall strips; changing inclusion updates fake output;
 editing keeps hardware LED counts unchanged. Check pointer and keyboard interaction. Native
 preview remains local and requires neither SignalRGB nor live WLED.
-

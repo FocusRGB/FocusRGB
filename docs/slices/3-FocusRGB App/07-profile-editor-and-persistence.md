@@ -12,4 +12,3 @@ unchecked preview sends nothing before Apply; duplicate IDs, fallback cycles, an
 referenced profile are rejected with a useful path. Deleting a non-Default profile requires its
 mappings and fallback references to be reassigned first. A zero-binding profile remains a valid
 explicit no-output choice. No process detection, SignalRGB call, or hardware output.
-
