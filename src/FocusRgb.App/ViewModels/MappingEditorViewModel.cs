@@ -8,7 +8,6 @@ namespace FocusRgb.App.ViewModels
     /// <summary>Owns draft, preview, and applied state for the profile mapping editor.</summary>
     public sealed class MappingEditorViewModel : INotifyPropertyChanged
     {
-        private readonly IReadOnlyList<ResourceOptionViewModel> _effects;
         private IReadOnlyList<MappingSnapshot> _appliedMappings;
         private bool _isDirty;
         private bool _livePreview;
@@ -17,11 +16,9 @@ namespace FocusRgb.App.ViewModels
 
         private MappingEditorViewModel(
             IReadOnlyList<ProfileOptionViewModel> profiles,
-            IReadOnlyList<ResourceOptionViewModel> effects,
             IReadOnlyList<MappingSnapshot> mappings)
         {
             Profiles = profiles;
-            _effects = effects;
             _appliedMappings = mappings;
             Mappings = [];
             RestoreDraft(mappings);
@@ -79,11 +76,6 @@ namespace FocusRgb.App.ViewModels
             IReadOnlyList<ProfileOptionViewModel> profiles)
         {
             ArgumentNullException.ThrowIfNull(settings);
-            var effects = profiles
-                .Select(profile => profile.EffectName)
-                .Distinct(StringComparer.Ordinal)
-                .Select(name => new ResourceOptionViewModel { DisplayName = name, IsAvailable = true })
-                .ToList();
             var snapshots = settings.Rules!.Select(rule =>
             {
                 var profile = profiles.Single(item => item.Id == rule.Profile);
@@ -93,10 +85,9 @@ namespace FocusRgb.App.ViewModels
                     string.Join(", ", rule.Match!.Executables!),
                     profile.Id,
                     rule.Eligibility!,
-                    rule.Priority!.Value,
-                    profile.EffectName);
+                    rule.Priority!.Value);
             }).ToList();
-            return new MappingEditorViewModel(profiles, effects, snapshots);
+            return new MappingEditorViewModel(profiles, snapshots);
         }
 
         public void Apply()
@@ -157,7 +148,7 @@ namespace FocusRgb.App.ViewModels
             Mappings.Clear();
             foreach (var snapshot in snapshots)
             {
-                Mappings.Add(new MappingEditorItemViewModel(this, snapshot, Profiles, _effects));
+                Mappings.Add(new MappingEditorItemViewModel(this, snapshot, Profiles));
             }
 
             UpdatePositions();

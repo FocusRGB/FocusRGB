@@ -161,14 +161,9 @@
                         </Grid>
                         <TextBlock Text="Priority" FontWeight="SemiBold" />
                         <NumericUpDown Value="{Binding Priority}" Minimum="0" Maximum="1000" Increment="10" />
-                        <TextBlock Text="Effect (preview catalog)" FontWeight="SemiBold" />
-                        <ComboBox ItemsSource="{Binding Effects}" SelectedItem="{Binding SelectedEffect}">
-                          <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:ResourceOptionViewModel">
-                              <TextBlock Text="{Binding DisplayName}" />
-                            </DataTemplate>
-                          </ComboBox.ItemTemplate>
-                        </ComboBox>
+                        <TextBlock Text="Profile effect" FontWeight="SemiBold" />
+                        <TextBox Text="{Binding SelectedProfile.EffectName}" IsReadOnly="True"
+                                 ToolTip.Tip="Effects are configured on profiles, not application mappings." />
                         <TextBlock Text="Layout" FontWeight="SemiBold" />
                         <TextBox Text="{Binding LayoutStatus}"
                                  IsReadOnly="True"

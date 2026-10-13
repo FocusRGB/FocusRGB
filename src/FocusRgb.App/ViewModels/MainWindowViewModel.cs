@@ -77,21 +77,39 @@ namespace FocusRgb.App.ViewModels
         public static MainWindowViewModel CreatePreview()
         {
             var result = SettingsJson.LoadDefaults();
-            if (!result.IsSuccess || result.Settings?.Profiles is not { Count: > 0 } settingsProfiles)
+            if (!result.IsSuccess || result.Settings is null)
             {
                 throw new InvalidOperationException("Validated default profiles are unavailable.");
             }
 
-            var profiles = settingsProfiles.Select(profile => new ProfileOptionViewModel
+            return CreatePreview(result.Settings);
+        }
+
+        public static MainWindowViewModel CreatePreview(SettingsDocument settings)
+        {
+            ArgumentNullException.ThrowIfNull(settings);
+            if (SettingsValidator.Validate(settings).Count > 0
+                || settings.Profiles is not { Count: > 0 } settingsProfiles)
             {
-                Id = profile.Id!,
-                DisplayName = profile.DisplayName!,
-                EffectName = profile.Bindings![0].Effect!.DisplayName!,
-                LayoutName = profile.Bindings[0].Layout?.DisplayName ?? "Current provider layout"
+                throw new ArgumentException("Preview requires validated settings.", nameof(settings));
+            }
+
+            var profiles = settingsProfiles.Select(profile =>
+            {
+                var binding = profile.Bindings!.FirstOrDefault();
+                return new ProfileOptionViewModel
+                {
+                    Id = profile.Id!,
+                    DisplayName = profile.DisplayName!,
+                    EffectName = binding?.Effect?.DisplayName ?? "No effect",
+                    LayoutName = binding is null
+                        ? "No layout"
+                        : binding.Layout?.DisplayName ?? "Current provider layout"
+                };
             }).ToList();
-            var defaultId = result.Settings.Selection!.DefaultProfile;
+            var defaultId = settings.Selection!.DefaultProfile;
             var selectedProfile = profiles.Single(profile => profile.Id == defaultId);
-            var mappingEditor = MappingEditorViewModel.Create(result.Settings, profiles);
+            var mappingEditor = MappingEditorViewModel.Create(settings, profiles);
             return new MainWindowViewModel(profiles, selectedProfile, mappingEditor);
         }
 
