@@ -102,10 +102,10 @@ the manifest's plugin and contract versions before launch.
 
 Create each repository when its implementation slice starts, not as an empty placeholder.
 The current `modules/signalrgb/` directory is temporary staging for existing research and
-tools. Slice 11 moves maintained SignalRGB-specific material into
+tools. Slice 22 moves maintained SignalRGB-specific material into
 `FocusRGB-Plugin-SignalRGB` and leaves only a short migration link if historical references
-require it. Slice 18 creates `FocusRGB-Plugin-WLED`. A selected game integration follows the
-same convention in slice 16. Shared rules, layouts, native effects, and hardware-independent
+require it. Slice 16 creates `FocusRGB-Plugin-WLED`. A selected game integration follows the
+same convention in slice 25. Shared rules, layouts, native effects, and hardware-independent
 tools remain in the main repository.
 
 The main repository retains a fake/reference plugin so host and SDK compatibility can be

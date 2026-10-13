@@ -36,7 +36,7 @@ authority and reserved game/device scope shapes can validate, but this does not 
 support.
 
 `NativeSetupJson.CreateDefault()` returns an independent empty app-default snapshot, and
-`LocalStateStore` handles its storage. Slices 17–18 add native rendering/output. The snapshot
+`LocalStateStore` handles its storage. Slices 10–16 add native rendering/output. The snapshot
 is not derived from provider bindings. Runtime intent is stored separately in `state.json`.
 
 ## Selecting a profile
@@ -54,7 +54,7 @@ rules can still win immediately.
 
 The caller owns process observation and time. The selector does not read the OS or call an
 integration or device. `LocalStateStore` persists its desired result independently of output.
-Runtime observation wiring arrives in slice 07.
+Runtime observation wiring arrives in slice 19.
 
 ## Persisting startup state
 
