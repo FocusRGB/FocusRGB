@@ -47,7 +47,10 @@ uses case-insensitive executable matching, higher numeric priority, saved rule o
 rule ID. Focus-only rules wait for `debounceMs`; ignored foreground executables preserve the
 previous stable focus. A process must still appear in `RunningExecutables`, so exit removes
 eligibility immediately. No eligible rule returns protected Default. The result reports
-`manual`, `rule` (with its rule ID), or `unmatched-default`.
+`manual`, `rule` (with its rule ID), `observation-pending`, or `unmatched-default`. On startup
+and whenever manual mode returns to automatic, the engine clears old focus history and retains
+the supplied current profile until the first foreground observation is stable. While-running
+rules can still win immediately.
 
 The caller owns process observation and time. The selector does not read the OS or call an
 integration or device. `LocalStateStore` persists its desired result independently of output.

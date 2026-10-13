@@ -14,6 +14,8 @@ namespace FocusRgb.Core.Selection
         private string? _pendingForeground;
         private DateTimeOffset _pendingSince;
         private bool _hasPendingForeground;
+        private bool _hasStableObservation;
+        private SelectionMode? _lastMode;
 
         public SelectionEngine(SettingsDocument settings)
         {
@@ -29,21 +31,28 @@ namespace FocusRgb.Core.Selection
         /// <summary>Evaluates one observation at the supplied time and returns only desired profile state.</summary>
         public SelectionDecision Select(
             SelectionMode mode,
-            string manualProfileId,
+            string currentProfileId,
             ApplicationObservation observation,
             DateTimeOffset observedAt)
         {
             ArgumentNullException.ThrowIfNull(observation);
+            EnsureKnownProfile(currentProfileId);
 
             if (mode == SelectionMode.Manual)
             {
-                EnsureKnownProfile(manualProfileId);
+                _lastMode = SelectionMode.Manual;
                 return new SelectionDecision
                 {
-                    ProfileId = manualProfileId,
+                    ProfileId = currentProfileId,
                     Reason = SelectionReason.Manual()
                 };
             }
+
+            if (_lastMode != SelectionMode.Automatic)
+            {
+                ResetFocusTracking();
+            }
+            _lastMode = SelectionMode.Automatic;
 
             UpdateStableForeground(observation.ForegroundExecutable, observedAt);
 
@@ -61,10 +70,20 @@ namespace FocusRgb.Core.Selection
 
             if (winner is not null)
             {
+                _hasStableObservation = true;
                 return new SelectionDecision
                 {
                     ProfileId = winner.Rule.Profile!,
                     Reason = SelectionReason.Rule(winner.Rule.Id!)
+                };
+            }
+
+            if (!_hasStableObservation)
+            {
+                return new SelectionDecision
+                {
+                    ProfileId = currentProfileId,
+                    Reason = SelectionReason.ObservationPending()
                 };
             }
 
@@ -133,6 +152,16 @@ namespace FocusRgb.Core.Selection
 
             _stableForeground = _pendingForeground;
             _hasPendingForeground = false;
+            _hasStableObservation = true;
+        }
+
+        private void ResetFocusTracking()
+        {
+            _stableForeground = null;
+            _pendingForeground = null;
+            _pendingSince = default;
+            _hasPendingForeground = false;
+            _hasStableObservation = false;
         }
     }
 }

@@ -215,7 +215,8 @@ Records selection intent only. Applied output is never persisted as fact.
   automatic mode, so resuming manual mode returns to the last manual choice.
 - `lastSelectedProfile` is the most recent desired profile in either mode. On restart in
   automatic mode it is applied first, then ordinary rules may replace it after a stable
-  observation.
+  observation. Until then selection retains it with reason `observation-pending`; resuming
+  automatic mode also clears focus history collected before manual mode.
 - A missing file means first run. A corrupt or unreadable file is renamed to
   `state.json.corrupt-<timestamp>` and treated as first run, and the UI reports this. A
   reference to a profile that no longer exists falls back to `selection.defaultProfile` in
@@ -264,8 +265,8 @@ The core exposes this snapshot to the UI and later the MCP adapter. It is not pe
 }
 ```
 
-- `desired.reason.kind` is `first-run`, `restored`, `manual`, `rule`, `unmatched-default`, or
-  `invalid-state-reset`. `rule` names the winning rule.
+- `desired.reason.kind` is `first-run`, `restored`, `manual`, `rule`, `observation-pending`,
+  `unmatched-default`, or `invalid-state-reset`. `rule` names the winning rule.
 - `effective.source` is `desired` or `fallback`; with `fallback`, `effective` also carries
   `candidateIndex` and `skipped` (each with a reason code). Desired state never changes because
   a fallback is active.
