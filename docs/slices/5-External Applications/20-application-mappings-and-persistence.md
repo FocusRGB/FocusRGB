@@ -6,8 +6,9 @@ Depends on: 04, 07, 08, 19. Scope: connect the existing mapping editor to detect
 entered applications, persisted settings, and the profile editor. Persist named Application
 Groups containing executable lists; add/remove executables using observed apps, manual names, or
 the Windows `.exe` picker. Add/edit/remove mappings by selecting an Application Group and a
-profile, reorder the list, and configure while-running/while-focused eligibility with
-Apply/Cancel and optional Live preview. Mappings select profiles only; effects, layouts,
+profile, reorder the list with insertion drag/drop, and configure while-running/while-focused
+eligibility with Save/Cancel and optional Live preview. Use `Save As` for new groups/mappings,
+`Save` for the current item, and `Remove` for deletion. Mappings select profiles only; effects, layouts,
 providers, and fallbacks remain profile-owned.
 
 Acceptance: application groups and mappings survive restart; preview does not save; Cancel restores the prior draft;

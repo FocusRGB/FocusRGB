@@ -10,9 +10,10 @@ state: named application groups, profile, list order, while-running/while-focuse
 Apply/Cancel, and optional Live preview after completed edits. Each profile owns one editable
 effect and one editable layout. Mapping rows select only an application group and a profile.
 Acceptance: edits remain drafts until Apply; Cancel restores the prior draft and preview output;
-unchecked preview sends no UI-state apply before Apply; hover arrows and drag/drop reorder the
-priority list. Executables are shown as a list and can be added with the Windows `.exe` picker
-or removed. No file writes, process detection, plugin process, or hardware output.
+unchecked preview sends no UI-state save before Save; hover arrows and whole-row drag/drop with
+before-row/end insertion targets reorder the priority list. Each row also exposes Edit and Remove.
+Executables are shown as a list and can be added with the Windows `.exe` picker or removed.
+No file writes, process detection, plugin process, or hardware output.
 
 The original slice included a per-mapping provider-effect picker backed by a fake capability
 catalog. That scope was intentionally removed after the persistence model was reviewed: effects
@@ -23,4 +24,10 @@ The later application-group revision intentionally replaced the original free-te
 comma-separated executable field, numeric priority input, and global Move buttons. In this
 preview slice groups are in-memory projections of existing rules; slice 20 gives named groups
 their persistent schema and connects them to observed applications.
+
+Profiles and Application Groups use the same selected-item pattern: a placeholder-bearing picker
+at the top, options below for the selected item, and `Save`, `Save As`, and `Remove` actions.
+Across FocusRGB editors, `Save As` creates a new item, `Save` edits the current item, and `Remove`
+deletes it subject to protected/default and reference checks. Mapping creation uses the two
+pickers beneath the left list and the same `Save As` wording.
 
