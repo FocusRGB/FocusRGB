@@ -18,5 +18,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/FocusRgb.App.Tests/FocusRgb.App.Tests.csproj" />
     <Project Path="tests/FocusRgb.Core.Tests/FocusRgb.Core.Tests.csproj" />
+    <Project Path="tests/FocusRgb.Platform.Windows.Tests/FocusRgb.Platform.Windows.Tests.csproj" />
   </Folder>
 </Solution>
