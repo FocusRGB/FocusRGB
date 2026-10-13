@@ -165,8 +165,9 @@ Profiles:
   exact, case-sensitive `displayName` match against a fresh catalog and saves the ID only after
   the user applies. No match, or a catalog that is unsupported, makes the binding unavailable
   with reason `resource-not-found` or `capability-unsupported`; the core never picks a
-  different resource. Fixture names are data and are reconciled with the real catalog in slice
-  08 (for example Screen Ambient versus the historical Screen Ambience).
+  different resource. Fixture names are data: slice 10 investigates the real catalog, slice 11
+  exposes it through the plugin, and slice 13 reconciles/saves the selected ID (for example
+  Screen Ambient versus the historical Screen Ambience).
 - `deviceScope.kind` is `provider-managed` (every device the provider currently manages; the
   only kind implemented in Goal 1) or **reserved** `devices` with an explicit `deviceIds` list.
   The coordinator treats a provider-managed scope as owning every device the provider reports;
@@ -236,7 +237,7 @@ Records selection intent only. Applied output is never persisted as fact.
 - `origin` is `app-default` until the user applies a native setup, then `user-applied` with
   `appliedAt` set. `bindings` uses the profile binding shape with `application` authority.
 - Previews, drafts, provider selections, and fallback activations never write this file.
-- Until a native renderer and output exist (slices 15–16), the default snapshot has no
+- Until a native renderer and output exist (slices 17–18), the default snapshot has no
   bindings, so activating native fallback reports `pending` with reason
   `native-output-unavailable` and sends no output commands.
 

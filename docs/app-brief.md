@@ -67,7 +67,8 @@ SignalRGB ownership. Both plugins must never write to the same physical WLED dev
 - The core references only integration contracts. SignalRGB-specific code is a separate
   repository/package and must never be referenced by the core or Avalonia application projects.
 - Integration contracts expose provider effect/layout catalogs and accept a rendering-authority
-  choice. The UI persists the user's application, effect, layout, and authority mappings.
+  choice. The UI persists application-to-profile mappings separately from each profile's
+  effect, layout, and authority bindings.
 - Publish the plugin contract, schemas, templates, and reference plugins as open-source
   components so third parties can add integrations without modifying the application.
 - Keep contracts, the .NET plugin SDK, host, schemas, conformance tests, template, and fake

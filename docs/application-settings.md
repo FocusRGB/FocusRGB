@@ -61,8 +61,14 @@ a global switch that can silently grant a recovered plugin output authority.
   `state.json` or the native fallback snapshot.
 - Add preferences through an explicit schema migration. Older valid settings receive the
   defaults above; unknown enum values fail validation and use the existing recovery path.
+- Hand-edited JSON accepts comments and trailing commas. Semantic validation remains atomic;
+  partially accepting linked profiles, rules, and bindings could create a different setup than
+  the user intended.
 - Save changes atomically through the existing local store. A failed save leaves the last
   valid preferences active and reports the error.
+- Maintain a last-known-good settings recovery copy once the Settings UI is implemented. If
+  `settings.json` is invalid, archive it and restore that validated copy; use defaults only when
+  no valid recovery copy exists, and report which source was loaded.
 - UI availability follows platform capability. A platform without a supported tray must not
   offer a close action that could leave an invisible background process.
 - Theme and window visibility never affect desired/applied profile state or output ownership.
