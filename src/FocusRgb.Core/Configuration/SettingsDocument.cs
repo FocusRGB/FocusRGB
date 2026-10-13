@@ -69,13 +69,14 @@ namespace FocusRgb.Core.Configuration
         public string? Profile { get; init; }
     }
 
-    /// <summary>Maps an application to a profile; array order resolves equal priorities.</summary>
+    /// <summary>Maps an application group to a profile; array order is the sole priority.</summary>
     public sealed class RuleSettings : ExtensibleConfiguration
     {
         public string? Id { get; init; }
         public string? Profile { get; init; }
         public ApplicationMatch? Match { get; init; }
         public string? Eligibility { get; init; }
+        /// <summary>Legacy schema field. Readers ignore it; list order defines priority.</summary>
         public int? Priority { get; init; }
         public bool? Enabled { get; init; }
     }

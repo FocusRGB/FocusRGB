@@ -74,7 +74,6 @@
       "profile": "programming",
       "match": { "executables": ["Code.exe", "devenv.exe"] },
       "eligibility": "while-focused",
-      "priority": 100,
       "enabled": true
     },
     {
@@ -82,7 +81,6 @@
       "profile": "movie",
       "match": { "executables": ["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"] },
       "eligibility": "while-focused",
-      "priority": 100,
       "enabled": true
     },
     {
@@ -90,7 +88,6 @@
       "profile": "music",
       "match": { "executables": ["Microsoft.Media.Player.exe", "wmplayer.exe", "Spotify.exe"] },
       "eligibility": "while-focused",
-      "priority": 100,
       "enabled": true
     }
   ]

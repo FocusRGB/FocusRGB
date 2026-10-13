@@ -9,7 +9,7 @@ namespace FocusRgb.Core.Tests
         private static readonly DateTimeOffset Start = new(2026, 10, 12, 12, 0, 0, TimeSpan.Zero);
 
         [Fact]
-        public void Select_ReturnsHigherPriorityRunningRule_WhenLowerPriorityAppIsFocused()
+        public void Select_ReturnsFirstSavedEligibleRule_RegardlessOfLegacyPriority()
         {
             var settings = Settings(
                 Rule("programming", "programming", "while-focused", 100, "Code.exe"),
@@ -21,9 +21,9 @@ namespace FocusRgb.Core.Tests
             var decision = engine.Select(SelectionMode.Automatic, "default",
                 Observation("Code.exe", "Code.exe", "Spotify.exe"), Start.AddSeconds(2));
 
-            Assert.Equal("music", decision.ProfileId);
+            Assert.Equal("programming", decision.ProfileId);
             Assert.Equal("rule", decision.Reason.Kind);
-            Assert.Equal("music", decision.Reason.RuleId);
+            Assert.Equal("programming", decision.Reason.RuleId);
         }
 
         [Fact]
@@ -75,7 +75,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public void Select_ReturnsEarlierSavedRule_WhenPrioritiesTie()
+        public void Select_ReturnsEarlierSavedRule_WhenSeveralRulesAreEligible()
         {
             var engine = new SelectionEngine(Settings(
                 Rule("music", "music", "while-running", 100, "Spotify.exe"),

@@ -61,11 +61,7 @@ namespace FocusRgb.Core.Selection
                 ExecutableComparer);
 
             var winner = _settings.Rules!
-                .Select((rule, index) => new { Rule = rule, Index = index })
-                .Where(candidate => IsEligible(candidate.Rule, running))
-                .OrderByDescending(candidate => candidate.Rule.Priority)
-                .ThenBy(candidate => candidate.Index)
-                .ThenBy(candidate => candidate.Rule.Id, StringComparer.Ordinal)
+                .Where(rule => IsEligible(rule, running))
                 .FirstOrDefault();
 
             if (winner is not null)
@@ -73,8 +69,8 @@ namespace FocusRgb.Core.Selection
                 _hasStableObservation = true;
                 return new SelectionDecision
                 {
-                    ProfileId = winner.Rule.Profile!,
-                    Reason = SelectionReason.Rule(winner.Rule.Id!)
+                    ProfileId = winner.Profile!,
+                    Reason = SelectionReason.Rule(winner.Id!)
                 };
             }
 

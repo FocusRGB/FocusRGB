@@ -69,7 +69,6 @@ namespace FocusRgb.Core.Tests
         [InlineData("profiles.0.bindings", "profiles[0].bindings")]
         [InlineData("profiles.0.bindings.0.effect", "profiles[0].bindings[0].effect")]
         [InlineData("profiles.0.bindings.0.deviceScope", "profiles[0].bindings[0].deviceScope")]
-        [InlineData("rules.0.priority", "rules[0].priority")]
         [InlineData("rules.0.enabled", "rules[0].enabled")]
         [InlineData("rules.0.match", "rules[0].match")]
         public void Load_RejectsMissingField_WithoutPartialSettings(string field, string errorPath)
@@ -138,12 +137,12 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public void Load_RejectsDuplicateBindings_OnlyWithinSameProfile()
+        public void Load_RejectsMoreThanOneBindingPerProfile()
         {
             var root = Defaults();
             var bindings = (JsonArray)root["profiles"]![0]!["bindings"]!;
             bindings.Add(bindings[0]!.DeepClone());
-            AssertError(root, "profiles[0].bindings[1].id");
+            AssertError(root, "profiles[0].bindings");
             bindings.RemoveAt(1);
             Assert.True(SettingsJson.Load(root.ToJsonString()).IsSuccess);
         }
@@ -173,13 +172,13 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public void Load_AcceptsAcyclicFallback_AndEmptyOutputProfile()
+        public void Load_AcceptsAcyclicFallback_ButRejectsEmptyOutputProfile()
         {
             var root = Defaults();
             Set(root, "profiles.0.fallback.0", JsonNode.Parse("""{"kind":"profile","profile":"programming"}"""));
             Set(root, "profiles.1.bindings", new JsonArray());
             Set(root, "rules", new JsonArray());
-            Assert.True(SettingsJson.Load(root.ToJsonString()).IsSuccess);
+            AssertError(root, "profiles[1].bindings");
         }
 
         [Fact]
