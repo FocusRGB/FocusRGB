@@ -1,8 +1,8 @@
-# 12a — Application settings and lifecycle preferences
+# 09 — Application settings and lifecycle preferences
 
 [← All implementation slices](../../implementation-slices.md)
 
-Depends on: 06, 12. Scope: add the small Settings page defined in
+Depends on: 06, 08. Scope: add the small Settings page defined in
 [`application-settings.md`](../../application-settings.md); migrate the versioned settings
 document; persist close-button behavior, start-minimized, theme, and verbose-logging
 preferences; maintain last-known-good settings recovery; and provide settings/log folder and
