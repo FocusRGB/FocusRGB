@@ -8,4 +8,3 @@ producing frames to fake output. A minimal default native setup is created here.
 Acceptance: transform/reversal sampling preserves indices; unassigned devices get no frames;
 direct-only devices need no canvas coordinates; unequal LED counts sample normalized positions;
 profiles can select a built-in effect without any external application or hardware output.
-

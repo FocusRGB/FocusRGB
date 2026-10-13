@@ -7,4 +7,3 @@ its separate output plugin and semantic/geometry map. Repeat as new slices for o
 Acceptance: static/canvas ownership and release are verified, actual LEDs checked,
 macros/special keys preserved;
 no support claims for untested devices.
-
