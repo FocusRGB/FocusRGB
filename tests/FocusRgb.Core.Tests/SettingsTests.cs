@@ -105,6 +105,18 @@ namespace FocusRgb.Core.Tests
             Assert.NotEmpty(result.Errors);
         }
 
+        [Fact]
+        public void Load_AcceptsCommentsAndTrailingCommas_ForHandEditedSettings()
+        {
+            var json = SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!);
+            json = json.Replace("{", "{/* FocusRGB settings */", StringComparison.Ordinal)
+                .Replace("\n}", ",\n}", StringComparison.Ordinal);
+
+            var result = SettingsJson.Load(json);
+
+            Assert.True(result.IsSuccess);
+        }
+
         [Theory]
         [InlineData(0)]
         [InlineData(2)]

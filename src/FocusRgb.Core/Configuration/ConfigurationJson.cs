@@ -6,7 +6,9 @@ namespace FocusRgb.Core.Configuration
     {
         public static JsonSerializerOptions Options { get; } = new()
         {
+            AllowTrailingCommas = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            ReadCommentHandling = JsonCommentHandling.Skip,
             WriteIndented = true
         };
     }

@@ -87,6 +87,25 @@ namespace FocusRgb.Core.Tests
             Assert.True(File.Exists(PathFor(fileName)));
         }
 
+        [Theory]
+        [InlineData(LocalStateStore.SettingsFileName)]
+        [InlineData(LocalStateStore.StateFileName)]
+        [InlineData(LocalStateStore.NativeSetupFileName)]
+        public async Task InitializeAsync_ArchivesDocument_WhenSchemaVersionIsMissing(string fileName)
+        {
+            var firstRun = await Store().InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(firstRun.IsSuccess);
+            await File.WriteAllTextAsync(PathFor(fileName), "{}", TestContext.Current.CancellationToken);
+
+            var restarted = await Store().InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess);
+            var recovery = Assert.Single(restarted.Snapshot!.Recoveries);
+            Assert.Equal(fileName, recovery.FileName);
+            Assert.Equal("{}", await File.ReadAllTextAsync(recovery.ArchivedPath, TestContext.Current.CancellationToken));
+            Assert.True(File.Exists(PathFor(fileName)));
+        }
+
         [Fact]
         public async Task InitializeAsync_PreservesUnsupportedVersion_WithoutReplacingIt()
         {
