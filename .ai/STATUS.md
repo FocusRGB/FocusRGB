@@ -1,9 +1,16 @@
 # Current status
 
-Updated: 2026-10-12.
+Updated: 2026-10-13.
 
 ## Completed
 
+- Persistence, selection, and mapping review findings were resolved (PR #17): missing/malformed
+  schema versions recover as corrupt while numeric future versions remain untouched; JSON accepts
+  comments/trailing commas; automatic startup retains restored intent until focus stabilizes;
+  manual-to-automatic clears old focus; effects remain profile-owned; and zero-binding profiles
+  no longer crash preview projection. Full solution tests passed 107/107. Last-known-good settings
+  recovery is intentionally scheduled for slice 12a because partial linked-setting recovery is
+  unsafe.
 - Plugin repository ownership is decided: contracts, the minimal .NET SDK, host, schemas,
   conformance tests, template, and fake plugin stay in FocusRGB; production plugins use peer
   `FocusRGB-Plugin-<Name>` repositories and published SDK versions. Empty repositories are not
