@@ -30,6 +30,8 @@ namespace FocusRgb.Core.Selection
 
         public static SelectionReason UnmatchedDefault() => new() { Kind = "unmatched-default" };
 
+        public static SelectionReason ObservationPending() => new() { Kind = "observation-pending" };
+
         public static SelectionReason FirstRun() => new() { Kind = "first-run" };
 
         public static SelectionReason Restored() => new() { Kind = "restored" };

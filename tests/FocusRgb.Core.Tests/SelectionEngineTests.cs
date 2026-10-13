@@ -123,11 +123,53 @@ namespace FocusRgb.Core.Tests
             var engine = new SelectionEngine(Settings(
                 Rule("programming", "programming", "while-focused", 100, "Code.exe")));
 
-            var decision = engine.Select(SelectionMode.Automatic, "music",
+            var pending = engine.Select(SelectionMode.Automatic, "music",
                 Observation("explorer.exe", "explorer.exe"), Start.AddSeconds(10));
+            var decision = engine.Select(SelectionMode.Automatic, "music",
+                Observation("explorer.exe", "explorer.exe"), Start.AddSeconds(12));
 
+            Assert.Equal("music", pending.ProfileId);
+            Assert.Equal("observation-pending", pending.Reason.Kind);
             Assert.Equal("default", decision.ProfileId);
             Assert.Equal("unmatched-default", decision.Reason.Kind);
+        }
+
+        [Fact]
+        public void Select_RetainsRestoredProfile_UntilFirstFocusObservationIsStable()
+        {
+            var engine = new SelectionEngine(Settings(
+                Rule("programming", "programming", "while-focused", 100, "Code.exe")));
+
+            var pending = engine.Select(SelectionMode.Automatic, "music",
+                Observation("Code.exe", "Code.exe"), Start);
+            var stable = engine.Select(SelectionMode.Automatic, "music",
+                Observation("Code.exe", "Code.exe"), Start.AddSeconds(2));
+
+            Assert.Equal("music", pending.ProfileId);
+            Assert.Equal("observation-pending", pending.Reason.Kind);
+            Assert.Equal("programming", stable.ProfileId);
+            Assert.Equal("rule", stable.Reason.Kind);
+        }
+
+        [Fact]
+        public void Select_DiscardsOldFocus_WhenAutomaticModeResumes()
+        {
+            var engine = new SelectionEngine(Settings(
+                Rule("programming", "programming", "while-focused", 100, "Code.exe"),
+                Rule("movie", "movie", "while-focused", 100, "stremio-shell-ng.exe")));
+            Stabilize(engine, "Code.exe", "Code.exe", "stremio-shell-ng.exe");
+            engine.Select(SelectionMode.Manual, "movie",
+                Observation("stremio-shell-ng.exe", "Code.exe", "stremio-shell-ng.exe"), Start.AddSeconds(3));
+
+            var pending = engine.Select(SelectionMode.Automatic, "movie",
+                Observation("stremio-shell-ng.exe", "Code.exe", "stremio-shell-ng.exe"), Start.AddSeconds(4));
+            var stable = engine.Select(SelectionMode.Automatic, "movie",
+                Observation("stremio-shell-ng.exe", "Code.exe", "stremio-shell-ng.exe"), Start.AddSeconds(6));
+
+            Assert.Equal("movie", pending.ProfileId);
+            Assert.Equal("observation-pending", pending.Reason.Kind);
+            Assert.Equal("movie", stable.ProfileId);
+            Assert.Equal("rule", stable.Reason.Kind);
         }
 
         [Fact]
