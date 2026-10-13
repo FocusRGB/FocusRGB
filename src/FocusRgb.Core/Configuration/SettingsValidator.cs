@@ -73,9 +73,9 @@ namespace FocusRgb.Core.Configuration
                     {
                         Error(path + ".id", "duplicate profile ID '" + profile.Id + "'");
                     }
-                    if (profile.Bindings is null)
+                    if (profile.Bindings is not { Count: 1 })
                     {
-                        Error(path + ".bindings", "required array (may be empty)");
+                        Error(path + ".bindings", "must contain exactly one effect and layout binding");
                     }
                     else
                     {
@@ -181,10 +181,6 @@ namespace FocusRgb.Core.Configuration
                     }
                     ProfileReference(rule.Profile, path + ".profile");
                     Choice(rule.Eligibility, path + ".eligibility", "while-running", "while-focused");
-                    if (rule.Priority is null)
-                    {
-                        Error(path + ".priority", "required integer");
-                    }
                     if (rule.Enabled is null)
                     {
                         Error(path + ".enabled", "required boolean");
