@@ -3,70 +3,50 @@ using System.Runtime.CompilerServices;
 
 namespace FocusRgb.App.ViewModels
 {
-    /// <summary>Edits one application-to-profile mapping in the in-memory draft.</summary>
+    /// <summary>Edits one application-group-to-profile mapping in the in-memory draft.</summary>
     public sealed class MappingEditorItemViewModel : INotifyPropertyChanged
     {
         private readonly MappingEditorViewModel _editor;
-        private string _applicationName;
-        private string _executables;
-        private string _eligibility;
+        private ApplicationGroupViewModel _selectedApplicationGroup;
         private ProfileOptionViewModel _selectedProfile;
-        private int _priority;
+        private string _eligibility;
         private int _position;
 
-        internal MappingEditorItemViewModel(
-            MappingEditorViewModel editor,
-            MappingSnapshot snapshot,
-            IReadOnlyList<ProfileOptionViewModel> profiles)
+        internal MappingEditorItemViewModel(MappingEditorViewModel editor, MappingSnapshot snapshot)
         {
             _editor = editor;
             Id = snapshot.Id;
-            Profiles = profiles;
+            ApplicationGroups = editor.ApplicationGroups;
+            Profiles = editor.Profiles;
             EligibilityOptions = ["while-focused", "while-running"];
-            _applicationName = snapshot.ApplicationName;
-            _executables = snapshot.Executables;
-            _selectedProfile = profiles.Single(profile => profile.Id == snapshot.ProfileId);
+            _selectedApplicationGroup = ApplicationGroups.Single(group => group.Id == snapshot.ApplicationGroupId);
+            _selectedProfile = Profiles.Single(profile => profile.Id == snapshot.ProfileId);
             _eligibility = snapshot.Eligibility;
-            _priority = snapshot.Priority;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public string Id { get; }
+        public IReadOnlyList<ApplicationGroupViewModel> ApplicationGroups { get; }
         public IReadOnlyList<ProfileOptionViewModel> Profiles { get; }
         public IReadOnlyList<string> EligibilityOptions { get; }
-        public bool CanChooseLayout { get; }
-        public string LayoutStatus { get; } = "Layout catalog unavailable in preview";
 
         public int Position
         {
             get => _position;
-            private set => Set(ref _position, value, notifyEditor: false);
+            private set => Set(ref _position, value, false);
         }
 
-        public string ApplicationName
+        public ApplicationGroupViewModel SelectedApplicationGroup
         {
-            get => _applicationName;
-            set => Set(ref _applicationName, value);
-        }
-
-        public string Executables
-        {
-            get => _executables;
-            set => Set(ref _executables, value);
+            get => _selectedApplicationGroup;
+            set => Set(ref _selectedApplicationGroup, value);
         }
 
         public ProfileOptionViewModel SelectedProfile
         {
             get => _selectedProfile;
-            set
-            {
-                ArgumentNullException.ThrowIfNull(value);
-                if (!Set(ref _selectedProfile, value))
-                {
-                    return;
-                }
-            }
+            set => Set(ref _selectedProfile, value);
         }
 
         public string Eligibility
@@ -75,41 +55,19 @@ namespace FocusRgb.App.ViewModels
             set => Set(ref _eligibility, value);
         }
 
-        public int Priority
-        {
-            get => _priority;
-            set => Set(ref _priority, value);
-        }
-
-        internal MappingSnapshot CreateSnapshot() => new(
-            Id,
-            ApplicationName,
-            Executables,
-            SelectedProfile.Id,
-            Eligibility,
-            Priority);
+        internal MappingSnapshot CreateSnapshot() =>
+            new(Id, SelectedApplicationGroup.Id, SelectedProfile.Id, Eligibility);
 
         internal void SetPosition(int position) => Position = position;
 
-        private bool Set<T>(
-            ref T field,
-            T value,
-            [CallerMemberName] string? propertyName = null,
-            bool notifyEditor = true)
+        private void Set<T>(ref T field, T value, bool notifyEditor = true,
+            [CallerMemberName] string? propertyName = null)
         {
-            if (EqualityComparer<T>.Default.Equals(field, value))
-            {
-                return false;
-            }
-
+            ArgumentNullException.ThrowIfNull(value);
+            if (EqualityComparer<T>.Default.Equals(field, value)) return;
             field = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-            if (notifyEditor)
-            {
-                _editor.NotifyDraftChanged();
-            }
-
-            return true;
+            if (notifyEditor) _editor.NotifyDraftChanged();
         }
     }
 }

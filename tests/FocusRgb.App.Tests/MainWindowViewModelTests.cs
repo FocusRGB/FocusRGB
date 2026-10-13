@@ -48,16 +48,12 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public void CreatePreview_ShowsNoEffect_WhenValidProfileHasNoBindings()
+        public void CreatePreview_RejectsProfileWithoutItsEffectAndLayoutBinding()
         {
             var settings = SettingsJson.LoadDefaults().Settings!;
             settings.Profiles!.Single(profile => profile.Id == "programming").Bindings!.Clear();
 
-            var viewModel = MainWindowViewModel.CreatePreview(settings);
-
-            var profile = viewModel.Profiles.Single(item => item.Id == "programming");
-            Assert.Equal("No effect", profile.EffectName);
-            Assert.Equal("No layout", profile.LayoutName);
+            Assert.Throws<ArgumentException>(() => MainWindowViewModel.CreatePreview(settings));
         }
     }
 }
