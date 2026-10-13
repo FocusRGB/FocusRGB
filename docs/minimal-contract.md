@@ -2,7 +2,7 @@
 
 Slice 00. Frozen 2026-10-10 as the starting contract for slices 01–14. It covers only what the
 core, the fake integration, and the first SignalRGB plugin need. It is not the public SDK
-schema; that is extracted later (slice 28) from working code. Requirements remain in
+schema; that is extracted later (slice 24) from working code. Requirements remain in
 `app-brief.md` and behavior rules in `plugin-architecture.md`; this document fixes shapes.
 
 Status words below: **frozen** means slices 01–14 implement it as written unless a slice
@@ -125,7 +125,6 @@ and all automatic mappings are user-editable.
       "profile": "programming",
       "match": { "executables": ["Code.exe", "devenv.exe"] },
       "eligibility": "while-focused",
-      "priority": 100,
       "enabled": true
     },
     {
@@ -133,7 +132,6 @@ and all automatic mappings are user-editable.
       "profile": "movie",
       "match": { "executables": ["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"] },
       "eligibility": "while-focused",
-      "priority": 100,
       "enabled": true
     },
     {
@@ -141,7 +139,6 @@ and all automatic mappings are user-editable.
       "profile": "music",
       "match": { "executables": ["Microsoft.Media.Player.exe", "wmplayer.exe", "Spotify.exe"] },
       "eligibility": "while-focused",
-      "priority": 100,
       "enabled": true
     }
   ]
@@ -153,8 +150,8 @@ Profiles:
 - `default` is a protected profile ID. Validation rejects settings that remove it or assign
   `selection.defaultProfile` to a different profile. With the seeded `default-profile`
   unmatched policy, it becomes desired whenever automatic mode has no eligible application rule.
-- `bindings` is an ordered list; a profile may combine plugins. Binding IDs are unique within
-  a profile. An empty list is valid and means the profile produces no output.
+- `bindings` contains exactly one item: one effect plus one optional provider layout reference.
+  The singular binding shape remains for schema compatibility and plugin authority metadata.
 - `renderingAuthority` is `provider` or `application`. An `application` binding validates but
   reports `unsupported` until native rendering begins in slice 10. There is no implicit fallback
   between authorities.
@@ -180,12 +177,16 @@ Profiles:
 
 Rules:
 
-- The array order is the saved list order. Winner order: higher `priority`, then lower list
-  index, then ordinal comparison of `id`.
+- The UI calls each reusable named executable set an **Application Group**. In the current
+  schema-1 preview, each rule projects one group from its `id` and `match.executables`; slice 20
+  adds persisted group identity/name so several mappings can reference the same group.
+- The array order is the saved priority list. The first eligible rule wins. The legacy numeric
+  `priority` property is accepted when reading schema version 1 but ignored and omitted by new
+  defaults; a later schema migration may remove it.
 - `eligibility` is `while-running` or `while-focused`. Process exit removes eligibility for
   both. `enabled: false` keeps the rule but never makes it eligible.
 - `match.executables` compares file names case-insensitively. **Reserved:** `match.game` with
-  `{ "launcher": "steam", "id": "570" }` for slice 24. A rule must have at least one matcher.
+  `{ "launcher": "steam", "id": "570" }` for slice 26. A rule must have at least one matcher.
 - Executable names are candidates until slice 19 confirms the real foreground owners.
 
 Selection:

@@ -105,7 +105,8 @@ The current `modules/signalrgb/` directory is temporary staging for existing res
 tools. Slice 22 moves maintained SignalRGB-specific material into
 `FocusRGB-Plugin-SignalRGB` and leaves only a short migration link if historical references
 require it. Slice 16 creates `FocusRGB-Plugin-WLED`. A selected game integration follows the
-same convention in slice 25. Shared rules, layouts, native effects, and hardware-independent
+same convention in slice 27 and consumes the public SDK established in slice 24. Shared rules,
+layouts, native effects, and hardware-independent
 tools remain in the main repository.
 
 The main repository retains a fake/reference plugin so host and SDK compatibility can be
@@ -152,14 +153,15 @@ automatic plugin updater in the first version. Keep secrets outside committed pr
 
 ## Selection rules
 
-Users order profile/application rules in a priority list. Each rule specifies either
-`while-running` or `while-focused` eligibility. A higher-priority `while-running` rule wins
-even when a lower-priority application has focus. A `while-focused` rule becomes ineligible
+Users create named Application Groups containing executable identities, then map a group and a
+profile into an ordered priority list. Each rule specifies either `while-running` or
+`while-focused` eligibility. The first eligible row wins, so a top `while-running` rule wins
+even when an application lower in the list has focus. A `while-focused` rule becomes ineligible
 when focus is lost, allowing the next eligible rule in the list to win. This is configurable
 per rule, including the top rule; process exit makes either rule ineligible. Manual mode
 overrides the entire list until automatic mode is resumed.
 
-Resolve equal priorities by saved list order, then stable rule ID. Match executable identities
+There is no separate numeric priority: saved list order is authoritative. Match executable identities
 case-insensitively and scope game IDs by launcher. Debounce ordinary focus changes about two
 seconds. Ignored transient windows do not trigger focus-loss transitions. When no rule is
 eligible, use the protected Default profile. Reapplying an unchanged
@@ -237,9 +239,9 @@ application authority; provider-owned SignalRGB rendering remains authoritative.
 
 The background app may expose a local MCP server. MCP is an adapter over the same query and
 command services used by the UI; it must not edit profile files directly or bypass validation,
-priority arbitration, plugin capability checks, or ownership transitions. Initial tools can
+mapping-order arbitration, plugin capability checks, or ownership transitions. Initial tools can
 list profiles/plugins/devices, explain the active selection, enter or leave manual mode,
-change rule priority, update effect settings, and preview a profile. Loading executable
+reorder mappings, update effect settings, and preview a profile. Loading executable
 plugins, deleting data, or changing persistent hardware ownership requires explicit user
 confirmation. Bind locally and use per-install authentication where the transport permits it.
 
@@ -299,10 +301,10 @@ Proposed IDs/action names, not executable config or a finalized schema:
     ] }
   },
   "rules": [
-    { "priority": 100, "foreground": true, "exe": ["Code.exe", "devenv.exe"], "profile": "programming" },
-    { "priority": 100, "foreground": true, "exe": ["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"], "profile": "movie" },
-    { "priority": 100, "foreground": true, "exe": ["Microsoft.Media.Player.exe", "wmplayer.exe", "Spotify.exe"], "profile": "music" },
-    { "priority": 100, "foreground": true, "game": { "launcher": "steam", "id": "570" }, "profile": "game" }
+    { "foreground": true, "exe": ["Code.exe", "devenv.exe"], "profile": "programming" },
+    { "foreground": true, "exe": ["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"], "profile": "movie" },
+    { "foreground": true, "exe": ["Microsoft.Media.Player.exe", "wmplayer.exe", "Spotify.exe"], "profile": "music" },
+    { "foreground": true, "game": { "launcher": "steam", "id": "570" }, "profile": "game" }
   ]
 }
 ```
