@@ -17,10 +17,11 @@ returns to Default.
 
 ## Implementation roadmap
 
-1. Shape the minimal UI with preview state, then connect the portable core and the external
-   `FocusRGB-Plugin-SignalRGB` integration.
-2. Add game profiles and supported game API integrations.
-3. Build native effects, LED placement layouts, and output plugins to operate without SignalRGB.
+1. Finish the FocusRGB desktop app: persistent profile editing, tray/runtime behavior, settings,
+   and honest local status without relying on another application.
+2. Build native effects, LED placement layouts, screen ambience, and output plugins.
+3. Add external-application automation and integrations: detection/mappings, SignalRGB, games,
+   and local-model MCP control.
 
 SignalRGB owns rendering and its existing layout while its integration is active, including
 its WLED output. A separate WLED plugin supports native operation. Application mappings are
@@ -58,7 +59,7 @@ named `FocusRGB-Plugin-<Name>` and consume a published SDK version; they are not
 or app project references. Repositories are created when their implementation slice starts.
 
 The existing [SignalRGB module](modules/signalrgb/README.md) temporarily holds research and
-tools that will move to `FocusRGB-Plugin-SignalRGB` in slice 11. The
+tools that will move to `FocusRGB-Plugin-SignalRGB` in slice 22. The
 [Arduino module](modules/arduino/README.md) holds the earlier LED strip sketch. Application
 projects live under [src/](src/README.md); the shared screen colour test remains under `tools/`.
 
@@ -93,7 +94,7 @@ dotnet test --solution FocusRGB.slnx -c Release
 ```
 
 Package versions are pinned centrally in `Directory.Packages.props`. CI runs the same build
-and tests on pull requests into `develop` and `main`.
+and tests for every pull request and for pushes to `develop` and `main`.
 
 Generated builds, packages, reports, caches, and tool artifacts belong under the Git-ignored
 `build/` directory. Maintained source and documentation stay outside it. Generated Graphify

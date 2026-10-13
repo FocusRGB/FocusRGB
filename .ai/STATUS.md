@@ -4,23 +4,27 @@ Updated: 2026-10-13.
 
 ## Completed
 
+- Roadmap reordered app-first: profile management, tray/settings, native rendering/layouts,
+  and native outputs now precede desktop-application detection, SignalRGB, games, and MCP.
+  The Windows observation fixture checkpoint remains preserved on
+  `slice/07-windows-observations` for the renumbered Slice 19.
 - Persistence, selection, and mapping review findings were resolved (PR #17): missing/malformed
   schema versions recover as corrupt while numeric future versions remain untouched; JSON accepts
   comments/trailing commas; automatic startup retains restored intent until focus stabilizes;
   manual-to-automatic clears old focus; effects remain profile-owned; and zero-binding profiles
   no longer crash preview projection. Full solution tests passed 107/107. Last-known-good settings
-  recovery is intentionally scheduled for slice 12a because partial linked-setting recovery is
+  recovery is intentionally scheduled for slice 09 because partial linked-setting recovery is
   unsafe.
 - Plugin repository ownership is decided: contracts, the minimal .NET SDK, host, schemas,
   conformance tests, template, and fake plugin stay in FocusRGB; production plugins use peer
   `FocusRGB-Plugin-<Name>` repositories and published SDK versions. Empty repositories are not
-  created early: SignalRGB is created in slice 11, the selected game adapter in 16, and WLED
-  in 18. Slice 24 stabilizes the proven `0.x` SDK as version 1 (PR #16).
+  created early: WLED is created in slice 16, SignalRGB in 22, and the selected game adapter
+  in 25. Slice 28 stabilizes the proven `0.x` SDK as version 1 (PR #16).
 - Application settings are now specified with researched defaults and ownership boundaries.
   Close-button behavior defaults to minimize to tray and can be changed to real exit; startup
-  registration remains opt-in work for slice 26. Implementation is isolated in new slice 12a
-  after tray support (PR #15).
-- The implementation roadmap is now a compact status index; all 29 dependency/scope/acceptance
+  registration remains opt-in work for slice 18. Implementation is isolated in slice 09 after
+  tray support (PR #15).
+- The implementation roadmap is now a compact status index; all 30 dependency/scope/acceptance
   definitions live in numbered group folders under `../docs/slices/` (PR #14).
 - README refreshed around the current product roadmap, implementation slices, and shared
   handoff; old Arduino setup details and tool-specific commands removed from the entry page.
@@ -43,10 +47,9 @@ Updated: 2026-10-13.
   that suppresses detection until automatic selection is resumed.
 - Game API plugins feed versioned normalized and namespaced events to effects. A local MCP
   adapter will use the same validated command services as the UI.
-- Implementation order confirmed: first deliver a working core and real SignalRGB vertical
-  slice; next add game profiles composed from an effect and LED layout; then implement native
-  effects/layouts and outputs to remove the SignalRGB dependency. The public plugin SDK must
-  be extracted from working internal contracts instead of blocking the first integration.
+- Implementation order confirmed: finish the FocusRGB desktop app first, then its native
+  effects/layouts and outputs, and only then add external-application automation, SignalRGB,
+  games, and MCP. The public plugin SDK must be extracted from working internal contracts.
 - SignalRGB must not be compiled into or referenced by the core/application projects. The app
   uses a provider-neutral integration interface and SignalRGB is a separate plugin. The first
   executable targets Windows while portable projects remain free of Windows-only APIs.
@@ -86,7 +89,7 @@ the current desired selection, capabilities, and ownership. Native fallback can 
 until native rendering/output exists or the target hardware is released.
 
 The SignalRGB staging module contains templates, a Canvas API example, and an archived
-Pro-blocked effect; maintained content moves to its external plugin repository in slice 11.
+Pro-blocked effect; maintained content moves to its external plugin repository in slice 22.
 The shared screen colour test remains under `tools/`; the Arduino sketch moved to
 `../modules/arduino/sketches/`. `../src/` contains the app scaffold and portable configuration
 code. No custom
@@ -113,23 +116,23 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 06 — Saved state and startup restoration
-- State: complete (pending pull request review into `develop`)
-- Branch, latest relevant code commit, and pull request into `develop`:
-  `slice/06-persistence`, `51c4b45`, PR #13.
-- Scope and dependencies verified: follows slice 05 and is stacked on open PR #12.
-- Implemented files and entry points: `../src/FocusRgb.Core/Configuration/StateJson.cs`,
-  `NativeSetupJson.cs`, `../src/FocusRgb.Core/Persistence/LocalStateStore.cs`, persistence
-  result models, and focused document/store tests.
-- Verification: `dotnet build FocusRGB.slnx -c Release` passed with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release` passed 99/99.
-- External/live evidence: none requested or required; no SignalRGB, network, or device calls.
-- Remaining acceptance criteria: none for Slice 06; choosing the OS per-user directory and
-  wiring startup into the app remain intentionally outside this portable storage slice.
-- Current blocker or required product input: none; merge prerequisite PRs through #12 first.
-- Uncommitted work to preserve: none after the final handoff commit.
-- Next action: implement slice 07 Windows foreground/running-process observations.
-- Next slice: 07.
+- Slice: 07 — Profile editor and persistence
+- State: pending after roadmap reorder
+- Branch, latest relevant code commit, and pull request target: not started; branch from
+  `fix/reviewed-persistence-selection` and target that dependency branch.
+- Scope and dependencies verified: follows the existing UI shell and local persistence; no
+  process observation, SignalRGB, plugin, or hardware dependency.
+- Implemented files and entry points: none for the new Slice 07 yet. The previously started
+  Windows observation implementation is preserved on `slice/07-windows-observations` and is
+  now scheduled as Slice 19.
+- Verification: documentation-only reorder; implementation checks not required yet.
+- External/live evidence: deferred with Slice 19; no live process check was run.
+- Remaining acceptance criteria: persistent profile create/rename/duplicate/delete, protected
+  Default, binding/fallback editing, Apply/Cancel, Live preview, and reference-safe deletion.
+- Current blocker or required product input: none.
+- Uncommitted work to preserve: roadmap edits on `docs/app-first-roadmap` until committed.
+- Next action: implement the new Slice 07 profile editor from its detail file.
+- Next slice: 08 only after Slice 07 acceptance passes.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -154,16 +157,13 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slices 07–27 are pending. Continue with 07 (Windows application observations). Supply portable
-observations to the slice 05 selector; do not move process APIs into Core.
+Slices 07–29 are pending. Continue with 07 (profile editor and persistence), then the desktop
+runtime/settings and native RGB path. Keep protected Default and make non-Default profiles
+fully user-managed before adding observed-application automation.
 
-Build milestone 1 around the existing Windows Avalonia/.NET 10 shell, portable core,
-integration contracts, fake test integration, and separate SignalRGB plugin. Keep protected
-Default and the Programming, Movie, and Music mappings customizable, with provider catalog
-discovery/authority and restart restoration.
-Do not begin native device ownership or the complete public plugin SDK first. Before SignalRGB
-LED overrides or WLED streaming, establish standalone transport and device ownership. Claude
-tool availability does not itself establish an app API.
+External application work starts at Slice 19. SignalRGB begins at 21, game integrations at 24,
+and MCP at 27. The preserved observation branch must be integrated only when Slice 19 starts.
+Claude tool availability does not itself establish an app API.
 
 ## Open choices
 

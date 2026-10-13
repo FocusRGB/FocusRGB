@@ -123,13 +123,14 @@ SignalRGB ownership. Both plugins must never write to the same physical WLED dev
 
 ## Scope
 
-The first implementation goal is a working Avalonia/.NET 10 Windows executable with a portable
-background core and a separately packaged SignalRGB plugin from
-`FocusRGB-Plugin-SignalRGB`: detection, deterministic/manual selection, profiles, and visible
-SignalRGB effect switching. The main repository keeps the minimal SDK and fake integration
-needed to prove this path; stabilizing a complete public SDK must not delay the vertical slice.
+The first implementation goal is a self-contained Avalonia/.NET 10 Windows executable with a
+portable background core: persistent profile management, manual selection, tray behavior,
+application preferences, and restart restoration without depending on another desktop app.
 
-The initial acceptance profiles are Default → Aurora; Programming → Aurora for VS Code and
+The second goal is the app's native effect renderer and layout system, followed by WLED and one
+peripheral output plugin. Profiles gain reusable effects/layouts before external automation.
+
+The later SignalRGB acceptance profiles are Default → Aurora; Programming → Aurora for VS Code and
 Visual Studio; Movie → Screen Ambient for PotPlayer and Stremio; and Music → Logarithmic
 Visualizer for Media Player and Spotify. These tests leave the layout unset and use SignalRGB's
 existing LED placements. Default is application-independent, protected from removal, and chosen
@@ -137,13 +138,11 @@ when automatic mode has no eligible mapped application. On first run it is selec
 mode. Later starts restore and apply the last mode and profile; restored automatic mode may
 select another profile after the detector produces a stable match.
 
-The second goal is game profiles. Each profile combines an effect and LED layout, can be
-selected manually or by game/app rules, and may later consume supported game API events.
-
-The third goal is the app's own effect renderer and layout system, followed by native output
-plugins, so profiles can migrate away from SignalRGB without changing selection rules. The
-external plugin SDK, local MCP control, reliability, and distribution work should grow around
-these goals rather than becoming prerequisites for the first visible result.
+The third goal is external-application support: Windows app detection/mappings, the separately
+packaged `FocusRGB-Plugin-SignalRGB`, game discovery/APIs, and local MCP control. Each profile
+still combines an effect and LED layout and can later consume supported game events. External
+failures must not make manual profiles or native output unusable. The main repository keeps the
+minimal SDK and fake integration; the complete public SDK is stabilized only after real plugins.
 
 Plugin package signing/distribution and installation UX remain undecided. Startup automation
 is off by default, remains user-controlled, and follows reliable cleanup/recovery. The Arduino
