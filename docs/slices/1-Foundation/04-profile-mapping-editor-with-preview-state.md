@@ -31,3 +31,7 @@ Across FocusRGB editors, `Save As` creates a new item, `Save` edits the current 
 deletes it subject to protected/default and reference checks. Mapping creation uses the two
 pickers beneath the left list and the same `Save As` wording.
 
+The separate Overview and Mappings tabs were later combined into the main `Home` tab. Its `Mode`
+control is always visible: Manual displays profile/current-state controls, while Automatic
+displays this mapping editor as the tab body.
+

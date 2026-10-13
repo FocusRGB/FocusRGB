@@ -19,7 +19,7 @@ Status: **00–06 complete on the stacked pull-request chain. 07 is next.**
 - ✅ [02 — Profiles and validation](slices/1-Foundation/02-profiles-and-configuration-validation.md):
   model and validate Default, Programming, Movie, Music, and their rules.
 - ✅ [03 — UI shell](slices/1-Foundation/03-ui-shell-with-preview-state.md):
-  add navigation, mode/profile controls, and explicit preview-only status.
+  add the mode-driven Home tab, profile controls, navigation, and explicit preview-only status.
 - ✅ [04 — Mapping editor](slices/1-Foundation/04-profile-mapping-editor-with-preview-state.md):
   edit named application groups and ordered mappings with Apply/Cancel and preview state.
 

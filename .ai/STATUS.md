@@ -94,9 +94,10 @@ The shared screen colour test remains under `tools/`; the Arduino sketch moved t
 `../modules/arduino/sketches/`. `../src/` contains the app scaffold and portable configuration
 code. No custom
 SignalRGB effects or user device plugins are active in the repo or Documents folders.
-The controller app now opens a minimal preview shell with Overview, Profiles, Application Groups,
-Mappings, and Integrations navigation. It loads the validated defaults, starts in manual Default,
-and labels desired/applied values as preview-only. The in-memory editor provides named executable
+The controller app now opens a minimal preview shell with Home, Profiles, Application Groups,
+and Integrations navigation. Home always exposes the Mode control; Manual shows profile/current
+state and Automatic shows the mapping editor. It loads the validated defaults, starts in manual
+Default, and labels desired/applied values as preview-only. The in-memory editor provides named executable
 groups with a Windows `.exe` picker, profile-owned effect/layout editing, mapping selection of one
 group plus one profile, top-to-bottom priority, hover arrows, whole-row insertion drag/drop,
 row Edit/Remove, Save/Save As/Remove item actions, eligibility, Save/Cancel, and optional Live
