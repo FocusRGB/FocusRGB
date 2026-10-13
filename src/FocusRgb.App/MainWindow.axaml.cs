@@ -1,7 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using FocusRgb.App.ViewModels;
 
 namespace FocusRgb.App
@@ -20,11 +22,16 @@ namespace FocusRgb.App
 
         private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
 
-        private void AddApplicationGroup_OnClick(object? sender, RoutedEventArgs e) =>
-            ViewModel.MappingEditor.AddApplicationGroup();
+        private void SaveProfile_OnClick(object? sender, RoutedEventArgs e) => ViewModel.SaveProfile();
+        private void SaveProfileAs_OnClick(object? sender, RoutedEventArgs e) => ViewModel.SaveProfileAs();
+        private void RemoveProfile_OnClick(object? sender, RoutedEventArgs e) => ViewModel.RemoveProfile();
 
-        private void AddMapping_OnClick(object? sender, RoutedEventArgs e) =>
-            ViewModel.MappingEditor.AddMapping();
+        private void SaveApplicationGroup_OnClick(object? sender, RoutedEventArgs e) => ViewModel.SaveApplicationGroup();
+        private void SaveApplicationGroupAs_OnClick(object? sender, RoutedEventArgs e) => ViewModel.SaveApplicationGroupAs();
+        private void RemoveApplicationGroup_OnClick(object? sender, RoutedEventArgs e) => ViewModel.RemoveApplicationGroup();
+
+        private void SaveMappingAs_OnClick(object? sender, RoutedEventArgs e) =>
+            ViewModel.MappingEditor.SaveMappingAs();
 
         private void MoveMappingUp_OnClick(object? sender, RoutedEventArgs e) =>
             MoveFromButton(sender, -1);
@@ -43,6 +50,11 @@ namespace FocusRgb.App
         private async void MappingDrag_OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (sender is not Control { DataContext: MappingEditorItemViewModel item }) return;
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
+                || e.Source is Button
+                || e.Source is Visual source && source.FindAncestorOfType<Button>() is not null)
+                return;
+            ViewModel.MappingEditor.SelectedMapping = item;
             var transfer = new DataTransfer();
             transfer.Add(DataTransferItem.Create(MappingFormat, item));
             await DragDrop.DoDragDropAsync(e, transfer, DragDropEffects.Move);
@@ -53,29 +65,45 @@ namespace FocusRgb.App
             e.DragEffects = e.DataTransfer.Contains(MappingFormat) ? DragDropEffects.Move : DragDropEffects.None;
         }
 
-        private void MappingRow_OnDrop(object? sender, DragEventArgs e)
+        private void MappingBefore_OnDrop(object? sender, DragEventArgs e)
         {
             if (sender is not Control { DataContext: MappingEditorItemViewModel target }) return;
             var source = e.DataTransfer.TryGetValue(MappingFormat);
-            if (source is not null) ViewModel.MappingEditor.MoveTo(source, target);
+            if (source is not null) ViewModel.MappingEditor.MoveBefore(source, target);
+        }
+
+        private void MappingEnd_OnDrop(object? sender, DragEventArgs e)
+        {
+            var source = e.DataTransfer.TryGetValue(MappingFormat);
+            if (source is not null) ViewModel.MappingEditor.MoveToEnd(source);
         }
 
         private async void BrowseExecutable_OnClick(object? sender, RoutedEventArgs e)
         {
-            if (sender is not Button { CommandParameter: ApplicationGroupViewModel group }) return;
             var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
                 Title = "Add Windows executables",
                 AllowMultiple = true,
                 FileTypeFilter = [new FilePickerFileType("Windows executable") { Patterns = ["*.exe"] }]
             });
-            foreach (var file in files) group.AddExecutable(file.Name);
+            foreach (var file in files) ViewModel.AddDraftExecutable(file.Name);
         }
 
         private void RemoveExecutable_OnClick(object? sender, RoutedEventArgs e)
         {
-            if (sender is Button { CommandParameter: ApplicationGroupViewModel group })
-                group.RemoveSelectedExecutable();
+            ViewModel.RemoveDraftExecutable();
+        }
+
+        private void EditMapping_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (sender is Button { CommandParameter: MappingEditorItemViewModel item })
+                ViewModel.MappingEditor.SelectedMapping = item;
+        }
+
+        private void RemoveMapping_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (sender is Button { CommandParameter: MappingEditorItemViewModel item })
+                ViewModel.MappingEditor.Remove(item);
         }
 
         private void ApplyMappings_OnClick(object? sender, RoutedEventArgs e) => ViewModel.MappingEditor.Apply();
