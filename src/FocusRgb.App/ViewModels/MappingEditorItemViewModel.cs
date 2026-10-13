@@ -10,7 +10,6 @@ namespace FocusRgb.App.ViewModels
         private string _applicationName;
         private string _executables;
         private string _eligibility;
-        private ResourceOptionViewModel _selectedEffect;
         private ProfileOptionViewModel _selectedProfile;
         private int _priority;
         private int _position;
@@ -18,27 +17,23 @@ namespace FocusRgb.App.ViewModels
         internal MappingEditorItemViewModel(
             MappingEditorViewModel editor,
             MappingSnapshot snapshot,
-            IReadOnlyList<ProfileOptionViewModel> profiles,
-            IReadOnlyList<ResourceOptionViewModel> effects)
+            IReadOnlyList<ProfileOptionViewModel> profiles)
         {
             _editor = editor;
             Id = snapshot.Id;
             Profiles = profiles;
-            Effects = effects;
             EligibilityOptions = ["while-focused", "while-running"];
             _applicationName = snapshot.ApplicationName;
             _executables = snapshot.Executables;
             _selectedProfile = profiles.Single(profile => profile.Id == snapshot.ProfileId);
             _eligibility = snapshot.Eligibility;
             _priority = snapshot.Priority;
-            _selectedEffect = effects.Single(effect => effect.DisplayName == snapshot.EffectName);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public string Id { get; }
         public IReadOnlyList<ProfileOptionViewModel> Profiles { get; }
-        public IReadOnlyList<ResourceOptionViewModel> Effects { get; }
         public IReadOnlyList<string> EligibilityOptions { get; }
         public bool CanChooseLayout { get; }
         public string LayoutStatus { get; } = "Layout catalog unavailable in preview";
@@ -71,9 +66,6 @@ namespace FocusRgb.App.ViewModels
                 {
                     return;
                 }
-
-                var profileEffect = Effects.Single(effect => effect.DisplayName == value.EffectName);
-                Set(ref _selectedEffect, profileEffect, nameof(SelectedEffect), notifyEditor: false);
             }
         }
 
@@ -89,27 +81,13 @@ namespace FocusRgb.App.ViewModels
             set => Set(ref _priority, value);
         }
 
-        public ResourceOptionViewModel SelectedEffect
-        {
-            get => _selectedEffect;
-            set
-            {
-                ArgumentNullException.ThrowIfNull(value);
-                if (value.IsAvailable)
-                {
-                    Set(ref _selectedEffect, value);
-                }
-            }
-        }
-
         internal MappingSnapshot CreateSnapshot() => new(
             Id,
             ApplicationName,
             Executables,
             SelectedProfile.Id,
             Eligibility,
-            Priority,
-            SelectedEffect.DisplayName);
+            Priority);
 
         internal void SetPosition(int position) => Position = position;
 

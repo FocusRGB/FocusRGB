@@ -1,4 +1,5 @@
 using FocusRgb.App.ViewModels;
+using FocusRgb.Core.Configuration;
 
 namespace FocusRgb.App.Tests
 {
@@ -44,6 +45,19 @@ namespace FocusRgb.App.Tests
 
             Assert.False(viewModel.IsManual);
             Assert.Contains("not connected", viewModel.SelectionReason, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void CreatePreview_ShowsNoEffect_WhenValidProfileHasNoBindings()
+        {
+            var settings = SettingsJson.LoadDefaults().Settings!;
+            settings.Profiles!.Single(profile => profile.Id == "programming").Bindings!.Clear();
+
+            var viewModel = MainWindowViewModel.CreatePreview(settings);
+
+            var profile = viewModel.Profiles.Single(item => item.Id == "programming");
+            Assert.Equal("No effect", profile.EffectName);
+            Assert.Equal("No layout", profile.LayoutName);
         }
     }
 }

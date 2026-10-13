@@ -80,15 +80,24 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public void CreatePreview_ProvidesEffectsAndDisablesUnavailableLayouts()
+        public void CreatePreview_ShowsProfileEffectAndDisablesUnavailableLayouts()
         {
             var mapping = MainWindowViewModel.CreatePreview().MappingEditor.SelectedMapping!;
 
-            Assert.Equal(["Aurora", "Screen Ambient", "Logarithmic Visualizer"],
-                mapping.Effects.Select(effect => effect.DisplayName));
-            Assert.All(mapping.Effects, effect => Assert.True(effect.IsAvailable));
+            Assert.Equal("Aurora", mapping.SelectedProfile.EffectName);
             Assert.False(mapping.CanChooseLayout);
             Assert.Contains("unavailable", mapping.LayoutStatus, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void SelectedProfile_ChangesEffectThroughProfileInsteadOfMapping()
+        {
+            var editor = MainWindowViewModel.CreatePreview().MappingEditor;
+
+            editor.SelectedMapping!.SelectedProfile = editor.Profiles.Single(profile => profile.Id == "movie");
+
+            Assert.Equal("Screen Ambient", editor.SelectedMapping.SelectedProfile.EffectName);
+            Assert.True(editor.IsDirty);
         }
     }
 }

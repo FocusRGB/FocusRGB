@@ -7,6 +7,5 @@ namespace FocusRgb.App.ViewModels
         string Executables,
         string ProfileId,
         string Eligibility,
-        int Priority,
-        string EffectName);
+        int Priority);
 }
