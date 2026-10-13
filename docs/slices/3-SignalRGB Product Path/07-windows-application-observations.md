@@ -2,7 +2,7 @@
 
 [← All implementation slices](../../implementation-slices.md)
 
-**Status:** Next — pending implementation after Slice 06.
+**Status:** In progress — fixture implementation complete; read-only local acceptance check pending.
 
 Depends on: 05. Scope: foreground and running-process observations behind the detector
 boundary. Handle disappearing processes/access denial; identify actual Stremio window owner.

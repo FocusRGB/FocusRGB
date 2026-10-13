@@ -113,23 +113,31 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 06 — Saved state and startup restoration
-- State: complete (pending pull request review into `develop`)
-- Branch, latest relevant code commit, and pull request into `develop`:
-  `slice/06-persistence`, `51c4b45`, PR #13.
-- Scope and dependencies verified: follows slice 05 and is stacked on open PR #12.
-- Implemented files and entry points: `../src/FocusRgb.Core/Configuration/StateJson.cs`,
-  `NativeSetupJson.cs`, `../src/FocusRgb.Core/Persistence/LocalStateStore.cs`, persistence
-  result models, and focused document/store tests.
+- Slice: 07 — Windows application observations
+- State: in progress
+- Branch, latest relevant code commit, and pull request target:
+  `slice/07-windows-observations`, `5d6f12f`; PR not opened yet, target
+  `fix/reviewed-persistence-selection`.
+- Scope and dependencies verified: uses the slice 05 selector boundary and the updated
+  `ApplicationObservation`/`Select` contract from PR #17; no process APIs enter Core.
+- Implemented files and entry points:
+  `../src/FocusRgb.Platform.Windows/WindowsApplicationObserver.cs`,
+  `WindowsProcessSource.cs`, and focused platform tests under
+  `../tests/FocusRgb.Platform.Windows.Tests/`.
 - Verification: `dotnet build FocusRGB.slnx -c Release` passed with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release` passed 99/99.
-- External/live evidence: none requested or required; no SignalRGB, network, or device calls.
-- Remaining acceptance criteria: none for Slice 06; choosing the OS per-user directory and
-  wiring startup into the app remain intentionally outside this portable storage slice.
-- Current blocker or required product input: none; merge prerequisite PRs through #12 first.
-- Uncommitted work to preserve: none after the final handoff commit.
-- Next action: implement slice 07 Windows foreground/running-process observations.
-- Next slice: 07.
+  `dotnet test --solution FocusRGB.slnx -c Release --no-build` passed 113/113. Fixtures cover
+  Stremio shell/helper identity, disappearing foreground processes, access denial, ignored
+  foreground windows, and executable-name normalization.
+- External/live evidence: not run yet; user requested approval immediately before the read-only
+  process and foreground-window check. No lights, settings, or integrations were touched.
+- Remaining acceptance criteria: with the configured apps open, report installed Programming,
+  Movie, and Music identities and confirm the real Stremio foreground-window owner.
+- Current blocker or required product input: user must open the desired apps and confirm the
+  read-only local observation check can run.
+- Uncommitted work to preserve: status/index updates only.
+- Next action: run the approved local observation check, record evidence, finish documentation,
+  push the branch, and open the stacked pull request.
+- Next slice: 08 only after the live acceptance check passes.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in

@@ -33,7 +33,7 @@ Status: **00–06 complete on the stacked pull-request chain. 07 is next.**
 ## 3 — SignalRGB Product Path
 
 - ▶️ [07 — Windows application observations](<slices/3-SignalRGB Product Path/07-windows-application-observations.md>):
-  detect foreground and running applications behind the platform boundary. **Next.**
+  detect foreground and running applications behind the platform boundary. **In progress.**
 - ⏳ [08 — Plugin SDK, host, and fake plugin](<slices/3-SignalRGB Product Path/08-minimal-external-plugin-host-and-fake-plugin.md>):
   package the minimal SDK and host an external JSON-RPC fake plugin.
 - ⏳ [09 — Command coordination and fallback](<slices/3-SignalRGB Product Path/09-command-coordination-and-fallback-state.md>):
