@@ -21,12 +21,12 @@ Status: **00–06 complete on the stacked pull-request chain. 07 is next.**
 - ✅ [03 — UI shell](slices/1-Foundation/03-ui-shell-with-preview-state.md):
   add navigation, mode/profile controls, and explicit preview-only status.
 - ✅ [04 — Mapping editor](slices/1-Foundation/04-profile-mapping-editor-with-preview-state.md):
-  edit grouped executables, priority, eligibility, Apply/Cancel, and preview state.
+  edit named application groups and ordered mappings with Apply/Cancel and preview state.
 
 ## 2 — Core Engine
 
 - ✅ [05 — Selection engine](<slices/2-Core Engine/05-pure-selection-engine.md>):
-  arbitrate priority, manual override, focus debounce, ignored windows, and Default fallback.
+  arbitrate saved-list priority, manual override, focus debounce, ignored windows, and Default fallback.
 - ✅ [06 — Persistence](<slices/2-Core Engine/06-saved-state-and-startup-restoration.md>):
   atomically save and restore settings, desired state, and the native fallback snapshot.
 
@@ -75,16 +75,16 @@ Status: **00–06 complete on the stacked pull-request chain. 07 is next.**
 
 ## 6 — Games and External Control
 
-- ⏳ [24 — Installed game catalog](<slices/6-Games and External Control/24-installed-game-catalog-and-assignments.md>):
-  discover installed games and assign static generic or per-game profiles.
-- ⏳ [25 — One game API adapter](<slices/6-Games and External Control/25-one-game-api-adapter.md>):
-  implement one game-data plugin with namespaced, replayable events.
-- ⏳ [26 — Hybrid game layers](<slices/6-Games and External Control/26-hybrid-game-layers.md>):
-  combine canvas effects, semantic zones, and direct LED/key mappings.
-- ⏳ [27 — Local MCP commands](<slices/6-Games and External Control/27-local-mcp-commands.md>):
-  expose the same validated UI commands to a local model.
-- ⏳ [28 — Stabilize the public plugin SDK](<slices/6-Games and External Control/28-public-sdk-and-contributor-example.md>):
+- ⏳ [24 — Stabilize the public plugin SDK](<slices/6-Games and External Control/24-public-sdk-and-contributor-example.md>):
   promote the proven SDK to version 1 with templates, compatibility guidance, and an example.
+- ⏳ [25 — Local MCP commands](<slices/6-Games and External Control/25-local-mcp-commands.md>):
+  expose the same validated UI commands to a local model.
+- ⏳ [26 — Installed game catalog](<slices/6-Games and External Control/26-installed-game-catalog-and-assignments.md>):
+  discover installed games through plugins and assign static generic or per-game profiles.
+- ⏳ [27 — One game API adapter](<slices/6-Games and External Control/27-one-game-api-adapter.md>):
+  implement one game-data plugin using the public SDK with namespaced, replayable events.
+- ⏳ [28 — Hybrid game layers](<slices/6-Games and External Control/28-hybrid-game-layers.md>):
+  combine canvas effects, semantic zones, and direct LED/key mappings.
 - ⏳ [29 — SignalRGB independence gate](<slices/6-Games and External Control/29-signalrgb-independence-gate.md>):
   verify required profiles, effects, layouts, and devices without SignalRGB.
 

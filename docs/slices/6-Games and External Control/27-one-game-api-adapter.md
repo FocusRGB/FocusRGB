@@ -1,9 +1,9 @@
-# 25 — One game API adapter
+# 27 — One game API adapter
 
 [← All implementation slices](../../implementation-slices.md)
 
-Depends on: 14, 24. Scope: choose one supported API, create its `FocusRGB-Plugin-<Game>` repository,
-document its event contract, implement the separate plugin against a published SDK version, and
+Depends on: 24, 26. Scope: choose one supported API, create its `FocusRGB-Plugin-<Game>` repository,
+document its event contract, implement the separate plugin through the public SDK only, and
 record replay fixtures with source/freshness. Share only proven common fields; preserve
 game-specific data namespaced.
 Acceptance: replay changes effect inputs; stale/disconnected telemetry degrades predictably;

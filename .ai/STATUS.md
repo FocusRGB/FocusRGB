@@ -19,7 +19,7 @@ Updated: 2026-10-13.
   conformance tests, template, and fake plugin stay in FocusRGB; production plugins use peer
   `FocusRGB-Plugin-<Name>` repositories and published SDK versions. Empty repositories are not
   created early: WLED is created in slice 16, SignalRGB in 22, and the selected game adapter
-  in 25. Slice 28 stabilizes the proven `0.x` SDK as version 1 (PR #16).
+  in 27. Slice 24 stabilizes the proven `0.x` SDK as version 1 (PR #16).
 - Application settings are now specified with researched defaults and ownership boundaries.
   Close-button behavior defaults to minimize to tray and can be changed to real exit; startup
   registration remains opt-in work for slice 18. Implementation is isolated in slice 09 after
@@ -43,7 +43,7 @@ Updated: 2026-10-13.
   core, targeting Windows, macOS, and Linux where platform integrations permit it.
 - Plugin direction selected: open manifests/protocol/schemas and official .NET SDK/templates;
   plugins run out of process over versioned JSON-RPC and declare platform/resource needs.
-- Selection requirements now include editable deterministic rule priority and a manual mode
+- Selection requirements now use editable deterministic mapping-list order and a manual mode
   that suppresses detection until automatic selection is resumed.
 - Game API plugins feed versioned normalized and namespaced events to effects. A local MCP
   adapter will use the same validated command services as the UI.
@@ -74,8 +74,8 @@ Updated: 2026-10-13.
 
 ## What exists
 
-Latest design decisions: profile priority lists use per-rule while-running/while-focused
-eligibility; higher-priority running apps can retain control without focus. Profiles require
+Latest design decisions: mapping priority is the saved top-to-bottom order, with per-rule
+while-running/while-focused eligibility; earlier running apps can retain control without focus. Profiles require
 fallback/recovery policies and separate desired versus applied state. Editing supports optional
 Live preview on pointer release, with explicit Apply otherwise. Native placement layouts support
 stacked groups with different LED counts, scaling, and unassigned-device exclusion. Game
@@ -94,12 +94,12 @@ The shared screen colour test remains under `tools/`; the Arduino sketch moved t
 `../modules/arduino/sketches/`. `../src/` contains the app scaffold and portable configuration
 code. No custom
 SignalRGB effects or user device plugins are active in the repo or Documents folders.
-The controller app now opens a minimal preview shell with Overview, Profiles, Mappings, and
-Integrations navigation. It loads the validated defaults, starts in manual Default, and labels
-desired/applied values as preview-only. The in-memory mapping editor supports application and
-executable identity, profile/effect choices, eligibility, numeric priority, ordered movement,
-Apply/Cancel, and optional Live preview. Grouped mappings retain all comma-separated executable
-names. Layout selection is visibly disabled because the fake catalog does not expose layouts.
+The controller app now opens a minimal preview shell with Overview, Profiles, Application Groups,
+Mappings, and Integrations navigation. It loads the validated defaults, starts in manual Default,
+and labels desired/applied values as preview-only. The in-memory editor provides named executable
+groups with a Windows `.exe` picker, profile-owned effect/layout editing, mapping selection of one
+group plus one profile, top-to-bottom priority, hover arrows, drag/drop, eligibility, Apply/Cancel,
+and optional Live preview. Persistent application groups remain part of slice 20.
 The portable selection engine now evaluates supplied observations with manual override,
 while-running/while-focused eligibility, deterministic priority, focus debounce, ignored
 windows, process-exit handling, protected Default fallback, and explicit reasons. The portable
@@ -130,7 +130,7 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Remaining acceptance criteria: persistent profile create/rename/duplicate/delete, protected
   Default, binding/fallback editing, Apply/Cancel, Live preview, and reference-safe deletion.
 - Current blocker or required product input: none.
-- Uncommitted work to preserve: roadmap edits on `docs/app-first-roadmap` until committed.
+- Uncommitted work to preserve: none after the application-group feature commits.
 - Next action: implement the new Slice 07 profile editor from its detail file.
 - Next slice: 08 only after Slice 07 acceptance passes.
 
@@ -149,8 +149,8 @@ the `branch-policy` check. Add `branch-policy` to `main` after the first release
 CI `build` check to both rulesets after CI first runs on `develop`.
 
 Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
-(`settings.json`, `state.json`, `native-setup.json`); seeded rules are `while-focused` at equal
-priority 100 in list order Programming, Movie, Music; protected Default handles unmatched
+(`settings.json`, `state.json`, `native-setup.json`); seeded rules are `while-focused` in priority
+order Programming, Movie, Music; protected Default handles unmatched
 automatic selection. Fixture effects carry display names with `resourceId: null`, resolved by
 exact catalog match; SignalRGB bindings use a
 `provider-managed` device scope; JSON-RPC requests time out after 5000 ms by default.
@@ -161,8 +161,9 @@ Slices 07–29 are pending. Continue with 07 (profile editor and persistence), t
 runtime/settings and native RGB path. Keep protected Default and make non-Default profiles
 fully user-managed before adding observed-application automation.
 
-External application work starts at Slice 19. SignalRGB begins at 21, game integrations at 24,
-and MCP at 27. The preserved observation branch must be integrated only when Slice 19 starts.
+External application work starts at Slice 19. SignalRGB begins at 21, the public SDK is stabilized
+at 24, MCP is 25, and game integrations start at 26. The preserved observation branch must be
+integrated only when Slice 19 starts.
 Claude tool availability does not itself establish an app API.
 
 ## Open choices
