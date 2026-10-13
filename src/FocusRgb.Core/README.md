@@ -67,8 +67,9 @@ Writes serialize and flush a unique temporary file before atomically replacing t
 validation, serialization, or replacement failure leaves the prior target untouched. Malformed
 documents are renamed with a timestamp before a replacement is seeded, and the returned startup
 snapshot includes a `RecoveryNotice`. Unknown state profile references are archived and reset
-to manual Default with `invalid-state-reset`. Unsupported schema versions are left in place and
-returned as errors so a newer document is never silently downgraded.
+to manual Default with `invalid-state-reset`. Only a numeric schema version above the supported
+version is left in place and returned as an error; missing or malformed versions follow corrupt
+document recovery. JSON readers accept comments and trailing commas for hand-edited files.
 
 Use `SaveSettingsAsync`, `SaveStateAsync`, and `SaveNativeSetupAsync` only for their named
 documents. Saving desired state requires no applied output. Provider edits, previews, and
