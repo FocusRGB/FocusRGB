@@ -17,6 +17,9 @@ The seeded profiles are protected Default plus Programming (VS Code/Visual Studi
 (PotPlayer/Stremio), and Music (Media Player/Spotify). In automatic mode, no eligible mapping
 returns to Default.
 
+The main `Home` tab always shows the Manual/Automatic mode control. Manual mode shows profile
+selection and current state; Automatic mode replaces that body with the ordered mapping editor.
+
 ## Implementation roadmap
 
 1. Finish the FocusRGB desktop app: persistent profile editing, tray/runtime behavior, settings,

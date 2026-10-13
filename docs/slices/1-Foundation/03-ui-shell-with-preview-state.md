@@ -6,7 +6,8 @@
 opened with four fixture profiles and explicit preview-only state.
 
 Depends on: 02. Scope: replace the placeholder window with the minimal settings shell,
-navigation, manual/automatic control, profile picker, desired/applied/reason status, and clear
+navigation and a main `Home` tab with a `Mode` control. Manual mode shows the profile picker and
+desired/applied/reason status; Automatic mode uses the mapping editor as the Home body. Keep clear
 preview-only integration status. Populate it from validated default settings through a small
 UI-facing state model; do not implement detection, persistence, tray behavior, or outputs.
 Acceptance: the Windows app builds and opens with Default in manual mode; all four fixture
