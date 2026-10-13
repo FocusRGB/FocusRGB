@@ -1,8 +1,9 @@
-# 07 — Windows application observations
+# 19 — Windows application observations
 
 [← All implementation slices](../../implementation-slices.md)
 
-**Status:** Next — pending implementation after Slice 06.
+**Status:** Deferred by the app-first reorder. Fixture work is preserved on
+`slice/07-windows-observations`; rebase or merge it when Slice 19 starts.
 
 Depends on: 05. Scope: foreground and running-process observations behind the detector
 boundary. Handle disappearing processes/access denial; identify actual Stremio window owner.

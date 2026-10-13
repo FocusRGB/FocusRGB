@@ -1,8 +1,8 @@
-# 18 — WLED plugin and native output gate
+# 16 — WLED plugin and native output gate
 
 [← All implementation slices](../../implementation-slices.md)
 
-Depends on: 08, 09, 17. Scope: create `MAJ224/FocusRGB-Plugin-WLED`; implement WLED status/device
+Depends on: 10, 14, 15. Scope: create `MAJ224/FocusRGB-Plugin-WLED`; implement WLED status/device
 capabilities, configured network targets, static output then frame streaming, bounded timeouts,
 cleanup/realtime expiry, and ownership against a published SDK version. Use fake network checks
 first. Before requested live tests, prove target release from SignalRGB.

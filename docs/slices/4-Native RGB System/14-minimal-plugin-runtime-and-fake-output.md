@@ -1,4 +1,4 @@
-# 08 — Minimal plugin SDK, host, and fake plugin
+# 14 — Minimal plugin runtime, SDK, and fake output
 
 [← All implementation slices](../../implementation-slices.md)
 

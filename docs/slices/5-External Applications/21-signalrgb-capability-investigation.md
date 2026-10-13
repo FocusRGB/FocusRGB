@@ -1,4 +1,4 @@
-# 10 — SignalRGB capability investigation
+# 21 — SignalRGB capability investigation
 
 [← All implementation slices](../../implementation-slices.md)
 
