@@ -1,5 +1,6 @@
 using System.Security;
 using System.Text;
+using System.Text.Json;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Selection;
 
@@ -144,12 +145,13 @@ namespace FocusRgb.Core.Persistence
                     : SettingsStartupResult.Fail(save.Error!);
             }
 
-            var loaded = SettingsJson.Load(await File.ReadAllTextAsync(path, cancellationToken));
+            var json = await File.ReadAllTextAsync(path, cancellationToken);
+            var loaded = SettingsJson.Load(json);
             if (loaded.IsSuccess)
             {
                 return SettingsStartupResult.Ok(loaded.Settings!);
             }
-            if (HasUnsupportedVersion(loaded.Errors))
+            if (HasUnsupportedVersion(json))
             {
                 return SettingsStartupResult.Fail(InvalidDocument(SettingsFileName, loaded.Errors));
             }
@@ -175,10 +177,11 @@ namespace FocusRgb.Core.Persistence
                 return await SaveFirstRunStateAsync(settings, now, SelectionReason.FirstRun(), cancellationToken);
             }
 
-            var loaded = StateJson.Load(await File.ReadAllTextAsync(path, cancellationToken));
+            var json = await File.ReadAllTextAsync(path, cancellationToken);
+            var loaded = StateJson.Load(json);
             if (!loaded.IsSuccess)
             {
-                if (HasUnsupportedVersion(loaded.Errors))
+                if (HasUnsupportedVersion(json))
                 {
                     return StateStartupResult.Fail(InvalidDocument(StateFileName, loaded.Errors));
                 }
@@ -229,12 +232,13 @@ namespace FocusRgb.Core.Persistence
                     : NativeStartupResult.Fail(save.Error!);
             }
 
-            var loaded = NativeSetupJson.Load(await File.ReadAllTextAsync(path, cancellationToken));
+            var json = await File.ReadAllTextAsync(path, cancellationToken);
+            var loaded = NativeSetupJson.Load(json);
             if (loaded.IsSuccess)
             {
                 return NativeStartupResult.Ok(loaded.NativeSetup!);
             }
-            if (HasUnsupportedVersion(loaded.Errors))
+            if (HasUnsupportedVersion(json))
             {
                 return NativeStartupResult.Fail(InvalidDocument(NativeSetupFileName, loaded.Errors));
             }
@@ -321,8 +325,26 @@ namespace FocusRgb.Core.Persistence
             };
         }
 
-        private static bool HasUnsupportedVersion(IReadOnlyList<ConfigurationError> errors) =>
-            errors.Any(error => error.Path == "schemaVersion");
+        private static bool HasUnsupportedVersion(string json)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(json, new JsonDocumentOptions
+                {
+                    AllowTrailingCommas = true,
+                    CommentHandling = JsonCommentHandling.Skip
+                });
+                return document.RootElement.ValueKind == JsonValueKind.Object
+                    && document.RootElement.TryGetProperty("schemaVersion", out var version)
+                    && version.ValueKind == JsonValueKind.Number
+                    && version.TryGetInt64(out var value)
+                    && value > 1;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+        }
 
         private static SaveResult Invalid(string fileName, IReadOnlyList<ConfigurationError> errors) =>
             SaveResult.Fail(InvalidDocument(fileName, errors));
