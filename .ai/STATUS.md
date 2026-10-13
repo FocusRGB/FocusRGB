@@ -98,8 +98,9 @@ The controller app now opens a minimal preview shell with Overview, Profiles, Ap
 Mappings, and Integrations navigation. It loads the validated defaults, starts in manual Default,
 and labels desired/applied values as preview-only. The in-memory editor provides named executable
 groups with a Windows `.exe` picker, profile-owned effect/layout editing, mapping selection of one
-group plus one profile, top-to-bottom priority, hover arrows, drag/drop, eligibility, Apply/Cancel,
-and optional Live preview. Persistent application groups remain part of slice 20.
+group plus one profile, top-to-bottom priority, hover arrows, whole-row insertion drag/drop,
+row Edit/Remove, Save/Save As/Remove item actions, eligibility, Save/Cancel, and optional Live
+preview. Persistent application groups remain part of slice 20.
 The portable selection engine now evaluates supplied observations with manual override,
 while-running/while-focused eligibility, deterministic priority, focus debounce, ignored
 windows, process-exit handling, protected Default fallback, and explicit reasons. The portable
