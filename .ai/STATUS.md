@@ -35,10 +35,10 @@ Updated: 2026-10-15.
   removed. Solution build and all 117 tests pass.
 
 - Roadmap reordered app-first and then external-first: profile management and tray/settings are
-  followed by Windows observation/mappings and SignalRGB, with only required plugin/runtime
-  foundations in folder 4 before games. Standalone rendering and hardware work is isolated in
+  followed by the required plugin/runtime foundations, then Windows observation/mappings and
+  SignalRGB. Standalone rendering and hardware work is isolated in
   folder 7 and does not block external applications or games. The Windows
-  observation fixture checkpoint remains preserved on `slice/07-windows-observations` for Slice 10.
+  observation fixture checkpoint remains preserved on `slice/07-windows-observations` for Slice 12.
 - Persistence, selection, and mapping review findings were resolved (PR #17): missing/malformed
   schema versions recover as corrupt while numeric future versions remain untouched; JSON accepts
   comments/trailing commas; automatic startup retains restored intent until focus stabilizes;
@@ -49,7 +49,7 @@ Updated: 2026-10-15.
 - Plugin repository ownership is decided: contracts, the minimal .NET SDK, host, schemas,
   conformance tests, template, and fake plugin stay in FocusRGB; production plugins use peer
   `FocusRGB-Plugin-<Name>` repositories and published SDK versions. Empty repositories are not
-  created early: SignalRGB is created in slice 14, the selected game adapter in 20, and WLED in
+  created early: SignalRGB is created in slice 15, the selected game adapter in 20, and WLED in
   22. Slice 17 stabilizes the fake- and SignalRGB-proven `0.x` SDK as version 1 (PR #16).
 - Application settings are now specified with researched defaults and ownership boundaries.
   Close-button behavior defaults to minimize to tray and can be changed to real exit; startup
@@ -122,7 +122,7 @@ the current desired selection, capabilities, and ownership. Native fallback can 
 until native rendering/output exists or the target hardware is released.
 
 The SignalRGB staging module contains templates, a Canvas API example, and an archived
-Pro-blocked effect; maintained content moves to its external plugin repository in slice 14.
+Pro-blocked effect; maintained content moves to its external plugin repository in slice 15.
 The shared screen colour test remains under `tools/`; the Arduino sketch moved to
 `../modules/arduino/sketches/`. `../src/` contains the app scaffold and portable configuration
 code. No custom
@@ -139,7 +139,7 @@ picker, mapping selection of one
 group plus one profile, top-to-bottom priority, hover arrows, midpoint-based whole-row insertion
 drag/drop, row Edit/Remove, Save/Save As/Remove item actions, eligibility, Save/Cancel, and optional
 Live preview. Group selectors align with their editor bodies, and executable actions sit beside
-the list. Persistent application groups remain part of slice 11.
+the list. Persistent application groups remain part of slice 13.
 The portable selection engine now evaluates supplied observations with manual override,
 while-running/while-focused eligibility, deterministic priority, focus debounce, ignored
 windows, process-exit handling, protected Default fallback, and explicit reasons. The portable
@@ -159,25 +159,26 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 10 — Windows application observations
+- Slice: 10 — Minimal plugin runtime, SDK, and fake output
 - State: prepared; implementation not started
 - Branch, latest relevant code commit, and pull request target:
-  `slice/10-windows-application-observations`, based on merged Slice 09 commit `4a9d5b9`;
+  `slice/10-minimal-plugin-runtime-and-fake-output`, based on merged Slice 09 commit `4a9d5b9`;
   future pull request targets `slice/09-application-settings` while the stack remains unmerged.
-- Scope and dependencies verified: follows the portable Slice 05 detector boundary. Reconcile the
-  preserved `slice/07-windows-observations` fixtures with the current Windows platform project;
-  no mapping persistence, profile application, plugins, or lighting output belongs in this slice.
-- Implemented files and entry points: none yet; inventory the preserved observation branch first.
+- Scope and dependencies verified: follows the Slice 02 contracts/configuration boundary. Add only
+  the minimal plugin SDK, app-side process host, schemas, and fake output needed to prove the
+  protocol; no production provider, complete version-1 SDK, or hardware output belongs here.
+- Implemented files and entry points: none yet; inventory the frozen contract and current project
+  boundaries before adding projects.
 - Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passes with 0 warnings and
   `dotnet test --solution FocusRGB.slnx -c Release --no-restore` passes 158/158 tests.
-- External/live evidence: a later read-only run must report configured Programming, Movie, and
-  Music identities where installed; no lights or application settings may change.
-- Remaining acceptance criteria: cover foreground/running observations, disappearing or denied
-  processes, helpers/ignored windows, app close, and the actual Stremio window owner.
+- External/live evidence: none required; fake and clean-room fixtures provide acceptance evidence.
+- Remaining acceptance criteria: fake catalog/apply, protocol/version/malformed-response/timeout/
+  process-exit failures, reproducible SDK packaging, and a clean-room external build.
 - Current blocker or required product input: none.
 - Uncommitted work to preserve: none.
-- Next action: inventory and reconcile `slice/07-windows-observations` tests before merging its code.
-- Next slice: 11 — Application mappings and persistence, only after Slice 10 acceptance passes.
+- Next action: inventory the frozen plugin messages and current solution boundaries before adding
+  the SDK, host, and fake executable projects.
+- Next slice: 11 — Command coordination and fallback state, only after Slice 10 acceptance passes.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -202,14 +203,15 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slices 10–29 are pending. Continue with Windows application observations at Slice 10. Profile
-persistence, the tray runtime, and application settings are complete; application-group/mapping
-persistence follows in Slice 11.
+Slices 10–29 are pending. Continue with the minimal plugin runtime and fake output at Slice 10.
+Profile persistence, the tray runtime, and application settings are complete; command
+coordination follows in Slice 11.
 
-SignalRGB investigation starts at 12, its external plugin at 14, and its acceptance gate at 16.
+Windows observations start at 12 and application mappings at 13. SignalRGB investigation starts
+at 14, its external plugin at 15, and its acceptance gate at 16.
 The public SDK is stabilized at 17, MCP is 18, and game discovery starts at 19. Standalone native
-rendering, layout, and hardware work is isolated in folder 7 at slices 21–29. Inventory the preserved observation branch
-before integrating it into Slice 10.
+rendering, layout, and hardware work is isolated in folder 7 at slices 21–29. Inventory the preserved
+observation branch before integrating it into Slice 12.
 Claude tool availability does not itself establish an app API.
 
 ## Open choices

@@ -39,25 +39,26 @@ Status: **00–09 complete on the stacked pull-request chain. 10 is next.**
 - ✅ [09 — Application settings](<slices/3-FocusRGB App/09-application-settings-and-lifecycle-preferences.md>):
   persist desktop lifecycle, theme, and diagnostic preferences in a small Settings page.
 
-## 4–5 — External Applications and plugin foundations
+## 4 — Plugin Runtime and Coordination
 
-Folders 4 and 5 are interleaved here: folder 4 contains only the runtime and coordination
-foundations required by the external-application and game workflows.
-
-- ▶️ [10 — Windows application observations](<slices/5-External Applications/10-windows-application-observations.md>):
-  detect foreground and running applications behind the platform boundary. **Next.**
-- ⏳ [11 — Application mappings](<slices/5-External Applications/11-application-mappings-and-persistence.md>):
-  add detected/manual applications, persist automation rules, and wire automatic profile selection.
-- ⏳ [12 — SignalRGB investigation](<slices/5-External Applications/12-signalrgb-capability-investigation.md>):
-  verify supported APIs, catalogs, selection, layouts, and limitations.
-- ⏳ [13 — Plugin runtime, SDK, and fake output](<slices/4-Plugin Runtime and Coordination/13-minimal-plugin-runtime-and-fake-output.md>):
-  package the minimal SDK and host a JSON-RPC fake output plugin required by provider plugins.
-- ⏳ [14 — External SignalRGB plugin](<slices/5-External Applications/14-separate-signalrgb-plugin.md>):
-  create its repository and implement provider status, catalogs, and effect/layout application.
-- ⏳ [15 — Command coordination and fallback](<slices/4-Plugin Runtime and Coordination/15-command-coordination-and-fallback-state.md>):
+- ▶️ [10 — Plugin runtime, SDK, and fake output](<slices/4-Plugin Runtime and Coordination/10-minimal-plugin-runtime-and-fake-output.md>):
+  package the minimal SDK and host a JSON-RPC fake output plugin required by provider plugins. **Next.**
+- ⏳ [11 — Command coordination and fallback](<slices/4-Plugin Runtime and Coordination/11-command-coordination-and-fallback-state.md>):
   track desired/applied/pending state, fallback, ownership, and reconnect approval.
+
+## 5 — External Applications
+
+- ⏳ [12 — Windows application observations](<slices/5-External Applications/12-windows-application-observations.md>):
+  detect foreground and running applications behind the platform boundary.
+- ⏳ [13 — Application mappings](<slices/5-External Applications/13-application-mappings-and-persistence.md>):
+  add detected/manual applications, persist automation rules, and wire automatic profile selection.
+- ⏳ [14 — SignalRGB investigation](<slices/5-External Applications/14-signalrgb-capability-investigation.md>):
+  verify supported APIs, catalogs, selection, layouts, and limitations.
+- ⏳ [15 — External SignalRGB plugin](<slices/5-External Applications/15-separate-signalrgb-plugin.md>):
+  create its repository and implement provider status, catalogs, and effect/layout application.
 - ⏳ [16 — SignalRGB acceptance gate](<slices/5-External Applications/16-signalrgb-acceptance-gate.md>):
   connect the already-selected profile to SignalRGB and verify the complete switching path with the user.
+
 ## 6 — Games and External Control
 
 - ⏳ [17 — Stabilize the public plugin SDK](<slices/6-Games and External Control/17-public-sdk-and-contributor-example.md>):
@@ -111,7 +112,7 @@ foundations required by the external-application and game workflows.
 - `src/FocusRgb.App/`: Avalonia tray/settings UI and generic plugin-host wiring.
 - `tests/`: core, contract, integration, platform, UI, and fake-plugin conformance checks.
 - `FocusRGB-Plugin-<Name>` repositories: production integration executables and releases.
-- `modules/signalrgb/`: temporary research/tool staging until slice 14 migration.
+- `modules/signalrgb/`: temporary research/tool staging until slice 15 migration.
 - `build/`: ignored generated output, reports, packages, and tool artifacts.
 
 Core may reference shared contracts; neither Core nor App references provider projects. Portable

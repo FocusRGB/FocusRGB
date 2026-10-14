@@ -24,7 +24,7 @@ therefore belongs in the profile editor and provider-catalog slices.
 
 The later application-group revision intentionally replaced the original free-text name,
 comma-separated executable field, numeric priority input, and global Move buttons. In this
-preview slice groups are in-memory projections of existing rules; slice 11 gives named groups
+preview slice groups are in-memory projections of existing rules; slice 13 gives named groups
 their persistent schema and connects them to observed applications.
 
 Profiles and Application Groups use the same selected-item pattern: a placeholder-bearing picker

@@ -1,8 +1,8 @@
-# 10 — Windows application observations
+# 12 — Windows application observations
 
 [← All implementation slices](../../implementation-slices.md)
 
-**Status:** Prepared on `slice/10-windows-application-observations`. Fixture work is preserved on
+**Status:** Prepared for `slice/12-windows-application-observations`. Fixture work is preserved on
 `slice/07-windows-observations`; inventory and merge it when implementation starts.
 
 The preserved branch is the implementation starting point, not optional historical material;

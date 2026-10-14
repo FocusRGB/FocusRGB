@@ -5,7 +5,7 @@
 Depends on: 06, 07. Scope: host persisted state in the Avalonia app; add tray show/quit and
 connect the profile picker, manual mode, desired/applied/reason display, save errors, and clean
 shutdown to shared local commands. Automatic application selection remains unavailable until
-slice 11. Use minimize-to-tray as the temporary default; slice 09 makes it configurable.
+slice 13. Use minimize-to-tray as the temporary default; slice 09 makes it configurable.
 
 Acceptance: the last manual profile is restored and shown after restart; closing the window
 leaves the local engine running; Quit saves valid state and exits cleanly; the UI stays responsive

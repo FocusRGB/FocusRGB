@@ -1,4 +1,4 @@
-# 13 — Minimal plugin runtime, SDK, and fake output
+# 10 — Minimal plugin runtime, SDK, and fake output
 
 [← All implementation slices](../../implementation-slices.md)
 

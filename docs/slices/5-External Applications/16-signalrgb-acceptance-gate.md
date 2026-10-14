@@ -2,7 +2,7 @@
 
 [← All implementation slices](../../implementation-slices.md)
 
-Depends on: 11, 14, 15. Scope: connect the automatically selected profile to provider
+Depends on: 11, 13, 15. Scope: connect the automatically selected profile to provider
 catalogs, status, errors, and reconnect approval. Add capability-aware
 effect/layout controls to profile bindings with explicit unavailable states, then run clean
 build/tests and the explicitly requested live SignalRGB session using the four mappings. Retain

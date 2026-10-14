@@ -2,7 +2,7 @@
 
 [← All implementation slices](../../implementation-slices.md)
 
-Depends on: 13, 14. Scope: promote the SDK proven by the fake output and SignalRGB plugins from `0.x` to version 1;
+Depends on: 10, 15. Scope: promote the SDK proven by the fake output and SignalRGB plugins from `0.x` to version 1;
 document compatibility and support policy; finish the plugin template, conformance kit, and
 standalone example; and define the minimal official-plugin catalog format.
 Acceptance: generate a new external repository from the template, build/test it against the

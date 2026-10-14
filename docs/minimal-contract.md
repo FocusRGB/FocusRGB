@@ -170,7 +170,7 @@ Profiles:
   exact, case-sensitive `displayName` match against a fresh catalog and saves the ID only after
   the user applies. No match, or a catalog that is unsupported, makes the binding unavailable
   with reason `resource-not-found` or `capability-unsupported`; the core never picks a
-  different resource. Fixture names are data: slice 12 investigates the real catalog, slice 14
+  different resource. Fixture names are data: slice 14 investigates the real catalog, slice 15
   exposes it through the plugin, and slice 16 reconciles/saves the selected ID (for example
   Screen Ambient versus the historical Screen Ambience).
 - `deviceScope.kind` is `provider-managed` (every device the provider currently manages) or
@@ -186,7 +186,7 @@ Profiles:
 Rules:
 
 - The UI calls each reusable named executable set an **Application Group**. In the current
-  settings schema 2 preview, each rule projects one group from its `id` and `match.executables`; slice 11
+  settings schema 2 preview, each rule projects one group from its `id` and `match.executables`; slice 13
   adds persisted group identity/name so several mappings can reference the same group.
 - The array order is the saved priority list. The first eligible rule wins. The legacy numeric
   `priority` property is accepted when reading schema version 1 but ignored and omitted by new
@@ -195,7 +195,7 @@ Rules:
   both. `enabled: false` keeps the rule but never makes it eligible.
 - `match.executables` compares file names case-insensitively. **Reserved:** `match.game` with
   `{ "launcher": "steam", "id": "570" }` for slice 19. A rule must have at least one matcher.
-- Executable names are candidates until slice 10 confirms the real foreground owners.
+- Executable names are candidates until slice 12 confirms the real foreground owners.
 
 Selection:
 
@@ -341,7 +341,7 @@ late response. Examples below are wrapped for readability; on the wire each is o
 ]}}
 ```
 
-The values above are an illustration of shape; slice 12 determines the real SignalRGB support.
+The values above are an illustration of shape; slice 14 determines the real SignalRGB support.
 `support` is `supported`, `unsupported`, or `unverified`. Unknown capability IDs are ignored.
 A capability absent from the list is `unsupported`.
 

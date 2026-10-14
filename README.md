@@ -70,7 +70,7 @@ named `FocusRGB-Plugin-<Name>` and consume a published SDK version; they are not
 or app project references. Repositories are created when their implementation slice starts.
 
 The existing [SignalRGB module](modules/signalrgb/README.md) temporarily holds research and
-tools that will move to `FocusRGB-Plugin-SignalRGB` in slice 14. The
+tools that will move to `FocusRGB-Plugin-SignalRGB` in slice 15. The
 [Arduino module](modules/arduino/README.md) holds the earlier LED strip sketch. Application
 projects live under [src/](src/README.md); the shared screen colour test remains under `tools/`.
 
