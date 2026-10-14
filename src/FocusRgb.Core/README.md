@@ -58,7 +58,7 @@ rules can still win immediately.
 
 The caller owns process observation and time. The selector does not read the OS or call an
 integration or device. `LocalStateStore` persists its desired result independently of output.
-Runtime observation wiring arrives in slice 19.
+Windows observations arrive in slice 19; slice 20 wires them to automatic selection and persistence.
 
 ## Persisting startup state
 

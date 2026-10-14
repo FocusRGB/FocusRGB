@@ -25,7 +25,7 @@ namespace FocusRgb.Core.Selection
                 throw new ArgumentException("Selection requires validated settings.", nameof(settings));
             }
 
-            _settings = settings;
+            _settings = SettingsJson.Load(SettingsJson.Serialize(settings)).Settings!;
         }
 
         /// <summary>Evaluates one observation at the supplied time and returns only desired profile state.</summary>

@@ -40,8 +40,8 @@ namespace FocusRgb.Core.Commands
             if (mode is not ("manual" or "automatic"))
                 return Task.FromResult(SelectionCommandResult.Fail("invalid-mode", $"Unknown mode '{mode}'."));
 
-            var desired = current.LastSelectedProfile!;
-            var manualProfile = mode == "manual" ? desired : current.ManualProfile!;
+            var manualProfile = current.ManualProfile!;
+            var desired = mode == "manual" ? manualProfile : current.LastSelectedProfile!;
             var next = Copy(current, mode, manualProfile, desired, now);
             var reason = mode == "manual" ? SelectionReason.Manual() : SelectionReason.ObservationPending();
             return SaveAsync(settings, next, reason, cancellationToken);
@@ -87,7 +87,7 @@ namespace FocusRgb.Core.Commands
             SelectionReason reason,
             CancellationToken cancellationToken)
         {
-            var save = await _store.SaveStateAsync(next, settings, cancellationToken);
+            var save = await _store.SaveStateAsync(next, settings, cancellationToken).ConfigureAwait(false);
             return save.IsSuccess
                 ? SelectionCommandResult.Ok(next, GetStatus(next, reason))
                 : SelectionCommandResult.Fail(

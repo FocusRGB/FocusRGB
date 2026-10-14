@@ -87,6 +87,7 @@ namespace FocusRgb.Core.Configuration
         public ApplicationMatch? Match { get; init; }
         public string? Eligibility { get; init; }
         /// <summary>Legacy schema field. Readers ignore it; list order defines priority.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public int? Priority { get; init; }
         public bool? Enabled { get; init; }
     }
@@ -95,6 +96,7 @@ namespace FocusRgb.Core.Configuration
     public sealed class ApplicationMatch : ExtensibleConfiguration
     {
         public List<string>? Executables { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public GameMatch? Game { get; init; }
     }
 

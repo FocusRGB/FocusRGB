@@ -195,6 +195,19 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("profileId", error.ParamName);
         }
 
+        [Fact]
+        public void Constructor_SnapshotsValidatedSettings()
+        {
+            var settings = Settings(Rule("music", "music", "while-running", 100, "Spotify.exe"));
+            var engine = new SelectionEngine(settings);
+            settings.Rules!.Clear();
+
+            var decision = engine.Select(SelectionMode.Automatic, "default",
+                Observation("Spotify.exe", "Spotify.exe"), Start);
+
+            Assert.Equal("music", decision.ProfileId);
+        }
+
         private static SettingsDocument Settings(params RuleSettings[] rules)
         {
             var settings = SettingsJson.LoadDefaults().Settings!;

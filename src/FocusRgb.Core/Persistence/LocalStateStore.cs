@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security;
 using System.Text;
 using System.Text.Json;
@@ -9,6 +10,10 @@ namespace FocusRgb.Core.Persistence
     /// <summary>
     /// Stores the three local documents atomically in a caller-selected cross-platform directory.
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Design",
+        "CA1001:Types that own disposable fields should be disposable",
+        Justification = "The process-lifetime semaphore has no unmanaged resource.")]
     public sealed class LocalStateStore : ISelectionStateStore
     {
         public const string SettingsFileName = "settings.json";
@@ -16,12 +21,16 @@ namespace FocusRgb.Core.Persistence
         public const string StateFileName = "state.json";
         public const string NativeSetupFileName = "native-setup.json";
 
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates =
+            new(StringComparer.OrdinalIgnoreCase);
         private readonly string _directory;
+        private readonly SemaphoreSlim _gate;
 
         public LocalStateStore(string directory)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(directory);
             _directory = Path.GetFullPath(directory);
+            _gate = Gates.GetOrAdd(_directory, static _ => new SemaphoreSlim(1, 1));
         }
 
         /// <summary>Loads all startup documents, seeding missing files and explicitly archiving invalid ones.</summary>
@@ -29,25 +38,26 @@ namespace FocusRgb.Core.Persistence
             DateTimeOffset now,
             CancellationToken cancellationToken = default)
         {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 Directory.CreateDirectory(_directory);
                 var recoveries = new List<RecoveryNotice>();
 
-                var settingsResult = await LoadSettingsAsync(now, recoveries, cancellationToken);
+                var settingsResult = await LoadSettingsAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
                 if (!settingsResult.IsSuccess)
                 {
                     return StartupResult.Fail(settingsResult.Error!);
                 }
 
                 var settings = settingsResult.Settings!;
-                var stateResult = await LoadStateAsync(settings, now, recoveries, cancellationToken);
+                var stateResult = await LoadStateAsync(settings, now, recoveries, cancellationToken).ConfigureAwait(false);
                 if (!stateResult.IsSuccess)
                 {
                     return StartupResult.Fail(stateResult.Error!);
                 }
 
-                var nativeResult = await LoadNativeSetupAsync(now, recoveries, cancellationToken);
+                var nativeResult = await LoadNativeSetupAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
                 if (!nativeResult.IsSuccess)
                 {
                     return StartupResult.Fail(nativeResult.Error!);
@@ -59,6 +69,7 @@ namespace FocusRgb.Core.Persistence
                     Settings = settings,
                     State = state,
                     NativeSetup = nativeResult.NativeSetup!,
+                    SettingsSource = settingsResult.Source!,
                     Desired = new SelectionDecision
                     {
                         ProfileId = state.Mode == "manual" ? state.ManualProfile! : state.LastSelectedProfile!,
@@ -71,12 +82,31 @@ namespace FocusRgb.Core.Persistence
             {
                 return StartupResult.Fail(Error("startup", exception));
             }
+            finally
+            {
+                _gate.Release();
+            }
         }
 
         /// <summary>Saves validated user settings without changing selection or native fallback files.</summary>
         public async Task<SaveResult> SaveSettingsAsync(
             SettingsDocument settings,
             CancellationToken cancellationToken = default)
+        {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return await SaveSettingsCoreAsync(settings, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        private async Task<SaveResult> SaveSettingsCoreAsync(
+            SettingsDocument settings,
+            CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(settings);
             var errors = SettingsValidator.Validate(settings);
@@ -85,15 +115,16 @@ namespace FocusRgb.Core.Persistence
                 return Invalid(SettingsFileName, errors);
             }
 
+            var current = await SerializeAndWriteAsync(
+                SettingsFileName,
+                () => SettingsJson.Serialize(settings),
+                cancellationToken).ConfigureAwait(false);
+            if (!current.IsSuccess) return current;
             var recovery = await SerializeAndWriteAsync(
                 SettingsRecoveryFileName,
                 () => SettingsJson.Serialize(settings),
-                cancellationToken);
-            if (!recovery.IsSuccess) return recovery;
-            return await SerializeAndWriteAsync(
-                SettingsFileName,
-                () => SettingsJson.Serialize(settings),
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
+            return recovery.IsSuccess ? SaveResult.Ok() : SaveResult.Ok(recovery.Error);
         }
 
         /// <summary>Saves validated desired intent even when no integration can apply output.</summary>
@@ -101,6 +132,22 @@ namespace FocusRgb.Core.Persistence
             SelectionStateDocument state,
             SettingsDocument settings,
             CancellationToken cancellationToken = default)
+        {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return await SaveStateCoreAsync(state, settings, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        private async Task<SaveResult> SaveStateCoreAsync(
+            SelectionStateDocument state,
+            SettingsDocument settings,
+            CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(state);
             ArgumentNullException.ThrowIfNull(settings);
@@ -115,13 +162,28 @@ namespace FocusRgb.Core.Persistence
             return await SerializeAndWriteAsync(
                 StateFileName,
                 () => StateJson.Serialize(state),
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>Saves native fallback only through an explicit native-setup operation.</summary>
         public async Task<SaveResult> SaveNativeSetupAsync(
             NativeSetupDocument nativeSetup,
             CancellationToken cancellationToken = default)
+        {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return await SaveNativeSetupCoreAsync(nativeSetup, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        private async Task<SaveResult> SaveNativeSetupCoreAsync(
+            NativeSetupDocument nativeSetup,
+            CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(nativeSetup);
             var errors = NativeSetupJson.Validate(nativeSetup);
@@ -133,7 +195,7 @@ namespace FocusRgb.Core.Persistence
             return await SerializeAndWriteAsync(
                 NativeSetupFileName,
                 () => NativeSetupJson.Serialize(nativeSetup),
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
         }
 
         private async Task<SettingsStartupResult> LoadSettingsAsync(
@@ -144,23 +206,42 @@ namespace FocusRgb.Core.Persistence
             var path = PathFor(SettingsFileName);
             if (!File.Exists(path))
             {
+                var missingFileRecovery = await LoadRecoverySettingsAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
+                if (missingFileRecovery is not null) return missingFileRecovery;
                 var defaults = SettingsJson.LoadDefaults().Settings!;
-                var save = await SaveSettingsAsync(defaults, cancellationToken);
+                var save = await SaveSettingsCoreAsync(defaults, cancellationToken).ConfigureAwait(false);
                 return save.IsSuccess
-                    ? SettingsStartupResult.Ok(defaults)
+                    ? SettingsStartupResult.Ok(defaults, "defaults")
                     : SettingsStartupResult.Fail(save.Error!);
             }
 
-            var json = await File.ReadAllTextAsync(path, cancellationToken);
+            var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
             var loaded = SettingsJson.Load(json);
             if (loaded.IsSuccess)
             {
-                if (ReadSchemaVersion(json) == 1 || !File.Exists(PathFor(SettingsRecoveryFileName)))
+                if (ReadSchemaVersion(json) == 1)
                 {
-                    var save = await SaveSettingsAsync(loaded.Settings!, cancellationToken);
+                    BackupFile(SettingsFileName, "schema-1", now);
+                    var save = await SaveSettingsCoreAsync(loaded.Settings!, cancellationToken).ConfigureAwait(false);
                     if (!save.IsSuccess) return SettingsStartupResult.Fail(save.Error!);
                 }
-                return SettingsStartupResult.Ok(loaded.Settings!);
+                else
+                {
+                    var recoverySave = await SerializeAndWriteAsync(
+                        SettingsRecoveryFileName,
+                        () => SettingsJson.Serialize(loaded.Settings!),
+                        cancellationToken).ConfigureAwait(false);
+                    if (!recoverySave.IsSuccess)
+                    {
+                        recoveries.Add(new RecoveryNotice
+                        {
+                            FileName = recoverySave.Error!.FileName,
+                            ArchivedPath = PathFor(SettingsRecoveryFileName),
+                            Message = $"Could not refresh the last-known-good copy: {recoverySave.Error.Message}"
+                        });
+                    }
+                }
+                return SettingsStartupResult.Ok(loaded.Settings!, "current");
             }
             if (HasUnsupportedVersion(json, SettingsJson.CurrentSchemaVersion))
             {
@@ -169,12 +250,12 @@ namespace FocusRgb.Core.Persistence
 
             var recovery = ArchiveInvalid(SettingsFileName, "corrupt", now, loaded.Errors);
             recoveries.Add(recovery);
-            var recovered = await LoadRecoverySettingsAsync(now, recoveries, cancellationToken);
+            var recovered = await LoadRecoverySettingsAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
             if (recovered is not null) return recovered;
             var replacement = SettingsJson.LoadDefaults().Settings!;
-            var result = await SaveSettingsAsync(replacement, cancellationToken);
+            var result = await SaveSettingsCoreAsync(replacement, cancellationToken).ConfigureAwait(false);
             return result.IsSuccess
-                ? SettingsStartupResult.Ok(replacement)
+                ? SettingsStartupResult.Ok(replacement, "defaults")
                 : SettingsStartupResult.Fail(result.Error!);
         }
 
@@ -187,10 +268,10 @@ namespace FocusRgb.Core.Persistence
             var path = PathFor(StateFileName);
             if (!File.Exists(path))
             {
-                return await SaveFirstRunStateAsync(settings, now, SelectionReason.FirstRun(), cancellationToken);
+                return await SaveFirstRunStateAsync(settings, now, SelectionReason.FirstRun(), cancellationToken).ConfigureAwait(false);
             }
 
-            var json = await File.ReadAllTextAsync(path, cancellationToken);
+            var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
             var loaded = StateJson.Load(json);
             if (!loaded.IsSuccess)
             {
@@ -200,7 +281,7 @@ namespace FocusRgb.Core.Persistence
                 }
 
                 recoveries.Add(ArchiveInvalid(StateFileName, "corrupt", now, loaded.Errors));
-                return await SaveFirstRunStateAsync(settings, now, SelectionReason.FirstRun(), cancellationToken);
+                return await SaveFirstRunStateAsync(settings, now, SelectionReason.FirstRun(), cancellationToken).ConfigureAwait(false);
             }
 
             var referenceErrors = StateJson.ValidateProfileReferences(loaded.State!, settings);
@@ -211,7 +292,7 @@ namespace FocusRgb.Core.Persistence
                     settings,
                     now,
                     SelectionReason.InvalidStateReset(),
-                    cancellationToken);
+                    cancellationToken).ConfigureAwait(false);
             }
 
             return StateStartupResult.Ok(loaded.State!, SelectionReason.Restored());
@@ -224,7 +305,7 @@ namespace FocusRgb.Core.Persistence
             CancellationToken cancellationToken)
         {
             var state = StateJson.CreateFirstRun(settings.Selection!.DefaultProfile!, now);
-            var save = await SaveStateAsync(state, settings, cancellationToken);
+            var save = await SaveStateCoreAsync(state, settings, cancellationToken).ConfigureAwait(false);
             return save.IsSuccess
                 ? StateStartupResult.Ok(state, reason)
                 : StateStartupResult.Fail(save.Error!);
@@ -239,13 +320,13 @@ namespace FocusRgb.Core.Persistence
             if (!File.Exists(path))
             {
                 var initial = NativeSetupJson.CreateDefault();
-                var save = await SaveNativeSetupAsync(initial, cancellationToken);
+                var save = await SaveNativeSetupCoreAsync(initial, cancellationToken).ConfigureAwait(false);
                 return save.IsSuccess
                     ? NativeStartupResult.Ok(initial)
                     : NativeStartupResult.Fail(save.Error!);
             }
 
-            var json = await File.ReadAllTextAsync(path, cancellationToken);
+            var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
             var loaded = NativeSetupJson.Load(json);
             if (loaded.IsSuccess)
             {
@@ -258,7 +339,7 @@ namespace FocusRgb.Core.Persistence
 
             recoveries.Add(ArchiveInvalid(NativeSetupFileName, "corrupt", now, loaded.Errors));
             var replacement = NativeSetupJson.CreateDefault();
-            var result = await SaveNativeSetupAsync(replacement, cancellationToken);
+            var result = await SaveNativeSetupCoreAsync(replacement, cancellationToken).ConfigureAwait(false);
             return result.IsSuccess
                 ? NativeStartupResult.Ok(replacement)
                 : NativeStartupResult.Fail(result.Error!);
@@ -284,8 +365,8 @@ namespace FocusRgb.Core.Persistence
                 }))
                 {
                     await using var writer = new StreamWriter(stream, new UTF8Encoding(false), leaveOpen: true);
-                    await writer.WriteAsync(content.AsMemory(), cancellationToken);
-                    await writer.FlushAsync(cancellationToken);
+                    await writer.WriteAsync(content.AsMemory(), cancellationToken).ConfigureAwait(false);
+                    await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
                     stream.Flush(flushToDisk: true);
                 }
 
@@ -338,6 +419,15 @@ namespace FocusRgb.Core.Persistence
             };
         }
 
+        private void BackupFile(string fileName, string kind, DateTimeOffset now)
+        {
+            var stamp = now.UtcDateTime.ToString("yyyyMMddTHHmmssfffZ", System.Globalization.CultureInfo.InvariantCulture);
+            var backup = Path.Combine(_directory, $"{fileName}.{kind}-{stamp}.backup");
+            for (var suffix = 1; File.Exists(backup); suffix++)
+                backup = Path.Combine(_directory, $"{fileName}.{kind}-{stamp}-{suffix}.backup");
+            File.Copy(PathFor(fileName), backup);
+        }
+
         private async Task<SettingsStartupResult?> LoadRecoverySettingsAsync(
             DateTimeOffset now,
             List<RecoveryNotice> recoveries,
@@ -345,15 +435,18 @@ namespace FocusRgb.Core.Persistence
         {
             var path = PathFor(SettingsRecoveryFileName);
             if (!File.Exists(path)) return null;
-            var json = await File.ReadAllTextAsync(path, cancellationToken);
+            var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
             var loaded = SettingsJson.Load(json);
             if (loaded.IsSuccess)
             {
-                var save = await SaveSettingsAsync(loaded.Settings!, cancellationToken);
+                var save = await SaveSettingsCoreAsync(loaded.Settings!, cancellationToken).ConfigureAwait(false);
                 return save.IsSuccess
-                    ? SettingsStartupResult.Ok(loaded.Settings!)
+                    ? SettingsStartupResult.Ok(loaded.Settings!, "last-known-good")
                     : SettingsStartupResult.Fail(save.Error!);
             }
+
+            if (HasUnsupportedVersion(json, SettingsJson.CurrentSchemaVersion))
+                return SettingsStartupResult.Fail(InvalidDocument(SettingsRecoveryFileName, loaded.Errors));
 
             recoveries.Add(ArchiveInvalid(SettingsRecoveryFileName, "corrupt", now, loaded.Errors));
             return null;
@@ -413,8 +506,13 @@ namespace FocusRgb.Core.Persistence
         {
             public bool IsSuccess => Settings is not null;
             public SettingsDocument? Settings { get; private init; }
+            public string? Source { get; private init; }
             public PersistenceError? Error { get; private init; }
-            public static SettingsStartupResult Ok(SettingsDocument settings) => new() { Settings = settings };
+            public static SettingsStartupResult Ok(SettingsDocument settings, string source) => new()
+            {
+                Settings = settings,
+                Source = source
+            };
             public static SettingsStartupResult Fail(PersistenceError error) => new() { Error = error };
         }
 
