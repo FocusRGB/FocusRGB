@@ -151,7 +151,7 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - State: complete; awaiting review in the stacked pull-request chain
 - Branch, latest relevant code commit, and pull request target:
   `slice/09-application-settings`; commits `89e95a5`, `69ea5bc`, `683b113`, and
-  `fbaecfc`; PR pending against `slice/08-desktop-runtime-tray`.
+  `fbaecfc`; PR #22 targets `slice/08-desktop-runtime-tray`.
 - Scope and dependencies verified: follows persistence and tray lifecycle; no startup
   registration, process observation, plugin, SignalRGB, or hardware dependency.
 - Implemented files and entry points: `ApplicationSettings` and `SettingsJson` own schema
@@ -165,8 +165,8 @@ not respond. No live settings, presets, layouts, registry values, services, or t
   behavior remains a manual packaging check rather than claimed live evidence.
 - Remaining acceptance criteria: none for Slice 09.
 - Current blocker or required product input: none.
-- Uncommitted work to preserve: documentation and final verification before the Slice 09 PR.
-- Next action: finish the Slice 09 documentation commit and open its stacked PR.
+- Uncommitted work to preserve: none after the Slice 09 commits.
+- Next action: review/merge Slice 09, then implement Slice 10 from this branch while stacked.
 - Next slice: 10 — Placement model and offline renderer.
 
 
