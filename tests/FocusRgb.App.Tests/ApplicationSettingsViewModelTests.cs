@@ -1,0 +1,97 @@
+using FocusRgb.App.Diagnostics;
+using FocusRgb.App.ViewModels;
+using FocusRgb.Core.Persistence;
+
+namespace FocusRgb.App.Tests
+{
+    public sealed class ApplicationSettingsViewModelTests : IDisposable
+    {
+        private static readonly DateTimeOffset Start = new(2026, 10, 14, 16, 0, 0, TimeSpan.Zero);
+        private readonly string _directory = Path.Combine(
+            Path.GetTempPath(), "FocusRgb.App.Tests", Guid.NewGuid().ToString("N"));
+
+        [Fact]
+        public async Task SaveApplicationSettingsAsync_PersistsPreferencesWithoutChangingSelectionState()
+        {
+            var (viewModel, store) = await CreateAsync();
+            var statePath = Path.Combine(_directory, LocalStateStore.StateFileName);
+            var stateBefore = await File.ReadAllTextAsync(statePath, TestContext.Current.CancellationToken);
+            viewModel.CloseButtonBehavior = "Exit application";
+            viewModel.StartMinimized = true;
+            viewModel.ApplicationTheme = "Dark";
+            viewModel.VerboseLogging = true;
+
+            var saved = await viewModel.SaveApplicationSettingsAsync(TestContext.Current.CancellationToken);
+            var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(saved);
+            Assert.Equal("exit", restarted.Snapshot!.Settings.Application!.CloseButtonBehavior);
+            Assert.True(restarted.Snapshot.Settings.Application.StartMinimized);
+            Assert.Equal("dark", restarted.Snapshot.Settings.Application.Theme);
+            Assert.True(restarted.Snapshot.Settings.Application.VerboseLogging);
+            Assert.Equal(stateBefore, await File.ReadAllTextAsync(statePath, TestContext.Current.CancellationToken));
+        }
+
+        [Fact]
+        public async Task CancelApplicationSettings_RestoresDraftAndCloseBehaviorUsesOnlySavedValue()
+        {
+            var (viewModel, _) = await CreateAsync();
+            Assert.True(viewModel.ShouldMinimizeOnClose);
+
+            viewModel.CloseButtonBehavior = "Exit application";
+            viewModel.ApplicationTheme = "Dark";
+
+            Assert.True(viewModel.ShouldMinimizeOnClose);
+            Assert.True(viewModel.IsApplicationSettingsDirty);
+            viewModel.CancelApplicationSettings();
+            Assert.Equal("Minimize to system tray", viewModel.CloseButtonBehavior);
+            Assert.Equal("System", viewModel.ApplicationTheme);
+            Assert.False(viewModel.IsApplicationSettingsDirty);
+        }
+
+        [Fact]
+        public async Task CreatePersistent_RemovesTrayOnlyBehavior_WhenTrayIsUnavailable()
+        {
+            var store = new LocalStateStore(_directory);
+            var startup = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+
+            var viewModel = MainWindowViewModel.CreatePersistent(
+                startup.Snapshot!,
+                store,
+                canMinimizeToTray: false);
+
+            Assert.Equal(["Exit application"], viewModel.CloseButtonBehaviors);
+            Assert.Equal("Exit application", viewModel.CloseButtonBehavior);
+            Assert.False(viewModel.ShouldMinimizeOnClose);
+        }
+
+        [Fact]
+        public void DiagnosticExport_ExcludesProfileMappingAndPathContent()
+        {
+            var viewModel = MainWindowViewModel.CreatePreview();
+            viewModel.ProfileName = "secret-profile-value";
+            viewModel.ApplicationGroupName = @"C:\Private\secret-app.exe";
+
+            var json = DiagnosticExport.CreateJson(viewModel, Start);
+
+            Assert.DoesNotContain("secret-profile-value", json, StringComparison.Ordinal);
+            Assert.DoesNotContain("secret-app", json, StringComparison.Ordinal);
+            Assert.DoesNotContain("profiles", json, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("mappings", json, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("settingsSchema", json, StringComparison.Ordinal);
+        }
+
+        private async Task<(MainWindowViewModel ViewModel, LocalStateStore Store)> CreateAsync()
+        {
+            var store = new LocalStateStore(_directory);
+            var startup = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(startup.IsSuccess, startup.Error?.Message);
+            return (MainWindowViewModel.CreatePersistent(startup.Snapshot!, store), store);
+        }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
+        }
+    }
+}
