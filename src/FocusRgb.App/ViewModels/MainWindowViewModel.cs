@@ -589,6 +589,12 @@ namespace FocusRgb.App.ViewModels
                 : snapshot.State.LastSelectedProfile;
             viewModel.SelectedProfile = viewModel.Profiles.Single(profile => profile.Id == selectedId);
             viewModel.RuntimeStatusMessage += $" Settings loaded from {snapshot.SettingsSource}.";
+            foreach (var recovery in snapshot.Recoveries)
+            {
+                viewModel.RuntimeStatusMessage += recovery.ArchivedPath is null
+                    ? $" {recovery.FileName}: {recovery.Message}"
+                    : $" Recovered {recovery.FileName}; the invalid file was kept as {Path.GetFileName(recovery.ArchivedPath)}.";
+            }
             return viewModel;
         }
 
