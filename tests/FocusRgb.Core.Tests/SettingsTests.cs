@@ -32,6 +32,11 @@ namespace FocusRgb.Core.Tests
             Assert.Equal(RuleOrder, rules.Select(r => r.Id));
             Assert.Equal("default", result.Settings.Selection!.DefaultProfile);
             Assert.Equal("default-profile", result.Settings.Selection.Unmatched);
+            Assert.Equal(SettingsJson.CurrentSchemaVersion, result.Settings.SchemaVersion);
+            Assert.Equal("minimize-to-tray", result.Settings.Application!.CloseButtonBehavior);
+            Assert.False(result.Settings.Application.StartMinimized);
+            Assert.Equal("system", result.Settings.Application.Theme);
+            Assert.False(result.Settings.Application.VerboseLogging);
             Assert.Equal(["Code.exe", "devenv.exe"], rules[0].Match!.Executables);
             Assert.Equal(["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"],
                 rules[1].Match!.Executables);
@@ -54,6 +59,8 @@ namespace FocusRgb.Core.Tests
         [InlineData("selection.unmatched", "keep-current", "selection.unmatched")]
         [InlineData("selection.unmatched", "anything", "selection.unmatched")]
         [InlineData("profiles.0.fallback.0.kind", "random", "profiles[0].fallback[0].kind")]
+        [InlineData("application.closeButtonBehavior", "hide", "application.closeButtonBehavior")]
+        [InlineData("application.theme", "blue", "application.theme")]
         public void Load_RejectsInvalidValue_WithFieldPath(string field, string value, string errorPath)
         {
             var root = Defaults();
@@ -63,6 +70,9 @@ namespace FocusRgb.Core.Tests
 
         [Theory]
         [InlineData("schemaVersion", "schemaVersion")]
+        [InlineData("application", "application")]
+        [InlineData("application.startMinimized", "application.startMinimized")]
+        [InlineData("application.verboseLogging", "application.verboseLogging")]
         [InlineData("selection", "selection")]
         [InlineData("profiles", "profiles")]
         [InlineData("rules", "rules")]
@@ -118,12 +128,29 @@ namespace FocusRgb.Core.Tests
 
         [Theory]
         [InlineData(0)]
-        [InlineData(2)]
+        [InlineData(3)]
         public void Load_RejectsUnsupportedVersion_WithoutMigrationOrPersistence(int version)
         {
             var root = Defaults();
             root["schemaVersion"] = version;
             AssertError(root, "schemaVersion");
+        }
+
+        [Fact]
+        public void Load_MigratesSchemaOneApplicationPreferencesToDocumentedDefaults()
+        {
+            var root = Defaults();
+            root["schemaVersion"] = 1;
+            root.AsObject().Remove("application");
+
+            var result = SettingsJson.Load(root.ToJsonString());
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(SettingsJson.CurrentSchemaVersion, result.Settings!.SchemaVersion);
+            Assert.Equal("minimize-to-tray", result.Settings.Application!.CloseButtonBehavior);
+            Assert.False(result.Settings.Application.StartMinimized);
+            Assert.Equal("system", result.Settings.Application.Theme);
+            Assert.False(result.Settings.Application.VerboseLogging);
         }
 
         [Fact]
