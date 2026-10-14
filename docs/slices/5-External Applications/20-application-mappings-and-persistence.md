@@ -12,7 +12,7 @@ eligibility with Save/Cancel and optional Live preview. Use `Save As` for new gr
 providers, and fallbacks remain profile-owned.
 
 Acceptance: application groups and mappings survive restart; preview does not save; Cancel restores the prior draft;
-unchecked preview sends nothing before Apply. Users can select an observed executable or enter
+unchecked preview sends nothing before Save. Users can select an observed executable or enter
 one manually. The first eligible mapping is the winner with no numeric priority field. Multiple
 mappings for one profile cannot diverge on effect/layout, removing an
 application makes its rule ineligible, and protected Default handles no-match automatic state.

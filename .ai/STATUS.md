@@ -1,8 +1,15 @@
 # Current status
 
-Updated: 2026-10-13.
+Updated: 2026-10-14.
 
 ## Completed
+
+- Slice 07 makes the Profiles page a real persisted editor. Save edits the selected profile,
+  Save As creates a uniquely identified copy, Cancel restores the saved draft/preview, and Remove
+  protects Default plus mapping and fallback references. Effect, provider-current or named layout,
+  and primary fallback choices are validated and atomically stored under `%LOCALAPPDATA%\FocusRGB`.
+  Persisted current/last selection references are reassigned to Default before a profile is
+  removed. Solution build and all 117 tests pass.
 
 - Roadmap reordered app-first: profile management, tray/settings, native rendering/layouts,
   and native outputs now precede desktop-application detection, SignalRGB, games, and MCP.
@@ -77,10 +84,11 @@ Updated: 2026-10-13.
 Latest design decisions: mapping priority is the saved top-to-bottom order, with per-rule
 while-running/while-focused eligibility; earlier running apps can retain control without focus. Profiles require
 fallback/recovery policies and separate desired versus applied state. Editing supports optional
-Live preview on pointer release, with explicit Apply otherwise. Native placement layouts support
+Live preview on pointer release, with explicit Save otherwise. Native placement layouts support
 stacked groups with different LED counts, scaling, and unassigned-device exclusion. Game
 rendering is designed as canvas, semantic-zone, and direct named-key/LED layers. Detailed
-behavior is in `../docs/plugin-architecture.md`; none of it is implemented yet.
+behavior is in `../docs/plugin-architecture.md`; only the selection/persistence and profile-editing
+parts are implemented so far.
 
 Fallback/reconnect choices are confirmed: use the app's default native setup until modified,
 then its last applied native setup. Recovered plugins generate a notification and resume use
@@ -94,15 +102,17 @@ The shared screen colour test remains under `tools/`; the Arduino sketch moved t
 `../modules/arduino/sketches/`. `../src/` contains the app scaffold and portable configuration
 code. No custom
 SignalRGB effects or user device plugins are active in the repo or Documents folders.
-The controller app now opens a minimal preview shell with Home, Profiles, Application Groups,
+The controller app now opens a minimal shell with Home, Profiles, Application Groups,
 and Integrations navigation. Home always exposes the Mode control; Manual shows profile/current
 state and Automatic shows the mapping editor. It loads the validated defaults, starts in manual
-Default, and labels desired/applied values as preview-only. The in-memory editor provides named executable
-groups with a Windows `.exe` picker, profile-owned effect/layout editing, mapping selection of one
+Default, restores later starts from the local state store, and labels desired/applied values as
+preview-only. Profiles are persistently editable with protected references and validated fallback
+choices. The remaining in-memory editor provides named executable groups with a Windows `.exe`
+picker, mapping selection of one
 group plus one profile, top-to-bottom priority, hover arrows, midpoint-based whole-row insertion
 drag/drop, row Edit/Remove, Save/Save As/Remove item actions, eligibility, Save/Cancel, and optional
-Live preview. Profile/group selectors align with their editor bodies, and executable actions sit
-beside the list. Persistent application groups remain part of slice 20.
+Live preview. Group selectors align with their editor bodies, and executable actions sit beside
+the list. Persistent application groups remain part of slice 20.
 The portable selection engine now evaluates supplied observations with manual override,
 while-running/while-focused eligibility, deterministic priority, focus debounce, ignored
 windows, process-exit handling, protected Default fallback, and explicit reasons. The portable
@@ -120,22 +130,24 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 ## Active implementation slice
 
 - Slice: 07 — Profile editor and persistence
-- State: pending after roadmap reorder
-- Branch, latest relevant code commit, and pull request target: not started; branch from
-  `fix/reviewed-persistence-selection` and target that dependency branch.
+- State: complete; awaiting review in the stacked pull-request chain
+- Branch, latest relevant code commit, and pull request target:
+  `slice/07-profile-editor-persistence`; commits `1620348` and `4d23abd`; target
+  `feature/application-groups`.
 - Scope and dependencies verified: follows the existing UI shell and local persistence; no
   process observation, SignalRGB, plugin, or hardware dependency.
-- Implemented files and entry points: none for the new Slice 07 yet. The previously started
-  Windows observation implementation is preserved on `slice/07-windows-observations` and is
-  now scheduled as Slice 19.
-- Verification: documentation-only reorder; implementation checks not required yet.
+- Implemented files and entry points: `App.axaml.cs` initializes `LocalStateStore`;
+  `MainWindowViewModel` owns validated profile drafts and persistence; `MainWindow.axaml` exposes
+  fallback, preview, and shared item actions. The previously started Windows observation work is
+  preserved on `slice/07-windows-observations` and remains scheduled as Slice 19.
+- Verification: `dotnet build FocusRGB.slnx --no-restore` and
+  `dotnet test FocusRGB.slnx --no-restore` pass, 117/117 tests.
 - External/live evidence: deferred with Slice 19; no live process check was run.
-- Remaining acceptance criteria: persistent profile create/rename/duplicate/delete, protected
-  Default, binding/fallback editing, Apply/Cancel, Live preview, and reference-safe deletion.
+- Remaining acceptance criteria: none for Slice 07.
 - Current blocker or required product input: none.
-- Uncommitted work to preserve: none after the application-group feature commits.
-- Next action: implement the new Slice 07 profile editor from its detail file.
-- Next slice: 08 only after Slice 07 acceptance passes.
+- Uncommitted work to preserve: none after the Slice 07 commits.
+- Next action: review/merge Slice 07, then start Slice 08 from this branch while the stack is open.
+- Next slice: 08 — Desktop runtime and tray.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -160,9 +172,9 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slices 07–29 are pending. Continue with 07 (profile editor and persistence), then the desktop
-runtime/settings and native RGB path. Keep protected Default and make non-Default profiles
-fully user-managed before adding observed-application automation.
+Slices 08–29 are pending. Continue with 08 (desktop runtime and tray), then application settings
+and the native RGB path. Profile persistence is complete; application-group/mapping persistence
+remains intentionally scheduled with external-application work in Slice 20.
 
 External application work starts at Slice 19. SignalRGB begins at 21, the public SDK is stabilized
 at 24, MCP is 25, and game integrations start at 26. The preserved observation branch must be
