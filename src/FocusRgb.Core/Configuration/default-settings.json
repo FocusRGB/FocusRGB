@@ -1,5 +1,11 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "application": {
+    "closeButtonBehavior": "minimize-to-tray",
+    "startMinimized": false,
+    "theme": "system",
+    "verboseLogging": false
+  },
   "selection": {
     "defaultProfile": "default",
     "unmatched": "default-profile",
