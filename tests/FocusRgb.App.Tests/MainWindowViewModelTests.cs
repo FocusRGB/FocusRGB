@@ -57,17 +57,17 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public void ProfileEditor_SaveAndSaveAsFollowGlobalItemActions()
+        public async Task ProfileEditor_SaveAndSaveAsFollowGlobalItemActions()
         {
             var viewModel = MainWindowViewModel.CreatePreview();
             viewModel.EditingProfile = viewModel.Profiles.Single(profile => profile.Id == "movie");
             viewModel.ProfileName = "Cinema";
-            viewModel.SaveProfile();
+            await viewModel.SaveProfileAsync(TestContext.Current.CancellationToken);
 
             Assert.Equal("Cinema", viewModel.EditingProfile.DisplayName);
 
             viewModel.ProfileName = "Cinema Copy";
-            viewModel.SaveProfileAs();
+            await viewModel.SaveProfileAsAsync(TestContext.Current.CancellationToken);
 
             Assert.Equal(5, viewModel.Profiles.Count);
             Assert.Equal("Cinema Copy", viewModel.EditingProfile.DisplayName);
