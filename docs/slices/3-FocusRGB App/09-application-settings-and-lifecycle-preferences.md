@@ -29,4 +29,4 @@ validated last-known-good copy before falling back to defaults. No OS startup re
 updater, cloud/account setting, or provider-specific control.
 
 Verification: `dotnet build FocusRGB.slnx --no-restore` and
-`dotnet test --solution FocusRGB.slnx -c Release --no-restore`; 157/157 tests pass after review remediation.
+`dotnet test --solution FocusRGB.slnx -c Release --no-restore`; 158/158 tests pass after review remediation.
