@@ -10,17 +10,18 @@ namespace FocusRgb.Core.Persistence
         public required string Message { get; init; }
     }
 
-    /// <summary>Reports whether one validated document was saved atomically.</summary>
+    /// <summary>Reports whether a validated document was saved, with an optional non-fatal warning.</summary>
     public sealed class SaveResult
     {
         public bool IsSuccess => Error is null;
         public PersistenceError? Error { get; private init; }
+        public PersistenceError? Warning { get; private init; }
 
-        public static SaveResult Ok() => new();
+        public static SaveResult Ok(PersistenceError? warning = null) => new() { Warning = warning };
         public static SaveResult Fail(PersistenceError error) => new() { Error = error };
     }
 
-    /// <summary>Identifies an invalid file retained during explicit startup recovery.</summary>
+    /// <summary>Reports a non-fatal startup recovery action or warning.</summary>
     public sealed class RecoveryNotice
     {
         public required string FileName { get; init; }
@@ -35,6 +36,7 @@ namespace FocusRgb.Core.Persistence
         public required SelectionStateDocument State { get; init; }
         public required NativeSetupDocument NativeSetup { get; init; }
         public required SelectionDecision Desired { get; init; }
+        public required string SettingsSource { get; init; }
         public IReadOnlyList<RecoveryNotice> Recoveries { get; init; } = [];
     }
 

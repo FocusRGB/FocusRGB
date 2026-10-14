@@ -126,6 +126,15 @@ namespace FocusRgb.Core.Tests
             Assert.True(result.IsSuccess);
         }
 
+        [Fact]
+        public void Serialize_OmitsUnusedLegacyPriorityAndGameFields()
+        {
+            var json = SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!);
+
+            Assert.DoesNotContain("\"priority\"", json, StringComparison.Ordinal);
+            Assert.DoesNotContain("\"game\"", json, StringComparison.Ordinal);
+        }
+
         [Theory]
         [InlineData(0)]
         [InlineData(3)]

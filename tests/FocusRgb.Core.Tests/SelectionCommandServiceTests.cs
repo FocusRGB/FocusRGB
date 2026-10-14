@@ -66,6 +66,59 @@ namespace FocusRgb.Core.Tests
             Assert.Null(result.State);
         }
 
+        [Fact]
+        public async Task SetModeAsync_ManualRestoresLastManualProfile()
+        {
+            var current = State("music");
+            current = new SelectionStateDocument
+            {
+                SchemaVersion = current.SchemaVersion,
+                Mode = "automatic",
+                ManualProfile = "music",
+                LastSelectedProfile = "movie",
+                UpdatedAt = current.UpdatedAt
+            };
+
+            var result = await new SelectionCommandService(new RecordingStateStore()).SetModeAsync(
+                Settings(), current, "manual", Now, TestContext.Current.CancellationToken);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal("music", result.Status!.Desired.ProfileId);
+        }
+
+        [Theory]
+        [InlineData("invalid", "invalid-mode")]
+        public async Task SetModeAsync_RejectsInvalidInput(string mode, string errorCode)
+        {
+            var result = await new SelectionCommandService(new RecordingStateStore()).SetModeAsync(
+                Settings(), State(), mode, Now, TestContext.Current.CancellationToken);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(errorCode, result.ErrorCode);
+        }
+
+        [Fact]
+        public async Task SelectProfileAsync_RejectsUnknownProfile()
+        {
+            var result = await new SelectionCommandService(new RecordingStateStore()).SelectProfileAsync(
+                Settings(), State(), "missing", Now, TestContext.Current.CancellationToken);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("invalid-profile", result.ErrorCode);
+        }
+
+        [Fact]
+        public async Task SaveCurrentAsync_PersistsCurrentIntent()
+        {
+            var store = new RecordingStateStore();
+            var result = await new SelectionCommandService(store).SaveCurrentAsync(
+                Settings(), State("music"), Now, TestContext.Current.CancellationToken);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal("music", store.SavedState!.ManualProfile);
+            Assert.Equal(Now, store.SavedState.UpdatedAt);
+        }
+
         private static SettingsDocument Settings() => SettingsJson.LoadDefaults().Settings!;
 
         private static SelectionStateDocument State(string profile = "default") => new()
