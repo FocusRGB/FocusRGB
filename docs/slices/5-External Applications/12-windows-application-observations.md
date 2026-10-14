@@ -7,6 +7,8 @@
 
 The preserved branch is the implementation starting point, not optional historical material;
 inventory its tests and reconcile it with the current platform boundary before writing replacements.
+Cherry-pick only `f0cd094` (observer and process source) and `5d6f12f` (platform test project) onto
+the new branch; drop `e3f704b`, which records the checkpoint under the old slice 07 numbering.
 
 Depends on: 05. Scope: foreground and running-process observations behind the detector
 boundary. Handle disappearing processes/access denial; identify actual Stremio window owner.

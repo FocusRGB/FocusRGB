@@ -7,5 +7,5 @@ applied, pending, and native fallback states. Validate ownership and authority b
 Implement reconnect notification state with Accept/Decline and coalescing.
 Acceptance: failure retains desired state; no fallback cycle or competing writer; reconnect
 does not resume automatically; Accept uses current intent; native fallback lacking an output
-reports pending. No native renderer needed yet.
+reports pending. No native renderer is needed; native output arrives in slices 21–22.
 
