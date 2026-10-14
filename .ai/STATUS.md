@@ -162,9 +162,11 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Slice: 10 — Minimal plugin runtime, SDK, and fake output
 - State: prepared; implementation not started
 - Branch, latest relevant code commit, and pull request target:
-  `slice/10-minimal-plugin-runtime-and-fake-output`, based on merged Slice 09 commit `4a9d5b9`;
-  future pull request targets `slice/09-application-settings` while the stack remains unmerged.
-- Scope and dependencies verified: follows the Slice 02 contracts/configuration boundary. Add only
+  `slice/10-minimal-plugin-runtime-and-fake-output`, based on `fix/slice-07-09-review` commit
+  `4a9d5b9` (local, not yet pushed or reviewed); its future pull request targets
+  `fix/slice-07-09-review` while the stack remains unmerged.
+- Scope and dependencies verified: follows the Slice 02 contracts/configuration boundary and the
+  Slice 08 desktop runtime that hosts plugins. Add only
   the minimal plugin SDK, app-side process host, schemas, and fake output needed to prove the
   protocol; no production provider, complete version-1 SDK, or hardware output belongs here.
 - Implemented files and entry points: none yet; inventory the frozen contract and current project
@@ -216,12 +218,18 @@ Claude tool availability does not itself establish an app API.
 
 ## Open choices
 
-- Generic game profile first or individual game profiles.
-- First supported game API and its normalized event capabilities.
-- Interim SignalRGB background effect during games.
-- Capture display, initial placement geometry, and keyboard calibration approach.
-- Accept native-only WLED ownership while automatic handover is unresolved?
-- Native keyboard first or mouse first?
-- Plugin signing/distribution and installation UX after local packages work.
+Each choice names the first slice that needs it.
 
-These remain pending; they do not block documentation work.
+- Slice 10: local plugin folder and enablement UX (proposed default: per-user `plugins` folder,
+  explicit enabled list, everything disabled until enabled).
+- Slice 16: interim SignalRGB background effect during games.
+- Slice 19: generic game profile first or individual game profiles.
+- Slice 20: first supported game API and its normalized event capabilities.
+- Slices 21 and 23: initial placement geometry.
+- Slice 22: accept native-only WLED ownership while automatic handover is unresolved?
+- Slice 26: capture display and calibration approach.
+- Slice 27: native keyboard first or mouse first, and keyboard calibration approach.
+- After slice 17: plugin signing, distribution, and installation UX beyond local packages.
+
+These remain pending; only the slice 10 choice affects the next implementation slice, and it
+has a proposed default.
