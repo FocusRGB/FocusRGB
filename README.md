@@ -1,14 +1,16 @@
 # FocusRGB
 
-A planned desktop RGB controller with an Avalonia UI and .NET 10 background core.
+A desktop RGB controller under active development with an Avalonia UI and .NET 10 background core.
 The first executable targets Windows; shared code remains portable for future platforms.
-**Early implementation:** slices 00–08 provide the contract, solution scaffold, validated
+**Early implementation:** slices 00–09 provide the contract, solution scaffold, validated
 profile configuration, a runnable selected-item UI, named application groups, an ordered
 in-memory mapping editor with insertion drag/drop, the portable selection engine, and a persistent
 profile editor. Profiles can be created, edited, duplicated, or safely removed; Default remains
 protected. The Windows app now persists manual selection, minimizes to a tray icon, and saves
-again before tray Quit. Application-group persistence, OS observations, and plugin integration
-are still pending. See
+again before tray Quit. The Settings page persists close behavior, start-minimized, theme, and
+verbose-logging preferences, with versioned migration, last-known-good recovery, and a
+privacy-limited diagnostics export. Application-group persistence, OS observations, and plugin
+integration are still pending. See
 [Core configuration](src/FocusRgb.Core/README.md).
 
 The app will select lighting profiles manually or from named application groups using a
@@ -27,10 +29,8 @@ profile.
 
 ## Implementation roadmap
 
-1. Finish the FocusRGB desktop app settings and honest local status without relying on another
-   application.
-2. Build native effects, LED placement layouts, screen ambience, and output plugins.
-3. Add external-application automation and integrations: detection/mappings, SignalRGB, games,
+1. Build native effects, LED placement layouts, screen ambience, and output plugins.
+2. Add external-application automation and integrations: detection/mappings, SignalRGB, games,
    and local-model MCP control.
 
 SignalRGB owns rendering and its existing layout while its integration is active, including
@@ -47,7 +47,7 @@ A local MCP interface is planned for controlling the same commands used by the U
 - [Implementation slices](docs/implementation-slices.md): compact status index linking to each
   slice's dependency, scope, acceptance checks, and shared start/resume prompts.
 - [App brief](docs/app-brief.md): product requirements and user decisions.
-- [Application settings](docs/application-settings.md): planned desktop lifecycle, appearance,
+- [Application settings](docs/application-settings.md): implemented desktop lifecycle, appearance,
   diagnostics, ownership boundaries, and defaults.
 - [Minimal contract](docs/minimal-contract.md): frozen settings, state, status, command,
   and plugin protocol shapes for the first implementation goal.

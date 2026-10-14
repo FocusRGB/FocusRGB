@@ -25,7 +25,7 @@ records a deliberate amendment here; **reserved** means the name is held but not
 
 | Item | Field | Rule |
 |---|---|---|
-| Each persisted file | `schemaVersion` (integer, starts at 1) | Older versions migrate forward on load and are saved only after a successful migration, keeping the original as a backup. A newer version than the app understands is loaded read-only or rejected with a reason; it is never overwritten. |
+| Each persisted file | `schemaVersion` (integer, starts at 1) | Older versions migrate forward on load and are saved only after successful validation; settings also refresh their last-known-good recovery copy. A newer version than the app understands is loaded read-only or rejected with a reason; it is never overwritten. |
 | Plugin protocol | `contractVersion` (`"major.minor"`, starts at `"0.1"`) | The host and plugin must share the major version. A plugin may report a lower minor; the host then avoids methods added later. A mismatch fails the handshake with `contract-incompatible`. |
 
 While the major version is `0`, breaking changes are allowed between slices but must update
@@ -33,8 +33,10 @@ this document, the fake plugin, and tests in the same commit.
 
 ## Persisted documents
 
-Three separate files live in the per-user app data directory. Splitting them keeps user
+Three domain documents live in the per-user app data directory. Splitting them keeps user
 configuration, runtime intent, and the native fallback snapshot from overwriting each other.
+The store also maintains `settings.last-known-good.json` as an internal validated recovery copy
+of `settings.json`.
 
 | File | Owner | Written when |
 |---|---|---|
@@ -42,7 +44,7 @@ configuration, runtime intent, and the native fallback snapshot from overwriting
 | `state.json` | Selection intent | After every validated mode or profile change |
 | `native-setup.json` | Native fallback snapshot | Only when the user applies a native setup (never by previews or provider changes) |
 
-### `settings.json` — frozen
+### `settings.json` — frozen at schema version 2
 
 Seeded on first run with four acceptance profiles. The `default` profile identity is protected:
 it must exist, cannot be removed, and remains `selection.defaultProfile`. Other profile values
@@ -50,7 +52,13 @@ and all automatic mappings are user-editable.
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "application": {
+    "closeButtonBehavior": "minimize-to-tray",
+    "startMinimized": false,
+    "theme": "system",
+    "verboseLogging": false
+  },
   "selection": {
     "defaultProfile": "default",
     "unmatched": "default-profile",
