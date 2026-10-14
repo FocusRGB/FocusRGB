@@ -1,11 +1,20 @@
 # Current status
 
-Updated: 2026-10-14.
+Updated: 2026-10-15.
 
 ## Completed
 
+- Review remediation for slices 07–09 removes the UI-thread startup deadlock, serializes local
+  persistence, fixes last-known-good ordering/freshness/missing-file recovery and schema-1 backup,
+  guards overlapping settings saves, validates profile removal before state writes, protects
+  saved/applied mapping references, saves during OS shutdown, and provides a second-Quit escape
+  after save failure. Diagnostics use saved preferences and can include privacy-limited diagnostic
+  logs; keyboard reorder controls remain visible. Release build passes with 0 warnings and all
+  157 tests pass, including the blocked-UI-context startup regression and reproduced persistence
+  and editor failure cases.
+
 - Slice 09 adds saved application preferences for close behavior, start minimized, theme, and
-  verbose logging. Settings schema 1 migrates to schema 2; invalid current settings are archived
+  basic diagnostic logging. Settings schema 1 migrates to schema 2; invalid current settings are archived
   and restored from a validated last-known-good copy before defaults. The Settings page exposes
   capability-aware lifecycle choices and safe folder/diagnostic actions. Theme changes affect
   only the UI, and close-to-tray uses saved values rather than editor drafts. Build passes
@@ -148,7 +157,7 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 ## Active implementation slice
 
 - Slice: 09 — Application settings and lifecycle preferences
-- State: complete; awaiting review in the stacked pull-request chain
+- State: complete after review remediation; awaiting review in the stacked pull-request chain
 - Branch, latest relevant code commit, and pull request target:
   `slice/09-application-settings`; commits `89e95a5`, `69ea5bc`, `683b113`, and
   `fbaecfc`; PR #22 targets `slice/08-desktop-runtime-tray`.
@@ -158,11 +167,12 @@ not respond. No live settings, presets, layouts, registry values, services, or t
   migration/validation; `LocalStateStore` owns last-known-good recovery; `MainWindowViewModel`
   owns saved-versus-draft preferences; `App` and `MainWindow` own lifecycle/theme/actions;
   `DiagnosticExport` owns the intentionally limited export shape.
-- Verification: `dotnet build FocusRGB.slnx --no-restore` and
-  `dotnet test FocusRGB.slnx --no-restore` pass, 135/135 tests.
-- External/live evidence: none required; no live integrations, devices, startup registration, or
-  machine preferences were changed. Interactive theme, file-picker, start-hidden, and close-menu
-  behavior remains a manual packaging check rather than claimed live evidence.
+- Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passes with 0 warnings and
+  `dotnet test --solution FocusRGB.slnx -c Release --no-restore` passes 157/157 tests.
+- External/live evidence: the Release executable was launched on 2026-10-15 and remained running
+  while creating the four validated startup documents. No integrations, devices, startup
+  registration, or lighting settings were changed. Interactive theme, file picker, tray notice,
+  and close-menu behavior remain packaging checks rather than claimed visible verification.
 - Remaining acceptance criteria: none for Slice 09.
 - Current blocker or required product input: none.
 - Uncommitted work to preserve: none after the Slice 09 commits.

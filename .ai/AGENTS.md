@@ -21,8 +21,9 @@ CRLF working-tree endings (`core.autocrlf=true`). Put generated builds, reports,
 tool output under `../build/`; do not commit them. Graphify uses `../build/graphify-out/`, so
 run extraction with `graphify extract . --out build` and pass that graph path to queries.
 
-Follow `../docs/git-workflow.md`. `develop` is the default branch: start work from
-`origin/develop`, push a scoped branch, and open a pull request into `develop`. Never commit
+Follow `../docs/git-workflow.md`. `develop` is the default branch: start standalone work from
+`origin/develop`; stacked work starts from and targets its immediate dependency branch. Push a
+scoped branch and open a pull request into that target. Never commit
 or push directly to `develop` or `main`; `main` changes only through the owner's release pull
 request from `develop`. For requested repository work, assistants may create and switch
 branches, commit scoped changes, push working branches, and open pull requests into `develop`
@@ -35,8 +36,9 @@ linked detail file for the active slice, and resume its exact state from `STATUS
 Check capabilities before sending output, enforce one writer per physical device, and
 include cleanup and restart recovery before depending on persistent overrides.
 
-Update `STATUS.md` after meaningful work: changes, actual verification, unresolved
-questions, and next step. Requirements belong in `../docs/app-brief.md`, architecture in
+The slice detail file is authoritative for slice status. Update `STATUS.md` only with the active
+resume pointer, changes, actual verification, unresolved questions, and next step; the index is
+a navigation summary, not another status record. Requirements belong in `../docs/app-brief.md`, architecture in
 `../docs/plugin-architecture.md`, historical observations in `../docs/integration-evidence.md`.
 
 ## Code conventions

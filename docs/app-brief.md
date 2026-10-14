@@ -1,6 +1,6 @@
 # RGB controller: product brief
 
-Planning only. Updated 2026-10-12 from the RGB chat, user clarification, and application
+Living product requirements. Updated 2026-10-15 from the RGB chat, user clarification, and application
 settings decision.
 
 ## Goal
@@ -151,5 +151,5 @@ tester is independent. Existing
 `modules/signalrgb/plugins/` contains SignalRGB device plugins, not this controller's
 extension system.
 
-Current authorization is documentation, not implementation or device reconfiguration.
+Repository implementation is authorized when requested. Live device or machine reconfiguration still requires an explicit request.
 Open product/implementation choices are tracked in `../.ai/STATUS.md`.
