@@ -88,5 +88,21 @@ namespace FocusRgb.App.Tests
             viewModel.RemoveApplicationGroup();
             Assert.Contains("first", viewModel.ApplicationGroupEditorStatus, StringComparison.OrdinalIgnoreCase);
         }
+
+        [Fact]
+        public void RemoveApplicationGroup_RejectsReferenceRemovedOnlyFromMappingDraft()
+        {
+            var viewModel = MainWindowViewModel.CreatePreview();
+            var group = viewModel.ApplicationGroups[0];
+            var mapping = viewModel.MappingEditor.Mappings.Single(item => item.SelectedApplicationGroup.Id == group.Id);
+            viewModel.MappingEditor.Remove(mapping);
+            viewModel.EditingApplicationGroup = group;
+
+            viewModel.RemoveApplicationGroup();
+            viewModel.MappingEditor.Cancel();
+
+            Assert.Contains(group, viewModel.ApplicationGroups);
+            Assert.Contains(viewModel.MappingEditor.Mappings, item => item.SelectedApplicationGroup.Id == group.Id);
+        }
     }
 }

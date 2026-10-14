@@ -1,5 +1,5 @@
-using System.ComponentModel;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using FocusRgb.Core.Commands;
 using FocusRgb.Core.Configuration;
@@ -39,6 +39,8 @@ namespace FocusRgb.App.ViewModels
         private string _applicationTheme = "System";
         private bool _verboseLogging;
         private bool _isApplicationSettingsDirty;
+        private int _settingsSavePending;
+        private string? _settingsSaveWarning;
         private bool _loadingApplicationSettings;
         private string _applicationSettingsStatus = "Application preferences match the saved values.";
 
@@ -86,6 +88,7 @@ namespace FocusRgb.App.ViewModels
             get => _editingProfile;
             set
             {
+                var discarded = _editingProfile is not null && !ReferenceEquals(_editingProfile, value) && IsProfileDirty;
                 if (!Set(ref _editingProfile, value)) return;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasEditingProfile)));
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanRemoveEditingProfile)));
@@ -96,6 +99,7 @@ namespace FocusRgb.App.ViewModels
                 LoadProfileFallback(value);
                 _loadingProfileDraft = false;
                 IsProfileDirty = false;
+                if (discarded) ProfileEditorStatus = "Unsaved profile changes were discarded when the selection changed.";
             }
         }
 
@@ -104,6 +108,10 @@ namespace FocusRgb.App.ViewModels
             get => _editingApplicationGroup;
             set
             {
+                var discarded = _editingApplicationGroup is not null
+                    && !ReferenceEquals(_editingApplicationGroup, value)
+                    && (ApplicationGroupName != _editingApplicationGroup.DisplayName
+                        || !DraftExecutables.SequenceEqual(_editingApplicationGroup.Executables));
                 if (!Set(ref _editingApplicationGroup, value)) return;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasEditingApplicationGroup)));
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasNoEditingApplicationGroup)));
@@ -112,6 +120,7 @@ namespace FocusRgb.App.ViewModels
                 if (value is not null)
                     foreach (var executable in value.Executables) DraftExecutables.Add(executable);
                 SelectedDraftExecutable = null;
+                if (discarded) ApplicationGroupEditorStatus = "Unsaved application-group changes were discarded when the selection changed.";
             }
         }
 
@@ -153,6 +162,7 @@ namespace FocusRgb.App.ViewModels
         public string ApplicationGroupEditorStatus { get => _applicationGroupEditorStatus; private set => Set(ref _applicationGroupEditorStatus, value); }
         public string RuntimeStatusMessage { get => _runtimeStatusMessage; private set => Set(ref _runtimeStatusMessage, value); }
         public bool IsRuntimeCommandPending { get => _isRuntimeCommandPending; private set => Set(ref _isRuntimeCommandPending, value); }
+        public bool IsSettingsSavePending => Volatile.Read(ref _settingsSavePending) != 0;
         public bool HasEditingProfile => EditingProfile is not null;
         public bool CanRemoveEditingProfile => EditingProfile is not null && EditingProfile.Id != "default";
         public bool HasEditingApplicationGroup => EditingApplicationGroup is not null;
@@ -189,6 +199,10 @@ namespace FocusRgb.App.ViewModels
         }
         public bool ShouldMinimizeOnClose => CanMinimizeToTray
             && _settings.Application!.CloseButtonBehavior == "minimize-to-tray";
+        public string SavedApplicationTheme => _settings.Application!.Theme!;
+        public string SavedCloseButtonBehavior => _settings.Application!.CloseButtonBehavior!;
+        public bool SavedStartMinimized => _settings.Application!.StartMinimized!.Value;
+        public bool SavedVerboseLogging => _settings.Application!.VerboseLogging!.Value;
 
         public bool IsManual
         {
@@ -308,27 +322,35 @@ namespace FocusRgb.App.ViewModels
 
         public async Task<bool> SaveApplicationSettingsAsync(CancellationToken cancellationToken = default)
         {
-            var application = new ApplicationSettings
+            if (!BeginSettingsSave()) return false;
+            try
             {
-                CloseButtonBehavior = CloseButtonBehavior == "Exit application" ? "exit" : "minimize-to-tray",
-                StartMinimized = StartMinimized,
-                Theme = ApplicationTheme.ToLowerInvariant(),
-                VerboseLogging = VerboseLogging,
-                AdditionalProperties = _settings.Application!.AdditionalProperties
-            };
-            var candidate = WithApplication(application);
-            var error = await SaveCandidateAsync(candidate, cancellationToken);
-            if (error is not null)
-            {
-                ApplicationSettingsStatus = error;
-                return false;
-            }
+                var application = new ApplicationSettings
+                {
+                    CloseButtonBehavior = CloseButtonBehavior == "Exit application" ? "exit" : "minimize-to-tray",
+                    StartMinimized = StartMinimized,
+                    Theme = ApplicationTheme.ToLowerInvariant(),
+                    VerboseLogging = VerboseLogging,
+                    AdditionalProperties = _settings.Application!.AdditionalProperties
+                };
+                var candidate = WithApplication(application);
+                var error = await SaveCandidateAsync(candidate, cancellationToken);
+                if (error is not null)
+                {
+                    ApplicationSettingsStatus = error;
+                    return false;
+                }
 
-            _settings = candidate;
-            IsApplicationSettingsDirty = false;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShouldMinimizeOnClose)));
-            ApplicationSettingsStatus = "Application preferences saved.";
-            return true;
+                _settings = candidate;
+                IsApplicationSettingsDirty = false;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShouldMinimizeOnClose)));
+                ApplicationSettingsStatus = SavedStatus("Application preferences saved.");
+                return true;
+            }
+            finally
+            {
+                EndSettingsSave();
+            }
         }
 
         public void CancelApplicationSettings()
@@ -339,106 +361,140 @@ namespace FocusRgb.App.ViewModels
 
         public void ReportSettingsAction(string message) => ApplicationSettingsStatus = message;
 
+        public void ReportUnexpectedError(string message) => RuntimeStatusMessage = message;
+
         public async Task SaveProfileAsync(CancellationToken cancellationToken = default)
         {
             if (EditingProfile is null) return;
-            var name = EditingProfile.Id == "default"
-                ? EditingProfile.DisplayName
-                : RequiredName(ProfileName, "Profile");
-            var replacement = CreateProfileSettings(EditingProfile.Id, name, TemplateFor(EditingProfile.Id));
-            var candidate = WithProfiles(_settings.Profiles!
-                .Select(profile => profile.Id == EditingProfile.Id ? replacement : profile)
-                .ToList());
-            var error = await SaveCandidateAsync(candidate, cancellationToken);
-            if (error is not null)
+            if (!BeginSettingsSave()) return;
+            try
             {
-                ProfileEditorStatus = error;
-                return;
-            }
+                var name = EditingProfile.Id == "default"
+                    ? EditingProfile.DisplayName
+                    : RequiredName(ProfileName, "Profile");
+                var replacement = CreateProfileSettings(EditingProfile.Id, name, TemplateFor(EditingProfile.Id));
+                var candidate = WithProfiles(_settings.Profiles!
+                    .Select(profile => profile.Id == EditingProfile.Id ? replacement : profile)
+                    .ToList());
+                var error = await SaveCandidateAsync(candidate, cancellationToken);
+                if (error is not null)
+                {
+                    ProfileEditorStatus = error;
+                    return;
+                }
 
-            _settings = candidate;
-            EditingProfile.DisplayName = name;
-            EditingProfile.EffectName = replacement.Bindings![0].Effect!.DisplayName!;
-            EditingProfile.LayoutName = replacement.Bindings[0].Layout?.DisplayName ?? "Current provider layout";
-            ReloadProfileDraft();
-            NotifyStateChanged(nameof(SelectedProfile));
-            ProfileEditorStatus = $"Saved {EditingProfile.DisplayName}.";
+                _settings = candidate;
+                EditingProfile.DisplayName = name;
+                EditingProfile.EffectName = replacement.Bindings![0].Effect!.DisplayName!;
+                EditingProfile.LayoutName = replacement.Bindings[0].Layout?.DisplayName ?? "Current provider layout";
+                ReloadProfileDraft();
+                NotifyStateChanged(nameof(SelectedProfile));
+                ProfileEditorStatus = SavedStatus($"Saved {EditingProfile.DisplayName}.");
+            }
+            finally
+            {
+                EndSettingsSave();
+            }
         }
 
         public async Task SaveProfileAsAsync(CancellationToken cancellationToken = default)
         {
-            var name = RequiredName(ProfileName, "New Profile");
-            var id = UniqueId(name, Profiles.Select(item => item.Id));
-            var created = CreateProfileSettings(id, name, TemplateFor(EditingProfile?.Id ?? "default"));
-            var candidate = WithProfiles([.. _settings.Profiles!, created]);
-            var error = await SaveCandidateAsync(candidate, cancellationToken);
-            if (error is not null)
+            if (!BeginSettingsSave()) return;
+            try
             {
-                ProfileEditorStatus = error;
-                return;
-            }
+                var name = RequiredName(ProfileName, "New Profile");
+                var id = UniqueId(name, Profiles.Select(item => item.Id));
+                var created = CreateProfileSettings(id, name, TemplateFor(EditingProfile?.Id ?? "default"));
+                var candidate = WithProfiles([.. _settings.Profiles!, created]);
+                var error = await SaveCandidateAsync(candidate, cancellationToken);
+                if (error is not null)
+                {
+                    ProfileEditorStatus = error;
+                    return;
+                }
 
-            var profile = new ProfileOptionViewModel
+                var profile = new ProfileOptionViewModel
+                {
+                    Id = id,
+                    DisplayName = name,
+                    EffectName = created.Bindings![0].Effect!.DisplayName!,
+                    LayoutName = created.Bindings[0].Layout?.DisplayName ?? "Current provider layout"
+                };
+                _settings = candidate;
+                Profiles.Add(profile);
+                EditingProfile = profile;
+                MappingEditor.NewProfile = profile;
+                ProfileEditorStatus = SavedStatus($"Saved {name} as a new profile.");
+            }
+            finally
             {
-                Id = id,
-                DisplayName = name,
-                EffectName = created.Bindings![0].Effect!.DisplayName!,
-                LayoutName = created.Bindings[0].Layout?.DisplayName ?? "Current provider layout"
-            };
-            _settings = candidate;
-            Profiles.Add(profile);
-            EditingProfile = profile;
-            MappingEditor.NewProfile = profile;
-            ProfileEditorStatus = $"Saved {name} as a new profile.";
+                EndSettingsSave();
+            }
         }
 
         public async Task RemoveProfileAsync(CancellationToken cancellationToken = default)
         {
             if (EditingProfile is null) return;
-            if (EditingProfile.Id == "default")
+            if (!BeginSettingsSave()) return;
+            try
             {
-                ProfileEditorStatus = "Default is protected and cannot be removed.";
-                return;
-            }
-            if (MappingEditor.Mappings.Any(mapping => ReferenceEquals(mapping.SelectedProfile, EditingProfile)))
-            {
-                ProfileEditorStatus = "rules: reassign or remove mappings that use this profile first.";
-                return;
-            }
-            var fallbackOwner = _settings.Profiles!
-                .Select((profile, index) => new { Profile = profile, Index = index })
-                .FirstOrDefault(item => item.Profile.Fallback!.Any(fallback =>
-                    fallback.Kind == "profile" && fallback.Profile == EditingProfile.Id));
-            if (fallbackOwner is not null)
-            {
-                ProfileEditorStatus = $"profiles[{fallbackOwner.Index}].fallback: reassign this profile first.";
-                return;
-            }
+                if (EditingProfile.Id == "default")
+                {
+                    ProfileEditorStatus = "Default is protected and cannot be removed.";
+                    return;
+                }
+                if (_settings.Rules!.Any(rule => rule.Profile == EditingProfile.Id)
+                    || MappingEditor.AppliedMappings.Any(mapping => mapping.ProfileId == EditingProfile.Id)
+                    || MappingEditor.Mappings.Any(mapping => mapping.SelectedProfile.Id == EditingProfile.Id))
+                {
+                    ProfileEditorStatus = "rules: reassign or remove mappings that use this profile first.";
+                    return;
+                }
+                var fallbackOwner = _settings.Profiles!
+                    .Select((profile, index) => new { Profile = profile, Index = index })
+                    .FirstOrDefault(item => item.Profile.Fallback!.Any(fallback =>
+                        fallback.Kind == "profile" && fallback.Profile == EditingProfile.Id));
+                if (fallbackOwner is not null)
+                {
+                    ProfileEditorStatus = $"profiles[{fallbackOwner.Index}].fallback: reassign this profile first.";
+                    return;
+                }
 
-            var removed = EditingProfile.DisplayName;
-            var candidate = WithProfiles(_settings.Profiles!
-                .Where(profile => profile.Id != EditingProfile.Id)
-                .ToList());
-            var stateError = await SaveRemovalStateAsync(EditingProfile.Id, candidate, cancellationToken);
-            if (stateError is not null)
-            {
-                ProfileEditorStatus = stateError;
-                return;
-            }
-            var error = await SaveCandidateAsync(candidate, cancellationToken);
-            if (error is not null)
-            {
-                ProfileEditorStatus = error;
-                return;
-            }
+                var removed = EditingProfile.DisplayName;
+                var candidate = WithProfiles(_settings.Profiles!
+                    .Where(profile => profile.Id != EditingProfile.Id)
+                    .ToList());
+                var validationError = ValidateCandidate(candidate);
+                if (validationError is not null)
+                {
+                    ProfileEditorStatus = validationError;
+                    return;
+                }
+                var stateError = await SaveRemovalStateAsync(EditingProfile.Id, candidate, cancellationToken);
+                if (stateError is not null)
+                {
+                    ProfileEditorStatus = stateError;
+                    return;
+                }
+                var error = await SaveCandidateAsync(candidate, cancellationToken);
+                if (error is not null)
+                {
+                    ProfileEditorStatus = error;
+                    return;
+                }
 
-            _settings = candidate;
-            if (ReferenceEquals(SelectedProfile, EditingProfile))
-                SelectedProfile = Profiles.First(profile => !ReferenceEquals(profile, EditingProfile));
-            Profiles.Remove(EditingProfile);
-            EditingProfile = Profiles.Count > 0 ? Profiles[0] : null;
-            MappingEditor.NewProfile = EditingProfile;
-            ProfileEditorStatus = $"Removed {removed}.";
+                _settings = candidate;
+                if (ReferenceEquals(SelectedProfile, EditingProfile))
+                    SelectedProfile = Profiles.First(profile => !ReferenceEquals(profile, EditingProfile));
+                Profiles.Remove(EditingProfile);
+                EditingProfile = Profiles.Count > 0 ? Profiles[0] : null;
+                MappingEditor.NewProfile = EditingProfile;
+                ProfileEditorStatus = SavedStatus($"Removed {removed}.");
+            }
+            finally
+            {
+                EndSettingsSave();
+            }
         }
 
         public void CancelProfile()
@@ -486,7 +542,8 @@ namespace FocusRgb.App.ViewModels
         public void RemoveApplicationGroup()
         {
             if (EditingApplicationGroup is null) return;
-            if (MappingEditor.Mappings.Any(mapping => ReferenceEquals(mapping.SelectedApplicationGroup, EditingApplicationGroup)))
+            if (MappingEditor.AppliedMappings.Any(mapping => mapping.ApplicationGroupId == EditingApplicationGroup.Id)
+                || MappingEditor.Mappings.Any(mapping => mapping.SelectedApplicationGroup.Id == EditingApplicationGroup.Id))
             {
                 ApplicationGroupEditorStatus = "Remove mappings that use this application group first.";
                 return;
@@ -531,6 +588,7 @@ namespace FocusRgb.App.ViewModels
                 ? snapshot.State.ManualProfile
                 : snapshot.State.LastSelectedProfile;
             viewModel.SelectedProfile = viewModel.Profiles.Single(profile => profile.Id == selectedId);
+            viewModel.RuntimeStatusMessage += $" Settings loaded from {snapshot.SettingsSource}.";
             return viewModel;
         }
 
@@ -785,12 +843,39 @@ namespace FocusRgb.App.ViewModels
             SettingsDocument candidate,
             CancellationToken cancellationToken)
         {
-            var errors = SettingsValidator.Validate(candidate);
-            if (errors.Count > 0)
-                return string.Join("; ", errors.Select(error => $"{error.Path}: {error.Message}"));
+            var validationError = ValidateCandidate(candidate);
+            if (validationError is not null) return validationError;
+            _settingsSaveWarning = null;
             if (_settingsStore is null) return null;
             var result = await _settingsStore.SaveSettingsAsync(candidate, cancellationToken);
+            if (result.Warning is not null)
+                _settingsSaveWarning = $"{result.Warning.FileName}: {result.Warning.Message}";
             return result.IsSuccess ? null : $"{result.Error!.FileName}: {result.Error.Message}";
+        }
+
+        private string SavedStatus(string message) => _settingsSaveWarning is null
+            ? message
+            : $"{message} Warning: {_settingsSaveWarning}";
+
+        private static string? ValidateCandidate(SettingsDocument candidate)
+        {
+            var errors = SettingsValidator.Validate(candidate);
+            return errors.Count == 0
+                ? null
+                : string.Join("; ", errors.Select(error => $"{error.Path}: {error.Message}"));
+        }
+
+        private bool BeginSettingsSave()
+        {
+            if (Interlocked.CompareExchange(ref _settingsSavePending, 1, 0) != 0) return false;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSettingsSavePending)));
+            return true;
+        }
+
+        private void EndSettingsSave()
+        {
+            Interlocked.Exchange(ref _settingsSavePending, 0);
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSettingsSavePending)));
         }
 
         private async Task<string?> SaveRemovalStateAsync(
