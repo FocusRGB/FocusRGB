@@ -152,6 +152,44 @@ namespace FocusRgb.App.Tests
             Assert.Equal("default", restarted.Snapshot.State.LastSelectedProfile);
         }
 
+        [Fact]
+        public async Task SelectProfileAsync_RestoresLastManualProfileAfterRestart()
+        {
+            var viewModel = await CreateAsync();
+            var movie = viewModel.Profiles.Single(profile => profile.Id == "movie");
+
+            await viewModel.SelectProfileAsync(movie, TestContext.Current.CancellationToken);
+
+            var restarted = await Store().InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+            var restored = MainWindowViewModel.CreatePersistent(restarted.Snapshot!, Store());
+            Assert.True(restored.IsManual);
+            Assert.Equal("movie", restored.SelectedProfile.Id);
+            Assert.Contains("restored", restored.SelectionReason, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("not applied", restored.AppliedProfileName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task SelectProfileAsync_ReportsStorageFailureAndRemainsResponsive()
+        {
+            var viewModel = await CreateAsync();
+            var statePath = Path.Combine(_directory, LocalStateStore.StateFileName);
+            await using var lockedState = new FileStream(
+                statePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.None,
+                bufferSize: 1,
+                useAsync: true);
+
+            await viewModel.SelectProfileAsync(
+                viewModel.Profiles.Single(profile => profile.Id == "movie"),
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("default", viewModel.SelectedProfile.Id);
+            Assert.False(viewModel.IsRuntimeCommandPending);
+            Assert.Contains(LocalStateStore.StateFileName, viewModel.RuntimeStatusMessage, StringComparison.Ordinal);
+        }
+
         private async Task<MainWindowViewModel> CreateAsync()
         {
             var store = Store();
