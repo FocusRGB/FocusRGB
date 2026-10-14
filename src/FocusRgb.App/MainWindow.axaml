@@ -225,7 +225,63 @@
         </StackPanel>
       </TabItem>
       <TabItem Header="Devices" IsEnabled="False" />
-      <TabItem Header="Settings" IsEnabled="False" />
+      <TabItem Header="Settings">
+        <ScrollViewer>
+          <StackPanel Margin="28,16" Spacing="18" MaxWidth="720" HorizontalAlignment="Stretch">
+            <TextBlock Text="Settings" FontSize="26" FontWeight="SemiBold" />
+            <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Spacing="12">
+                <TextBlock Text="General" FontSize="18" FontWeight="SemiBold" />
+                <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto" RowSpacing="10" ColumnSpacing="12">
+                  <TextBlock Text="Close button" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding CloseButtonBehaviors}"
+                            SelectedItem="{Binding CloseButtonBehavior}" />
+                  <TextBlock Grid.Row="1" Text="Start minimized" VerticalAlignment="Center" />
+                  <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding StartMinimized}"
+                            Content="Hide in the tray after launch" />
+                </Grid>
+                <TextBlock Text="Start minimized does not register FocusRGB to start with Windows."
+                           Opacity="0.65" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Spacing="12">
+                <TextBlock Text="Appearance" FontSize="18" FontWeight="SemiBold" />
+                <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+                  <TextBlock Text="Theme" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding ApplicationThemes}"
+                            SelectedItem="{Binding ApplicationTheme}" />
+                </Grid>
+              </StackPanel>
+            </Border>
+            <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Spacing="12">
+                <TextBlock Text="Diagnostics" FontSize="18" FontWeight="SemiBold" />
+                <CheckBox IsChecked="{Binding VerboseLogging}"
+                          Content="Enable verbose logging for troubleshooting" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="Open settings folder" Click="OpenSettingsFolder_OnClick" />
+                  <Button Content="Open logs folder" Click="OpenLogsFolder_OnClick" />
+                  <Button Content="Export diagnostics…" Click="ExportDiagnostics_OnClick" />
+                </StackPanel>
+                <TextBlock Text="Diagnostic exports contain application/runtime metadata only; profiles, mappings, paths, and secrets are excluded."
+                           Opacity="0.65" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel>
+                <TextBlock Text="{Binding ApplicationSettingsStatus}" TextWrapping="Wrap" />
+                <TextBlock Text="Unsaved draft" IsVisible="{Binding IsApplicationSettingsDirty}"
+                           Foreground="#FBBF24" FontWeight="SemiBold" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Content="Cancel" Click="CancelApplicationSettings_OnClick" />
+                <Button Content="Save" Click="SaveApplicationSettings_OnClick" />
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
     </TabControl>
   </Grid>
 </Window>

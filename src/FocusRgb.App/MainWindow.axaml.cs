@@ -1,9 +1,13 @@
+using System.Diagnostics;
+using System.IO.Compression;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
+using FocusRgb.App.Diagnostics;
 using FocusRgb.App.ViewModels;
 
 namespace FocusRgb.App
@@ -13,19 +17,31 @@ namespace FocusRgb.App
     {
         private static readonly DataFormat<MappingEditorItemViewModel> MappingFormat =
             DataFormat.CreateInProcessFormat<MappingEditorItemViewModel>("FocusRGB.Mapping");
+        private readonly string _dataDirectory;
         private bool _allowClose;
+        private bool _exitRequested;
 
         public MainWindow()
-            : this(MainWindowViewModel.CreatePreview())
+            : this(MainWindowViewModel.CreatePreview(), null)
         {
         }
 
         public MainWindow(MainWindowViewModel viewModel)
+            : this(viewModel, null)
+        {
+        }
+
+        public MainWindow(MainWindowViewModel viewModel, string? dataDirectory)
         {
             InitializeComponent();
             DataContext = viewModel;
+            _dataDirectory = dataDirectory ?? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "FocusRGB");
             Closing += MainWindow_OnClosing;
         }
+
+        public event EventHandler? ExitRequested;
 
         private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
 
@@ -36,17 +52,29 @@ namespace FocusRgb.App
             Activate();
         }
 
+        public void NotifyStartedMinimized() => ViewModel.NotifyWindowHidden();
+
         public async Task<bool> PrepareQuitAsync(CancellationToken cancellationToken = default) =>
             await ViewModel.SaveRuntimeStateAsync(cancellationToken);
 
         public void AllowClose() => _allowClose = true;
 
+        public void CancelExitRequest() => _exitRequested = false;
+
         private void MainWindow_OnClosing(object? sender, WindowClosingEventArgs e)
         {
             if (_allowClose) return;
             e.Cancel = true;
-            Hide();
-            ViewModel.NotifyWindowHidden();
+            if (ViewModel.ShouldMinimizeOnClose)
+            {
+                Hide();
+                ViewModel.NotifyWindowHidden();
+            }
+            else if (!_exitRequested)
+            {
+                _exitRequested = true;
+                ExitRequested?.Invoke(this, EventArgs.Empty);
+            }
         }
 
         private async void SelectedProfile_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -73,6 +101,63 @@ namespace FocusRgb.App
         private async void RemoveProfile_OnClick(object? sender, RoutedEventArgs e) =>
             await ViewModel.RemoveProfileAsync();
         private void CancelProfile_OnClick(object? sender, RoutedEventArgs e) => ViewModel.CancelProfile();
+
+        private async void SaveApplicationSettings_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (await ViewModel.SaveApplicationSettingsAsync())
+                (Application.Current as App)?.ApplyTheme(ViewModel.ApplicationTheme);
+        }
+
+        private void CancelApplicationSettings_OnClick(object? sender, RoutedEventArgs e) =>
+            ViewModel.CancelApplicationSettings();
+
+        private void OpenSettingsFolder_OnClick(object? sender, RoutedEventArgs e) =>
+            OpenFolder(_dataDirectory, "Opened the settings folder.");
+
+        private void OpenLogsFolder_OnClick(object? sender, RoutedEventArgs e) =>
+            OpenFolder(Path.Combine(_dataDirectory, "logs"), "Opened the logs folder.");
+
+        private async void ExportDiagnostics_OnClick(object? sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+                {
+                    Title = "Export FocusRGB diagnostics",
+                    SuggestedFileName = $"FocusRGB-diagnostics-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip",
+                    FileTypeChoices = [new FilePickerFileType("ZIP archive") { Patterns = ["*.zip"] }]
+                });
+                if (file is null) return;
+                await using var output = await file.OpenWriteAsync();
+                output.SetLength(0);
+                using var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true);
+                var entry = archive.CreateEntry("diagnostics.json", CompressionLevel.Optimal);
+                await using var entryStream = entry.Open();
+                await using var writer = new StreamWriter(entryStream, new UTF8Encoding(false));
+                await writer.WriteAsync(DiagnosticExport.CreateJson(ViewModel, DateTimeOffset.UtcNow));
+                ViewModel.ReportSettingsAction("Exported diagnostics without profiles, mappings, paths, or secrets.");
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                or InvalidOperationException or NotSupportedException)
+            {
+                ViewModel.ReportSettingsAction($"Could not export diagnostics: {exception.Message}");
+            }
+        }
+
+        private void OpenFolder(string path, string successMessage)
+        {
+            try
+            {
+                Directory.CreateDirectory(path);
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                ViewModel.ReportSettingsAction(successMessage);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                or InvalidOperationException or System.ComponentModel.Win32Exception)
+            {
+                ViewModel.ReportSettingsAction($"Could not open the folder: {exception.Message}");
+            }
+        }
 
         private void SaveApplicationGroup_OnClick(object? sender, RoutedEventArgs e) => ViewModel.SaveApplicationGroup();
         private void SaveApplicationGroupAs_OnClick(object? sender, RoutedEventArgs e) => ViewModel.SaveApplicationGroupAs();
