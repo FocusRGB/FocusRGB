@@ -9,7 +9,7 @@ namespace FocusRgb.Core.Persistence
     /// <summary>
     /// Stores the three local documents atomically in a caller-selected cross-platform directory.
     /// </summary>
-    public sealed class LocalStateStore
+    public sealed class LocalStateStore : ISelectionStateStore
     {
         public const string SettingsFileName = "settings.json";
         public const string StateFileName = "state.json";
