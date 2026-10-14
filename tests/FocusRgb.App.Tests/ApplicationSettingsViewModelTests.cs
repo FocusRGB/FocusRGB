@@ -1,5 +1,6 @@
 using FocusRgb.App.Diagnostics;
 using FocusRgb.App.ViewModels;
+using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Persistence;
 
 namespace FocusRgb.App.Tests
@@ -16,6 +17,7 @@ namespace FocusRgb.App.Tests
             var (viewModel, store) = await CreateAsync();
             var statePath = Path.Combine(_directory, LocalStateStore.StateFileName);
             var stateBefore = await File.ReadAllTextAsync(statePath, TestContext.Current.CancellationToken);
+            var effectBefore = viewModel.Profiles.Single(profile => profile.Id == "default").EffectName;
             viewModel.CloseButtonBehavior = "Exit application";
             viewModel.StartMinimized = true;
             viewModel.ApplicationTheme = "Dark";
@@ -30,6 +32,27 @@ namespace FocusRgb.App.Tests
             Assert.Equal("dark", restarted.Snapshot.Settings.Application.Theme);
             Assert.True(restarted.Snapshot.Settings.Application.VerboseLogging);
             Assert.Equal(stateBefore, await File.ReadAllTextAsync(statePath, TestContext.Current.CancellationToken));
+            Assert.Equal(effectBefore, restarted.Snapshot.Settings.Profiles!
+                .Single(profile => profile.Id == "default").Bindings![0].Effect!.DisplayName);
+        }
+
+        [Fact]
+        public async Task SaveApplicationSettingsAsync_AdoptsSavedValues_WhenRecoveryCopyFails()
+        {
+            var (viewModel, _) = await CreateAsync();
+            var recoveryPath = Path.Combine(_directory, LocalStateStore.SettingsRecoveryFileName);
+            await using var locked = new FileStream(
+                recoveryPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            viewModel.ApplicationTheme = "Dark";
+
+            var saved = await viewModel.SaveApplicationSettingsAsync(TestContext.Current.CancellationToken);
+
+            Assert.True(saved);
+            Assert.False(viewModel.IsApplicationSettingsDirty);
+            Assert.Contains("Warning:", viewModel.ApplicationSettingsStatus, StringComparison.Ordinal);
+            Assert.Equal("dark", SettingsJson.Load(await File.ReadAllTextAsync(
+                Path.Combine(_directory, LocalStateStore.SettingsFileName),
+                TestContext.Current.CancellationToken)).Settings!.Application!.Theme);
         }
 
         [Fact]

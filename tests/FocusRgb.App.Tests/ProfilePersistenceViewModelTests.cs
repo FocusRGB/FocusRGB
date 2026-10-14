@@ -42,6 +42,21 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task SaveProfileAsAsync_IgnoresOverlappingSave()
+        {
+            var viewModel = await CreateAsync();
+            viewModel.EditingProfile = viewModel.Profiles.Single(profile => profile.Id == "movie");
+            viewModel.ProfileName = "Cinema Copy";
+
+            await Task.WhenAll(
+                viewModel.SaveProfileAsAsync(TestContext.Current.CancellationToken),
+                viewModel.SaveProfileAsAsync(TestContext.Current.CancellationToken));
+
+            Assert.Single(viewModel.Profiles, profile => profile.DisplayName == "Cinema Copy");
+            Assert.False(viewModel.IsSettingsSavePending);
+        }
+
+        [Fact]
         public async Task CancelProfile_RestoresDraftWithoutSavingOrPreviewingWhenDisabled()
         {
             var viewModel = await CreateAsync();
@@ -121,6 +136,23 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task RemoveProfileAsync_RejectsReferenceRemovedOnlyFromMappingDraft()
+        {
+            var viewModel = await CreateAsync();
+            var programming = viewModel.Profiles.Single(profile => profile.Id == "programming");
+            var mapping = viewModel.MappingEditor.Mappings.Single(item => item.SelectedProfile.Id == programming.Id);
+            viewModel.MappingEditor.Remove(mapping);
+            viewModel.EditingProfile = programming;
+
+            await viewModel.RemoveProfileAsync(TestContext.Current.CancellationToken);
+            viewModel.MappingEditor.Cancel();
+
+            Assert.Contains(programming, viewModel.Profiles);
+            Assert.Contains("rules", viewModel.ProfileEditorStatus, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(viewModel.MappingEditor.Mappings, item => item.SelectedProfile.Id == programming.Id);
+        }
+
+        [Fact]
         public async Task RemoveProfileAsync_ReassignsPersistedSelectionToDefault()
         {
             var viewModel = await CreateAsync();
@@ -150,6 +182,42 @@ namespace FocusRgb.App.Tests
             Assert.DoesNotContain(restarted.Snapshot!.Settings.Profiles!, profile => profile.Id == temporaryId);
             Assert.Equal("default", restarted.Snapshot.State.ManualProfile);
             Assert.Equal("default", restarted.Snapshot.State.LastSelectedProfile);
+        }
+
+        [Fact]
+        public async Task RemoveProfileAsync_LeavesValidFiles_WhenSettingsWriteFailsAfterStateWrite()
+        {
+            var viewModel = await CreateAsync();
+            viewModel.EditingProfile = viewModel.Profiles.Single(profile => profile.Id == "movie");
+            viewModel.ProfileName = "Temporary";
+            await viewModel.SaveProfileAsAsync(TestContext.Current.CancellationToken);
+            var temporaryId = viewModel.EditingProfile!.Id;
+            var store = Store();
+            var snapshot = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+            Assert.True((await store.SaveStateAsync(new SelectionStateDocument
+            {
+                SchemaVersion = 1,
+                Mode = "manual",
+                ManualProfile = temporaryId,
+                LastSelectedProfile = temporaryId,
+                UpdatedAt = Start.AddMinutes(1)
+            }, snapshot.Snapshot!.Settings, TestContext.Current.CancellationToken)).IsSuccess);
+            var restored = await store.InitializeAsync(Start.AddMinutes(2), TestContext.Current.CancellationToken);
+            viewModel = MainWindowViewModel.CreatePersistent(restored.Snapshot!, store);
+            viewModel.EditingProfile = viewModel.Profiles.Single(profile => profile.Id == temporaryId);
+
+            await using (var locked = new FileStream(
+                Path.Combine(_directory, LocalStateStore.SettingsFileName),
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read))
+                await viewModel.RemoveProfileAsync(TestContext.Current.CancellationToken);
+
+            var restarted = await store.InitializeAsync(Start.AddMinutes(3), TestContext.Current.CancellationToken);
+            Assert.True(restarted.IsSuccess, restarted.Error?.Message);
+            Assert.Contains(restarted.Snapshot!.Settings.Profiles!, profile => profile.Id == temporaryId);
+            Assert.Equal("default", restarted.Snapshot.State.ManualProfile);
+            Assert.Contains(LocalStateStore.SettingsFileName, viewModel.ProfileEditorStatus, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -188,6 +256,25 @@ namespace FocusRgb.App.Tests
             Assert.Equal("default", viewModel.SelectedProfile.Id);
             Assert.False(viewModel.IsRuntimeCommandPending);
             Assert.Contains(LocalStateStore.StateFileName, viewModel.RuntimeStatusMessage, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task SaveRuntimeStateAsync_ReportsFailureAndCanRetry()
+        {
+            var viewModel = await CreateAsync();
+            var statePath = Path.Combine(_directory, LocalStateStore.StateFileName);
+            bool failed;
+            await using (var lockedState = new FileStream(
+                statePath, FileMode.Open, FileAccess.Read, FileShare.None, bufferSize: 1, useAsync: true))
+            {
+                failed = await viewModel.SaveRuntimeStateAsync(TestContext.Current.CancellationToken);
+            }
+
+            var retried = await viewModel.SaveRuntimeStateAsync(TestContext.Current.CancellationToken);
+
+            Assert.False(failed);
+            Assert.True(retried);
+            Assert.Contains("quit safely", viewModel.RuntimeStatusMessage, StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task<MainWindowViewModel> CreateAsync()
