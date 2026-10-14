@@ -1,12 +1,14 @@
 # Minimal data and command contract
 
-Slice 00. Frozen 2026-10-10 as the starting contract for slices 01–23. It covers only what the
+Slice 00. Frozen 2026-10-10 as the starting contract for slices 01–16. It covers only what the
 core, the fake integration, and the first SignalRGB plugin need. It is not the public SDK
 schema; that is extracted later (slice 17) from working code. Requirements remain in
 `app-brief.md` and behavior rules in `plugin-architecture.md`; this document fixes shapes.
 
-Status words below: **frozen** means slices 01–23 implement it as written unless a slice
+Status words below: **frozen** means slices 01–16 implement it as written unless a slice
 records a deliberate amendment here; **reserved** means the name is held but not implemented.
+Slice 17 promotes the proven shapes to SDK version 1; later surfaces such as native frame output
+(slices 21–22) and game events (slices 19–20) are added as backward-compatible 1.x minor versions.
 
 ## Conventions
 
@@ -233,7 +235,7 @@ Records selection intent only. Applied output is never persisted as fact.
   reference to a profile that no longer exists falls back to `selection.defaultProfile` in
   manual mode with a reported reason.
 
-### `native-setup.json` — frozen shape, content grows in slices 17–18
+### `native-setup.json` — frozen shape, content grows in slices 21–22
 
 ```json
 {
@@ -247,7 +249,7 @@ Records selection intent only. Applied output is never persisted as fact.
 - `origin` is `app-default` until the user applies a native setup, then `user-applied` with
   `appliedAt` set. `bindings` uses the profile binding shape with `application` authority.
 - Previews, drafts, provider selections, and fallback activations never write this file.
-- Until a native renderer and output exist (slices 17–18), the default snapshot has no
+- Until a native renderer and output exist (slices 21–22), the default snapshot has no
   bindings, so activating native fallback reports `pending` with reason
   `native-output-unavailable` and sends no output commands.
 
@@ -302,7 +304,7 @@ UI and MCP use the same commands. Each returns `{ "ok": true, "status": { ... } 
 | `respondToNotification` | `id`, `response` (`accept`, `decline`) | Recovery choice; dismiss equals decline |
 | `getStatus` | none | Returns the runtime status |
 
-Preview and draft UI behavior begins in slice 04; slices 07 and 20 connect profile and mapping
+Preview and draft UI behavior begins in slice 04; slices 07 and 13 connect profile and mapping
 edits respectively to these validation paths.
 
 ## Plugin protocol — frozen for the first plugin
