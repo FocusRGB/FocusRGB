@@ -1,11 +1,11 @@
 # Minimal data and command contract
 
-Slice 00. Frozen 2026-10-10 as the starting contract for slices 01–14. It covers only what the
+Slice 00. Frozen 2026-10-10 as the starting contract for slices 01–23. It covers only what the
 core, the fake integration, and the first SignalRGB plugin need. It is not the public SDK
 schema; that is extracted later (slice 24) from working code. Requirements remain in
 `app-brief.md` and behavior rules in `plugin-architecture.md`; this document fixes shapes.
 
-Status words below: **frozen** means slices 01–14 implement it as written unless a slice
+Status words below: **frozen** means slices 01–23 implement it as written unless a slice
 records a deliberate amendment here; **reserved** means the name is held but not implemented.
 
 ## Conventions
@@ -186,7 +186,7 @@ Profiles:
 Rules:
 
 - The UI calls each reusable named executable set an **Application Group**. In the current
-  schema-1 preview, each rule projects one group from its `id` and `match.executables`; slice 20
+  settings schema 2 preview, each rule projects one group from its `id` and `match.executables`; slice 20
   adds persisted group identity/name so several mappings can reference the same group.
 - The array order is the saved priority list. The first eligible rule wins. The legacy numeric
   `priority` property is accepted when reading schema version 1 but ignored and omitted by new
@@ -297,7 +297,7 @@ UI and MCP use the same commands. Each returns `{ "ok": true, "status": { ... } 
 | Command | Parameters | Effect |
 |---|---|---|
 | `selectProfile` | `profile` | Enters manual mode with that profile and persists it |
-| `setMode` | `mode` | `automatic` resumes rules; `manual` keeps the current desired profile |
+| `setMode` | `mode` | `automatic` resumes rules; `manual` restores the saved `manualProfile` |
 | `applySettings` | full `settings` document | Validates, persists, and reevaluates selection |
 | `respondToNotification` | `id`, `response` (`accept`, `decline`) | Recovery choice; dismiss equals decline |
 | `getStatus` | none | Returns the runtime status |

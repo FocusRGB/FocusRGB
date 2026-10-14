@@ -65,13 +65,13 @@ Status: **00–09 complete on the stacked pull-request chain. 10 is next.**
 - ⏳ [19 — Windows application observations](<slices/5-External Applications/19-windows-application-observations.md>):
   detect foreground and running applications behind the platform boundary.
 - ⏳ [20 — Application mappings](<slices/5-External Applications/20-application-mappings-and-persistence.md>):
-  add detected/manual applications, assign profiles, and persist automation rules.
+  add detected/manual applications, persist automation rules, and wire automatic profile selection.
 - ⏳ [21 — SignalRGB investigation](<slices/5-External Applications/21-signalrgb-capability-investigation.md>):
   verify supported APIs, catalogs, selection, layouts, and limitations.
 - ⏳ [22 — External SignalRGB plugin](<slices/5-External Applications/22-separate-signalrgb-plugin.md>):
   create its repository and implement provider status, catalogs, and effect/layout application.
 - ⏳ [23 — SignalRGB acceptance gate](<slices/5-External Applications/23-signalrgb-acceptance-gate.md>):
-  wire automatic selection and verify the complete SignalRGB switching path with the user.
+  connect the already-selected profile to SignalRGB and verify the complete switching path with the user.
 
 ## 6 — Games and External Control
 

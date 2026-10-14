@@ -10,6 +10,8 @@ profile, reorder the list with insertion drag/drop, and configure while-running/
 eligibility with Save/Cancel and optional Live preview. Use `Save As` for new groups/mappings,
 `Save` for the current item, and `Remove` for deletion. Mappings select profiles only; effects, layouts,
 providers, and fallbacks remain profile-owned.
+Wire Slice 19 observations through `SelectionEngine` and the shared commands so automatic mode
+selects and persists the winning profile here; applying that profile to an output remains later work.
 
 Acceptance: application groups and mappings survive restart; preview does not save; Cancel restores the prior draft;
 unchecked preview sends nothing before Save. Users can select an observed executable or enter

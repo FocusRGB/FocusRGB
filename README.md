@@ -6,9 +6,10 @@ The first executable targets Windows; shared code remains portable for future pl
 profile configuration, a runnable selected-item UI, named application groups, an ordered
 in-memory mapping editor with insertion drag/drop, the portable selection engine, and a persistent
 profile editor. Profiles can be created, edited, duplicated, or safely removed; Default remains
-protected. The Windows app now persists manual selection, minimizes to a tray icon, and saves
-again before tray Quit. The Settings page persists close behavior, start-minimized, theme, and
-verbose-logging preferences, with versioned migration, last-known-good recovery, and a
+protected. The Windows app now starts asynchronously, persists manual selection, minimizes to a
+tray icon, and saves again before tray Quit or OS shutdown. The Settings page persists close
+behavior, start-minimized, theme, and diagnostic-logging preferences, with versioned migration,
+last-known-good recovery, and a
 privacy-limited diagnostics export. Application-group persistence, OS observations, and plugin
 integration are still pending. See
 [Core configuration](src/FocusRgb.Core/README.md).

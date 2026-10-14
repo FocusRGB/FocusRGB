@@ -1,6 +1,6 @@
 # Focus-based RGB controller: delivery plan
 
-Planning only. Updated 2026-10-09. Replaces v2's exclusive `signalrgb` / `native` profile
+Active delivery plan. Updated 2026-10-15. Replaces v2's exclusive `signalrgb` / `native` profile
 types with composable plugin actions. End goal: replace SignalRGB, retain other app integrations.
 
 Read `app-brief.md`, `plugin-architecture.md`, and `integration-evidence.md` first.

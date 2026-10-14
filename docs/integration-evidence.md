@@ -95,7 +95,7 @@ Reviewed 2026-10-12 from project-owned documentation and repositories:
   groups application preferences, updates, account details, and device permissions under
   Settings. Its
   [device troubleshooting guide](https://docs.signalrgb.com/troubleshooting/common-issues/device-rgb-freezing/)
-  exposes verbose logging under Application > Advanced, and its tray has an explicit Quit.
+  exposes basic diagnostic logging under Application > Advanced, and its tray has an explicit Quit.
 - [Fan Control's official repository](https://github.com/Rem0o/FanControl.Releases) lists
   theme/color customization and user-controlled Windows startup. An
   [official maintainer response](https://github.com/Rem0o/FanControl.Releases/discussions/804)
