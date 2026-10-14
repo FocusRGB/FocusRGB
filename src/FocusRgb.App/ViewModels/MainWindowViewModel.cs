@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
 using FocusRgb.Core.Configuration;
+using FocusRgb.Core.Persistence;
 
 namespace FocusRgb.App.ViewModels
 {
@@ -9,12 +10,20 @@ namespace FocusRgb.App.ViewModels
     public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         private bool _isManual = true;
+        private readonly LocalStateStore? _settingsStore;
+        private SettingsDocument _settings;
+        private SelectionStateDocument? _selectionState;
         private ProfileOptionViewModel _selectedProfile;
         private ProfileOptionViewModel? _editingProfile;
         private ApplicationGroupViewModel? _editingApplicationGroup;
         private string _profileName = "";
         private string _profileEffect = "";
         private string _profileLayout = "";
+        private string _profileFallbackKind = "native-setup";
+        private ProfileOptionViewModel? _profileFallbackProfile;
+        private bool _profileLivePreview;
+        private bool _isProfileDirty;
+        private bool _loadingProfileDraft;
         private string _applicationGroupName = "";
         private string? _selectedDraftExecutable;
         private string _profileEditorStatus = "Select a profile to edit it.";
@@ -23,11 +32,17 @@ namespace FocusRgb.App.ViewModels
         private MainWindowViewModel(
             ObservableCollection<ProfileOptionViewModel> profiles,
             ProfileOptionViewModel selectedProfile,
-            MappingEditorViewModel mappingEditor)
+            MappingEditorViewModel mappingEditor,
+            SettingsDocument settings,
+            LocalStateStore? settingsStore,
+            SelectionStateDocument? selectionState)
         {
             Profiles = profiles;
             _selectedProfile = selectedProfile;
             MappingEditor = mappingEditor;
+            _settings = settings;
+            _settingsStore = settingsStore;
+            _selectionState = selectionState;
             EditingProfile = profiles.Count > 0 ? profiles[0] : null;
             EditingApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
         }
@@ -46,9 +61,14 @@ namespace FocusRgb.App.ViewModels
             {
                 if (!Set(ref _editingProfile, value)) return;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasEditingProfile)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanRemoveEditingProfile)));
+                _loadingProfileDraft = true;
                 ProfileName = value?.DisplayName ?? "";
                 ProfileEffect = value?.EffectName ?? "";
                 ProfileLayout = value?.LayoutName ?? "";
+                LoadProfileFallback(value);
+                _loadingProfileDraft = false;
+                IsProfileDirty = false;
             }
         }
 
@@ -68,14 +88,44 @@ namespace FocusRgb.App.ViewModels
             }
         }
 
-        public string ProfileName { get => _profileName; set => Set(ref _profileName, value); }
-        public string ProfileEffect { get => _profileEffect; set => Set(ref _profileEffect, value); }
-        public string ProfileLayout { get => _profileLayout; set => Set(ref _profileLayout, value); }
+        public string ProfileName { get => _profileName; set => SetProfileDraft(ref _profileName, value); }
+        public string ProfileEffect { get => _profileEffect; set => SetProfileDraft(ref _profileEffect, value); }
+        public string ProfileLayout { get => _profileLayout; set => SetProfileDraft(ref _profileLayout, value); }
+        public string ProfileFallbackKind
+        {
+            get => _profileFallbackKind;
+            set
+            {
+                if (!SetProfileDraft(ref _profileFallbackKind, value)) return;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsProfileFallback)));
+            }
+        }
+        public ProfileOptionViewModel? ProfileFallbackProfile
+        {
+            get => _profileFallbackProfile;
+            set => SetProfileDraft(ref _profileFallbackProfile, value);
+        }
+        public IReadOnlyList<string> ProfileFallbackKinds { get; } = ["native-setup", "profile"];
+        public bool IsProfileFallback => ProfileFallbackKind == "profile";
+        public bool ProfileLivePreview
+        {
+            get => _profileLivePreview;
+            set
+            {
+                if (!Set(ref _profileLivePreview, value) || !value || !IsProfileDirty) return;
+                ProfilePreviewRevision++;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ProfilePreviewRevision)));
+                ProfileEditorStatus = "Live preview updated from the profile draft.";
+            }
+        }
+        public bool IsProfileDirty { get => _isProfileDirty; private set => Set(ref _isProfileDirty, value); }
+        public int ProfilePreviewRevision { get; private set; }
         public string ApplicationGroupName { get => _applicationGroupName; set => Set(ref _applicationGroupName, value); }
         public string? SelectedDraftExecutable { get => _selectedDraftExecutable; set => Set(ref _selectedDraftExecutable, value); }
         public string ProfileEditorStatus { get => _profileEditorStatus; private set => Set(ref _profileEditorStatus, value); }
         public string ApplicationGroupEditorStatus { get => _applicationGroupEditorStatus; private set => Set(ref _applicationGroupEditorStatus, value); }
         public bool HasEditingProfile => EditingProfile is not null;
+        public bool CanRemoveEditingProfile => EditingProfile is not null && EditingProfile.Id != "default";
         public bool HasEditingApplicationGroup => EditingApplicationGroup is not null;
         public bool HasNoEditingApplicationGroup => EditingApplicationGroup is null;
 
@@ -128,36 +178,60 @@ namespace FocusRgb.App.ViewModels
             ? "Manual preview selection; no command was sent."
             : "Automatic preview mode; application detection is not connected yet.";
 
-        public void SaveProfile()
+        public async Task SaveProfileAsync(CancellationToken cancellationToken = default)
         {
             if (EditingProfile is null) return;
-            if (EditingProfile.Id == "default")
-                ProfileName = EditingProfile.DisplayName;
-            else
-                EditingProfile.DisplayName = RequiredName(ProfileName, "Profile");
-            EditingProfile.EffectName = ProfileEffect.Trim();
-            EditingProfile.LayoutName = ProfileLayout.Trim();
+            var name = EditingProfile.Id == "default"
+                ? EditingProfile.DisplayName
+                : RequiredName(ProfileName, "Profile");
+            var replacement = CreateProfileSettings(EditingProfile.Id, name, TemplateFor(EditingProfile.Id));
+            var candidate = WithProfiles(_settings.Profiles!
+                .Select(profile => profile.Id == EditingProfile.Id ? replacement : profile)
+                .ToList());
+            var error = await SaveCandidateAsync(candidate, cancellationToken);
+            if (error is not null)
+            {
+                ProfileEditorStatus = error;
+                return;
+            }
+
+            _settings = candidate;
+            EditingProfile.DisplayName = name;
+            EditingProfile.EffectName = replacement.Bindings![0].Effect!.DisplayName!;
+            EditingProfile.LayoutName = replacement.Bindings[0].Layout?.DisplayName ?? "Current provider layout";
+            ReloadProfileDraft();
             NotifyStateChanged(nameof(SelectedProfile));
-            ProfileEditorStatus = $"Saved {EditingProfile.DisplayName} in preview state.";
+            ProfileEditorStatus = $"Saved {EditingProfile.DisplayName}.";
         }
 
-        public void SaveProfileAs()
+        public async Task SaveProfileAsAsync(CancellationToken cancellationToken = default)
         {
             var name = RequiredName(ProfileName, "New Profile");
+            var id = UniqueId(name, Profiles.Select(item => item.Id));
+            var created = CreateProfileSettings(id, name, TemplateFor(EditingProfile?.Id ?? "default"));
+            var candidate = WithProfiles([.. _settings.Profiles!, created]);
+            var error = await SaveCandidateAsync(candidate, cancellationToken);
+            if (error is not null)
+            {
+                ProfileEditorStatus = error;
+                return;
+            }
+
             var profile = new ProfileOptionViewModel
             {
-                Id = UniqueId(name, Profiles.Select(item => item.Id)),
+                Id = id,
                 DisplayName = name,
-                EffectName = ProfileEffect.Trim(),
-                LayoutName = ProfileLayout.Trim()
+                EffectName = created.Bindings![0].Effect!.DisplayName!,
+                LayoutName = created.Bindings[0].Layout?.DisplayName ?? "Current provider layout"
             };
+            _settings = candidate;
             Profiles.Add(profile);
             EditingProfile = profile;
             MappingEditor.NewProfile = profile;
-            ProfileEditorStatus = $"Saved {name} as a new profile in preview state.";
+            ProfileEditorStatus = $"Saved {name} as a new profile.";
         }
 
-        public void RemoveProfile()
+        public async Task RemoveProfileAsync(CancellationToken cancellationToken = default)
         {
             if (EditingProfile is null) return;
             if (EditingProfile.Id == "default")
@@ -167,16 +241,51 @@ namespace FocusRgb.App.ViewModels
             }
             if (MappingEditor.Mappings.Any(mapping => ReferenceEquals(mapping.SelectedProfile, EditingProfile)))
             {
-                ProfileEditorStatus = "Reassign or remove mappings that use this profile first.";
+                ProfileEditorStatus = "rules: reassign or remove mappings that use this profile first.";
                 return;
             }
+            var fallbackOwner = _settings.Profiles!
+                .Select((profile, index) => new { Profile = profile, Index = index })
+                .FirstOrDefault(item => item.Profile.Fallback!.Any(fallback =>
+                    fallback.Kind == "profile" && fallback.Profile == EditingProfile.Id));
+            if (fallbackOwner is not null)
+            {
+                ProfileEditorStatus = $"profiles[{fallbackOwner.Index}].fallback: reassign this profile first.";
+                return;
+            }
+
             var removed = EditingProfile.DisplayName;
+            var candidate = WithProfiles(_settings.Profiles!
+                .Where(profile => profile.Id != EditingProfile.Id)
+                .ToList());
+            var stateError = await SaveRemovalStateAsync(EditingProfile.Id, candidate, cancellationToken);
+            if (stateError is not null)
+            {
+                ProfileEditorStatus = stateError;
+                return;
+            }
+            var error = await SaveCandidateAsync(candidate, cancellationToken);
+            if (error is not null)
+            {
+                ProfileEditorStatus = error;
+                return;
+            }
+
+            _settings = candidate;
             if (ReferenceEquals(SelectedProfile, EditingProfile))
                 SelectedProfile = Profiles.First(profile => !ReferenceEquals(profile, EditingProfile));
             Profiles.Remove(EditingProfile);
             EditingProfile = Profiles.Count > 0 ? Profiles[0] : null;
             MappingEditor.NewProfile = EditingProfile;
-            ProfileEditorStatus = $"Removed {removed} from preview state.";
+            ProfileEditorStatus = $"Removed {removed}.";
+        }
+
+        public void CancelProfile()
+        {
+            ReloadProfileDraft();
+            ProfilePreviewRevision++;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ProfilePreviewRevision)));
+            ProfileEditorStatus = "Profile draft restored to the last saved values.";
         }
 
         public void AddDraftExecutable(string path)
@@ -236,10 +345,29 @@ namespace FocusRgb.App.ViewModels
                 throw new InvalidOperationException("Validated default profiles are unavailable.");
             }
 
-            return CreatePreview(result.Settings);
+            return Create(result.Settings, null, null);
         }
 
         public static MainWindowViewModel CreatePreview(SettingsDocument settings)
+            => Create(settings, null, null);
+
+        public static MainWindowViewModel CreatePersistent(StartupSnapshot snapshot, LocalStateStore settingsStore)
+        {
+            ArgumentNullException.ThrowIfNull(snapshot);
+            ArgumentNullException.ThrowIfNull(settingsStore);
+            var viewModel = Create(snapshot.Settings, settingsStore, snapshot.State);
+            viewModel.IsManual = snapshot.State.Mode == "manual";
+            var selectedId = viewModel.IsManual
+                ? snapshot.State.ManualProfile
+                : snapshot.State.LastSelectedProfile;
+            viewModel.SelectedProfile = viewModel.Profiles.Single(profile => profile.Id == selectedId);
+            return viewModel;
+        }
+
+        private static MainWindowViewModel Create(
+            SettingsDocument settings,
+            LocalStateStore? settingsStore,
+            SelectionStateDocument? selectionState)
         {
             ArgumentNullException.ThrowIfNull(settings);
             if (SettingsValidator.Validate(settings).Count > 0
@@ -264,7 +392,8 @@ namespace FocusRgb.App.ViewModels
             var defaultId = settings.Selection!.DefaultProfile;
             var selectedProfile = profiles.Single(profile => profile.Id == defaultId);
             var mappingEditor = MappingEditorViewModel.Create(settings, profiles);
-            return new MainWindowViewModel(profiles, selectedProfile, mappingEditor);
+            return new MainWindowViewModel(
+                profiles, selectedProfile, mappingEditor, settings, settingsStore, selectionState);
         }
 
         private void NotifyStateChanged([CallerMemberName] string? propertyName = null)
@@ -284,6 +413,180 @@ namespace FocusRgb.App.ViewModels
         {
             group.Executables.Clear();
             foreach (var executable in DraftExecutables) group.Executables.Add(executable);
+        }
+
+        private void ReloadProfileDraft()
+        {
+            if (EditingProfile is null) return;
+            _loadingProfileDraft = true;
+            ProfileName = EditingProfile.DisplayName;
+            ProfileEffect = EditingProfile.EffectName;
+            ProfileLayout = EditingProfile.LayoutName;
+            LoadProfileFallback(EditingProfile);
+            _loadingProfileDraft = false;
+            IsProfileDirty = false;
+        }
+
+        private void LoadProfileFallback(ProfileOptionViewModel? profile)
+        {
+            var saved = profile is null ? null : _settings.Profiles!.Single(item => item.Id == profile.Id);
+            var fallback = saved?.Fallback?.FirstOrDefault();
+            ProfileFallbackKind = fallback?.Kind ?? "native-setup";
+            ProfileFallbackProfile = fallback?.Kind == "profile"
+                ? Profiles.FirstOrDefault(item => item.Id == fallback.Profile)
+                : null;
+        }
+
+        private ProfileSettings TemplateFor(string id) =>
+            _settings.Profiles!.FirstOrDefault(profile => profile.Id == id)
+            ?? _settings.Profiles!.Single(profile => profile.Id == "default");
+
+        private ProfileSettings CreateProfileSettings(string id, string name, ProfileSettings template)
+        {
+            var binding = template.Bindings![0];
+            var savedFallback = template.Fallback!.FirstOrDefault();
+            var effectName = ProfileEffect.Trim();
+            var layoutName = ProfileLayout.Trim();
+            var effect = new ResourceReference
+            {
+                ResourceId = binding.Effect?.DisplayName == effectName ? binding.Effect.ResourceId : null,
+                DisplayName = effectName,
+                AdditionalProperties = binding.Effect?.AdditionalProperties
+            };
+            ResourceReference? layout = null;
+            if (!string.IsNullOrWhiteSpace(layoutName)
+                && !string.Equals(layoutName, "Current provider layout", StringComparison.Ordinal))
+            {
+                layout = new ResourceReference
+                {
+                    ResourceId = binding.Layout?.DisplayName == layoutName ? binding.Layout.ResourceId : null,
+                    DisplayName = layoutName,
+                    AdditionalProperties = binding.Layout?.AdditionalProperties
+                };
+            }
+
+            return new ProfileSettings
+            {
+                Id = id,
+                DisplayName = name,
+                Bindings =
+                [
+                    new BindingSettings
+                    {
+                        Id = binding.Id,
+                        Plugin = binding.Plugin,
+                        RenderingAuthority = binding.RenderingAuthority,
+                        DeviceScope = binding.DeviceScope,
+                        Effect = effect,
+                        Layout = layout,
+                        AdditionalProperties = binding.AdditionalProperties
+                    }
+                ],
+                Fallback =
+                [
+                    ProfileFallbackKind == "profile"
+                        ? new FallbackSettings
+                        {
+                            Kind = "profile",
+                            Profile = ProfileFallbackProfile?.Id,
+                            AdditionalProperties = savedFallback?.Kind == "profile"
+                                ? savedFallback.AdditionalProperties
+                                : null
+                        }
+                        : new FallbackSettings
+                        {
+                            Kind = "native-setup",
+                            AdditionalProperties = savedFallback?.Kind == "native-setup"
+                                ? savedFallback.AdditionalProperties
+                                : null
+                        }
+                ],
+                AdditionalProperties = template.AdditionalProperties
+            };
+        }
+
+        private SettingsDocument WithProfiles(List<ProfileSettings> profiles) => new()
+        {
+            SchemaVersion = _settings.SchemaVersion,
+            Selection = _settings.Selection,
+            Profiles = profiles,
+            Rules = _settings.Rules,
+            AdditionalProperties = _settings.AdditionalProperties
+        };
+
+        private async Task<string?> SaveCandidateAsync(
+            SettingsDocument candidate,
+            CancellationToken cancellationToken)
+        {
+            var errors = SettingsValidator.Validate(candidate);
+            if (errors.Count > 0)
+                return string.Join("; ", errors.Select(error => $"{error.Path}: {error.Message}"));
+            if (_settingsStore is null) return null;
+            var result = await _settingsStore.SaveSettingsAsync(candidate, cancellationToken);
+            return result.IsSuccess ? null : $"{result.Error!.FileName}: {result.Error.Message}";
+        }
+
+        private async Task<string?> SaveRemovalStateAsync(
+            string removedProfileId,
+            SettingsDocument candidate,
+            CancellationToken cancellationToken)
+        {
+            if (_settingsStore is null || _selectionState is null) return null;
+            if (_selectionState.ManualProfile != removedProfileId
+                && _selectionState.LastSelectedProfile != removedProfileId)
+                return null;
+
+            var replacementId = candidate.Selection!.DefaultProfile!;
+            var replacement = new SelectionStateDocument
+            {
+                SchemaVersion = _selectionState.SchemaVersion,
+                Mode = _selectionState.Mode,
+                ManualProfile = _selectionState.ManualProfile == removedProfileId
+                    ? replacementId
+                    : _selectionState.ManualProfile,
+                LastSelectedProfile = _selectionState.LastSelectedProfile == removedProfileId
+                    ? replacementId
+                    : _selectionState.LastSelectedProfile,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                AdditionalProperties = _selectionState.AdditionalProperties
+            };
+            var result = await _settingsStore.SaveStateAsync(replacement, candidate, cancellationToken);
+            if (!result.IsSuccess) return $"{result.Error!.FileName}: {result.Error.Message}";
+            _selectionState = replacement;
+            return null;
+        }
+
+        private bool SetProfileDraft<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+        {
+            if (!Set(ref field, value, propertyName)) return false;
+            if (_loadingProfileDraft) return true;
+            IsProfileDirty = !ProfileDraftMatchesSaved();
+            if (ProfileLivePreview)
+            {
+                ProfilePreviewRevision++;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ProfilePreviewRevision)));
+                ProfileEditorStatus = "Live preview updated from the profile draft.";
+            }
+            else
+            {
+                ProfileEditorStatus = IsProfileDirty
+                    ? "Profile changes are waiting for Save."
+                    : "Profile draft matches the saved values.";
+            }
+            return true;
+        }
+
+        private bool ProfileDraftMatchesSaved()
+        {
+            if (EditingProfile is null) return true;
+            var saved = TemplateFor(EditingProfile.Id);
+            var fallback = saved.Fallback!.FirstOrDefault();
+            var savedLayout = saved.Bindings![0].Layout?.DisplayName ?? "Current provider layout";
+            return ProfileName == EditingProfile.DisplayName
+                && ProfileEffect == saved.Bindings[0].Effect!.DisplayName
+                && ProfileLayout == savedLayout
+                && ProfileFallbackKind == (fallback?.Kind ?? "native-setup")
+                && (ProfileFallbackKind != "profile" || ProfileFallbackProfile?.Id == fallback?.Profile);
         }
 
         private static string RequiredName(string value, string fallback) =>

@@ -15,16 +15,25 @@ namespace FocusRgb.App
             DataFormat.CreateInProcessFormat<MappingEditorItemViewModel>("FocusRGB.Mapping");
 
         public MainWindow()
+            : this(MainWindowViewModel.CreatePreview())
+        {
+        }
+
+        public MainWindow(MainWindowViewModel viewModel)
         {
             InitializeComponent();
-            DataContext = MainWindowViewModel.CreatePreview();
+            DataContext = viewModel;
         }
 
         private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
 
-        private void SaveProfile_OnClick(object? sender, RoutedEventArgs e) => ViewModel.SaveProfile();
-        private void SaveProfileAs_OnClick(object? sender, RoutedEventArgs e) => ViewModel.SaveProfileAs();
-        private void RemoveProfile_OnClick(object? sender, RoutedEventArgs e) => ViewModel.RemoveProfile();
+        private async void SaveProfile_OnClick(object? sender, RoutedEventArgs e) =>
+            await ViewModel.SaveProfileAsync();
+        private async void SaveProfileAs_OnClick(object? sender, RoutedEventArgs e) =>
+            await ViewModel.SaveProfileAsAsync();
+        private async void RemoveProfile_OnClick(object? sender, RoutedEventArgs e) =>
+            await ViewModel.RemoveProfileAsync();
+        private void CancelProfile_OnClick(object? sender, RoutedEventArgs e) => ViewModel.CancelProfile();
 
         private void SaveApplicationGroup_OnClick(object? sender, RoutedEventArgs e) => ViewModel.SaveApplicationGroup();
         private void SaveApplicationGroupAs_OnClick(object? sender, RoutedEventArgs e) => ViewModel.SaveApplicationGroupAs();
