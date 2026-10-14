@@ -65,17 +65,15 @@ namespace FocusRgb.App
             e.DragEffects = e.DataTransfer.Contains(MappingFormat) ? DragDropEffects.Move : DragDropEffects.None;
         }
 
-        private void MappingBefore_OnDrop(object? sender, DragEventArgs e)
+        private void MappingRow_OnDrop(object? sender, DragEventArgs e)
         {
-            if (sender is not Control { DataContext: MappingEditorItemViewModel target }) return;
+            if (sender is not Control { DataContext: MappingEditorItemViewModel target } row) return;
             var source = e.DataTransfer.TryGetValue(MappingFormat);
-            if (source is not null) ViewModel.MappingEditor.MoveBefore(source, target);
-        }
-
-        private void MappingEnd_OnDrop(object? sender, DragEventArgs e)
-        {
-            var source = e.DataTransfer.TryGetValue(MappingFormat);
-            if (source is not null) ViewModel.MappingEditor.MoveToEnd(source);
+            if (source is null) return;
+            if (e.GetPosition(row).Y < row.Bounds.Height / 2)
+                ViewModel.MappingEditor.MoveBefore(source, target);
+            else
+                ViewModel.MappingEditor.MoveAfter(source, target);
         }
 
         private async void BrowseExecutable_OnClick(object? sender, RoutedEventArgs e)

@@ -146,11 +146,14 @@ namespace FocusRgb.App.ViewModels
             NotifyDraftChanged();
         }
 
-        public void MoveToEnd(MappingEditorItemViewModel item)
+        public void MoveAfter(MappingEditorItemViewModel item, MappingEditorItemViewModel target)
         {
             var oldIndex = Mappings.IndexOf(item);
-            if (oldIndex < 0 || oldIndex == Mappings.Count - 1) return;
-            Mappings.Move(oldIndex, Mappings.Count - 1);
+            var targetIndex = Mappings.IndexOf(target);
+            if (oldIndex < 0 || targetIndex < 0 || oldIndex == targetIndex) return;
+            var newIndex = oldIndex < targetIndex ? targetIndex : targetIndex + 1;
+            if (oldIndex == newIndex) return;
+            Mappings.Move(oldIndex, newIndex);
             UpdatePositions();
             NotifyDraftChanged();
         }
