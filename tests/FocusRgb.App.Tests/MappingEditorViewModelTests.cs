@@ -72,15 +72,24 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public void MoveBeforeAndMoveToEnd_UseInsertionPositions()
+        public void MoveBefore_UsesInsertionPosition()
         {
             var editor = MainWindowViewModel.CreatePreview().MappingEditor;
 
             editor.MoveBefore(editor.Mappings[2], editor.Mappings[0]);
             Assert.Equal(["music", "programming", "movie"], editor.Mappings.Select(mapping => mapping.Id));
+        }
 
-            editor.MoveToEnd(editor.Mappings[0]);
-            Assert.Equal(["programming", "movie", "music"], editor.Mappings.Select(mapping => mapping.Id));
+        [Fact]
+        public void MoveAfter_InsertsAfterTargetForEitherDragDirection()
+        {
+            var editor = MainWindowViewModel.CreatePreview().MappingEditor;
+
+            editor.MoveAfter(editor.Mappings[2], editor.Mappings[0]);
+            Assert.Equal(["programming", "music", "movie"], editor.Mappings.Select(mapping => mapping.Id));
+
+            editor.MoveAfter(editor.Mappings[0], editor.Mappings[2]);
+            Assert.Equal(["music", "movie", "programming"], editor.Mappings.Select(mapping => mapping.Id));
         }
 
         [Fact]
