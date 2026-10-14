@@ -1,7 +1,7 @@
 # FocusRgb.Core
 
 Portable .NET 10 application logic. Configuration, pure profile selection, and atomic local
-persistence are implemented; coordination and output remain later slices. Only shared Contracts
+selection commands are implemented; coordination and output remain later slices. Only shared Contracts
 may be referenced. There are no provider SDKs, platform APIs, or lighting calls here.
 
 ```text
@@ -11,11 +11,14 @@ Configuration/
   SettingsJson.cs           in-memory load/serialize, seed loading, empty native snapshot
   ConfigurationError.cs     path-specific errors and load result
   default-settings.json     editable acceptance mappings, embedded as seed data
+Commands/
+  SelectionCommandService.cs persisted select-profile, set-mode, save, and local status
 Selection/
   SelectionModels.cs        observation, mode, decision, and reason types
   SelectionEngine.cs        manual/automatic arbitration and focus debounce
 Persistence/
   PersistenceModels.cs      startup snapshot, recovery notice, and result types
+  ISelectionStateStore.cs   narrow write boundary used by shared selection commands
   LocalStateStore.cs        validated load/save, atomic replacement, startup recovery
 ```
 
@@ -77,7 +80,16 @@ fallback activation must never call `SaveNativeSetupAsync`; only an explicit use
 native setup owns that snapshot.
 
 The store does not choose an OS data path, read processes, or call an integration or device.
-The Windows app will select its per-user directory when persistence is wired into the shell.
+The Windows app stores these files under `%LOCALAPPDATA%\FocusRGB`.
+
+## Running local selection commands
+
+Construct `SelectionCommandService` with an `ISelectionStateStore`. `SelectProfileAsync`,
+`SetModeAsync`, and `SaveCurrentAsync` validate and save the replacement state before returning
+it to the caller, so a failed write never changes visible runtime intent. `GetStatus` reports the
+desired profile and reason while explicitly leaving applied output empty until an integration or
+native output exists. The Avalonia UI uses this service; the future local MCP adapter can call the
+same boundary without referencing desktop controls.
 
 ## Adding a profile
 

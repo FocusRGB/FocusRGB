@@ -2,12 +2,13 @@
 
 A planned desktop RGB controller with an Avalonia UI and .NET 10 background core.
 The first executable targets Windows; shared code remains portable for future platforms.
-**Early implementation:** slices 00–07 provide the contract, solution scaffold, validated
+**Early implementation:** slices 00–08 provide the contract, solution scaffold, validated
 profile configuration, a runnable selected-item UI, named application groups, an ordered
 in-memory mapping editor with insertion drag/drop, the portable selection engine, and a persistent
 profile editor. Profiles can be created, edited, duplicated, or safely removed; Default remains
-protected. Atomic local persistence and startup restoration are implemented; tray behavior,
-application-group persistence, OS observations, and plugin integration are still pending. See
+protected. The Windows app now persists manual selection, minimizes to a tray icon, and saves
+again before tray Quit. Application-group persistence, OS observations, and plugin integration
+are still pending. See
 [Core configuration](src/FocusRgb.Core/README.md).
 
 The app will select lighting profiles manually or from named application groups using a
@@ -26,8 +27,8 @@ profile.
 
 ## Implementation roadmap
 
-1. Finish the FocusRGB desktop app: tray/runtime behavior, settings, and honest local status
-   without relying on another application.
+1. Finish the FocusRGB desktop app settings and honest local status without relying on another
+   application.
 2. Build native effects, LED placement layouts, screen ambience, and output plugins.
 3. Add external-application automation and integrations: detection/mappings, SignalRGB, games,
    and local-model MCP control.

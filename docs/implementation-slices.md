@@ -8,7 +8,7 @@ Requirements live in [`app-brief.md`](app-brief.md), contracts and behavior in
 [`plugin-architecture.md`](plugin-architecture.md), and verified external facts in
 [`integration-evidence.md`](integration-evidence.md).
 
-Status: **00–07 complete on the stacked pull-request chain. 08 is next.**
+Status: **00–08 complete on the stacked pull-request chain. 09 is next.**
 
 ## 1 — Foundation
 
@@ -34,10 +34,10 @@ Status: **00–07 complete on the stacked pull-request chain. 08 is next.**
 
 - ✅ [07 — Profile editor and persistence](<slices/3-FocusRGB App/07-profile-editor-and-persistence.md>):
   create, edit, duplicate, and remove persisted profiles while protecting Default.
-- ▶️ [08 — Desktop runtime and tray](<slices/3-FocusRGB App/08-desktop-runtime-and-tray.md>):
-  run manual profile state in the tray app with real local status and clean shutdown. **Next.**
-- ⏳ [09 — Application settings](<slices/3-FocusRGB App/09-application-settings-and-lifecycle-preferences.md>):
-  persist desktop lifecycle, theme, and diagnostic preferences in a small Settings page.
+- ✅ [08 — Desktop runtime and tray](<slices/3-FocusRGB App/08-desktop-runtime-and-tray.md>):
+  run manual profile state in the tray app with real local status and clean shutdown.
+- ▶️ [09 — Application settings](<slices/3-FocusRGB App/09-application-settings-and-lifecycle-preferences.md>):
+  persist desktop lifecycle, theme, and diagnostic preferences in a small Settings page. **Next.**
 
 ## 4 — Native RGB System
 
