@@ -36,7 +36,8 @@ Updated: 2026-10-15.
 
 - Roadmap reordered app-first and then external-first: profile management and tray/settings are
   followed by Windows observation/mappings and SignalRGB, with only required plugin/runtime
-  foundations interleaved before games; remaining native UI/hardware work follows. The Windows
+  foundations in folder 4 before games. Standalone rendering and hardware work is isolated in
+  folder 7 and does not block external applications or games. The Windows
   observation fixture checkpoint remains preserved on `slice/07-windows-observations` for Slice 10.
 - Persistence, selection, and mapping review findings were resolved (PR #17): missing/malformed
   schema versions recover as corrupt while numeric future versions remain untouched; JSON accepts
@@ -48,8 +49,8 @@ Updated: 2026-10-15.
 - Plugin repository ownership is decided: contracts, the minimal .NET SDK, host, schemas,
   conformance tests, template, and fake plugin stay in FocusRGB; production plugins use peer
   `FocusRGB-Plugin-<Name>` repositories and published SDK versions. Empty repositories are not
-  created early: SignalRGB is created in slice 14, WLED in 18, and the selected game adapter
-  in 22. Slice 19 stabilizes the proven `0.x` SDK as version 1 (PR #16).
+  created early: SignalRGB is created in slice 14, the selected game adapter in 20, and WLED in
+  22. Slice 17 stabilizes the fake- and SignalRGB-proven `0.x` SDK as version 1 (PR #16).
 - Application settings are now specified with researched defaults and ownership boundaries.
   Close-button behavior defaults to minimize to tray and can be changed to real exit; startup
   registration remains opt-in work for slice 28. Implementation is isolated in slice 09 after
@@ -77,9 +78,10 @@ Updated: 2026-10-15.
   that suppresses detection until automatic selection is resumed.
 - Game API plugins feed versioned normalized and namespaced events to effects. A local MCP
   adapter will use the same validated command services as the UI.
-- Implementation order confirmed: finish the FocusRGB desktop app first, then its native
-  effects/layouts and outputs, and only then add external-application automation, SignalRGB,
-  games, and MCP. The public plugin SDK must be extracted from working internal contracts.
+- Implementation order confirmed: finish the FocusRGB desktop app first, then add
+  external-application automation, SignalRGB, games, and MCP using only the required plugin
+  runtime and coordination foundations. Standalone native effects, layouts, and outputs follow
+  in folder 7. The public plugin SDK must be extracted from working internal contracts.
 - SignalRGB must not be compiled into or referenced by the core/application projects. The app
   uses a provider-neutral integration interface and SignalRGB is a separate plugin. The first
   executable targets Windows while portable projects remain free of Windows-only APIs.
@@ -205,8 +207,8 @@ persistence, the tray runtime, and application settings are complete; applicatio
 persistence follows in Slice 11.
 
 SignalRGB investigation starts at 12, its external plugin at 14, and its acceptance gate at 16.
-The public SDK is stabilized at 19, MCP is 20, and game discovery starts at 21. Remaining native
-layout/hardware work is deferred to 23 and 25–28. Inventory the preserved observation branch
+The public SDK is stabilized at 17, MCP is 18, and game discovery starts at 19. Standalone native
+rendering, layout, and hardware work is isolated in folder 7 at slices 21–29. Inventory the preserved observation branch
 before integrating it into Slice 10.
 Claude tool availability does not itself establish an app API.
 

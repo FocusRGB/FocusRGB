@@ -2,7 +2,7 @@
 
 Slice 00. Frozen 2026-10-10 as the starting contract for slices 01–23. It covers only what the
 core, the fake integration, and the first SignalRGB plugin need. It is not the public SDK
-schema; that is extracted later (slice 19) from working code. Requirements remain in
+schema; that is extracted later (slice 17) from working code. Requirements remain in
 `app-brief.md` and behavior rules in `plugin-architecture.md`; this document fixes shapes.
 
 Status words below: **frozen** means slices 01–23 implement it as written unless a slice
@@ -161,7 +161,7 @@ Profiles:
 - `bindings` contains exactly one item: one effect plus one optional provider layout reference.
   The singular binding shape remains for schema compatibility and plugin authority metadata.
 - `renderingAuthority` is `provider` or `application`. An `application` binding validates but
-  reports `unsupported` until native rendering begins in slice 17. There is no implicit fallback
+  reports `unsupported` until native rendering begins in slice 21. There is no implicit fallback
   between authorities.
 - `effect` is required for a `provider` binding. `layout` is optional; `null` means the plugin
   keeps the provider's current placements and sends no layout command.
@@ -194,7 +194,7 @@ Rules:
 - `eligibility` is `while-running` or `while-focused`. Process exit removes eligibility for
   both. `enabled: false` keeps the rule but never makes it eligible.
 - `match.executables` compares file names case-insensitively. **Reserved:** `match.game` with
-  `{ "launcher": "steam", "id": "570" }` for slice 21. A rule must have at least one matcher.
+  `{ "launcher": "steam", "id": "570" }` for slice 19. A rule must have at least one matcher.
 - Executable names are candidates until slice 10 confirms the real foreground owners.
 
 Selection:

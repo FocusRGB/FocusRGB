@@ -1,4 +1,4 @@
-# 20 — Local MCP commands
+# 18 — Local MCP commands
 
 [← All implementation slices](../../implementation-slices.md)
 

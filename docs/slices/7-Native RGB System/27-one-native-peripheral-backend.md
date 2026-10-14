@@ -2,7 +2,7 @@
 
 [← All implementation slices](../../implementation-slices.md)
 
-Depends on: 13, 15, 17. Scope: choose keyboard or mouse and one actual supported model, then implement
+Depends on: 13, 15, 21. Scope: choose keyboard or mouse and one actual supported model, then implement
 its separate output plugin and semantic/geometry map. Repeat as new slices for other models.
 Acceptance: static/canvas ownership and release are verified, actual LEDs checked,
 macros/special keys preserved;
