@@ -51,7 +51,7 @@ Finish the FocusRGB app and native path before desktop-application integrations:
 1. First start selects protected Default in manual mode.
 2. Users can create, rename, duplicate, and delete profiles; Default cannot be removed or renamed.
 3. Profile bindings, fallbacks, and the last manual selection survive restart.
-4. Apply/Cancel and optional Live preview never silently persist a draft.
+4. Save/Cancel and optional Live preview never silently persist a draft.
 5. The tray keeps the engine alive, while Quit performs a clean save and shutdown.
 6. Close behavior, theme, start-minimized, and diagnostics follow the application settings.
 7. Built-in static/gradient effects render through stable LED identities to fake output.

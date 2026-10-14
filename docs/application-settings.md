@@ -30,7 +30,7 @@ and export a diagnostic bundle. Actions are not persisted preferences.
   be converted into a minimize action.
 - The first minimize-to-tray action should explain where FocusRGB went. This is an onboarding
   notice, not another permanent setting.
-- Unsaved editor drafts continue to follow their editor's Apply/Cancel rules. Hiding the window
+- Unsaved editor drafts continue to follow their editor's Save/Cancel rules. Hiding the window
   must not silently apply a draft.
 
 Minimize to tray is the default because FocusRGB's application detection and profile switching

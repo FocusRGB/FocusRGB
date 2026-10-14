@@ -8,7 +8,7 @@ Requirements live in [`app-brief.md`](app-brief.md), contracts and behavior in
 [`plugin-architecture.md`](plugin-architecture.md), and verified external facts in
 [`integration-evidence.md`](integration-evidence.md).
 
-Status: **00–06 complete on the stacked pull-request chain. 07 is next.**
+Status: **00–07 complete on the stacked pull-request chain. 08 is next.**
 
 ## 1 — Foundation
 
@@ -21,7 +21,7 @@ Status: **00–06 complete on the stacked pull-request chain. 07 is next.**
 - ✅ [03 — UI shell](slices/1-Foundation/03-ui-shell-with-preview-state.md):
   add the mode-driven Home tab, profile controls, navigation, and explicit preview-only status.
 - ✅ [04 — Mapping editor](slices/1-Foundation/04-profile-mapping-editor-with-preview-state.md):
-  edit named application groups and ordered mappings with Apply/Cancel and preview state.
+  edit named application groups and ordered mappings with Save/Cancel and preview state.
 
 ## 2 — Core Engine
 
@@ -32,10 +32,10 @@ Status: **00–06 complete on the stacked pull-request chain. 07 is next.**
 
 ## 3 — FocusRGB App
 
-- ▶️ [07 — Profile editor and persistence](<slices/3-FocusRGB App/07-profile-editor-and-persistence.md>):
-  create, edit, duplicate, and remove profiles while protecting Default. **Next.**
-- ⏳ [08 — Desktop runtime and tray](<slices/3-FocusRGB App/08-desktop-runtime-and-tray.md>):
-  run manual profile state in the tray app with real local status and clean shutdown.
+- ✅ [07 — Profile editor and persistence](<slices/3-FocusRGB App/07-profile-editor-and-persistence.md>):
+  create, edit, duplicate, and remove persisted profiles while protecting Default.
+- ▶️ [08 — Desktop runtime and tray](<slices/3-FocusRGB App/08-desktop-runtime-and-tray.md>):
+  run manual profile state in the tray app with real local status and clean shutdown. **Next.**
 - ⏳ [09 — Application settings](<slices/3-FocusRGB App/09-application-settings-and-lifecycle-preferences.md>):
   persist desktop lifecycle, theme, and diagnostic preferences in a small Settings page.
 

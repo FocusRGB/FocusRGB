@@ -7,7 +7,7 @@ covering draft/apply/cancel, live preview, ordered priority, and profile-owned o
 
 Depends on: 03. Scope: build the applications/profile mapping editor against draft in-memory
 state: named application groups, profile, list order, while-running/while-focused eligibility,
-Apply/Cancel, and optional Live preview after completed edits. Each profile owns one editable
+Save/Cancel, and optional Live preview after completed edits. Each profile owns one editable
 effect and one editable layout. Mapping rows select only an application group and a profile.
 Acceptance: edits remain drafts until Apply; Cancel restores the prior draft and preview output;
 unchecked preview sends no UI-state save before Save; hover arrows and whole-row drag/drop reorder
