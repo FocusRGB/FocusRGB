@@ -99,9 +99,10 @@ and Integrations navigation. Home always exposes the Mode control; Manual shows 
 state and Automatic shows the mapping editor. It loads the validated defaults, starts in manual
 Default, and labels desired/applied values as preview-only. The in-memory editor provides named executable
 groups with a Windows `.exe` picker, profile-owned effect/layout editing, mapping selection of one
-group plus one profile, top-to-bottom priority, hover arrows, whole-row insertion drag/drop,
-row Edit/Remove, Save/Save As/Remove item actions, eligibility, Save/Cancel, and optional Live
-preview. Persistent application groups remain part of slice 20.
+group plus one profile, top-to-bottom priority, hover arrows, midpoint-based whole-row insertion
+drag/drop, row Edit/Remove, Save/Save As/Remove item actions, eligibility, Save/Cancel, and optional
+Live preview. Profile/group selectors align with their editor bodies, and executable actions sit
+beside the list. Persistent application groups remain part of slice 20.
 The portable selection engine now evaluates supplied observations with manual override,
 while-running/while-focused eligibility, deterministic priority, focus debounce, ignored
 windows, process-exit handling, protected Default fallback, and explicit reasons. The portable
