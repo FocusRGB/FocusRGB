@@ -9,8 +9,9 @@ Updated: 2026-10-15.
   guards overlapping settings saves, validates profile removal before state writes, protects
   saved/applied mapping references, saves during OS shutdown, and provides a second-Quit escape
   after save failure. Diagnostics use saved preferences and can include privacy-limited diagnostic
-  logs; keyboard reorder controls remain visible. Release build passes with 0 warnings and all
-  157 tests pass, including the blocked-UI-context startup regression and reproduced persistence
+  logs; keyboard reorder controls remain visible; startup recoveries are reported in the Home
+  status, and warning-only notices carry no archive path. Release build passes with 0 warnings and all
+  158 tests pass, including the blocked-UI-context startup regression and reproduced persistence
   and editor failure cases.
 
 - Slice 09 adds saved application preferences for close behavior, start minimized, theme, and
@@ -159,7 +160,7 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Slice: 09 — Application settings and lifecycle preferences
 - State: complete after review remediation; awaiting review in the stacked pull-request chain
 - Branch, latest relevant code commit, and pull request target:
-  `fix/slice-07-09-review`; commits `3666506`, `1ecc38b`, `b0d3ef8`, and `a005bf0`;
+  `fix/slice-07-09-review`; commits `3666506`, `5f6c78b`, `4e14aba`, `d16ea60`, `7146ef0`, and `59a048b`;
   target `slice/09-application-settings`, whose PR #22 targets `slice/08-desktop-runtime-tray`.
 - Scope and dependencies verified: follows persistence and tray lifecycle; no startup
   registration, process observation, plugin, SignalRGB, or hardware dependency.
@@ -168,7 +169,7 @@ not respond. No live settings, presets, layouts, registry values, services, or t
   owns saved-versus-draft preferences; `App` and `MainWindow` own lifecycle/theme/actions;
   `DiagnosticExport` owns the intentionally limited export shape.
 - Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passes with 0 warnings and
-  `dotnet test --solution FocusRGB.slnx -c Release --no-restore` passes 157/157 tests.
+  `dotnet test --solution FocusRGB.slnx -c Release --no-restore` passes 158/158 tests.
 - External/live evidence: Release launches on 2026-10-15 verified that closing a forced startup
   error ends the process and one window close hides the app to the tray. The real settings file
   was backed up and restored byte-for-byte, with no stray files or processes left behind. No
