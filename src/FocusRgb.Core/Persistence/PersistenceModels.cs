@@ -25,7 +25,8 @@ namespace FocusRgb.Core.Persistence
     public sealed class RecoveryNotice
     {
         public required string FileName { get; init; }
-        public required string ArchivedPath { get; init; }
+        /// <summary>The renamed invalid file, or null when the notice is only a warning.</summary>
+        public string? ArchivedPath { get; init; }
         public required string Message { get; init; }
     }
 
