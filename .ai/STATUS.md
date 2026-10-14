@@ -4,6 +4,12 @@ Updated: 2026-10-14.
 
 ## Completed
 
+- Slice 08 hosts selection state in the desktop runtime. Profile/mode changes use a portable
+  command service that saves before updating visible state, local status distinguishes desired
+  from unapplied output, the close button hides the window, and the tray provides Show and Quit.
+  Quit flushes valid selection state and stays open with an actionable message on save failure.
+  Build passes without warnings and all 122 tests pass.
+
 - Slice 07 makes the Profiles page a real persisted editor. Save edits the selected profile,
   Save As creates a uniquely identified copy, Cancel restores the saved draft/preview, and Remove
   protects Default plus mapping and fallback references. Effect, provider-current or named layout,
@@ -102,11 +108,13 @@ The shared screen colour test remains under `tools/`; the Arduino sketch moved t
 `../modules/arduino/sketches/`. `../src/` contains the app scaffold and portable configuration
 code. No custom
 SignalRGB effects or user device plugins are active in the repo or Documents folders.
-The controller app now opens a minimal shell with Home, Profiles, Application Groups,
+The controller app now opens a minimal tray-backed shell with Home, Profiles, Application Groups,
 and Integrations navigation. Home always exposes the Mode control; Manual shows profile/current
 state and Automatic shows the mapping editor. It loads the validated defaults, starts in manual
 Default, restores later starts from the local state store, and labels desired/applied values as
-preview-only. Profiles are persistently editable with protected references and validated fallback
+unapplied until an output exists. Manual profile/mode commands persist asynchronously; closing
+hides the window while the local runtime continues, and tray Quit saves before shutdown.
+Profiles are persistently editable with protected references and validated fallback
 choices. The remaining in-memory editor provides named executable groups with a Windows `.exe`
 picker, mapping selection of one
 group plus one profile, top-to-bottom priority, hover arrows, midpoint-based whole-row insertion
@@ -118,8 +126,8 @@ while-running/while-focused eligibility, deterministic priority, focus debounce,
 windows, process-exit handling, protected Default fallback, and explicit reasons. The portable
 local store validates and atomically persists settings, desired selection state, and an
 independent native fallback snapshot; it seeds first run, restores restarts, and archives
-malformed or invalid-reference documents with explicit recovery details. No tray behavior,
-detector wiring, app persistence wiring, plugin loader, hardware output, or startup task exists yet.
+malformed or invalid-reference documents with explicit recovery details. No detector wiring,
+plugin loader, hardware output, or startup task exists yet.
 The planned Settings page is documented in `../docs/application-settings.md`; no preference
 schema, settings UI, tray behavior, startup registration, or diagnostics implementation was added.
 
@@ -129,25 +137,26 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 07 — Profile editor and persistence
+- Slice: 08 — Desktop runtime and tray
 - State: complete; awaiting review in the stacked pull-request chain
 - Branch, latest relevant code commit, and pull request target:
-  `slice/07-profile-editor-persistence`; commits `1620348`, `4d23abd`, and `17126e9`;
-  PR #20 targets `feature/application-groups`.
-- Scope and dependencies verified: follows the existing UI shell and local persistence; no
+  `slice/08-desktop-runtime-tray`; commits `3723718`, `d2230bd`, and `59d6c31`;
+  target `slice/07-profile-editor-persistence`.
+- Scope and dependencies verified: follows persisted profile editing and local state; no
   process observation, SignalRGB, plugin, or hardware dependency.
-- Implemented files and entry points: `App.axaml.cs` initializes `LocalStateStore`;
-  `MainWindowViewModel` owns validated profile drafts and persistence; `MainWindow.axaml` exposes
-  fallback, preview, and shared item actions. The previously started Windows observation work is
-  preserved on `slice/07-windows-observations` and remains scheduled as Slice 19.
+- Implemented files and entry points: Core `SelectionCommandService` owns shared local commands;
+  `App.axaml.cs` owns explicit lifetime and tray actions; `MainWindow` handles close-to-tray;
+  `MainWindowViewModel` projects saved desired/unapplied status and async failures.
 - Verification: `dotnet build FocusRGB.slnx --no-restore` and
-  `dotnet test FocusRGB.slnx --no-restore` pass, 117/117 tests.
-- External/live evidence: deferred with Slice 19; no live process check was run.
-- Remaining acceptance criteria: none for Slice 07.
+  `dotnet test FocusRGB.slnx --no-restore` pass, 122/122 tests.
+- External/live evidence: a hidden startup smoke process stayed alive, but Windows exposed no
+  main-window handle, so interactive close/tray-menu behavior was not claimed as live evidence.
+- Remaining acceptance criteria: none for Slice 08; interactive tray behavior remains a manual
+  packaging check rather than an automated test.
 - Current blocker or required product input: none.
-- Uncommitted work to preserve: none after the Slice 07 commits.
-- Next action: review/merge Slice 07, then start Slice 08 from this branch while the stack is open.
-- Next slice: 08 — Desktop runtime and tray.
+- Uncommitted work to preserve: none after the Slice 08 commits.
+- Next action: review/merge Slice 08, then implement Slice 09 from this branch while stacked.
+- Next slice: 09 — Application settings and lifecycle preferences.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -172,8 +181,8 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slices 08–29 are pending. Continue with 08 (desktop runtime and tray), then application settings
-and the native RGB path. Profile persistence is complete; application-group/mapping persistence
+Slices 09–29 are pending. Continue with 09 (application settings), then the native RGB path.
+Profile persistence and the tray runtime are complete; application-group/mapping persistence
 remains intentionally scheduled with external-application work in Slice 20.
 
 External application work starts at Slice 19. SignalRGB begins at 21, the public SDK is stabilized
