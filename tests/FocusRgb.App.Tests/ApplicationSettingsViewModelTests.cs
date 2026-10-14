@@ -104,6 +104,23 @@ namespace FocusRgb.App.Tests
             Assert.Contains("settingsSchema", json, StringComparison.Ordinal);
         }
 
+        [Fact]
+        public void DiagnosticExport_UsesSavedPreferences_NotDrafts()
+        {
+            var viewModel = MainWindowViewModel.CreatePreview();
+            viewModel.ApplicationTheme = "Dark";
+            viewModel.CloseButtonBehavior = "Exit application";
+            viewModel.StartMinimized = true;
+            viewModel.VerboseLogging = true;
+
+            var json = DiagnosticExport.CreateJson(viewModel, Start);
+
+            Assert.Contains("\"theme\":\"system\"", json, StringComparison.Ordinal);
+            Assert.Contains("\"closeBehavior\":\"minimize-to-tray\"", json, StringComparison.Ordinal);
+            Assert.Contains("\"startMinimized\":false", json, StringComparison.Ordinal);
+            Assert.Contains("\"verboseLogging\":false", json, StringComparison.Ordinal);
+        }
+
         private async Task<(MainWindowViewModel ViewModel, LocalStateStore Store)> CreateAsync()
         {
             var store = new LocalStateStore(_directory);

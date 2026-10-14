@@ -42,6 +42,7 @@ namespace FocusRgb.App
         }
 
         public event EventHandler? ExitRequested;
+        public event EventHandler? HiddenToTray;
 
         private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
 
@@ -53,6 +54,11 @@ namespace FocusRgb.App
         }
 
         public void NotifyStartedMinimized() => ViewModel.NotifyWindowHidden();
+
+        public void ReportQuitFailure() =>
+            ViewModel.ReportUnexpectedError("Could not save before quitting. Choose Quit again to exit without saving.");
+
+        public void ReportUnexpectedError(string message) => ViewModel.ReportUnexpectedError(message);
 
         public async Task<bool> PrepareQuitAsync(CancellationToken cancellationToken = default) =>
             await ViewModel.SaveRuntimeStateAsync(cancellationToken);
@@ -69,6 +75,7 @@ namespace FocusRgb.App
             {
                 Hide();
                 ViewModel.NotifyWindowHidden();
+                HiddenToTray?.Invoke(this, EventArgs.Empty);
             }
             else if (!_exitRequested)
             {
@@ -81,31 +88,35 @@ namespace FocusRgb.App
         {
             if (sender is ComboBox { SelectedItem: ProfileOptionViewModel profile }
                 && !ReferenceEquals(profile, ViewModel.SelectedProfile))
-                await ViewModel.SelectProfileAsync(profile);
+                await RunUiActionAsync(() => ViewModel.SelectProfileAsync(profile));
         }
 
         private async void ManualMode_OnClick(object? sender, RoutedEventArgs e)
         {
-            if (!ViewModel.IsManual) await ViewModel.SetModeAsync(manual: true);
+            if (!ViewModel.IsManual) await RunUiActionAsync(() => ViewModel.SetModeAsync(manual: true));
         }
 
         private async void AutomaticMode_OnClick(object? sender, RoutedEventArgs e)
         {
-            if (ViewModel.IsManual) await ViewModel.SetModeAsync(manual: false);
+            if (ViewModel.IsManual) await RunUiActionAsync(() => ViewModel.SetModeAsync(manual: false));
         }
 
         private async void SaveProfile_OnClick(object? sender, RoutedEventArgs e) =>
-            await ViewModel.SaveProfileAsync();
+            await RunUiActionAsync(() => ViewModel.SaveProfileAsync());
         private async void SaveProfileAs_OnClick(object? sender, RoutedEventArgs e) =>
-            await ViewModel.SaveProfileAsAsync();
+            await RunUiActionAsync(() => ViewModel.SaveProfileAsAsync());
         private async void RemoveProfile_OnClick(object? sender, RoutedEventArgs e) =>
-            await ViewModel.RemoveProfileAsync();
+            await RunUiActionAsync(() => ViewModel.RemoveProfileAsync());
         private void CancelProfile_OnClick(object? sender, RoutedEventArgs e) => ViewModel.CancelProfile();
 
         private async void SaveApplicationSettings_OnClick(object? sender, RoutedEventArgs e)
         {
-            if (await ViewModel.SaveApplicationSettingsAsync())
+            if (await RunUiActionAsync(() => ViewModel.SaveApplicationSettingsAsync()))
+            {
                 (Application.Current as App)?.ApplyTheme(ViewModel.ApplicationTheme);
+                AppLog.Configure(_dataDirectory, ViewModel.SavedVerboseLogging);
+                AppLog.Write("Application preferences saved.");
+            }
         }
 
         private void CancelApplicationSettings_OnClick(object? sender, RoutedEventArgs e) =>
@@ -132,13 +143,20 @@ namespace FocusRgb.App
                 output.SetLength(0);
                 using var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true);
                 var entry = archive.CreateEntry("diagnostics.json", CompressionLevel.Optimal);
-                await using var entryStream = entry.Open();
-                await using var writer = new StreamWriter(entryStream, new UTF8Encoding(false));
-                await writer.WriteAsync(DiagnosticExport.CreateJson(ViewModel, DateTimeOffset.UtcNow));
+                await using (var entryStream = entry.Open())
+                await using (var writer = new StreamWriter(entryStream, new UTF8Encoding(false)))
+                    await writer.WriteAsync(DiagnosticExport.CreateJson(ViewModel, DateTimeOffset.UtcNow));
+                var logPath = Path.Combine(_dataDirectory, "logs", "focusrgb.log");
+                if (ViewModel.SavedVerboseLogging && File.Exists(logPath))
+                {
+                    var logEntry = archive.CreateEntry("focusrgb.log", CompressionLevel.Optimal);
+                    await using var logOutput = logEntry.Open();
+                    await using var logInput = File.OpenRead(logPath);
+                    await logInput.CopyToAsync(logOutput);
+                }
                 ViewModel.ReportSettingsAction("Exported diagnostics without profiles, mappings, paths, or secrets.");
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
-                or InvalidOperationException or NotSupportedException)
+            catch (Exception exception)
             {
                 ViewModel.ReportSettingsAction($"Could not export diagnostics: {exception.Message}");
             }
@@ -190,7 +208,7 @@ namespace FocusRgb.App
             ViewModel.MappingEditor.SelectedMapping = item;
             var transfer = new DataTransfer();
             transfer.Add(DataTransferItem.Create(MappingFormat, item));
-            await DragDrop.DoDragDropAsync(e, transfer, DragDropEffects.Move);
+            await RunUiActionAsync(() => DragDrop.DoDragDropAsync(e, transfer, DragDropEffects.Move));
         }
 
         private void MappingRow_OnDragOver(object? sender, DragEventArgs e)
@@ -211,12 +229,13 @@ namespace FocusRgb.App
 
         private async void BrowseExecutable_OnClick(object? sender, RoutedEventArgs e)
         {
-            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            var files = await RunUiActionAsync(() => StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
                 Title = "Add Windows executables",
                 AllowMultiple = true,
                 FileTypeFilter = [new FilePickerFileType("Windows executable") { Patterns = ["*.exe"] }]
-            });
+            }));
+            if (files is null) return;
             foreach (var file in files) ViewModel.AddDraftExecutable(file.Name);
         }
 
@@ -239,5 +258,30 @@ namespace FocusRgb.App
 
         private void ApplyMappings_OnClick(object? sender, RoutedEventArgs e) => ViewModel.MappingEditor.Apply();
         private void CancelMappings_OnClick(object? sender, RoutedEventArgs e) => ViewModel.MappingEditor.Cancel();
+
+        private async Task RunUiActionAsync(Func<Task> action)
+        {
+            try
+            {
+                await action();
+            }
+            catch (Exception exception)
+            {
+                ViewModel.ReportUnexpectedError($"The action failed: {exception.Message}");
+            }
+        }
+
+        private async Task<T?> RunUiActionAsync<T>(Func<Task<T>> action)
+        {
+            try
+            {
+                return await action();
+            }
+            catch (Exception exception)
+            {
+                ViewModel.ReportUnexpectedError($"The action failed: {exception.Message}");
+                return default;
+            }
+        }
     }
 }

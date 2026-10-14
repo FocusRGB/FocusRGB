@@ -18,10 +18,10 @@ namespace FocusRgb.App.Diagnostics
                 framework = RuntimeInformation.FrameworkDescription,
                 operatingSystem = RuntimeInformation.OSDescription,
                 settingsSchema = SettingsJson.CurrentSchemaVersion,
-                theme = viewModel.ApplicationTheme,
-                closeBehavior = viewModel.CloseButtonBehavior,
-                startMinimized = viewModel.StartMinimized,
-                verboseLogging = viewModel.VerboseLogging,
+                theme = viewModel.SavedApplicationTheme,
+                closeBehavior = viewModel.SavedCloseButtonBehavior,
+                startMinimized = viewModel.SavedStartMinimized,
+                verboseLogging = viewModel.SavedVerboseLogging,
                 appliedOutput = "unavailable"
             });
         }
