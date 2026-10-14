@@ -34,6 +34,13 @@ namespace FocusRgb.App.ViewModels
         private string? _selectedDraftExecutable;
         private string _profileEditorStatus = "Select a profile to edit it.";
         private string _applicationGroupEditorStatus = "Select an application group to edit it.";
+        private string _closeButtonBehavior = "Minimize to system tray";
+        private bool _startMinimized;
+        private string _applicationTheme = "System";
+        private bool _verboseLogging;
+        private bool _isApplicationSettingsDirty;
+        private bool _loadingApplicationSettings;
+        private string _applicationSettingsStatus = "Application preferences match the saved values.";
 
         private MainWindowViewModel(
             ObservableCollection<ProfileOptionViewModel> profiles,
@@ -43,7 +50,8 @@ namespace FocusRgb.App.ViewModels
             LocalStateStore? settingsStore,
             SelectionStateDocument? selectionState,
             SelectionCommandService? selectionCommands,
-            SelectionReason? selectionReason)
+            SelectionReason? selectionReason,
+            bool canMinimizeToTray)
         {
             Profiles = profiles;
             _selectedProfile = selectedProfile;
@@ -52,11 +60,13 @@ namespace FocusRgb.App.ViewModels
             _settingsStore = settingsStore;
             _selectionState = selectionState;
             _selectionCommands = selectionCommands;
+            CanMinimizeToTray = canMinimizeToTray;
             if (selectionReason is not null) _selectionReason = selectionReason;
             if (selectionCommands is not null)
                 _runtimeStatusMessage = "Local runtime is ready; no output integration is connected.";
             EditingProfile = profiles.Count > 0 ? profiles[0] : null;
             EditingApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
+            LoadApplicationSettings();
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -65,6 +75,11 @@ namespace FocusRgb.App.ViewModels
         public MappingEditorViewModel MappingEditor { get; }
         public ObservableCollection<ApplicationGroupViewModel> ApplicationGroups => MappingEditor.ApplicationGroups;
         public ObservableCollection<string> DraftExecutables { get; } = [];
+        public IReadOnlyList<string> CloseButtonBehaviors => CanMinimizeToTray
+            ? ["Minimize to system tray", "Exit application"]
+            : ["Exit application"];
+        public IReadOnlyList<string> ApplicationThemes { get; } = ["System", "Light", "Dark"];
+        public bool CanMinimizeToTray { get; }
 
         public ProfileOptionViewModel? EditingProfile
         {
@@ -142,6 +157,38 @@ namespace FocusRgb.App.ViewModels
         public bool CanRemoveEditingProfile => EditingProfile is not null && EditingProfile.Id != "default";
         public bool HasEditingApplicationGroup => EditingApplicationGroup is not null;
         public bool HasNoEditingApplicationGroup => EditingApplicationGroup is null;
+        public string CloseButtonBehavior
+        {
+            get => _closeButtonBehavior;
+            set => SetApplicationSettingsDraft(ref _closeButtonBehavior, value);
+        }
+        public bool StartMinimized
+        {
+            get => _startMinimized;
+            set => SetApplicationSettingsDraft(ref _startMinimized, value);
+        }
+        public string ApplicationTheme
+        {
+            get => _applicationTheme;
+            set => SetApplicationSettingsDraft(ref _applicationTheme, value);
+        }
+        public bool VerboseLogging
+        {
+            get => _verboseLogging;
+            set => SetApplicationSettingsDraft(ref _verboseLogging, value);
+        }
+        public bool IsApplicationSettingsDirty
+        {
+            get => _isApplicationSettingsDirty;
+            private set => Set(ref _isApplicationSettingsDirty, value);
+        }
+        public string ApplicationSettingsStatus
+        {
+            get => _applicationSettingsStatus;
+            private set => Set(ref _applicationSettingsStatus, value);
+        }
+        public bool ShouldMinimizeOnClose => CanMinimizeToTray
+            && _settings.Application!.CloseButtonBehavior == "minimize-to-tray";
 
         public bool IsManual
         {
@@ -258,6 +305,39 @@ namespace FocusRgb.App.ViewModels
 
         public void NotifyWindowHidden() =>
             RuntimeStatusMessage = "FocusRGB is still running in the system tray.";
+
+        public async Task<bool> SaveApplicationSettingsAsync(CancellationToken cancellationToken = default)
+        {
+            var application = new ApplicationSettings
+            {
+                CloseButtonBehavior = CloseButtonBehavior == "Exit application" ? "exit" : "minimize-to-tray",
+                StartMinimized = StartMinimized,
+                Theme = ApplicationTheme.ToLowerInvariant(),
+                VerboseLogging = VerboseLogging,
+                AdditionalProperties = _settings.Application!.AdditionalProperties
+            };
+            var candidate = WithApplication(application);
+            var error = await SaveCandidateAsync(candidate, cancellationToken);
+            if (error is not null)
+            {
+                ApplicationSettingsStatus = error;
+                return false;
+            }
+
+            _settings = candidate;
+            IsApplicationSettingsDirty = false;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShouldMinimizeOnClose)));
+            ApplicationSettingsStatus = "Application preferences saved.";
+            return true;
+        }
+
+        public void CancelApplicationSettings()
+        {
+            LoadApplicationSettings();
+            ApplicationSettingsStatus = "Application preferences restored to the saved values.";
+        }
+
+        public void ReportSettingsAction(string message) => ApplicationSettingsStatus = message;
 
         public async Task SaveProfileAsync(CancellationToken cancellationToken = default)
         {
@@ -426,13 +506,16 @@ namespace FocusRgb.App.ViewModels
                 throw new InvalidOperationException("Validated default profiles are unavailable.");
             }
 
-            return Create(result.Settings, null, null, null, null);
+            return Create(result.Settings, null, null, null, null, canMinimizeToTray: true);
         }
 
         public static MainWindowViewModel CreatePreview(SettingsDocument settings)
-            => Create(settings, null, null, null, null);
+            => Create(settings, null, null, null, null, canMinimizeToTray: true);
 
-        public static MainWindowViewModel CreatePersistent(StartupSnapshot snapshot, LocalStateStore settingsStore)
+        public static MainWindowViewModel CreatePersistent(
+            StartupSnapshot snapshot,
+            LocalStateStore settingsStore,
+            bool canMinimizeToTray = true)
         {
             ArgumentNullException.ThrowIfNull(snapshot);
             ArgumentNullException.ThrowIfNull(settingsStore);
@@ -441,7 +524,8 @@ namespace FocusRgb.App.ViewModels
                 settingsStore,
                 snapshot.State,
                 new SelectionCommandService(settingsStore),
-                snapshot.Desired.Reason);
+                snapshot.Desired.Reason,
+                canMinimizeToTray);
             viewModel.IsManual = snapshot.State.Mode == "manual";
             var selectedId = viewModel.IsManual
                 ? snapshot.State.ManualProfile
@@ -455,7 +539,8 @@ namespace FocusRgb.App.ViewModels
             LocalStateStore? settingsStore,
             SelectionStateDocument? selectionState,
             SelectionCommandService? selectionCommands,
-            SelectionReason? selectionReason)
+            SelectionReason? selectionReason,
+            bool canMinimizeToTray)
         {
             ArgumentNullException.ThrowIfNull(settings);
             if (SettingsValidator.Validate(settings).Count > 0
@@ -488,7 +573,8 @@ namespace FocusRgb.App.ViewModels
                 settingsStore,
                 selectionState,
                 selectionCommands,
-                selectionReason);
+                selectionReason,
+                canMinimizeToTray);
         }
 
         private async Task RunRuntimeCommandAsync(
@@ -651,11 +737,49 @@ namespace FocusRgb.App.ViewModels
         private SettingsDocument WithProfiles(List<ProfileSettings> profiles) => new()
         {
             SchemaVersion = _settings.SchemaVersion,
+            Application = _settings.Application,
             Selection = _settings.Selection,
             Profiles = profiles,
             Rules = _settings.Rules,
             AdditionalProperties = _settings.AdditionalProperties
         };
+
+        private SettingsDocument WithApplication(ApplicationSettings application) => new()
+        {
+            SchemaVersion = _settings.SchemaVersion,
+            Application = application,
+            Selection = _settings.Selection,
+            Profiles = _settings.Profiles,
+            Rules = _settings.Rules,
+            AdditionalProperties = _settings.AdditionalProperties
+        };
+
+        private void LoadApplicationSettings()
+        {
+            _loadingApplicationSettings = true;
+            var application = _settings.Application!;
+            CloseButtonBehavior = CanMinimizeToTray
+                && application.CloseButtonBehavior == "minimize-to-tray"
+                ? "Minimize to system tray"
+                : "Exit application";
+            StartMinimized = application.StartMinimized!.Value;
+            ApplicationTheme = char.ToUpperInvariant(application.Theme![0]) + application.Theme[1..];
+            VerboseLogging = application.VerboseLogging!.Value;
+            _loadingApplicationSettings = false;
+            IsApplicationSettingsDirty = false;
+        }
+
+        private bool SetApplicationSettingsDraft<T>(
+            ref T field,
+            T value,
+            [CallerMemberName] string? propertyName = null)
+        {
+            if (!Set(ref field, value, propertyName)) return false;
+            if (_loadingApplicationSettings) return true;
+            IsApplicationSettingsDirty = true;
+            ApplicationSettingsStatus = "Application preference changes are waiting for Save.";
+            return true;
+        }
 
         private async Task<string?> SaveCandidateAsync(
             SettingsDocument candidate,
