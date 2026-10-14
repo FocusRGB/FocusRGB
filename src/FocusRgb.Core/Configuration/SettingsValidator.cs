@@ -47,9 +47,26 @@ namespace FocusRgb.Core.Configuration
                 Error("$", "required settings object");
                 return errors;
             }
-            if (document.SchemaVersion != 1)
+            if (document.SchemaVersion != SettingsJson.CurrentSchemaVersion)
             {
-                Error("schemaVersion", "only schema version 1 is supported; document must not be overwritten");
+                Error("schemaVersion", $"only schema version {SettingsJson.CurrentSchemaVersion} is supported; document must not be overwritten");
+            }
+            if (document.Application is null)
+            {
+                Error("application", "required object");
+            }
+            else
+            {
+                Choice(
+                    document.Application.CloseButtonBehavior,
+                    "application.closeButtonBehavior",
+                    "minimize-to-tray",
+                    "exit");
+                if (document.Application.StartMinimized is null)
+                    Error("application.startMinimized", "required boolean");
+                Choice(document.Application.Theme, "application.theme", "system", "light", "dark");
+                if (document.Application.VerboseLogging is null)
+                    Error("application.verboseLogging", "required boolean");
             }
             var profiles = new Dictionary<string, ProfileSettings>(StringComparer.Ordinal);
             if (document.Profiles is null)

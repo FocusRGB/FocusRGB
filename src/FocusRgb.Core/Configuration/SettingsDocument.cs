@@ -14,9 +14,19 @@ namespace FocusRgb.Core.Configuration
     public sealed class SettingsDocument : ExtensibleConfiguration
     {
         public int? SchemaVersion { get; init; }
+        public ApplicationSettings? Application { get; init; }
         public SelectionSettings? Selection { get; init; }
         public List<ProfileSettings>? Profiles { get; init; }
         public List<RuleSettings>? Rules { get; init; }
+    }
+
+    /// <summary>Stores desktop lifecycle, appearance, and diagnostic preferences.</summary>
+    public sealed class ApplicationSettings : ExtensibleConfiguration
+    {
+        public string? CloseButtonBehavior { get; init; }
+        public bool? StartMinimized { get; init; }
+        public string? Theme { get; init; }
+        public bool? VerboseLogging { get; init; }
     }
 
     /// <summary>Controls unmatched applications, focus stability, and first-run profile selection.</summary>

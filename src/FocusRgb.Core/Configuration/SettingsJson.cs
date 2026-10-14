@@ -5,12 +5,26 @@ namespace FocusRgb.Core.Configuration
     /// <summary>Reads and validates settings in memory before LocalStateStore persists them.</summary>
     public static class SettingsJson
     {
+        public const int CurrentSchemaVersion = 2;
+
         public static SettingsLoadResult Load(string json)
         {
             ArgumentNullException.ThrowIfNull(json);
             try
             {
                 var document = JsonSerializer.Deserialize<SettingsDocument>(json, ConfigurationJson.Options);
+                if (document?.SchemaVersion == 1)
+                {
+                    document = new SettingsDocument
+                    {
+                        SchemaVersion = CurrentSchemaVersion,
+                        Application = CreateDefaultApplicationSettings(),
+                        Selection = document.Selection,
+                        Profiles = document.Profiles,
+                        Rules = document.Rules,
+                        AdditionalProperties = document.AdditionalProperties
+                    };
+                }
                 var errors = SettingsValidator.Validate(document);
                 return errors.Count == 0 ? SettingsLoadResult.Ok(document!) : SettingsLoadResult.Fail(errors);
             }
@@ -40,5 +54,13 @@ namespace FocusRgb.Core.Configuration
         }
 
         public static NativeSetupDocument CreateDefaultNativeSetup() => NativeSetupJson.CreateDefault();
+
+        public static ApplicationSettings CreateDefaultApplicationSettings() => new()
+        {
+            CloseButtonBehavior = "minimize-to-tray",
+            StartMinimized = false,
+            Theme = "system",
+            VerboseLogging = false
+        };
     }
 }

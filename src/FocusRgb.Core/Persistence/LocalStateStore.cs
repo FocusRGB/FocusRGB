@@ -12,6 +12,7 @@ namespace FocusRgb.Core.Persistence
     public sealed class LocalStateStore : ISelectionStateStore
     {
         public const string SettingsFileName = "settings.json";
+        public const string SettingsRecoveryFileName = "settings.last-known-good.json";
         public const string StateFileName = "state.json";
         public const string NativeSetupFileName = "native-setup.json";
 
@@ -84,6 +85,11 @@ namespace FocusRgb.Core.Persistence
                 return Invalid(SettingsFileName, errors);
             }
 
+            var recovery = await SerializeAndWriteAsync(
+                SettingsRecoveryFileName,
+                () => SettingsJson.Serialize(settings),
+                cancellationToken);
+            if (!recovery.IsSuccess) return recovery;
             return await SerializeAndWriteAsync(
                 SettingsFileName,
                 () => SettingsJson.Serialize(settings),
@@ -149,15 +155,22 @@ namespace FocusRgb.Core.Persistence
             var loaded = SettingsJson.Load(json);
             if (loaded.IsSuccess)
             {
+                if (ReadSchemaVersion(json) == 1 || !File.Exists(PathFor(SettingsRecoveryFileName)))
+                {
+                    var save = await SaveSettingsAsync(loaded.Settings!, cancellationToken);
+                    if (!save.IsSuccess) return SettingsStartupResult.Fail(save.Error!);
+                }
                 return SettingsStartupResult.Ok(loaded.Settings!);
             }
-            if (HasUnsupportedVersion(json))
+            if (HasUnsupportedVersion(json, SettingsJson.CurrentSchemaVersion))
             {
                 return SettingsStartupResult.Fail(InvalidDocument(SettingsFileName, loaded.Errors));
             }
 
             var recovery = ArchiveInvalid(SettingsFileName, "corrupt", now, loaded.Errors);
             recoveries.Add(recovery);
+            var recovered = await LoadRecoverySettingsAsync(now, recoveries, cancellationToken);
+            if (recovered is not null) return recovered;
             var replacement = SettingsJson.LoadDefaults().Settings!;
             var result = await SaveSettingsAsync(replacement, cancellationToken);
             return result.IsSuccess
@@ -181,7 +194,7 @@ namespace FocusRgb.Core.Persistence
             var loaded = StateJson.Load(json);
             if (!loaded.IsSuccess)
             {
-                if (HasUnsupportedVersion(json))
+                if (HasUnsupportedVersion(json, 1))
                 {
                     return StateStartupResult.Fail(InvalidDocument(StateFileName, loaded.Errors));
                 }
@@ -238,7 +251,7 @@ namespace FocusRgb.Core.Persistence
             {
                 return NativeStartupResult.Ok(loaded.NativeSetup!);
             }
-            if (HasUnsupportedVersion(json))
+            if (HasUnsupportedVersion(json, 1))
             {
                 return NativeStartupResult.Fail(InvalidDocument(NativeSetupFileName, loaded.Errors));
             }
@@ -325,7 +338,28 @@ namespace FocusRgb.Core.Persistence
             };
         }
 
-        private static bool HasUnsupportedVersion(string json)
+        private async Task<SettingsStartupResult?> LoadRecoverySettingsAsync(
+            DateTimeOffset now,
+            List<RecoveryNotice> recoveries,
+            CancellationToken cancellationToken)
+        {
+            var path = PathFor(SettingsRecoveryFileName);
+            if (!File.Exists(path)) return null;
+            var json = await File.ReadAllTextAsync(path, cancellationToken);
+            var loaded = SettingsJson.Load(json);
+            if (loaded.IsSuccess)
+            {
+                var save = await SaveSettingsAsync(loaded.Settings!, cancellationToken);
+                return save.IsSuccess
+                    ? SettingsStartupResult.Ok(loaded.Settings!)
+                    : SettingsStartupResult.Fail(save.Error!);
+            }
+
+            recoveries.Add(ArchiveInvalid(SettingsRecoveryFileName, "corrupt", now, loaded.Errors));
+            return null;
+        }
+
+        private static int? ReadSchemaVersion(string json)
         {
             try
             {
@@ -336,15 +370,18 @@ namespace FocusRgb.Core.Persistence
                 });
                 return document.RootElement.ValueKind == JsonValueKind.Object
                     && document.RootElement.TryGetProperty("schemaVersion", out var version)
-                    && version.ValueKind == JsonValueKind.Number
-                    && version.TryGetInt64(out var value)
-                    && value > 1;
+                    && version.TryGetInt32(out var value)
+                    ? value
+                    : null;
             }
             catch (JsonException)
             {
-                return false;
+                return null;
             }
         }
+
+        private static bool HasUnsupportedVersion(string json, int supportedVersion) =>
+            ReadSchemaVersion(json) > supportedVersion;
 
         private static SaveResult Invalid(string fileName, IReadOnlyList<ConfigurationError> errors) =>
             SaveResult.Fail(InvalidDocument(fileName, errors));
