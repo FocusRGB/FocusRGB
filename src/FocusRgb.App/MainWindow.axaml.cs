@@ -8,11 +8,12 @@ using FocusRgb.App.ViewModels;
 
 namespace FocusRgb.App
 {
-    /// <summary>Hosts the preview settings shell before runtime services are connected.</summary>
+    /// <summary>Hosts persisted local state and minimizes to the tray while the runtime continues.</summary>
     public sealed partial class MainWindow : Window
     {
         private static readonly DataFormat<MappingEditorItemViewModel> MappingFormat =
             DataFormat.CreateInProcessFormat<MappingEditorItemViewModel>("FocusRGB.Mapping");
+        private bool _allowClose;
 
         public MainWindow()
             : this(MainWindowViewModel.CreatePreview())
@@ -23,9 +24,47 @@ namespace FocusRgb.App
         {
             InitializeComponent();
             DataContext = viewModel;
+            Closing += MainWindow_OnClosing;
         }
 
         private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
+
+        public void ShowFromTray()
+        {
+            Show();
+            WindowState = WindowState.Normal;
+            Activate();
+        }
+
+        public async Task<bool> PrepareQuitAsync(CancellationToken cancellationToken = default) =>
+            await ViewModel.SaveRuntimeStateAsync(cancellationToken);
+
+        public void AllowClose() => _allowClose = true;
+
+        private void MainWindow_OnClosing(object? sender, WindowClosingEventArgs e)
+        {
+            if (_allowClose) return;
+            e.Cancel = true;
+            Hide();
+            ViewModel.NotifyWindowHidden();
+        }
+
+        private async void SelectedProfile_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox { SelectedItem: ProfileOptionViewModel profile }
+                && !ReferenceEquals(profile, ViewModel.SelectedProfile))
+                await ViewModel.SelectProfileAsync(profile);
+        }
+
+        private async void ManualMode_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (!ViewModel.IsManual) await ViewModel.SetModeAsync(manual: true);
+        }
+
+        private async void AutomaticMode_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (ViewModel.IsManual) await ViewModel.SetModeAsync(manual: false);
+        }
 
         private async void SaveProfile_OnClick(object? sender, RoutedEventArgs e) =>
             await ViewModel.SaveProfileAsync();

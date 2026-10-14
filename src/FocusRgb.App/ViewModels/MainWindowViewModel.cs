@@ -1,18 +1,24 @@
 using System.ComponentModel;
 using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
+using FocusRgb.Core.Commands;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Persistence;
+using FocusRgb.Core.Selection;
 
 namespace FocusRgb.App.ViewModels
 {
-    /// <summary>Holds explicit preview state until selection and output services are available.</summary>
+    /// <summary>Connects the desktop shell to persisted local selection and profile state.</summary>
     public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         private bool _isManual = true;
         private readonly LocalStateStore? _settingsStore;
+        private readonly SelectionCommandService? _selectionCommands;
         private SettingsDocument _settings;
         private SelectionStateDocument? _selectionState;
+        private SelectionReason _selectionReason = FocusRgb.Core.Selection.SelectionReason.Manual();
+        private string _runtimeStatusMessage = "Preview state; runtime persistence is not connected.";
+        private bool _isRuntimeCommandPending;
         private ProfileOptionViewModel _selectedProfile;
         private ProfileOptionViewModel? _editingProfile;
         private ApplicationGroupViewModel? _editingApplicationGroup;
@@ -35,7 +41,9 @@ namespace FocusRgb.App.ViewModels
             MappingEditorViewModel mappingEditor,
             SettingsDocument settings,
             LocalStateStore? settingsStore,
-            SelectionStateDocument? selectionState)
+            SelectionStateDocument? selectionState,
+            SelectionCommandService? selectionCommands,
+            SelectionReason? selectionReason)
         {
             Profiles = profiles;
             _selectedProfile = selectedProfile;
@@ -43,6 +51,10 @@ namespace FocusRgb.App.ViewModels
             _settings = settings;
             _settingsStore = settingsStore;
             _selectionState = selectionState;
+            _selectionCommands = selectionCommands;
+            if (selectionReason is not null) _selectionReason = selectionReason;
+            if (selectionCommands is not null)
+                _runtimeStatusMessage = "Local runtime is ready; no output integration is connected.";
             EditingProfile = profiles.Count > 0 ? profiles[0] : null;
             EditingApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
         }
@@ -124,6 +136,8 @@ namespace FocusRgb.App.ViewModels
         public string? SelectedDraftExecutable { get => _selectedDraftExecutable; set => Set(ref _selectedDraftExecutable, value); }
         public string ProfileEditorStatus { get => _profileEditorStatus; private set => Set(ref _profileEditorStatus, value); }
         public string ApplicationGroupEditorStatus { get => _applicationGroupEditorStatus; private set => Set(ref _applicationGroupEditorStatus, value); }
+        public string RuntimeStatusMessage { get => _runtimeStatusMessage; private set => Set(ref _runtimeStatusMessage, value); }
+        public bool IsRuntimeCommandPending { get => _isRuntimeCommandPending; private set => Set(ref _isRuntimeCommandPending, value); }
         public bool HasEditingProfile => EditingProfile is not null;
         public bool CanRemoveEditingProfile => EditingProfile is not null && EditingProfile.Id != "default";
         public bool HasEditingApplicationGroup => EditingApplicationGroup is not null;
@@ -173,10 +187,77 @@ namespace FocusRgb.App.ViewModels
         }
 
         public string DesiredProfileName => SelectedProfile.DisplayName;
-        public string AppliedProfileName => $"{SelectedProfile.DisplayName} (preview)";
-        public string SelectionReason => IsManual
-            ? "Manual preview selection; no command was sent."
-            : "Automatic preview mode; application detection is not connected yet.";
+        public string AppliedProfileName => _selectionCommands is null
+            ? $"{SelectedProfile.DisplayName} (preview)"
+            : "Not applied (no output integration)";
+        public string SelectionReason => _selectionCommands is null
+            ? IsManual
+                ? "Manual preview selection; no command was sent."
+                : "Automatic preview mode; application detection is not connected yet."
+            : DescribeReason(_selectionReason);
+
+        public async Task SelectProfileAsync(
+            ProfileOptionViewModel profile,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(profile);
+            if (_selectionCommands is null || _selectionState is null)
+            {
+                SelectedProfile = profile;
+                return;
+            }
+
+            await RunRuntimeCommandAsync(
+                () => _selectionCommands.SelectProfileAsync(
+                    _settings,
+                    _selectionState,
+                    profile.Id,
+                    DateTimeOffset.UtcNow,
+                    cancellationToken),
+                $"Selected {profile.DisplayName} in manual mode.");
+        }
+
+        public async Task SetModeAsync(bool manual, CancellationToken cancellationToken = default)
+        {
+            if (_selectionCommands is null || _selectionState is null)
+            {
+                IsManual = manual;
+                return;
+            }
+
+            await RunRuntimeCommandAsync(
+                () => _selectionCommands.SetModeAsync(
+                    _settings,
+                    _selectionState,
+                    manual ? "manual" : "automatic",
+                    DateTimeOffset.UtcNow,
+                    cancellationToken),
+                manual
+                    ? "Manual mode saved."
+                    : "Automatic mode saved; application detection is not connected yet.");
+        }
+
+        public async Task<bool> SaveRuntimeStateAsync(CancellationToken cancellationToken = default)
+        {
+            if (_selectionCommands is null || _selectionState is null) return true;
+            var result = await _selectionCommands.SaveCurrentAsync(
+                _settings,
+                _selectionState,
+                DateTimeOffset.UtcNow,
+                cancellationToken);
+            if (!result.IsSuccess)
+            {
+                RuntimeStatusMessage = $"Could not save before quitting: {result.ErrorMessage}";
+                return false;
+            }
+
+            ApplyRuntimeResult(result);
+            RuntimeStatusMessage = "Selection state saved. FocusRGB can quit safely.";
+            return true;
+        }
+
+        public void NotifyWindowHidden() =>
+            RuntimeStatusMessage = "FocusRGB is still running in the system tray.";
 
         public async Task SaveProfileAsync(CancellationToken cancellationToken = default)
         {
@@ -345,17 +426,22 @@ namespace FocusRgb.App.ViewModels
                 throw new InvalidOperationException("Validated default profiles are unavailable.");
             }
 
-            return Create(result.Settings, null, null);
+            return Create(result.Settings, null, null, null, null);
         }
 
         public static MainWindowViewModel CreatePreview(SettingsDocument settings)
-            => Create(settings, null, null);
+            => Create(settings, null, null, null, null);
 
         public static MainWindowViewModel CreatePersistent(StartupSnapshot snapshot, LocalStateStore settingsStore)
         {
             ArgumentNullException.ThrowIfNull(snapshot);
             ArgumentNullException.ThrowIfNull(settingsStore);
-            var viewModel = Create(snapshot.Settings, settingsStore, snapshot.State);
+            var viewModel = Create(
+                snapshot.Settings,
+                settingsStore,
+                snapshot.State,
+                new SelectionCommandService(settingsStore),
+                snapshot.Desired.Reason);
             viewModel.IsManual = snapshot.State.Mode == "manual";
             var selectedId = viewModel.IsManual
                 ? snapshot.State.ManualProfile
@@ -367,7 +453,9 @@ namespace FocusRgb.App.ViewModels
         private static MainWindowViewModel Create(
             SettingsDocument settings,
             LocalStateStore? settingsStore,
-            SelectionStateDocument? selectionState)
+            SelectionStateDocument? selectionState,
+            SelectionCommandService? selectionCommands,
+            SelectionReason? selectionReason)
         {
             ArgumentNullException.ThrowIfNull(settings);
             if (SettingsValidator.Validate(settings).Count > 0
@@ -393,8 +481,63 @@ namespace FocusRgb.App.ViewModels
             var selectedProfile = profiles.Single(profile => profile.Id == defaultId);
             var mappingEditor = MappingEditorViewModel.Create(settings, profiles);
             return new MainWindowViewModel(
-                profiles, selectedProfile, mappingEditor, settings, settingsStore, selectionState);
+                profiles,
+                selectedProfile,
+                mappingEditor,
+                settings,
+                settingsStore,
+                selectionState,
+                selectionCommands,
+                selectionReason);
         }
+
+        private async Task RunRuntimeCommandAsync(
+            Func<Task<SelectionCommandResult>> command,
+            string successMessage)
+        {
+            if (IsRuntimeCommandPending) return;
+            IsRuntimeCommandPending = true;
+            try
+            {
+                var result = await command();
+                if (!result.IsSuccess)
+                {
+                    RuntimeStatusMessage = result.ErrorMessage!;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsManual)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAutomatic)));
+                    NotifyStateChanged(nameof(SelectedProfile));
+                    return;
+                }
+
+                ApplyRuntimeResult(result);
+                RuntimeStatusMessage = successMessage;
+            }
+            finally
+            {
+                IsRuntimeCommandPending = false;
+            }
+        }
+
+        private void ApplyRuntimeResult(SelectionCommandResult result)
+        {
+            _selectionState = result.State!;
+            _selectionReason = result.Status!.Desired.Reason;
+            _isManual = result.Status.Mode == "manual";
+            _selectedProfile = Profiles.Single(profile => profile.Id == result.Status.Desired.ProfileId);
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsManual)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAutomatic)));
+            NotifyStateChanged(nameof(SelectedProfile));
+        }
+
+        private static string DescribeReason(SelectionReason reason) => reason.Kind switch
+        {
+            "first-run" => "First run starts with the protected Default profile.",
+            "restored" => "Restored from the last saved selection.",
+            "manual" => "Selected manually and saved locally.",
+            "observation-pending" => "Waiting for application detection, which is not connected yet.",
+            "invalid-state-reset" => "Invalid saved selection was reset to Default.",
+            _ => reason.Kind
+        };
 
         private void NotifyStateChanged([CallerMemberName] string? propertyName = null)
         {
