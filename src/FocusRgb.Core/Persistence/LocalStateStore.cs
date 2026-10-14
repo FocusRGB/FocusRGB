@@ -236,7 +236,6 @@ namespace FocusRgb.Core.Persistence
                         recoveries.Add(new RecoveryNotice
                         {
                             FileName = recoverySave.Error!.FileName,
-                            ArchivedPath = PathFor(SettingsRecoveryFileName),
                             Message = $"Could not refresh the last-known-good copy: {recoverySave.Error.Message}"
                         });
                     }

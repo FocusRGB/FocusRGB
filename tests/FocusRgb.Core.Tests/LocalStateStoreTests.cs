@@ -112,6 +112,7 @@ namespace FocusRgb.Core.Tests
             var warning = Assert.Single(restarted.Snapshot.Recoveries);
             Assert.Equal(LocalStateStore.SettingsRecoveryFileName, warning.FileName);
             Assert.Contains("Could not refresh", warning.Message, StringComparison.Ordinal);
+            Assert.Null(warning.ArchivedPath);
         }
 
         [Fact]
@@ -311,7 +312,7 @@ namespace FocusRgb.Core.Tests
             var recovery = Assert.Single(restarted.Snapshot!.Recoveries);
             Assert.Equal(fileName, recovery.FileName);
             Assert.True(File.Exists(recovery.ArchivedPath));
-            Assert.Equal("{", await File.ReadAllTextAsync(recovery.ArchivedPath, TestContext.Current.CancellationToken));
+            Assert.Equal("{", await File.ReadAllTextAsync(recovery.ArchivedPath!, TestContext.Current.CancellationToken));
             Assert.True(File.Exists(PathFor(fileName)));
         }
 
@@ -330,7 +331,7 @@ namespace FocusRgb.Core.Tests
             Assert.True(restarted.IsSuccess);
             var recovery = Assert.Single(restarted.Snapshot!.Recoveries);
             Assert.Equal(fileName, recovery.FileName);
-            Assert.Equal("{}", await File.ReadAllTextAsync(recovery.ArchivedPath, TestContext.Current.CancellationToken));
+            Assert.Equal("{}", await File.ReadAllTextAsync(recovery.ArchivedPath!, TestContext.Current.CancellationToken));
             Assert.True(File.Exists(PathFor(fileName)));
         }
 
