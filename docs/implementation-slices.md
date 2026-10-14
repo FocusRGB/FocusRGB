@@ -39,52 +39,52 @@ Status: **00–09 complete on the stacked pull-request chain. 10 is next.**
 - ✅ [09 — Application settings](<slices/3-FocusRGB App/09-application-settings-and-lifecycle-preferences.md>):
   persist desktop lifecycle, theme, and diagnostic preferences in a small Settings page.
 
-## 4 — Native RGB System
+## 4 — External Applications and runtime foundations
 
-- ▶️ [10 — Placement model and renderer](<slices/4-Native RGB System/10-placement-model-and-offline-renderer.md>):
-  model LED geometry, built-in effects, exclusions, and offline canvas rendering. **Next.**
-- ⏳ [11 — Layout canvas editor](<slices/4-Native RGB System/11-layout-canvas-editor.md>):
-  assign, place, transform, and exclude devices without an external application.
-- ⏳ [12 — Stacked groups](<slices/4-Native RGB System/12-stacked-groups.md>):
-  group similar devices at shared positions with normalized sampling.
-- ⏳ [13 — Screen ambience and calibration](<slices/4-Native RGB System/13-native-screen-ambience-and-calibration.md>):
-  capture a display, sample layouts, and calibrate native output against fake devices first.
-- ⏳ [14 — Plugin runtime, SDK, and fake output](<slices/4-Native RGB System/14-minimal-plugin-runtime-and-fake-output.md>):
-  package the minimal SDK and host a JSON-RPC fake output plugin.
+- ▶️ [10 — Windows application observations](<slices/5-External Applications/10-windows-application-observations.md>):
+  detect foreground and running applications behind the platform boundary. **Next.**
+- ⏳ [11 — Application mappings](<slices/5-External Applications/11-application-mappings-and-persistence.md>):
+  add detected/manual applications, persist automation rules, and wire automatic profile selection.
+- ⏳ [12 — SignalRGB investigation](<slices/5-External Applications/12-signalrgb-capability-investigation.md>):
+  verify supported APIs, catalogs, selection, layouts, and limitations.
+- ⏳ [13 — Plugin runtime, SDK, and fake output](<slices/4-Native RGB System/13-minimal-plugin-runtime-and-fake-output.md>):
+  package the minimal SDK and host a JSON-RPC fake output plugin required by provider plugins.
+- ⏳ [14 — External SignalRGB plugin](<slices/5-External Applications/14-separate-signalrgb-plugin.md>):
+  create its repository and implement provider status, catalogs, and effect/layout application.
 - ⏳ [15 — Command coordination and fallback](<slices/4-Native RGB System/15-command-coordination-and-fallback-state.md>):
   track desired/applied/pending state, fallback, ownership, and reconnect approval.
-- ⏳ [16 — WLED plugin and output gate](<slices/4-Native RGB System/16-wled-plugin-and-native-output-gate.md>):
-  control WLED safely with one writer, cleanup, and recovery.
-- ⏳ [17 — Native peripheral backend](<slices/4-Native RGB System/17-one-native-peripheral-backend.md>):
-  support one verified keyboard or mouse model through a separate output plugin.
-- ⏳ [18 — Packaging and recovery gate](<slices/4-Native RGB System/18-startup-packaging-and-recovery-gate.md>):
-  verify install, optional startup, crash recovery, shutdown, and uninstall.
-
-## 5 — External Applications
-
-- ⏳ [19 — Windows application observations](<slices/5-External Applications/19-windows-application-observations.md>):
-  detect foreground and running applications behind the platform boundary.
-- ⏳ [20 — Application mappings](<slices/5-External Applications/20-application-mappings-and-persistence.md>):
-  add detected/manual applications, persist automation rules, and wire automatic profile selection.
-- ⏳ [21 — SignalRGB investigation](<slices/5-External Applications/21-signalrgb-capability-investigation.md>):
-  verify supported APIs, catalogs, selection, layouts, and limitations.
-- ⏳ [22 — External SignalRGB plugin](<slices/5-External Applications/22-separate-signalrgb-plugin.md>):
-  create its repository and implement provider status, catalogs, and effect/layout application.
-- ⏳ [23 — SignalRGB acceptance gate](<slices/5-External Applications/23-signalrgb-acceptance-gate.md>):
+- ⏳ [16 — SignalRGB acceptance gate](<slices/5-External Applications/16-signalrgb-acceptance-gate.md>):
   connect the already-selected profile to SignalRGB and verify the complete switching path with the user.
+- ⏳ [17 — Placement model and renderer](<slices/4-Native RGB System/17-placement-model-and-offline-renderer.md>):
+  model LED geometry, built-in effects, exclusions, and offline canvas rendering.
+- ⏳ [18 — WLED plugin and output gate](<slices/4-Native RGB System/18-wled-plugin-and-native-output-gate.md>):
+  prove a second production plugin and safe native frame output before stabilizing the SDK.
 
-## 6 — Games and External Control
+## 5 — Games and External Control
 
-- ⏳ [24 — Stabilize the public plugin SDK](<slices/6-Games and External Control/24-public-sdk-and-contributor-example.md>):
-  promote the proven SDK to version 1 with templates, compatibility guidance, and an example.
-- ⏳ [25 — Local MCP commands](<slices/6-Games and External Control/25-local-mcp-commands.md>):
+- ⏳ [19 — Stabilize the public plugin SDK](<slices/6-Games and External Control/19-public-sdk-and-contributor-example.md>):
+  promote the two-plugin-proven SDK to version 1 with templates and compatibility guidance.
+- ⏳ [20 — Local MCP commands](<slices/6-Games and External Control/20-local-mcp-commands.md>):
   expose the same validated UI commands to a local model.
-- ⏳ [26 — Installed game catalog](<slices/6-Games and External Control/26-installed-game-catalog-and-assignments.md>):
+- ⏳ [21 — Installed game catalog](<slices/6-Games and External Control/21-installed-game-catalog-and-assignments.md>):
   discover installed games through plugins and assign static generic or per-game profiles.
-- ⏳ [27 — One game API adapter](<slices/6-Games and External Control/27-one-game-api-adapter.md>):
+- ⏳ [22 — One game API adapter](<slices/6-Games and External Control/22-one-game-api-adapter.md>):
   implement one game-data plugin using the public SDK with namespaced, replayable events.
-- ⏳ [28 — Hybrid game layers](<slices/6-Games and External Control/28-hybrid-game-layers.md>):
+- ⏳ [23 — Layout canvas editor](<slices/4-Native RGB System/23-layout-canvas-editor.md>):
+  add the native layout editing required by hybrid canvas layers.
+- ⏳ [24 — Hybrid game layers](<slices/6-Games and External Control/24-hybrid-game-layers.md>):
   combine canvas effects, semantic zones, and direct LED/key mappings.
+
+## 6 — Remaining Native RGB System and final gates
+
+- ⏳ [25 — Stacked groups](<slices/4-Native RGB System/25-stacked-groups.md>):
+  group similar devices at shared positions with normalized sampling.
+- ⏳ [26 — Screen ambience and calibration](<slices/4-Native RGB System/26-native-screen-ambience-and-calibration.md>):
+  capture a display, sample layouts, and calibrate native output against fake devices first.
+- ⏳ [27 — Native peripheral backend](<slices/4-Native RGB System/27-one-native-peripheral-backend.md>):
+  support one verified keyboard or mouse model through a separate output plugin.
+- ⏳ [28 — Packaging and recovery gate](<slices/4-Native RGB System/28-startup-packaging-and-recovery-gate.md>):
+  verify install, optional startup, crash recovery, shutdown, and uninstall after external work.
 - ⏳ [29 — SignalRGB independence gate](<slices/6-Games and External Control/29-signalrgb-independence-gate.md>):
   verify required profiles, effects, layouts, and devices without SignalRGB.
 
@@ -109,7 +109,7 @@ Status: **00–09 complete on the stacked pull-request chain. 10 is next.**
 - `src/FocusRgb.App/`: Avalonia tray/settings UI and generic plugin-host wiring.
 - `tests/`: core, contract, integration, platform, UI, and fake-plugin conformance checks.
 - `FocusRGB-Plugin-<Name>` repositories: production integration executables and releases.
-- `modules/signalrgb/`: temporary research/tool staging until slice 22 migration.
+- `modules/signalrgb/`: temporary research/tool staging until slice 14 migration.
 - `build/`: ignored generated output, reports, packages, and tool artifacts.
 
 Core may reference shared contracts; neither Core nor App references provider projects. Portable

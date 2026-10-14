@@ -34,10 +34,10 @@ Updated: 2026-10-15.
   Persisted current/last selection references are reassigned to Default before a profile is
   removed. Solution build and all 117 tests pass.
 
-- Roadmap reordered app-first: profile management, tray/settings, native rendering/layouts,
-  and native outputs now precede desktop-application detection, SignalRGB, games, and MCP.
-  The Windows observation fixture checkpoint remains preserved on
-  `slice/07-windows-observations` for the renumbered Slice 19.
+- Roadmap reordered app-first and then external-first: profile management and tray/settings are
+  followed by Windows observation/mappings and SignalRGB, with only required plugin/runtime
+  foundations interleaved before games; remaining native UI/hardware work follows. The Windows
+  observation fixture checkpoint remains preserved on `slice/07-windows-observations` for Slice 10.
 - Persistence, selection, and mapping review findings were resolved (PR #17): missing/malformed
   schema versions recover as corrupt while numeric future versions remain untouched; JSON accepts
   comments/trailing commas; automatic startup retains restored intent until focus stabilizes;
@@ -48,11 +48,11 @@ Updated: 2026-10-15.
 - Plugin repository ownership is decided: contracts, the minimal .NET SDK, host, schemas,
   conformance tests, template, and fake plugin stay in FocusRGB; production plugins use peer
   `FocusRGB-Plugin-<Name>` repositories and published SDK versions. Empty repositories are not
-  created early: WLED is created in slice 16, SignalRGB in 22, and the selected game adapter
-  in 27. Slice 24 stabilizes the proven `0.x` SDK as version 1 (PR #16).
+  created early: SignalRGB is created in slice 14, WLED in 18, and the selected game adapter
+  in 22. Slice 19 stabilizes the proven `0.x` SDK as version 1 (PR #16).
 - Application settings are now specified with researched defaults and ownership boundaries.
   Close-button behavior defaults to minimize to tray and can be changed to real exit; startup
-  registration remains opt-in work for slice 18. Implementation is isolated in slice 09 after
+  registration remains opt-in work for slice 28. Implementation is isolated in slice 09 after
   tray support (PR #15).
 - The implementation roadmap is now a compact status index; all 30 dependency/scope/acceptance
   definitions live in numbered group folders under `../docs/slices/` (PR #14).
@@ -120,7 +120,7 @@ the current desired selection, capabilities, and ownership. Native fallback can 
 until native rendering/output exists or the target hardware is released.
 
 The SignalRGB staging module contains templates, a Canvas API example, and an archived
-Pro-blocked effect; maintained content moves to its external plugin repository in slice 22.
+Pro-blocked effect; maintained content moves to its external plugin repository in slice 14.
 The shared screen colour test remains under `tools/`; the Arduino sketch moved to
 `../modules/arduino/sketches/`. `../src/` contains the app scaffold and portable configuration
 code. No custom
@@ -137,7 +137,7 @@ picker, mapping selection of one
 group plus one profile, top-to-bottom priority, hover arrows, midpoint-based whole-row insertion
 drag/drop, row Edit/Remove, Save/Save As/Remove item actions, eligibility, Save/Cancel, and optional
 Live preview. Group selectors align with their editor bodies, and executable actions sit beside
-the list. Persistent application groups remain part of slice 20.
+the list. Persistent application groups remain part of slice 11.
 The portable selection engine now evaluates supplied observations with manual override,
 while-running/while-focused eligibility, deterministic priority, focus debounce, ignored
 windows, process-exit handling, protected Default fallback, and explicit reasons. The portable
@@ -149,7 +149,7 @@ The Settings page persists application preferences in schema-version-2 `settings
 System/Light/Dark only to the Avalonia UI, supports saved close-to-tray or clean-exit behavior,
 and can start with the window hidden without registering OS startup. It can open local settings
 and log folders and export a diagnostic ZIP that excludes profiles, mappings, paths, and secrets.
-OS startup registration remains deferred to Slice 18.
+OS startup registration remains deferred to Slice 28.
 
 Read-only checks on 2026-10-08 confirmed SignalRGB 2.5.74, WLED Desk 16.0.1 with its 215/85
 split, Dynamic Lighting disabled, and the Synapse delayed task still present. WLED Wall did
@@ -157,29 +157,25 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 09 — Application settings and lifecycle preferences
-- State: complete after review remediation; awaiting review in the stacked pull-request chain
+- Slice: 10 — Windows application observations
+- State: prepared; implementation not started
 - Branch, latest relevant code commit, and pull request target:
-  `fix/slice-07-09-review`; commits `3666506`, `5f6c78b`, `4e14aba`, `d16ea60`, `7146ef0`, and `59a048b`;
-  target `slice/09-application-settings`, whose PR #22 targets `slice/08-desktop-runtime-tray`.
-- Scope and dependencies verified: follows persistence and tray lifecycle; no startup
-  registration, process observation, plugin, SignalRGB, or hardware dependency.
-- Implemented files and entry points: `ApplicationSettings` and `SettingsJson` own schema
-  migration/validation; `LocalStateStore` owns last-known-good recovery; `MainWindowViewModel`
-  owns saved-versus-draft preferences; `App` and `MainWindow` own lifecycle/theme/actions;
-  `DiagnosticExport` owns the intentionally limited export shape.
+  `slice/10-windows-application-observations`, based on merged Slice 09 commit `4a9d5b9`;
+  future pull request targets `slice/09-application-settings` while the stack remains unmerged.
+- Scope and dependencies verified: follows the portable Slice 05 detector boundary. Reconcile the
+  preserved `slice/07-windows-observations` fixtures with the current Windows platform project;
+  no mapping persistence, profile application, plugins, or lighting output belongs in this slice.
+- Implemented files and entry points: none yet; inventory the preserved observation branch first.
 - Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passes with 0 warnings and
   `dotnet test --solution FocusRGB.slnx -c Release --no-restore` passes 158/158 tests.
-- External/live evidence: Release launches on 2026-10-15 verified that closing a forced startup
-  error ends the process and one window close hides the app to the tray. The real settings file
-  was backed up and restored byte-for-byte, with no stray files or processes left behind. No
-  integrations, devices, startup registration, or lighting settings were changed.
-- Remaining acceptance criteria: none for Slice 09.
+- External/live evidence: a later read-only run must report configured Programming, Movie, and
+  Music identities where installed; no lights or application settings may change.
+- Remaining acceptance criteria: cover foreground/running observations, disappearing or denied
+  processes, helpers/ignored windows, app close, and the actual Stremio window owner.
 - Current blocker or required product input: none.
 - Uncommitted work to preserve: none.
-- Next action: review/merge `fix/slice-07-09-review` into `slice/09-application-settings`, then
-  merge the existing stack before starting Slice 10.
-- Next slice: 10 — Placement model and offline renderer.
+- Next action: inventory and reconcile `slice/07-windows-observations` tests before merging its code.
+- Next slice: 11 — Application mappings and persistence, only after Slice 10 acceptance passes.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -204,13 +200,14 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slices 10–29 are pending. Continue with the native RGB path at Slice 10. Profile persistence,
-the tray runtime, and application settings are complete; application-group/mapping persistence
-remains intentionally scheduled with external-application work in Slice 20.
+Slices 10–29 are pending. Continue with Windows application observations at Slice 10. Profile
+persistence, the tray runtime, and application settings are complete; application-group/mapping
+persistence follows in Slice 11.
 
-External application work starts at Slice 19. SignalRGB begins at 21, the public SDK is stabilized
-at 24, MCP is 25, and game integrations start at 26. The preserved observation branch must be
-integrated only when Slice 19 starts.
+SignalRGB investigation starts at 12, its external plugin at 14, and its acceptance gate at 16.
+The public SDK is stabilized at 19, MCP is 20, and game discovery starts at 21. Remaining native
+layout/hardware work is deferred to 23 and 25–28. Inventory the preserved observation branch
+before integrating it into Slice 10.
 Claude tool availability does not itself establish an app API.
 
 ## Open choices

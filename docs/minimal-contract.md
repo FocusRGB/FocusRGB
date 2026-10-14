@@ -2,7 +2,7 @@
 
 Slice 00. Frozen 2026-10-10 as the starting contract for slices 01–23. It covers only what the
 core, the fake integration, and the first SignalRGB plugin need. It is not the public SDK
-schema; that is extracted later (slice 24) from working code. Requirements remain in
+schema; that is extracted later (slice 19) from working code. Requirements remain in
 `app-brief.md` and behavior rules in `plugin-architecture.md`; this document fixes shapes.
 
 Status words below: **frozen** means slices 01–23 implement it as written unless a slice
@@ -161,7 +161,7 @@ Profiles:
 - `bindings` contains exactly one item: one effect plus one optional provider layout reference.
   The singular binding shape remains for schema compatibility and plugin authority metadata.
 - `renderingAuthority` is `provider` or `application`. An `application` binding validates but
-  reports `unsupported` until native rendering begins in slice 10. There is no implicit fallback
+  reports `unsupported` until native rendering begins in slice 17. There is no implicit fallback
   between authorities.
 - `effect` is required for a `provider` binding. `layout` is optional; `null` means the plugin
   keeps the provider's current placements and sends no layout command.
@@ -170,8 +170,8 @@ Profiles:
   exact, case-sensitive `displayName` match against a fresh catalog and saves the ID only after
   the user applies. No match, or a catalog that is unsupported, makes the binding unavailable
   with reason `resource-not-found` or `capability-unsupported`; the core never picks a
-  different resource. Fixture names are data: slice 21 investigates the real catalog, slice 22
-  exposes it through the plugin, and slice 23 reconciles/saves the selected ID (for example
+  different resource. Fixture names are data: slice 12 investigates the real catalog, slice 14
+  exposes it through the plugin, and slice 16 reconciles/saves the selected ID (for example
   Screen Ambient versus the historical Screen Ambience).
 - `deviceScope.kind` is `provider-managed` (every device the provider currently manages) or
   **reserved** `devices` with an explicit `deviceIds` list. Provider-managed scope arrives with
@@ -186,7 +186,7 @@ Profiles:
 Rules:
 
 - The UI calls each reusable named executable set an **Application Group**. In the current
-  settings schema 2 preview, each rule projects one group from its `id` and `match.executables`; slice 20
+  settings schema 2 preview, each rule projects one group from its `id` and `match.executables`; slice 11
   adds persisted group identity/name so several mappings can reference the same group.
 - The array order is the saved priority list. The first eligible rule wins. The legacy numeric
   `priority` property is accepted when reading schema version 1 but ignored and omitted by new
@@ -194,8 +194,8 @@ Rules:
 - `eligibility` is `while-running` or `while-focused`. Process exit removes eligibility for
   both. `enabled: false` keeps the rule but never makes it eligible.
 - `match.executables` compares file names case-insensitively. **Reserved:** `match.game` with
-  `{ "launcher": "steam", "id": "570" }` for slice 26. A rule must have at least one matcher.
-- Executable names are candidates until slice 19 confirms the real foreground owners.
+  `{ "launcher": "steam", "id": "570" }` for slice 21. A rule must have at least one matcher.
+- Executable names are candidates until slice 10 confirms the real foreground owners.
 
 Selection:
 
@@ -233,7 +233,7 @@ Records selection intent only. Applied output is never persisted as fact.
   reference to a profile that no longer exists falls back to `selection.defaultProfile` in
   manual mode with a reported reason.
 
-### `native-setup.json` — frozen shape, content grows in slices 10–16
+### `native-setup.json` — frozen shape, content grows in slices 17–18
 
 ```json
 {
@@ -247,7 +247,7 @@ Records selection intent only. Applied output is never persisted as fact.
 - `origin` is `app-default` until the user applies a native setup, then `user-applied` with
   `appliedAt` set. `bindings` uses the profile binding shape with `application` authority.
 - Previews, drafts, provider selections, and fallback activations never write this file.
-- Until a native renderer and output exist (slices 10–16), the default snapshot has no
+- Until a native renderer and output exist (slices 17–18), the default snapshot has no
   bindings, so activating native fallback reports `pending` with reason
   `native-output-unavailable` and sends no output commands.
 
@@ -341,7 +341,7 @@ late response. Examples below are wrapped for readability; on the wire each is o
 ]}}
 ```
 
-The values above are an illustration of shape; slice 21 determines the real SignalRGB support.
+The values above are an illustration of shape; slice 12 determines the real SignalRGB support.
 `support` is `supported`, `unsupported`, or `unverified`. Unknown capability IDs are ignored.
 A capability absent from the list is `unsupported`.
 

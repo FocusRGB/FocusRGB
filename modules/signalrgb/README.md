@@ -1,7 +1,7 @@
 # SignalRGB staging module
 
 This directory is temporary staging for SignalRGB research, examples, and tools that predate
-the external plugin repository. Slice 22 creates `MAJ224/FocusRGB-Plugin-SignalRGB`, moves the
+the external plugin repository. Slice 14 creates `MAJ224/FocusRGB-Plugin-SignalRGB`, moves the
 maintained provider-specific material there, and leaves only a migration link here if existing
 references still need one. Do not add the production controller plugin to this directory.
 

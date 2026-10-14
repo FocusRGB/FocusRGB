@@ -1,9 +1,9 @@
-# 19 — Windows application observations
+# 10 — Windows application observations
 
 [← All implementation slices](../../implementation-slices.md)
 
-**Status:** Deferred by the app-first reorder. Fixture work is preserved on
-`slice/07-windows-observations`; rebase or merge it when Slice 19 starts.
+**Status:** Prepared on `slice/10-windows-application-observations`. Fixture work is preserved on
+`slice/07-windows-observations`; inventory and merge it when implementation starts.
 
 The preserved branch is the implementation starting point, not optional historical material;
 inventory its tests and reconcile it with the current platform boundary before writing replacements.
