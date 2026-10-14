@@ -4,6 +4,13 @@ Updated: 2026-10-14.
 
 ## Completed
 
+- Slice 09 adds saved application preferences for close behavior, start minimized, theme, and
+  verbose logging. Settings schema 1 migrates to schema 2; invalid current settings are archived
+  and restored from a validated last-known-good copy before defaults. The Settings page exposes
+  capability-aware lifecycle choices and safe folder/diagnostic actions. Theme changes affect
+  only the UI, and close-to-tray uses saved values rather than editor drafts. Build passes
+  without warnings and all 135 tests pass.
+
 - Slice 08 hosts selection state in the desktop runtime. Profile/mode changes use a portable
   command service that saves before updating visible state, local status distinguishes desired
   from unapplied output, the close button hides the window, and the tray provides Show and Quit.
@@ -128,8 +135,11 @@ local store validates and atomically persists settings, desired selection state,
 independent native fallback snapshot; it seeds first run, restores restarts, and archives
 malformed or invalid-reference documents with explicit recovery details. No detector wiring,
 plugin loader, hardware output, or startup task exists yet.
-The planned Settings page is documented in `../docs/application-settings.md`; no preference
-schema, settings UI, tray behavior, startup registration, or diagnostics implementation was added.
+The Settings page persists application preferences in schema-version-2 `settings.json`, applies
+System/Light/Dark only to the Avalonia UI, supports saved close-to-tray or clean-exit behavior,
+and can start with the window hidden without registering OS startup. It can open local settings
+and log folders and export a diagnostic ZIP that excludes profiles, mappings, paths, and secrets.
+OS startup registration remains deferred to Slice 18.
 
 Read-only checks on 2026-10-08 confirmed SignalRGB 2.5.74, WLED Desk 16.0.1 with its 215/85
 split, Dynamic Lighting disabled, and the Synapse delayed task still present. WLED Wall did
@@ -137,26 +147,27 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 08 — Desktop runtime and tray
+- Slice: 09 — Application settings and lifecycle preferences
 - State: complete; awaiting review in the stacked pull-request chain
 - Branch, latest relevant code commit, and pull request target:
-  `slice/08-desktop-runtime-tray`; commits `3723718`, `d2230bd`, `59d6c31`, and
-  `a01f733`; PR #21 targets `slice/07-profile-editor-persistence`.
-- Scope and dependencies verified: follows persisted profile editing and local state; no
-  process observation, SignalRGB, plugin, or hardware dependency.
-- Implemented files and entry points: Core `SelectionCommandService` owns shared local commands;
-  `App.axaml.cs` owns explicit lifetime and tray actions; `MainWindow` handles close-to-tray;
-  `MainWindowViewModel` projects saved desired/unapplied status and async failures.
+  `slice/09-application-settings`; commits `89e95a5`, `69ea5bc`, `683b113`, and
+  `fbaecfc`; PR pending against `slice/08-desktop-runtime-tray`.
+- Scope and dependencies verified: follows persistence and tray lifecycle; no startup
+  registration, process observation, plugin, SignalRGB, or hardware dependency.
+- Implemented files and entry points: `ApplicationSettings` and `SettingsJson` own schema
+  migration/validation; `LocalStateStore` owns last-known-good recovery; `MainWindowViewModel`
+  owns saved-versus-draft preferences; `App` and `MainWindow` own lifecycle/theme/actions;
+  `DiagnosticExport` owns the intentionally limited export shape.
 - Verification: `dotnet build FocusRGB.slnx --no-restore` and
-  `dotnet test FocusRGB.slnx --no-restore` pass, 122/122 tests.
-- External/live evidence: a hidden startup smoke process stayed alive, but Windows exposed no
-  main-window handle, so interactive close/tray-menu behavior was not claimed as live evidence.
-- Remaining acceptance criteria: none for Slice 08; interactive tray behavior remains a manual
-  packaging check rather than an automated test.
+  `dotnet test FocusRGB.slnx --no-restore` pass, 135/135 tests.
+- External/live evidence: none required; no live integrations, devices, startup registration, or
+  machine preferences were changed. Interactive theme, file-picker, start-hidden, and close-menu
+  behavior remains a manual packaging check rather than claimed live evidence.
+- Remaining acceptance criteria: none for Slice 09.
 - Current blocker or required product input: none.
-- Uncommitted work to preserve: none after the Slice 08 commits.
-- Next action: review/merge Slice 08, then implement Slice 09 from this branch while stacked.
-- Next slice: 09 — Application settings and lifecycle preferences.
+- Uncommitted work to preserve: documentation and final verification before the Slice 09 PR.
+- Next action: finish the Slice 09 documentation commit and open its stacked PR.
+- Next slice: 10 — Placement model and offline renderer.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -181,8 +192,8 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slices 09–29 are pending. Continue with 09 (application settings), then the native RGB path.
-Profile persistence and the tray runtime are complete; application-group/mapping persistence
+Slices 10–29 are pending. Continue with the native RGB path at Slice 10. Profile persistence,
+the tray runtime, and application settings are complete; application-group/mapping persistence
 remains intentionally scheduled with external-application work in Slice 20.
 
 External application work starts at Slice 19. SignalRGB begins at 21, the public SDK is stabilized

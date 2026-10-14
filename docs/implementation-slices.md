@@ -8,7 +8,7 @@ Requirements live in [`app-brief.md`](app-brief.md), contracts and behavior in
 [`plugin-architecture.md`](plugin-architecture.md), and verified external facts in
 [`integration-evidence.md`](integration-evidence.md).
 
-Status: **00–08 complete on the stacked pull-request chain. 09 is next.**
+Status: **00–09 complete on the stacked pull-request chain. 10 is next.**
 
 ## 1 — Foundation
 
@@ -36,13 +36,13 @@ Status: **00–08 complete on the stacked pull-request chain. 09 is next.**
   create, edit, duplicate, and remove persisted profiles while protecting Default.
 - ✅ [08 — Desktop runtime and tray](<slices/3-FocusRGB App/08-desktop-runtime-and-tray.md>):
   run manual profile state in the tray app with real local status and clean shutdown.
-- ▶️ [09 — Application settings](<slices/3-FocusRGB App/09-application-settings-and-lifecycle-preferences.md>):
-  persist desktop lifecycle, theme, and diagnostic preferences in a small Settings page. **Next.**
+- ✅ [09 — Application settings](<slices/3-FocusRGB App/09-application-settings-and-lifecycle-preferences.md>):
+  persist desktop lifecycle, theme, and diagnostic preferences in a small Settings page.
 
 ## 4 — Native RGB System
 
-- ⏳ [10 — Placement model and renderer](<slices/4-Native RGB System/10-placement-model-and-offline-renderer.md>):
-  model LED geometry, built-in effects, exclusions, and offline canvas rendering.
+- ▶️ [10 — Placement model and renderer](<slices/4-Native RGB System/10-placement-model-and-offline-renderer.md>):
+  model LED geometry, built-in effects, exclusions, and offline canvas rendering. **Next.**
 - ⏳ [11 — Layout canvas editor](<slices/4-Native RGB System/11-layout-canvas-editor.md>):
   assign, place, transform, and exclude devices without an external application.
 - ⏳ [12 — Stacked groups](<slices/4-Native RGB System/12-stacked-groups.md>):

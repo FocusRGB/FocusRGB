@@ -33,10 +33,11 @@ The `default` profile ID is protected: validation requires it and requires
 `selection.defaultProfile` to keep referencing it. Seeded unmatched selection is always
 `default-profile`.
 
-Missing fields stay distinguishable from valid zero/false values. Only schema version 1 is
-accepted. Unsupported versions are preserved and reported rather than overwritten. Application
-authority and reserved game/device scope shapes can validate, but this does not claim runtime
-support.
+Missing fields stay distinguishable from valid zero/false values. Settings schema version 1 is
+migrated to version 2 with default application preferences; version 2 is the current write
+format. Unsupported newer versions are preserved and reported rather than overwritten.
+Application authority and reserved game/device scope shapes can validate, but this does not
+claim runtime support.
 
 `NativeSetupJson.CreateDefault()` returns an independent empty app-default snapshot, and
 `LocalStateStore` handles its storage. Slices 10–16 add native rendering/output. The snapshot
@@ -62,9 +63,10 @@ Runtime observation wiring arrives in slice 19.
 ## Persisting startup state
 
 Construct `LocalStateStore` with the per-user data directory selected by the application, then
-call `InitializeAsync`. It owns `settings.json`, `state.json`, and `native-setup.json` within
-that directory. Missing files receive validated defaults; the first missing state starts in
-manual Default. A valid restart restores the saved mode and desired profile before detection.
+call `InitializeAsync`. It owns `settings.json`, its internal
+`settings.last-known-good.json` recovery copy, `state.json`, and `native-setup.json` within that
+directory. Missing files receive validated defaults; the first missing state starts in manual
+Default. A valid restart restores the saved mode and desired profile before detection.
 
 Writes serialize and flush a unique temporary file before atomically replacing the target. A
 validation, serialization, or replacement failure leaves the prior target untouched. Malformed
@@ -72,7 +74,9 @@ documents are renamed with a timestamp before a replacement is seeded, and the r
 snapshot includes a `RecoveryNotice`. Unknown state profile references are archived and reset
 to manual Default with `invalid-state-reset`. Only a numeric schema version above the supported
 version is left in place and returned as an error; missing or malformed versions follow corrupt
-document recovery. JSON readers accept comments and trailing commas for hand-edited files.
+document recovery. An invalid current settings file restores the validated last-known-good copy
+before defaults are considered. JSON readers accept comments and trailing commas for hand-edited
+files.
 
 Use `SaveSettingsAsync`, `SaveStateAsync`, and `SaveNativeSetupAsync` only for their named
 documents. Saving desired state requires no applied output. Provider edits, previews, and
