@@ -132,8 +132,8 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Slice: 07 — Profile editor and persistence
 - State: complete; awaiting review in the stacked pull-request chain
 - Branch, latest relevant code commit, and pull request target:
-  `slice/07-profile-editor-persistence`; commits `1620348` and `4d23abd`; target
-  `feature/application-groups`.
+  `slice/07-profile-editor-persistence`; commits `1620348`, `4d23abd`, and `17126e9`;
+  PR #20 targets `feature/application-groups`.
 - Scope and dependencies verified: follows the existing UI shell and local persistence; no
   process observation, SignalRGB, plugin, or hardware dependency.
 - Implemented files and entry points: `App.axaml.cs` initializes `LocalStateStore`;
