@@ -29,6 +29,22 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task CreatePersistent_ReportsRecoveredFile_WhenStateWasCorrupt()
+        {
+            var firstRun = await Store().InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(firstRun.IsSuccess);
+            await File.WriteAllTextAsync(
+                Path.Combine(_directory, LocalStateStore.StateFileName), "{", TestContext.Current.CancellationToken);
+
+            var store = Store();
+            var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+            var viewModel = MainWindowViewModel.CreatePersistent(restarted.Snapshot!, store);
+
+            Assert.Contains($"Recovered {LocalStateStore.StateFileName}", viewModel.RuntimeStatusMessage, StringComparison.Ordinal);
+            Assert.Contains(".corrupt-", viewModel.RuntimeStatusMessage, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public async Task SaveProfileAsAsync_CreatesPersistentProfileWithStableUniqueId()
         {
             var viewModel = await CreateAsync();
