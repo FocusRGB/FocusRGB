@@ -159,8 +159,8 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Slice: 09 — Application settings and lifecycle preferences
 - State: complete after review remediation; awaiting review in the stacked pull-request chain
 - Branch, latest relevant code commit, and pull request target:
-  `slice/09-application-settings`; commits `89e95a5`, `69ea5bc`, `683b113`, and
-  `fbaecfc`; PR #22 targets `slice/08-desktop-runtime-tray`.
+  `fix/slice-07-09-review`; commits `3666506`, `1ecc38b`, `b0d3ef8`, and `a005bf0`;
+  target `slice/09-application-settings`, whose PR #22 targets `slice/08-desktop-runtime-tray`.
 - Scope and dependencies verified: follows persistence and tray lifecycle; no startup
   registration, process observation, plugin, SignalRGB, or hardware dependency.
 - Implemented files and entry points: `ApplicationSettings` and `SettingsJson` own schema
@@ -169,14 +169,15 @@ not respond. No live settings, presets, layouts, registry values, services, or t
   `DiagnosticExport` owns the intentionally limited export shape.
 - Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passes with 0 warnings and
   `dotnet test --solution FocusRGB.slnx -c Release --no-restore` passes 157/157 tests.
-- External/live evidence: the Release executable was launched on 2026-10-15 and remained running
-  while creating the four validated startup documents. No integrations, devices, startup
-  registration, or lighting settings were changed. Interactive theme, file picker, tray notice,
-  and close-menu behavior remain packaging checks rather than claimed visible verification.
+- External/live evidence: Release launches on 2026-10-15 verified that closing a forced startup
+  error ends the process and one window close hides the app to the tray. The real settings file
+  was backed up and restored byte-for-byte, with no stray files or processes left behind. No
+  integrations, devices, startup registration, or lighting settings were changed.
 - Remaining acceptance criteria: none for Slice 09.
 - Current blocker or required product input: none.
-- Uncommitted work to preserve: none after the Slice 09 commits.
-- Next action: review/merge Slice 09, then implement Slice 10 from this branch while stacked.
+- Uncommitted work to preserve: none.
+- Next action: review/merge `fix/slice-07-09-review` into `slice/09-application-settings`, then
+  merge the existing stack before starting Slice 10.
 - Next slice: 10 — Placement model and offline renderer.
 
 
