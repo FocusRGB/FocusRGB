@@ -26,8 +26,85 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("first-run", result.Snapshot.Desired.Reason.Kind);
             Assert.Empty(result.Snapshot.Recoveries);
             Assert.True(File.Exists(PathFor(LocalStateStore.SettingsFileName)));
+            Assert.True(File.Exists(PathFor(LocalStateStore.SettingsRecoveryFileName)));
             Assert.True(File.Exists(PathFor(LocalStateStore.StateFileName)));
             Assert.True(File.Exists(PathFor(LocalStateStore.NativeSetupFileName)));
+        }
+
+        [Fact]
+        public async Task InitializeAsync_MigratesSchemaOneSettingsAndPersistsVersionTwo()
+        {
+            var firstRun = await Store().InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(firstRun.IsSuccess);
+            var legacy = JsonNode.Parse(SettingsJson.Serialize(firstRun.Snapshot!.Settings))!;
+            legacy["schemaVersion"] = 1;
+            legacy.AsObject().Remove("application");
+            await File.WriteAllTextAsync(
+                PathFor(LocalStateStore.SettingsFileName),
+                legacy.ToJsonString(),
+                TestContext.Current.CancellationToken);
+
+            var restarted = await Store().InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+            var persisted = JsonNode.Parse(await File.ReadAllTextAsync(
+                PathFor(LocalStateStore.SettingsFileName),
+                TestContext.Current.CancellationToken))!;
+
+            Assert.True(restarted.IsSuccess);
+            Assert.Equal(SettingsJson.CurrentSchemaVersion, restarted.Snapshot!.Settings.SchemaVersion);
+            Assert.Equal("system", restarted.Snapshot.Settings.Application!.Theme);
+            Assert.Equal(SettingsJson.CurrentSchemaVersion, persisted["schemaVersion"]!.GetValue<int>());
+            Assert.NotNull(persisted["application"]);
+        }
+
+        [Fact]
+        public async Task InitializeAsync_RestoresLastKnownGoodSettings_WhenCurrentFileIsInvalid()
+        {
+            var store = Store();
+            var firstRun = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(firstRun.IsSuccess);
+            var current = firstRun.Snapshot!.Settings;
+            var dark = new SettingsDocument
+            {
+                SchemaVersion = current.SchemaVersion,
+                Application = new ApplicationSettings
+                {
+                    CloseButtonBehavior = current.Application!.CloseButtonBehavior,
+                    StartMinimized = current.Application.StartMinimized,
+                    Theme = "dark",
+                    VerboseLogging = current.Application.VerboseLogging
+                },
+                Selection = current.Selection,
+                Profiles = current.Profiles,
+                Rules = current.Rules,
+                AdditionalProperties = current.AdditionalProperties
+            };
+            Assert.True((await store.SaveSettingsAsync(dark, TestContext.Current.CancellationToken)).IsSuccess);
+            await File.WriteAllTextAsync(
+                PathFor(LocalStateStore.SettingsFileName),
+                "{",
+                TestContext.Current.CancellationToken);
+
+            var restarted = await Store().InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess);
+            Assert.Equal("dark", restarted.Snapshot!.Settings.Application!.Theme);
+            var recovery = Assert.Single(restarted.Snapshot.Recoveries);
+            Assert.Equal(LocalStateStore.SettingsFileName, recovery.FileName);
+        }
+
+        [Fact]
+        public async Task InitializeAsync_UsesDefaults_WhenCurrentAndRecoverySettingsAreInvalid()
+        {
+            var firstRun = await Store().InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(firstRun.IsSuccess);
+            await File.WriteAllTextAsync(PathFor(LocalStateStore.SettingsFileName), "{", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(PathFor(LocalStateStore.SettingsRecoveryFileName), "{", TestContext.Current.CancellationToken);
+
+            var restarted = await Store().InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess);
+            Assert.Equal("system", restarted.Snapshot!.Settings.Application!.Theme);
+            Assert.Equal(2, restarted.Snapshot.Recoveries.Count);
         }
 
         [Fact]
@@ -141,6 +218,7 @@ namespace FocusRgb.Core.Tests
             var unserializable = new SettingsDocument
             {
                 SchemaVersion = current.SchemaVersion,
+                Application = current.Application,
                 Selection = current.Selection,
                 Profiles = current.Profiles,
                 Rules = current.Rules,
