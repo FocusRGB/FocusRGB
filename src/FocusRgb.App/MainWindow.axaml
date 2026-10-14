@@ -143,7 +143,10 @@
       <TabItem Header="Profiles">
         <ScrollViewer>
           <StackPanel Margin="28,16" Spacing="16" MaxWidth="720" HorizontalAlignment="Stretch">
-            <TextBlock Text="Profiles" FontSize="26" FontWeight="SemiBold" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Profiles" FontSize="26" FontWeight="SemiBold" />
+              <CheckBox Grid.Column="1" Content="Live preview" IsChecked="{Binding ProfileLivePreview}" VerticalAlignment="Center" />
+            </Grid>
             <TextBlock Text="Each profile contains exactly one effect and one layout." Opacity="0.7" />
             <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding EditingProfile}" PlaceholderText="No profiles available">
               <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
@@ -155,10 +158,21 @@
                   <TextBlock Grid.Row="1" Text="Effect" VerticalAlignment="Center" /><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ProfileEffect}" />
                   <TextBlock Grid.Row="2" Text="Layout" VerticalAlignment="Center" /><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ProfileLayout}" />
                 </Grid>
+                <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+                  <TextBlock Text="Fallback" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding ProfileFallbackKinds}" SelectedItem="{Binding ProfileFallbackKind}" />
+                  <TextBlock Grid.Row="1" Text="Fallback profile" VerticalAlignment="Center" IsVisible="{Binding IsProfileFallback}" />
+                  <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Profiles}"
+                            SelectedItem="{Binding ProfileFallbackProfile}" IsVisible="{Binding IsProfileFallback}"
+                            PlaceholderText="Select a fallback profile">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                </Grid>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <Button Content="Save" Click="SaveProfile_OnClick" />
                   <Button Content="Save As" Click="SaveProfileAs_OnClick" />
-                  <Button Content="Remove" Click="RemoveProfile_OnClick" />
+                  <Button Content="Cancel" Click="CancelProfile_OnClick" />
+                  <Button Content="Remove" Click="RemoveProfile_OnClick" IsEnabled="{Binding CanRemoveEditingProfile}" />
                 </StackPanel>
               </StackPanel>
             </Border>
