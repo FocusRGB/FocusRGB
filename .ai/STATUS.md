@@ -140,8 +140,8 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Slice: 08 — Desktop runtime and tray
 - State: complete; awaiting review in the stacked pull-request chain
 - Branch, latest relevant code commit, and pull request target:
-  `slice/08-desktop-runtime-tray`; commits `3723718`, `d2230bd`, and `59d6c31`;
-  target `slice/07-profile-editor-persistence`.
+  `slice/08-desktop-runtime-tray`; commits `3723718`, `d2230bd`, `59d6c31`, and
+  `a01f733`; PR #21 targets `slice/07-profile-editor-persistence`.
 - Scope and dependencies verified: follows persisted profile editing and local state; no
   process observation, SignalRGB, plugin, or hardware dependency.
 - Implemented files and entry points: Core `SelectionCommandService` owns shared local commands;
