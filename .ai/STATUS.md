@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-15.
+Updated: 2026-10-16.
 
 ## Completed
 
@@ -77,7 +77,7 @@ Updated: 2026-10-15.
 
 - Provider-independent brief, plugin design, roadmap, evidence record, and AI instructions.
 - Final goal confirmed: replace SignalRGB, retain integrations with other apps.
-- Historical v2 plan archived; new plan supports profiles combining plugin actions.
+- Historical v2 findings consolidated into the current plan; obsolete provider-type design removed.
 - Keyboard visual confirmation distinguished from mouse API acceptance and unresolved handover.
 - SignalRGB-only starters, examples, and the Pro-blocked experiment separated from the empty
   active `effects/` and `plugins/` install folders; tools now have explicit names.

@@ -110,7 +110,7 @@ and should not be copied into the application settings page without their owning
 ## Sources
 
 - RGB Claude session `ca5cee85-477f-4450-81d7-3fbecb25b67f`.
-- Archived `focus-profiles-plan-v2.md`.
+- Former v2 delivery plan, consolidated into `focus-profiles-plan.md` on 2026-10-16.
 - `../modules/signalrgb/docs/security-findings.md` for later API observations. Its security-testing
   scope is separate from this app, not a development roadmap.
 - `../../WLED/profiles/README.md` and preferred snapshot above.
