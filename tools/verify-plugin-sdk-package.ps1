@@ -7,35 +7,49 @@ function Invoke-DotNet {
 }
 
 $repository = Split-Path -Parent $PSScriptRoot
-$run = Join-Path ([System.IO.Path]::GetTempPath()) ("FocusRgb.PluginSdk." + [guid]::NewGuid().ToString('N'))
+$tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+$run = Join-Path $tempRoot ("FocusRgb.PluginSdk." + [guid]::NewGuid().ToString('N'))
 $feedA = Join-Path $run 'feed-a'
 $feedB = Join-Path $run 'feed-b'
+$artifactsA = Join-Path $run 'artifacts-a'
+$artifactsB = Join-Path $run 'artifacts-b'
 $consumer = Join-Path $run 'consumer'
 $packages = Join-Path $run 'packages'
 New-Item -ItemType Directory -Path $feedA, $feedB, $consumer | Out-Null
 
-Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.Contracts\FocusRgb.Contracts.csproj') -c Release --no-build -o $feedA
-Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.PluginSdk\FocusRgb.PluginSdk.csproj') -c Release --no-build -o $feedA
-Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.Contracts\FocusRgb.Contracts.csproj') -c Release --no-build -o $feedB
-Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.PluginSdk\FocusRgb.PluginSdk.csproj') -c Release --no-build -o $feedB
+try {
+    Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.Contracts\FocusRgb.Contracts.csproj') -c Release -o $feedA -p:ArtifactsPath=$artifactsA -p:ContinuousIntegrationBuild=true
+    Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.PluginSdk\FocusRgb.PluginSdk.csproj') -c Release -o $feedA -p:ArtifactsPath=$artifactsA -p:ContinuousIntegrationBuild=true
+    Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.Contracts\FocusRgb.Contracts.csproj') -c Release -o $feedB -p:ArtifactsPath=$artifactsB -p:ContinuousIntegrationBuild=true
+    Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.PluginSdk\FocusRgb.PluginSdk.csproj') -c Release -o $feedB -p:ArtifactsPath=$artifactsB -p:ContinuousIntegrationBuild=true
 
-$extractA = Join-Path $run 'package-a'
-$extractB = Join-Path $run 'package-b'
-[System.IO.Compression.ZipFile]::ExtractToDirectory(
-    (Join-Path $feedA 'FocusRgb.PluginSdk.0.1.0.nupkg'), $extractA)
-[System.IO.Compression.ZipFile]::ExtractToDirectory(
-    (Join-Path $feedB 'FocusRgb.PluginSdk.0.1.0.nupkg'), $extractB)
-$contentsA = Get-ChildItem $extractA -Recurse -File | Sort-Object FullName | ForEach-Object {
-    $_.FullName.Substring($extractA.Length) + ':' + (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+    $extractA = Join-Path $run 'package-a'
+    $extractB = Join-Path $run 'package-b'
+    [System.IO.Compression.ZipFile]::ExtractToDirectory(
+        (Join-Path $feedA 'FocusRgb.PluginSdk.0.1.0.nupkg'), $extractA)
+    [System.IO.Compression.ZipFile]::ExtractToDirectory(
+        (Join-Path $feedB 'FocusRgb.PluginSdk.0.1.0.nupkg'), $extractB)
+    $contentsA = Get-ChildItem $extractA -Recurse -File | Sort-Object FullName | ForEach-Object {
+        $_.FullName.Substring($extractA.Length) + ':' + (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+    }
+    $contentsB = Get-ChildItem $extractB -Recurse -File | Sort-Object FullName | ForEach-Object {
+        $_.FullName.Substring($extractB.Length) + ':' + (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+    }
+    $difference = Compare-Object $contentsA $contentsB
+    if ($difference) {
+        $difference | Format-Table | Out-String | Write-Host
+        throw 'Plugin SDK package contents are not reproducible.'
+    }
+
+    Copy-Item (Join-Path $repository 'tests\FocusRgb.PluginSdk.ConsumerFixture\*') $consumer
+    Invoke-DotNet restore (Join-Path $consumer 'FocusRgb.PluginSdk.ConsumerFixture.csproj') --source $feedA --packages $packages
+    Invoke-DotNet build (Join-Path $consumer 'FocusRgb.PluginSdk.ConsumerFixture.csproj') -c Release --no-restore
+
+    Write-Host 'Verified independent reproducible FocusRgb.PluginSdk 0.1.0 builds.'
 }
-$contentsB = Get-ChildItem $extractB -Recurse -File | Sort-Object FullName | ForEach-Object {
-    $_.FullName.Substring($extractB.Length) + ':' + (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+finally {
+    $resolvedRun = [System.IO.Path]::GetFullPath($run)
+    if ($resolvedRun.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        Remove-Item -LiteralPath $resolvedRun -Recurse -Force
+    }
 }
-if (Compare-Object $contentsA $contentsB) { throw 'Plugin SDK package contents are not reproducible.' }
-
-Copy-Item (Join-Path $repository 'tests\FocusRgb.PluginSdk.ConsumerFixture\*') $consumer
-Invoke-DotNet restore (Join-Path $consumer 'FocusRgb.PluginSdk.ConsumerFixture.csproj') --source $feedA --packages $packages
-Invoke-DotNet build (Join-Path $consumer 'FocusRgb.PluginSdk.ConsumerFixture.csproj') -c Release --no-restore
-
-Write-Host 'Verified reproducible FocusRgb.PluginSdk 0.1.0 package contents.'
-Write-Host "Clean-room consumer: $consumer"

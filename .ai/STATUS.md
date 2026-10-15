@@ -9,7 +9,7 @@ Updated: 2026-10-15.
   schema 3 records an explicit disabled-by-default plugin list under the per-user `plugins`
   folder. Manifest/handshake validation, request cancellation/timeouts, malformed responses,
   process exits, catalog/apply calls, package reproducibility, and a clean-room package consumer
-  are covered. Release build passes with 0 warnings and all 178 tests pass.
+  are covered. Release build passes with 0 warnings and all 200 tests pass.
 
 - Review remediation for slices 07–09 removes the UI-thread startup deadlock, serializes local
   persistence, fixes last-known-good ordering/freshness/missing-file recovery and schema-1 backup,
@@ -180,13 +180,18 @@ not respond. No live settings, presets, layouts, registry values, services, or t
   `src/FocusRgb.PluginSdk/PluginServer.cs`, `src/FocusRgb.App/Plugins/`, settings schema 3,
   `schemas/`, `tests/FocusRgb.FakePlugin/`, process/package tests, and the clean-room consumer.
 - Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passes with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release --no-build --no-restore` passes 178/178;
+  `dotnet test --solution FocusRGB.slnx -c Release --no-build --no-restore` passes 200/200;
   `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-plugin-sdk-package.ps1`
   verifies repeatable package contents and builds outside the repository from the local packages.
 - External/live evidence: none required; fake and clean-room fixtures provide acceptance evidence.
 - Remaining acceptance criteria: none.
 - Current blocker or required product input: none.
 - Uncommitted work to preserve: none after the Slice 10 documentation commit.
+- PR review hardening bounds and validates protocol input, drains stderr before initialization,
+  cleans up cancelled starts, starts plugins concurrently after the window is visible, reports
+  exits as availability changes, and gives cooperative shutdown a grace period. The SDK now
+  emits status notifications and synchronized stderr logs, while invalid requests return JSON-RPC
+  errors with `id: null` instead of terminating the server.
 - Next action: begin Slice 11 from its command-coordination and fallback acceptance criteria.
 - Next slice: 11 — Command coordination and fallback state, only after Slice 10 acceptance passes.
 
