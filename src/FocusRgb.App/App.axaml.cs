@@ -3,9 +3,11 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using FocusRgb.App.Diagnostics;
 using FocusRgb.App.Plugins;
 using FocusRgb.App.ViewModels;
+using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
 
 namespace FocusRgb.App
@@ -17,6 +19,7 @@ namespace FocusRgb.App
         private MainWindow? _mainWindow;
         private LocalStateStore? _store;
         private PluginRuntime? _plugins;
+        private OutputCoordinator? _outputCoordinator;
         private bool _quitPending;
         private bool _quitWithoutSaving;
         private bool _shutdownApproved;
@@ -72,10 +75,31 @@ namespace FocusRgb.App
                         AppLog.Write($"Plugin {plugin.PluginId} did not start: {plugin.ErrorCode}: {plugin.ErrorMessage}");
                     }
                 }
+                var pluginGateway = new PluginRuntimeGateway(_plugins);
+                var outputCoordinator = new OutputCoordinator(pluginGateway, startup.Snapshot.NativeSetup);
+                _outputCoordinator = outputCoordinator;
+                var initialOutput = await outputCoordinator.ApplyAsync(
+                    startup.Snapshot.Settings,
+                    startup.Snapshot.State,
+                    startup.Snapshot.Desired.Reason);
+                pluginGateway.AvailabilityChanged += async (_, change) =>
+                {
+                    try
+                    {
+                        await outputCoordinator.ReportAvailabilityAsync(change.PluginId, change.IsAvailable);
+                    }
+                    catch (Exception exception)
+                    {
+                        AppLog.Write($"Plugin availability update failed: {exception.Message}");
+                    }
+                };
                 ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
                 var mainWindow = new MainWindow(
-                    MainWindowViewModel.CreatePersistent(startup.Snapshot, _store, trayAvailable),
+                    MainWindowViewModel.CreatePersistent(
+                        startup.Snapshot, _store, trayAvailable, outputCoordinator, initialOutput),
                     directory);
+                outputCoordinator.StatusChanged += (_, status) =>
+                    Dispatcher.UIThread.Post(() => mainWindow.ApplyOutputStatus(status));
                 _mainWindow = mainWindow;
                 var icon = CreateIcon();
                 mainWindow.Icon = icon;
@@ -171,9 +195,13 @@ namespace FocusRgb.App
 
         private async Task StopPluginsAsync()
         {
-            if (_plugins is null) return;
-            await _plugins.DisposeAsync();
-            _plugins = null;
+            if (_plugins is not null)
+            {
+                await _plugins.DisposeAsync();
+                _plugins = null;
+            }
+            _outputCoordinator?.Dispose();
+            _outputCoordinator = null;
         }
 
         private async void RequestQuit()

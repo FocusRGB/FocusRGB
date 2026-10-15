@@ -9,6 +9,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using FocusRgb.App.Diagnostics;
 using FocusRgb.App.ViewModels;
+using FocusRgb.Core.Commands;
 
 namespace FocusRgb.App
 {
@@ -60,6 +61,8 @@ namespace FocusRgb.App
 
         public void ReportUnexpectedError(string message) => ViewModel.ReportUnexpectedError(message);
 
+        public void ApplyOutputStatus(SelectionRuntimeStatus status) => ViewModel.ApplyOutputStatus(status);
+
         public async Task<bool> PrepareQuitAsync(CancellationToken cancellationToken = default) =>
             await ViewModel.SaveRuntimeStateAsync(cancellationToken);
 
@@ -100,6 +103,12 @@ namespace FocusRgb.App
         {
             if (ViewModel.IsManual) await RunUiActionAsync(() => ViewModel.SetModeAsync(manual: false));
         }
+
+        private async void AcceptRecovery_OnClick(object? sender, RoutedEventArgs e) =>
+            await RunUiActionAsync(() => ViewModel.RespondToRecoveryAsync(accept: true));
+
+        private async void DeclineRecovery_OnClick(object? sender, RoutedEventArgs e) =>
+            await RunUiActionAsync(() => ViewModel.RespondToRecoveryAsync(accept: false));
 
         private async void SaveProfile_OnClick(object? sender, RoutedEventArgs e) =>
             await RunUiActionAsync(() => ViewModel.SaveProfileAsync());

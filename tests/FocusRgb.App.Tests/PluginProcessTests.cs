@@ -1,6 +1,9 @@
-using System.Text.Json;
+using System.Text.Json.Nodes;
 using FocusRgb.App.Plugins;
 using FocusRgb.Contracts;
+using FocusRgb.Core.Configuration;
+using FocusRgb.Core.Coordination;
+using FocusRgb.Core.Selection;
 
 namespace FocusRgb.App.Tests
 {
@@ -94,6 +97,33 @@ namespace FocusRgb.App.Tests
             {
                 if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
             }
+        }
+
+        [Fact]
+        public async Task Coordinator_AppliesDesiredProfile_ThroughRealFakeProcess()
+        {
+            var started = await StartAsync();
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+            var gateway = new PluginRuntimeGateway(
+                [PluginRuntimeEntry.Ok("fake-output", client, started.Handshake!)]);
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var root = JsonNode.Parse(SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!))!;
+            root["profiles"]![0]!["bindings"]![0]!["plugin"] = "fake-output";
+            var settings = SettingsJson.Load(root.ToJsonString()).Settings!;
+
+            var status = await coordinator.ApplyAsync(settings, new SelectionStateDocument
+            {
+                SchemaVersion = 1,
+                Mode = "manual",
+                ManualProfile = "default",
+                LastSelectedProfile = "default",
+                UpdatedAt = DateTimeOffset.UtcNow
+            }, SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            Assert.Equal("desired", status.Effective.Source);
+            Assert.Equal("applied", Assert.Single(status.Applied!.Bindings).Outcome);
+            Assert.Empty(status.Pending);
         }
 
         private static Task<PluginStartResult> StartAsync(params string[] arguments)
