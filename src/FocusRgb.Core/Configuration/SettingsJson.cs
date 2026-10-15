@@ -5,7 +5,7 @@ namespace FocusRgb.Core.Configuration
     /// <summary>Reads and validates settings in memory before LocalStateStore persists them.</summary>
     public static class SettingsJson
     {
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
 
         public static SettingsLoadResult Load(string json)
         {
@@ -13,12 +13,15 @@ namespace FocusRgb.Core.Configuration
             try
             {
                 var document = JsonSerializer.Deserialize<SettingsDocument>(json, ConfigurationJson.Options);
-                if (document?.SchemaVersion == 1)
+                if (document?.SchemaVersion is 1 or 2)
                 {
                     document = new SettingsDocument
                     {
                         SchemaVersion = CurrentSchemaVersion,
-                        Application = CreateDefaultApplicationSettings(),
+                        Application = document.SchemaVersion == 1
+                            ? CreateDefaultApplicationSettings()
+                            : document.Application,
+                        Plugins = CreateDefaultPluginSettings(),
                         Selection = document.Selection,
                         Profiles = document.Profiles,
                         Rules = document.Rules,
@@ -62,5 +65,7 @@ namespace FocusRgb.Core.Configuration
             Theme = "system",
             VerboseLogging = false
         };
+
+        public static PluginSettings CreateDefaultPluginSettings() => new() { Enabled = [] };
     }
 }
