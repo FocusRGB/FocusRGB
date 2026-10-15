@@ -1,6 +1,7 @@
 # RGB controller: product brief
 
-Planning only. Updated 2026-10-09 from the RGB chat and user clarification.
+Living product requirements. Updated 2026-10-15 from the RGB chat, user clarification, and application
+settings decision.
 
 ## Goal
 
@@ -16,20 +17,23 @@ rules, layouts, or game integrations.
 | Focus/context | Profile behavior |
 |---|---|
 | First start | Enter manual mode with the Default profile |
-| Default profile | Keep the same effect/layout regardless of the focused application; test with SignalRGB Aurora |
-| VS Code | Test with SignalRGB Aurora |
-| Media Player | Test with SignalRGB Logarithmic Visualizer |
-| Stremio | Test with SignalRGB Screen Ambient |
+| Default profile | Protected and always present; use when no automatic application mapping matches; test with SignalRGB Aurora |
+| Programming | VS Code or Visual Studio; test with SignalRGB Aurora |
+| Movie | PotPlayer or Stremio; test with SignalRGB Screen Ambient |
+| Music | Media Player or Spotify; test with SignalRGB Logarithmic Visualizer |
 | Recognized game | Generic or per-game profile with custom keyboard/mouse maps and strip zones |
 | Brief focus change or ignored system window | Avoid disruptive switches |
-| Unmatched app | Keep current profile by default |
+| Unmatched app | Select the protected Default profile |
 | Manual mode | Keep the user-selected profile active until automatic selection is resumed |
 | Restart | Restore and apply the last mode and selected profile before normal detection continues |
+| Close main window | Minimize to the system tray by default, or exit when the user selects that behavior |
+| Tray Quit or operating-system shutdown | Exit cleanly and release plugin processes and owned output |
 | Missing or unsupported backend | Explain the limitation; only use an explicitly configured fallback |
 | Game loses focus, profile exits, or app shuts down | Clear app-owned overrides and release output safely |
 
-Profiles can combine backends: direct WLED strip output and SignalRGB keyboard overrides,
-for example. They are not restricted to one exclusive `signalrgb` or `native` type.
+Each profile contains exactly one effect and one layout. Its rendering authority decides
+whether an external provider renders them or FocusRGB renders them natively; output plugins may
+fan that result out to their owned devices without changing the profile's effect/layout pair.
 Game detection is separate from telemetry: recognizing Dota 2 does not provide health or
 cooldowns. Reactive effects require a separate supported integration.
 
@@ -59,21 +63,29 @@ SignalRGB ownership. Both plugins must never write to the same physical WLED dev
 ## Design requirements
 
 - Plugins cover focus/app detection, installed-app/game discovery, external integrations,
-  RGB output, and extensible native effects. Integration-specific files are packaged under
-  `modules/<integration>/`; a module may provide several plugin roles.
+  RGB output, and extensible native effects. Production plugins use independent
+  `FocusRGB-Plugin-<Name>` repositories; a plugin may provide several roles.
 - The core references only integration contracts. SignalRGB-specific code is a separate
-  plugin and must never be referenced by the core or Avalonia application projects.
+  repository/package and must never be referenced by the core or Avalonia application projects.
 - Integration contracts expose provider effect/layout catalogs and accept a rendering-authority
-  choice. The UI persists the user's application, effect, layout, and authority mappings.
+  choice. The UI persists application-to-profile mappings separately from each profile's
+  effect, layout, and authority bindings.
 - Publish the plugin contract, schemas, templates, and reference plugins as open-source
   components so third parties can add integrations without modifying the application.
+- Keep contracts, the .NET plugin SDK, host, schemas, conformance tests, template, and fake
+  reference plugin in the main repository. External plugin repositories consume a published
+  SDK version and must build without a local FocusRGB checkout or Git submodule.
 - Keep platform support explicit in each plugin manifest. A plugin may be portable or may
   provide separate Windows, macOS, and Linux entry points behind the same contract.
 - Core owns rule arbitration, debounce, transitions, settings, logging, and device ownership.
-- Users can reorder or assign priorities to automatic rules. Manual mode overrides automatic
-  detection; ties are deterministic and the UI explains why the active profile won.
-- Each rule can stay eligible while its application is running or only while focused. A higher
-  priority running rule can beat a lower priority focused app; focus loss advances to the next
+- Application-wide preferences are limited to desktop behavior, appearance, and diagnostics.
+  Close-button behavior is user-selectable between minimize to tray and exit, with minimize to
+  tray as the default. Profile, mapping, integration, device, layout, and effect controls stay
+  in their own editors; see [`application-settings.md`](application-settings.md).
+- Users reorder automatic mappings; the top eligible row has highest priority. Manual mode
+  overrides automatic detection and the UI explains why the active profile won.
+- Each rule can stay eligible while its application is running or only while focused. An earlier
+  running rule can beat a later focused app; focus loss advances to the next
   eligible rule only when configured. Closing an app removes its eligibility.
 - Profiles have explicit ordered fallback policies when required plugins/resources are
   unavailable. Preserve desired selection separately from fallback output; reconnect behavior
@@ -107,34 +119,37 @@ SignalRGB ownership. Both plugins must never write to the same physical WLED dev
   normalized capabilities where practical and namespaced game-specific data when necessary;
   unsupported telemetry degrades to a static profile rather than breaking selection.
 - Expose a local MCP server whose tools use the same validated application commands as the UI.
-  It can inspect and change profiles, rules, priorities, manual mode, and effect settings,
+  It can inspect and change profiles, application groups, mapping order, manual mode, and effect settings,
   subject to local authorization and confirmation for risky operations.
 
 ## Scope
 
-The first implementation goal is a working Avalonia/.NET 10 Windows executable with a portable
-background core and a separately packaged SignalRGB plugin: detection, deterministic/manual
-selection, profiles, and visible SignalRGB effect switching. A fake integration remains useful
-for tests, but a generic public plugin SDK must not delay this vertical slice.
+The first implementation goal is a self-contained Avalonia/.NET 10 Windows executable with a
+portable background core: persistent profile management, manual selection, tray behavior,
+application preferences, and restart restoration without depending on another desktop app.
 
-The initial acceptance profiles are Default → Aurora, VS Code → Aurora, Media Player →
-Logarithmic Visualizer, and Stremio → Screen Ambient. These tests leave the layout unset and
-use SignalRGB's existing LED placements. Default is application-independent. On the first run it
-is selected in manual mode. Later starts restore and apply the last mode and profile; restored
-automatic mode may select another profile after the detector produces a stable match.
+The second goal is the app's native effect renderer and layout system, followed by WLED and one
+peripheral output plugin. Profiles gain reusable effects/layouts before external automation.
 
-The second goal is game profiles. Each profile combines an effect and LED layout, can be
-selected manually or by game/app rules, and may later consume supported game API events.
+The later SignalRGB acceptance profiles are Default → Aurora; Programming → Aurora for VS Code and
+Visual Studio; Movie → Screen Ambient for PotPlayer and Stremio; and Music → Logarithmic
+Visualizer for Media Player and Spotify. These tests leave the layout unset and use SignalRGB's
+existing LED placements. Default is application-independent, protected from removal, and chosen
+when automatic mode has no eligible mapped application. On first run it is selected in manual
+mode. Later starts restore and apply the last mode and profile; restored automatic mode may
+select another profile after the detector produces a stable match.
 
-The third goal is the app's own effect renderer and layout system, followed by native output
-plugins, so profiles can migrate away from SignalRGB without changing selection rules. The
-external plugin SDK, local MCP control, reliability, and distribution work should grow around
-these goals rather than becoming prerequisites for the first visible result.
+The third goal is external-application support: Windows app detection/mappings, the separately
+packaged `FocusRGB-Plugin-SignalRGB`, game discovery/APIs, and local MCP control. Each profile
+still combines an effect and LED layout and can later consume supported game events. External
+failures must not make manual profiles or native output unusable. The main repository keeps the
+minimal SDK and fake integration; the complete public SDK is stabilized only after real plugins.
 
 Plugin package signing/distribution and installation UX remain undecided. Startup automation
-follows reliable cleanup/recovery. The Arduino tester is independent. Existing
+is off by default, remains user-controlled, and follows reliable cleanup/recovery. The Arduino
+tester is independent. Existing
 `modules/signalrgb/plugins/` contains SignalRGB device plugins, not this controller's
 extension system.
 
-Current authorization is documentation, not implementation or device reconfiguration.
+Repository implementation is authorized when requested. Live device or machine reconfiguration still requires an explicit request.
 Open product/implementation choices are tracked in `../.ai/STATUS.md`.

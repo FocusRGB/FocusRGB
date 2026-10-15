@@ -8,7 +8,7 @@ Adopted 2026-10-10. Applies to people and AI assistants.
 |---|---|---|
 | `develop` | Default and integration branch; every change lands here first | Pull requests only |
 | `main` | Stable releases | Pull requests from `develop` only, merged by the repository owner |
-| `slice/NN-short-name` | One implementation slice from `implementation-slices.md` | Its author |
+| `slice/NN-short-name` | One detail file linked from `implementation-slices.md` | Its author |
 | `feature/…`, `fix/…`, `chore/…`, `docs/…` | Other scoped work | Its author |
 
 ## Rules
@@ -16,12 +16,15 @@ Adopted 2026-10-10. Applies to people and AI assistants.
 1. Start every branch from the latest `origin/develop`. If work depends on an unmerged
    branch, base it on that branch and say so in the pull request.
 2. Never commit or push directly to `develop` or `main`. Push the working branch and open a
-   pull request into `develop`.
+   pull request. A standalone pull request targets `develop`; a stacked pull request targets
+   its immediate dependency branch so GitHub shows only that layer's changes. After the parent
+   merges, retarget the child to `develop` before merging it.
 3. One slice or one scoped change per pull request. Its description lists what changed, the
    verification actually run, and the remaining gates, and links the slice ID when there is one.
-4. Assistants may create branches, commit, push working branches, and open pull requests
-   into `develop`. They do not merge pull requests, push to `develop` or `main`, force-push,
-   rewrite published history, or delete branches unless the owner explicitly asks.
+4. Assistants may create branches, commit, push working branches, and open pull requests into
+   `develop` or an immediate dependency branch. They do not merge pull requests, push to
+   `develop` or `main`, force-push, rewrite published history, or delete branches unless the
+   owner explicitly asks.
 5. Only the owner opens and merges the `develop` → `main` release pull request. `main`
    accepts pull requests only from `develop`; `develop` accepts them only from `feature/`,
    `slice/`, `fix/`, `chore/`, and `docs/` branches.
@@ -32,6 +35,18 @@ Adopted 2026-10-10. Applies to people and AI assistants.
    configuration, each project, tests, CI, and documentation, so every commit can be reviewed
    on its own and still builds where practical. Do not stage an entire pull request with
    `git add -A`. A merge commit keeps these commits in `develop`; a squash merge collapses them.
+
+## External plugin repositories
+
+Production plugins use peer repositories named `FocusRGB-Plugin-<Name>`. Create a repository
+only when its implementation slice starts; do not create empty placeholders. Each plugin has
+its own history, issues, CI, releases, license, and branch protection.
+
+Plugin repositories consume a published `FocusRgb.PluginSdk` version and must build without a
+FocusRGB source checkout. Do not connect repositories with Git submodules or cross-repository
+project references. When a protocol change spans repositories, use separate linked pull
+requests: publish the compatible SDK prerelease first, then update the plugin and the app's
+compatibility fixtures to the exact declared versions.
 
 ## Branch protection
 
@@ -49,6 +64,10 @@ workflow does that: it fails a pull request into `main` unless it comes from `de
 this repository, and one into `develop` unless its branch uses an allowed prefix. It runs
 on `pull_request_target`, so the version on the base branch decides and a pull request
 cannot weaken its own check. It does not check out or run pull request code.
+
+Both pull-request workflows run for every base branch so stacked changes receive policy and
+build checks. CI also handles the `edited` event, ensuring a base-branch retarget starts a
+fresh build without requiring another source commit.
 
 Bootstrap: a required check runs from the workflow on the target branch, so it is added
 to each ruleset only after `branch-policy.yml` exists on that branch. Until then the ruleset

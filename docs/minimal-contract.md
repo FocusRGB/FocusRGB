@@ -1,11 +1,11 @@
 # Minimal data and command contract
 
-Slice 00. Frozen 2026-10-10 as the starting contract for slices 01–12. It covers only what the
+Slice 00. Frozen 2026-10-10 as the starting contract for slices 01–23. It covers only what the
 core, the fake integration, and the first SignalRGB plugin need. It is not the public SDK
-schema; that is extracted later (slice 22) from working code. Requirements remain in
+schema; that is extracted later (slice 24) from working code. Requirements remain in
 `app-brief.md` and behavior rules in `plugin-architecture.md`; this document fixes shapes.
 
-Status words below: **frozen** means slices 01–12 implement it as written unless a slice
+Status words below: **frozen** means slices 01–23 implement it as written unless a slice
 records a deliberate amendment here; **reserved** means the name is held but not implemented.
 
 ## Conventions
@@ -25,7 +25,7 @@ records a deliberate amendment here; **reserved** means the name is held but not
 
 | Item | Field | Rule |
 |---|---|---|
-| Each persisted file | `schemaVersion` (integer, starts at 1) | Older versions migrate forward on load and are saved only after a successful migration, keeping the original as a backup. A newer version than the app understands is loaded read-only or rejected with a reason; it is never overwritten. |
+| Each persisted file | `schemaVersion` (integer, starts at 1) | Older versions migrate forward on load and are saved only after successful validation; settings also refresh their last-known-good recovery copy. A newer version than the app understands is loaded read-only or rejected with a reason; it is never overwritten. |
 | Plugin protocol | `contractVersion` (`"major.minor"`, starts at `"0.1"`) | The host and plugin must share the major version. A plugin may report a lower minor; the host then avoids methods added later. A mismatch fails the handshake with `contract-incompatible`. |
 
 While the major version is `0`, breaking changes are allowed between slices but must update
@@ -33,8 +33,10 @@ this document, the fake plugin, and tests in the same commit.
 
 ## Persisted documents
 
-Three separate files live in the per-user app data directory. Splitting them keeps user
+Three domain documents live in the per-user app data directory. Splitting them keeps user
 configuration, runtime intent, and the native fallback snapshot from overwriting each other.
+The store also maintains `settings.last-known-good.json` as an internal validated recovery copy
+of `settings.json`.
 
 | File | Owner | Written when |
 |---|---|---|
@@ -42,16 +44,24 @@ configuration, runtime intent, and the native fallback snapshot from overwriting
 | `state.json` | Selection intent | After every validated mode or profile change |
 | `native-setup.json` | Native fallback snapshot | Only when the user applies a native setup (never by previews or provider changes) |
 
-### `settings.json` — frozen
+### `settings.json` — frozen at schema version 2
 
-Seeded on first run with the four acceptance profiles. Every value is user-editable.
+Seeded on first run with four acceptance profiles. The `default` profile identity is protected:
+it must exist, cannot be removed, and remains `selection.defaultProfile`. Other profile values
+and all automatic mappings are user-editable.
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "application": {
+    "closeButtonBehavior": "minimize-to-tray",
+    "startMinimized": false,
+    "theme": "system",
+    "verboseLogging": false
+  },
   "selection": {
     "defaultProfile": "default",
-    "unmatched": "keep-current",
+    "unmatched": "default-profile",
     "debounceMs": 2000,
     "ignoredExecutables": ["ShellExperienceHost.exe", "SearchHost.exe", "LockApp.exe"]
   },
@@ -72,8 +82,8 @@ Seeded on first run with the four acceptance profiles. Every value is user-edita
       "fallback": [{ "kind": "native-setup" }]
     },
     {
-      "id": "code",
-      "displayName": "VS Code",
+      "id": "programming",
+      "displayName": "Programming",
       "bindings": [
         {
           "id": "main",
@@ -87,23 +97,8 @@ Seeded on first run with the four acceptance profiles. Every value is user-edita
       "fallback": [{ "kind": "native-setup" }]
     },
     {
-      "id": "media-player",
-      "displayName": "Media Player",
-      "bindings": [
-        {
-          "id": "main",
-          "plugin": "signalrgb",
-          "renderingAuthority": "provider",
-          "deviceScope": { "kind": "provider-managed" },
-          "effect": { "resourceId": null, "displayName": "Logarithmic Visualizer" },
-          "layout": null
-        }
-      ],
-      "fallback": [{ "kind": "native-setup" }]
-    },
-    {
-      "id": "stremio",
-      "displayName": "Stremio",
+      "id": "movie",
+      "displayName": "Movie",
       "bindings": [
         {
           "id": "main",
@@ -115,31 +110,43 @@ Seeded on first run with the four acceptance profiles. Every value is user-edita
         }
       ],
       "fallback": [{ "kind": "native-setup" }]
+    },
+    {
+      "id": "music",
+      "displayName": "Music",
+      "bindings": [
+        {
+          "id": "main",
+          "plugin": "signalrgb",
+          "renderingAuthority": "provider",
+          "deviceScope": { "kind": "provider-managed" },
+          "effect": { "resourceId": null, "displayName": "Logarithmic Visualizer" },
+          "layout": null
+        }
+      ],
+      "fallback": [{ "kind": "native-setup" }]
     }
   ],
   "rules": [
     {
-      "id": "media-player",
-      "profile": "media-player",
-      "match": { "executables": ["wmplayer.exe", "Microsoft.Media.Player.exe"] },
+      "id": "programming",
+      "profile": "programming",
+      "match": { "executables": ["Code.exe", "devenv.exe"] },
       "eligibility": "while-focused",
-      "priority": 100,
       "enabled": true
     },
     {
-      "id": "stremio",
-      "profile": "stremio",
-      "match": { "executables": ["stremio-shell-ng.exe"] },
+      "id": "movie",
+      "profile": "movie",
+      "match": { "executables": ["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"] },
       "eligibility": "while-focused",
-      "priority": 100,
       "enabled": true
     },
     {
-      "id": "code",
-      "profile": "code",
-      "match": { "executables": ["Code.exe"] },
+      "id": "music",
+      "profile": "music",
+      "match": { "executables": ["Microsoft.Media.Player.exe", "wmplayer.exe", "Spotify.exe"] },
       "eligibility": "while-focused",
-      "priority": 100,
       "enabled": true
     }
   ]
@@ -148,11 +155,14 @@ Seeded on first run with the four acceptance profiles. Every value is user-edita
 
 Profiles:
 
-- `bindings` is an ordered list; a profile may combine plugins. Binding IDs are unique within
-  a profile. An empty list is valid and means the profile produces no output.
-- `renderingAuthority` is `provider` or `application`. Only `provider` is implemented before
-  Goal 3; an `application` binding validates but reports `unsupported` until native rendering
-  exists. There is no implicit fallback between authorities.
+- `default` is a protected profile ID. Validation rejects settings that remove it or assign
+  `selection.defaultProfile` to a different profile. With the seeded `default-profile`
+  unmatched policy, it becomes desired whenever automatic mode has no eligible application rule.
+- `bindings` contains exactly one item: one effect plus one optional provider layout reference.
+  The singular binding shape remains for schema compatibility and plugin authority metadata.
+- `renderingAuthority` is `provider` or `application`. An `application` binding validates but
+  reports `unsupported` until native rendering begins in slice 10. There is no implicit fallback
+  between authorities.
 - `effect` is required for a `provider` binding. `layout` is optional; `null` means the plugin
   keeps the provider's current placements and sends no layout command.
 - A resource reference stores `resourceId` when known and `displayName` for the user. When
@@ -160,10 +170,12 @@ Profiles:
   exact, case-sensitive `displayName` match against a fresh catalog and saves the ID only after
   the user applies. No match, or a catalog that is unsupported, makes the binding unavailable
   with reason `resource-not-found` or `capability-unsupported`; the core never picks a
-  different resource. Fixture names are data and are reconciled with the real catalog in slice
-  08 (for example Screen Ambient versus the historical Screen Ambience).
-- `deviceScope.kind` is `provider-managed` (every device the provider currently manages; the
-  only kind implemented in Goal 1) or **reserved** `devices` with an explicit `deviceIds` list.
+  different resource. Fixture names are data: slice 21 investigates the real catalog, slice 22
+  exposes it through the plugin, and slice 23 reconciles/saves the selected ID (for example
+  Screen Ambient versus the historical Screen Ambience).
+- `deviceScope.kind` is `provider-managed` (every device the provider currently manages) or
+  **reserved** `devices` with an explicit `deviceIds` list. Provider-managed scope arrives with
+  external provider integration; explicit native device scope is implemented with native output.
   The coordinator treats a provider-managed scope as owning every device the provider reports;
   when the provider cannot report its devices, application rendering is suppressed for all
   devices that are not explicitly assigned to another writer.
@@ -173,17 +185,21 @@ Profiles:
 
 Rules:
 
-- The array order is the saved list order. Winner order: higher `priority`, then lower list
-  index, then ordinal comparison of `id`.
+- The UI calls each reusable named executable set an **Application Group**. In the current
+  settings schema 2 preview, each rule projects one group from its `id` and `match.executables`; slice 20
+  adds persisted group identity/name so several mappings can reference the same group.
+- The array order is the saved priority list. The first eligible rule wins. The legacy numeric
+  `priority` property is accepted when reading schema version 1 but ignored and omitted by new
+  defaults; a later schema migration may remove it.
 - `eligibility` is `while-running` or `while-focused`. Process exit removes eligibility for
   both. `enabled: false` keeps the rule but never makes it eligible.
 - `match.executables` compares file names case-insensitively. **Reserved:** `match.game` with
-  `{ "launcher": "steam", "id": "570" }` for slice 13. A rule must have at least one matcher.
-- Executable names are candidates until slice 05 confirms the real foreground owners.
+  `{ "launcher": "steam", "id": "570" }` for slice 26. A rule must have at least one matcher.
+- Executable names are candidates until slice 19 confirms the real foreground owners.
 
 Selection:
 
-- `unmatched` is `keep-current` or `default-profile`.
+- `unmatched` is `default-profile`; automatic mode selects protected Default when no rule is eligible.
 - `ignoredExecutables` never produce focus changes; while one is foreground, the previous
   focused application keeps its focus eligibility.
 
@@ -210,13 +226,14 @@ Records selection intent only. Applied output is never persisted as fact.
   automatic mode, so resuming manual mode returns to the last manual choice.
 - `lastSelectedProfile` is the most recent desired profile in either mode. On restart in
   automatic mode it is applied first, then ordinary rules may replace it after a stable
-  observation.
+  observation. Until then selection retains it with reason `observation-pending`; resuming
+  automatic mode also clears focus history collected before manual mode.
 - A missing file means first run. A corrupt or unreadable file is renamed to
   `state.json.corrupt-<timestamp>` and treated as first run, and the UI reports this. A
   reference to a profile that no longer exists falls back to `selection.defaultProfile` in
   manual mode with a reported reason.
 
-### `native-setup.json` — frozen shape, content grows in Goal 3
+### `native-setup.json` — frozen shape, content grows in slices 10–16
 
 ```json
 {
@@ -230,7 +247,7 @@ Records selection intent only. Applied output is never persisted as fact.
 - `origin` is `app-default` until the user applies a native setup, then `user-applied` with
   `appliedAt` set. `bindings` uses the profile binding shape with `application` authority.
 - Previews, drafts, provider selections, and fallback activations never write this file.
-- Until a native renderer and output exist (slices 15–16), the default snapshot has no
+- Until a native renderer and output exist (slices 10–16), the default snapshot has no
   bindings, so activating native fallback reports `pending` with reason
   `native-output-unavailable` and sends no output commands.
 
@@ -242,12 +259,12 @@ The core exposes this snapshot to the UI and later the MCP adapter. It is not pe
 {
   "mode": "automatic",
   "desired": {
-    "profile": "code",
-    "reason": { "kind": "rule", "ruleId": "code", "detail": "Code.exe focused for 2000 ms" }
+    "profile": "programming",
+    "reason": { "kind": "rule", "ruleId": "programming", "detail": "Code.exe focused for 2000 ms" }
   },
-  "effective": { "profile": "code", "source": "desired" },
+  "effective": { "profile": "programming", "source": "desired" },
   "applied": {
-    "profile": "code",
+    "profile": "programming",
     "bindings": [
       { "bindingId": "main", "plugin": "signalrgb", "outcome": "unverified",
         "reason": { "code": "selection-not-observable", "message": "Provider accepted the request but cannot report its current effect." },
@@ -259,8 +276,8 @@ The core exposes this snapshot to the UI and later the MCP adapter. It is not pe
 }
 ```
 
-- `desired.reason.kind` is `first-run`, `restored`, `manual`, `rule`, `unmatched-default`, or
-  `invalid-state-reset`. `rule` names the winning rule.
+- `desired.reason.kind` is `first-run`, `restored`, `manual`, `rule`, `observation-pending`,
+  `unmatched-default`, or `invalid-state-reset`. `rule` names the winning rule.
 - `effective.source` is `desired` or `fallback`; with `fallback`, `effective` also carries
   `candidateIndex` and `skipped` (each with a reason code). Desired state never changes because
   a fallback is active.
@@ -280,12 +297,13 @@ UI and MCP use the same commands. Each returns `{ "ok": true, "status": { ... } 
 | Command | Parameters | Effect |
 |---|---|---|
 | `selectProfile` | `profile` | Enters manual mode with that profile and persists it |
-| `setMode` | `mode` | `automatic` resumes rules; `manual` keeps the current desired profile |
+| `setMode` | `mode` | `automatic` resumes rules; `manual` restores the saved `manualProfile` |
 | `applySettings` | full `settings` document | Validates, persists, and reevaluates selection |
 | `respondToNotification` | `id`, `response` (`accept`, `decline`) | Recovery choice; dismiss equals decline |
 | `getStatus` | none | Returns the runtime status |
 
-Preview, draft, and editor commands are added in slice 11 and must reuse these validation paths.
+Preview and draft UI behavior begins in slice 04; slices 07 and 20 connect profile and mapping
+edits respectively to these validation paths.
 
 ## Plugin protocol — frozen for the first plugin
 
@@ -323,7 +341,7 @@ late response. Examples below are wrapped for readability; on the wire each is o
 ]}}
 ```
 
-The values above are an illustration of shape; slice 08 determines the real SignalRGB support.
+The values above are an illustration of shape; slice 21 determines the real SignalRGB support.
 `support` is `supported`, `unsupported`, or `unverified`. Unknown capability IDs are ignored.
 A capability absent from the list is `unsupported`.
 
@@ -353,7 +371,7 @@ empty `items` list, and a reason. It never returns a guessed list.
 ### Apply and release
 
 ```json
-{"jsonrpc":"2.0","id":4,"method":"binding/apply","params":{"profile":"code","bindingId":"main","renderingAuthority":"provider","deviceScope":{"kind":"provider-managed"},"effect":{"resourceId":"opaque-id-1","displayName":"Aurora"},"layout":null}}
+{"jsonrpc":"2.0","id":4,"method":"binding/apply","params":{"profile":"programming","bindingId":"main","renderingAuthority":"provider","deviceScope":{"kind":"provider-managed"},"effect":{"resourceId":"opaque-id-1","displayName":"Aurora"},"layout":null}}
 {"jsonrpc":"2.0","id":4,"result":{"outcome":"unverified","reason":{"code":"selection-not-observable","message":"Request accepted; current effect cannot be read back."},"actual":null}}
 ```
 
@@ -396,9 +414,9 @@ foreground application is ignored. The coordinator resolves `Aurora` from the ca
 
 ### Restart
 
-`state.json` contains `{ "mode": "automatic", "lastSelectedProfile": "stremio" }`. Before
-detection starts, the core applies `stremio` with `desired.reason.kind: restored`. After VS Code
-holds focus beyond `debounceMs`, rule `code` wins and the reason changes to `rule`. With
+`state.json` contains `{ "mode": "automatic", "lastSelectedProfile": "movie" }`. Before
+detection starts, the core applies `movie` with `desired.reason.kind: restored`. After VS Code
+holds focus beyond `debounceMs`, rule `programming` wins and the reason changes to `rule`. With
 `mode: manual`, the restored `manualProfile` stays active regardless of focus.
 
 ### Absent plugin
@@ -412,17 +430,17 @@ later appears, one `plugin-recovered` notification is shown; output resumes only
 
 ### Explicit user selection
 
-In automatic mode with `code` active, the user picks Media Player. `selectProfile` persists
-`{ "mode": "manual", "manualProfile": "media-player", "lastSelectedProfile": "media-player" }`
+In automatic mode with `programming` active, the user picks Music. `selectProfile` persists
+`{ "mode": "manual", "manualProfile": "music", "lastSelectedProfile": "music" }`
 before applying, and the reason becomes `manual`. Focus changes no longer alter the selection
-until `setMode automatic`. If apply then fails, desired state remains `media-player` and the
+until `setMode automatic`. If apply then fails, desired state remains `music` and the
 fallback chain runs as for an absent plugin.
 
 ### Priority with eligibility
 
-Rule `media-player` is changed to `while-running` and moved above `code`. With Media Player
-running in the background and VS Code focused, `media-player` wins. Setting it back to
-`while-focused` lets `code` win on the next evaluation. Closing Media Player removes its
+Rule `music` is changed to `while-running` and moved above `programming`. With Spotify running
+in the background and VS Code focused, `music` wins. Setting it back to `while-focused` lets
+`programming` win on the next evaluation. Closing Spotify removes its
 eligibility in either case.
 
 ## Out of scope for this contract

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Windows-only observations (focus, processes, later screen capture). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FocusRgb.Contracts\FocusRgb.Contracts.csproj" />
+    <ProjectReference Include="..\FocusRgb.Core\FocusRgb.Core.csproj" />
+  </ItemGroup>
+</Project>
