@@ -60,6 +60,16 @@ Adopted 2026-10-10. Applies to people and AI assistants.
   first milestone, Slices 00-09, is tagged `v0.1.0-alpha.1`; later milestones advance the
   prerelease number until the product is ready for a stable version.
 
+## Issues and milestones
+
+- Track every implementation slice with one GitHub issue whose body links the authoritative slice
+  document, its dependency issues, scope, and acceptance criteria. Keep the issue-to-slice map in
+  [`github-roadmap.md`](github-roadmap.md).
+- Assign slice issues only to the repository owner and label them `slice` and `enhancement`.
+- Group slices into coherent release milestones without invented due dates. Close a slice issue as
+  completed only when the roadmap says it is complete; close its milestone after the related pull
+  requests have also landed.
+
 ## Pull request planning and review
 
 - Add active slice pull requests to the `FocusRGB Roadmap` project and to the milestone that

@@ -234,6 +234,11 @@ Both have passing checks, the `slice` and `enhancement` labels, owner `MAJ224` a
 `FocusRGB Roadmap` GitHub Project. Repository actions and authored text use the owner's identity;
 assistant contributions are recorded only with the matching `Assisted-by:` trailer.
 
+Issue planning (2026-10-15): every Slice 00–29 has one owner-assigned GitHub issue with linked
+dependencies, `slice` and `enhancement` labels, and a release milestone. Issues for completed
+Slices 00–11 are closed as completed; Slice 12 is next and Slices 12–29 remain open. The durable
+issue and milestone map is `../docs/github-roadmap.md`.
+
 Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
 (`settings.json`, `state.json`, `native-setup.json`); seeded rules are `while-focused` in priority
 order Programming, Movie, Music; protected Default handles unmatched

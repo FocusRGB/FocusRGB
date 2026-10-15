@@ -3,6 +3,7 @@
 This is the compact roadmap and status index. Each linked slice file contains its dependency,
 scope, and acceptance criteria. The active slice's exact resume state belongs in
 [`../.ai/STATUS.md`](../.ai/STATUS.md), not here.
+GitHub issue and milestone mappings are recorded in [`github-roadmap.md`](github-roadmap.md).
 
 Requirements live in [`app-brief.md`](app-brief.md), contracts and behavior in
 [`plugin-architecture.md`](plugin-architecture.md), and verified external facts in
