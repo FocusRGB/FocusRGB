@@ -70,7 +70,11 @@ namespace FocusRgb.App
                 {
                     try
                     {
-                        await outputCoordinator.ReportAvailabilityAsync(change.PluginId, change.IsAvailable);
+                        await outputCoordinator.ReportAvailabilityAsync(
+                            change.PluginId,
+                            change.IsAvailable,
+                            change.ReasonCode,
+                            change.Message);
                     }
                     catch (Exception exception)
                     {
@@ -82,10 +86,9 @@ namespace FocusRgb.App
                     startup.Snapshot.State,
                     startup.Snapshot.Desired.Reason);
                 ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
-                var mainWindow = new MainWindow(
-                    MainWindowViewModel.CreatePersistent(
-                        startup.Snapshot, _store, trayAvailable, outputCoordinator, initialOutput),
-                    directory);
+                var viewModel = MainWindowViewModel.CreatePersistent(
+                    startup.Snapshot, _store, trayAvailable, outputCoordinator, initialOutput);
+                var mainWindow = new MainWindow(viewModel, directory);
                 outputCoordinator.StatusChanged += (_, status) =>
                     Dispatcher.UIThread.Post(() => mainWindow.ApplyOutputStatus(status));
                 _mainWindow = mainWindow;
@@ -116,10 +119,7 @@ namespace FocusRgb.App
                     if (_plugins is not null)
                     {
                         pluginGateway.Attach(_plugins.Entries);
-                        await outputCoordinator.ApplyAsync(
-                            startup.Snapshot.Settings,
-                            startup.Snapshot.State,
-                            startup.Snapshot.Desired.Reason);
+                        await viewModel.ReapplyOutputAsync();
                     }
                 }
                 finally

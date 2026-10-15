@@ -736,6 +736,7 @@ namespace FocusRgb.App.ViewModels
         public void ApplyOutputStatus(SelectionRuntimeStatus status)
         {
             ArgumentNullException.ThrowIfNull(status);
+            if (_runtimeStatus is not null && status.Sequence < _runtimeStatus.Sequence) return;
             _runtimeStatus = status;
             _selectionReason = status.Desired.Reason;
             RuntimeStatusMessage = status.AppliedDetail;
@@ -932,7 +933,7 @@ namespace FocusRgb.App.ViewModels
             ? message
             : $"{message} Warning: {_settingsSaveWarning}";
 
-        private async Task ReapplyOutputAsync(CancellationToken cancellationToken)
+        public async Task ReapplyOutputAsync(CancellationToken cancellationToken = default)
         {
             if (_selectionCommands is null || _selectionState is null) return;
             var result = await _selectionCommands.ReapplyAsync(

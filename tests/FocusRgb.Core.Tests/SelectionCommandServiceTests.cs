@@ -159,6 +159,26 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("movie", result.Status!.Desired.ProfileId);
         }
 
+        [Fact]
+        public async Task ReapplyAsync_UsesPersistedSelection_WhenItsFirstApplyThrows()
+        {
+            var gateway = new OrderingGateway([]) { ThrowOnApply = true };
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var service = new SelectionCommandService(new RecordingStateStore(), coordinator);
+            var settings = Settings();
+            var oldState = State();
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.SelectProfileAsync(
+                settings, oldState, "movie", Now, TestContext.Current.CancellationToken));
+            gateway.ThrowOnApply = false;
+            var result = await service.ReapplyAsync(
+                settings, oldState, FocusRgb.Core.Selection.SelectionReason.Manual(),
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("movie", result.State!.ManualProfile);
+            Assert.Equal("movie", result.Status!.Desired.ProfileId);
+        }
+
         private static SettingsDocument Settings() => SettingsJson.LoadDefaults().Settings!;
 
         private static SelectionStateDocument State(string profile = "default") => new()
@@ -196,6 +216,8 @@ namespace FocusRgb.Core.Tests
 
         private sealed class OrderingGateway(List<string> events) : IPluginOutputGateway
         {
+            public bool ThrowOnApply { get; set; }
+
             public IReadOnlyList<PluginCapability>? GetCapabilities(string pluginId) =>
             [
                 new PluginCapability { Id = "provider.effect.select", Support = "supported" },
@@ -226,6 +248,7 @@ namespace FocusRgb.Core.Tests
                 CancellationToken cancellationToken = default)
             {
                 events.Add("apply");
+                if (ThrowOnApply) throw new InvalidOperationException("Apply failed.");
                 return Task.FromResult(new PluginGatewayResult<BindingApplyResult>(new BindingApplyResult
                 {
                     Outcome = "applied"

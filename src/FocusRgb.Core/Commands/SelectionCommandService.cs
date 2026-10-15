@@ -170,13 +170,13 @@ namespace FocusRgb.Core.Commands
                         $"{save.Error!.FileName}: {save.Error.Message}");
                 }
 
+                _latestState = next;
+                _latestReason = reason;
+                Interlocked.Increment(ref _stateGeneration);
                 var status = applyOutput && _outputCoordinator is not null
                     ? await _outputCoordinator.ApplyAsync(
                         settings, next, reason, approveRecovery, cancellationToken).ConfigureAwait(false)
                     : _outputCoordinator?.CurrentStatus ?? GetStatus(next, reason);
-                _latestState = next;
-                _latestReason = reason;
-                Interlocked.Increment(ref _stateGeneration);
                 return SelectionCommandResult.Ok(next, status);
             }
             finally
@@ -225,6 +225,7 @@ namespace FocusRgb.Core.Commands
     /// <summary>Reports local desired state separately from unavailable applied output.</summary>
     public sealed class SelectionRuntimeStatus
     {
+        public long Sequence { get; init; }
         public required string Mode { get; init; }
         public required SelectionDecision Desired { get; init; }
         public required EffectiveSelection Effective { get; init; }
