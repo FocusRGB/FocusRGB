@@ -20,34 +20,58 @@ namespace FocusRgb.App.Plugins
             IEnumerable<string> enabledPluginIds,
             CancellationToken cancellationToken = default)
         {
-            var entries = new List<PluginRuntimeEntry>();
-            var clients = new List<PluginProcessClient>();
-            foreach (var pluginId in enabledPluginIds)
+            var tasks = enabledPluginIds.Select(pluginId => StartOneAsync(
+                packagesDirectory, pluginId, cancellationToken)).ToList();
+            try
             {
-                var package = PluginPackage.Load(packagesDirectory, pluginId);
-                if (!package.IsSuccess)
-                {
-                    entries.Add(PluginRuntimeEntry.Fail(pluginId, package.ErrorCode!, package.ErrorMessage!));
-                    continue;
-                }
-                var started = await PluginProcessClient.StartAsync(
-                    package.Launch!, package.Manifest!, cancellationToken).ConfigureAwait(false);
-                if (!started.IsSuccess)
-                {
-                    entries.Add(PluginRuntimeEntry.Fail(pluginId, started.ErrorCode!, started.ErrorMessage!));
-                    continue;
-                }
-                clients.Add(started.Client!);
-                entries.Add(PluginRuntimeEntry.Ok(pluginId, started.Client!, started.Handshake!));
+                var entries = await Task.WhenAll(tasks).ConfigureAwait(false);
+                return new PluginRuntime(entries.ToList(), entries
+                    .Where(entry => entry.Client is not null)
+                    .Select(entry => entry.Client!)
+                    .ToList());
             }
-            return new PluginRuntime(entries, clients);
+            catch
+            {
+                foreach (var task in tasks.Where(task => task.IsCompletedSuccessfully))
+                {
+                    if (task.Result.Client is { } client) await DisposeWithoutThrowingAsync(client).ConfigureAwait(false);
+                }
+                throw;
+            }
         }
 
         public async ValueTask DisposeAsync()
         {
             foreach (var client in _clients)
             {
+                await DisposeWithoutThrowingAsync(client).ConfigureAwait(false);
+            }
+        }
+
+        private static async Task<PluginRuntimeEntry> StartOneAsync(
+            string packagesDirectory,
+            string pluginId,
+            CancellationToken cancellationToken)
+        {
+            var package = PluginPackage.Load(packagesDirectory, pluginId);
+            if (!package.IsSuccess)
+                return PluginRuntimeEntry.Fail(pluginId, package.ErrorCode!, package.ErrorMessage!);
+            var started = await PluginProcessClient.StartAsync(
+                package.Launch!, package.Manifest!, cancellationToken).ConfigureAwait(false);
+            return started.IsSuccess
+                ? PluginRuntimeEntry.Ok(pluginId, started.Client!, started.Handshake!)
+                : PluginRuntimeEntry.Fail(pluginId, started.ErrorCode!, started.ErrorMessage!);
+        }
+
+        private static async Task DisposeWithoutThrowingAsync(PluginProcessClient client)
+        {
+            try
+            {
                 await client.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is IOException
+                or InvalidOperationException or ObjectDisposedException)
+            {
             }
         }
     }

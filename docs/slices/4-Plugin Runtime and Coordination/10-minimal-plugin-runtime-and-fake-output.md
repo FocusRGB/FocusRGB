@@ -20,6 +20,12 @@ plugin updater, or complete version-1 SDK design.
 Status: **Complete (2026-10-15).** The host loads only explicitly enabled per-user packages,
 validates manifests and handshakes, bounds requests, and isolates plugin failures. The portable
 SDK package, protocol/manifest schemas, fake executable, and clean-room package consumer are in
-place. Release build: 0 warnings/errors; tests: 178/178; package-content reproducibility and the
+place. Release build: 0 warnings/errors; tests: 200/200; package-content reproducibility and the
 external consumer build pass via `tools/verify-plugin-sdk-package.ps1`.
+
+PR review hardening also validates typed JSON-RPC fields without killing the reader, limits each
+protocol line to 64 KiB, drains UTF-8 stderr before initialization, bounds writes, ignores late
+cancelled responses, coalesces status notifications, and cleans up cancelled or partially started
+processes. Plugins start concurrently after the main window is visible and receive a 500 ms
+cooperative shutdown grace period before termination.
 

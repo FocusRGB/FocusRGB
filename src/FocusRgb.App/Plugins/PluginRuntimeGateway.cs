@@ -16,10 +16,18 @@ namespace FocusRgb.App.Plugins
         public PluginRuntimeGateway(IEnumerable<PluginRuntimeEntry> entries)
         {
             ArgumentNullException.ThrowIfNull(entries);
-            _entries = entries.ToDictionary(entry => entry.PluginId, StringComparer.Ordinal);
-            foreach (var entry in _entries.Values.Where(item => item.Client is not null))
+            _entries = new Dictionary<string, PluginRuntimeEntry>(StringComparer.Ordinal);
+            Attach(entries);
+        }
+
+        public void Attach(IEnumerable<PluginRuntimeEntry> entries)
+        {
+            ArgumentNullException.ThrowIfNull(entries);
+            foreach (var entry in entries)
             {
-                entry.Client!.StatusChanged += (_, _) => _ = RefreshAvailabilityAsync(entry);
+                _entries.Add(entry.PluginId, entry);
+                if (entry.Client is not null)
+                    entry.Client.StatusChanged += (_, _) => _ = RefreshAvailabilityAsync(entry);
             }
         }
 

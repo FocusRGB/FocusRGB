@@ -75,23 +75,41 @@ namespace FocusRgb.App.Plugins
                 return PluginPackageResult.Fail("plugin-absent", "The package entry point is missing or outside the package.");
             }
 
-            return PluginPackageResult.Ok(manifest, entryPoint.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
-                ? new PluginLaunchSpec { FileName = "dotnet", Arguments = [entryPoint] }
-                : new PluginLaunchSpec { FileName = entryPoint });
+            if (entryPoint.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            {
+                var dotnet = ResolveDotNetHost();
+                return dotnet is null
+                    ? PluginPackageResult.Fail("plugin-absent", "The dotnet host could not be resolved.")
+                    : PluginPackageResult.Ok(manifest, new PluginLaunchSpec
+                    {
+                        FileName = dotnet,
+                        Arguments = [entryPoint]
+                    });
+            }
+            return PluginPackageResult.Ok(manifest, new PluginLaunchSpec { FileName = entryPoint });
         }
 
         private static string? Validate(PluginManifest? manifest, string expectedId)
         {
             if (manifest is null || manifest.SchemaVersion != 1) return "Only manifest schema version 1 is supported.";
             if (manifest.Id != expectedId || !IsId(manifest.Id)) return "Manifest ID does not match the enabled package ID.";
-            if (!Version.TryParse(manifest.Version, out _)) return "Plugin version must be a numeric version.";
+            if (!TryExactVersion(manifest.Version)) return "Plugin version must contain three numeric parts.";
             if (!TryContractMajor(manifest.ContractVersion, out var major) || major != ContractVersion.Major)
                 return "Plugin contract version is incompatible.";
             if (string.IsNullOrWhiteSpace(manifest.EntryPoint)) return "Entry point is required.";
-            if (manifest.OperatingSystems is not { Count: > 0 }) return "At least one operating system is required.";
-            if (manifest.Architectures is not { Count: > 0 }) return "At least one architecture is required.";
-            if (manifest.Roles is not { Count: > 0 }) return "At least one role is required.";
+            if (!ValidList(manifest.OperatingSystems, ["windows", "linux", "macos"]))
+                return "Operating systems must be unique supported values.";
+            if (!ValidList(manifest.Architectures, ["x64", "arm64"]))
+                return "Architectures must be unique supported values.";
+            if (!ValidList(manifest.Roles, ["detector", "discovery", "integration", "output", "effect"]))
+                return "Roles must be unique supported values.";
+            if (manifest.Resources is null || manifest.Resources.Count != manifest.Resources.Distinct(StringComparer.Ordinal).Count())
+                return "Resources are required and must be unique.";
             if (string.IsNullOrWhiteSpace(manifest.License)) return "License is required.";
+            if (manifest.Source is not null
+                && (!Uri.TryCreate(manifest.Source, UriKind.Absolute, out var source)
+                    || source.Scheme is not ("http" or "https")))
+                return "Source must be an absolute HTTP or HTTPS URI.";
             return null;
         }
 
@@ -109,6 +127,34 @@ namespace FocusRgb.App.Plugins
         private static bool IsId(string? value) => value is { Length: >= 1 and <= 64 }
             && value[0] is >= 'a' and <= 'z' or >= '0' and <= '9'
             && value.All(character => character is >= 'a' and <= 'z' or >= '0' and <= '9' or '-');
+
+        private static bool TryExactVersion(string? value)
+        {
+            var parts = value?.Split('.');
+            return parts is { Length: 3 }
+                && parts.All(part => int.TryParse(part, System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out _));
+        }
+
+        private static bool ValidList(List<string>? values, IReadOnlyCollection<string> allowed) =>
+            values is { Count: > 0 }
+            && values.Count == values.Distinct(StringComparer.Ordinal).Count()
+            && values.All(allowed.Contains);
+
+        private static string? ResolveDotNetHost()
+        {
+            var configured = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
+            if (!string.IsNullOrWhiteSpace(configured) && File.Exists(configured))
+                return Path.GetFullPath(configured);
+            var fileName = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet";
+            foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+                .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var candidate = Path.Combine(directory, fileName);
+                if (File.Exists(candidate)) return Path.GetFullPath(candidate);
+            }
+            return null;
+        }
 
         private static string CurrentOperatingSystem() =>
             OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "macos" : "linux";

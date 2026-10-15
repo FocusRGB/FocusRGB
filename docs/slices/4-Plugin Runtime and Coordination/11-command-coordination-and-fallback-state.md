@@ -13,5 +13,5 @@ Status: **Complete (2026-10-15).** Selection commands persist intent before outp
 provider-neutral coordinator. Runtime status separates desired, effective, applied, pending,
 and recovery notifications; resource/capability and writer-release checks run before apply.
 The app adapter exercises the real fake process, while missing native output remains pending.
-Release build: 0 warnings/errors; tests: 185/185.
+Release build: 0 warnings/errors; tests: 207/207.
 

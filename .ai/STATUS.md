@@ -10,14 +10,14 @@ Updated: 2026-10-15.
   current intent, native fallback remains pending without native output, and recovered plugins
   require one coalesced Accept/Decline choice whose Accept path reapplies current intent. The App
   gateway is proven through the real fake process. Release build passes with 0 warnings and all
-  185 tests pass.
+  207 tests pass.
 
 - Slice 10 adds the portable `FocusRgb.PluginSdk` 0.1 package, frozen contract DTOs and JSON
   schemas, an app-side out-of-process JSON-RPC host, and a fake conformance executable. Settings
   schema 3 records an explicit disabled-by-default plugin list under the per-user `plugins`
   folder. Manifest/handshake validation, request cancellation/timeouts, malformed responses,
   process exits, catalog/apply calls, package reproducibility, and a clean-room package consumer
-  are covered. Release build passes with 0 warnings and all 178 tests pass.
+  are covered. Release build passes with 0 warnings and all 200 tests pass.
 
 - Review remediation for slices 07–09 removes the UI-thread startup deadlock, serializes local
   persistence, fixes last-known-good ordering/freshness/missing-file recovery and schema-1 backup,
@@ -191,11 +191,18 @@ not respond. No live settings, presets, layouts, registry values, services, or t
   `SelectionCommandService`, `PluginRuntimeGateway`, desktop startup/view-model recovery wiring,
   coordinator unit tests, and the real fake-process coordination test.
 - Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passes with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release --no-build --no-restore` passes 185/185.
-- External/live evidence: none required; the fake child process provides output-boundary evidence.
+  `dotnet test --solution FocusRGB.slnx -c Release --no-build --no-restore` passes 207/207;
+  `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-plugin-sdk-package.ps1`
+  verifies repeatable package contents and builds outside the repository from the local packages.
+- External/live evidence: none required; fake child-process and clean-room fixtures provide acceptance evidence.
 - Remaining acceptance criteria: none.
 - Current blocker or required product input: none.
 - Uncommitted work to preserve: none after the Slice 11 documentation commit.
+- PR review hardening bounds and validates protocol input, drains stderr before initialization,
+  cleans up cancelled starts, starts plugins concurrently after the window is visible, reports
+  exits as availability changes, and gives cooperative shutdown a grace period. The SDK now
+  emits status notifications and synchronized stderr logs, while invalid requests return JSON-RPC
+  errors with `id: null` instead of terminating the server.
 - Next action: begin Slice 12 — Windows application observations.
 - Next slice: 12 — Windows application observations, only after Slice 11 acceptance passes.
 
@@ -224,10 +231,8 @@ milestones only, never per-slice tags.
 PR planning (2026-10-15): Slice 10 is PR #24 into `develop`; Slice 11 is PR #25 stacked on it.
 Both have passing checks, the `slice` and `enhancement` labels, owner `MAJ224` assigned, and the
 `v0.2.0-alpha.1 - Plugin runtime and coordination` milestone. Both are tracked in the renamed
-`FocusRGB Roadmap` GitHub Project. This Codex session has no assignable GitHub identity, so it is
-recorded as the implementing assistant rather than replaced by another bot. GitHub rejected
-`claude` as a standard reviewer because it is not a repository collaborator; install or confirm
-the intended Claude GitHub integration before granting access or triggering review.
+`FocusRGB Roadmap` GitHub Project. Repository actions and authored text use the owner's identity;
+assistant contributions are recorded only with the matching `Assisted-by:` trailer.
 
 Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
 (`settings.json`, `state.json`, `native-setup.json`); seeded rules are `while-focused` in priority

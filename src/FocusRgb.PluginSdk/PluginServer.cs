@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using FocusRgb.Contracts;
 
 namespace FocusRgb.PluginSdk
@@ -23,6 +24,8 @@ namespace FocusRgb.PluginSdk
             var pending = new ConcurrentDictionary<long, CancellationTokenSource>();
             var tasks = new ConcurrentBag<Task>();
             using var writeGate = new SemaphoreSlim(1, 1);
+            using var errorGate = new SemaphoreSlim(1, 1);
+            plugin.Connect(new PluginHost(output, error, writeGate, errorGate));
 
             try
             {
@@ -51,7 +54,7 @@ namespace FocusRgb.PluginSdk
                         var root = document.RootElement;
                         if (!TryReadMethod(root, out var method))
                         {
-                            await WriteErrorAsync(output, writeGate, TryReadId(root), -32600,
+                            await WriteErrorAsync(output, writeGate, null, -32600,
                                 "Invalid JSON-RPC request.", lifetime.Token).ConfigureAwait(false);
                             continue;
                         }
@@ -66,9 +69,12 @@ namespace FocusRgb.PluginSdk
                             continue;
                         }
 
-                        var id = TryReadId(root);
-                        if (id is null)
+                        if (!root.TryGetProperty("id", out var idValue)
+                            || idValue.ValueKind != JsonValueKind.Number
+                            || !idValue.TryGetInt64(out var id))
                         {
+                            await WriteErrorAsync(output, writeGate, null, -32600,
+                                "Invalid JSON-RPC request.", lifetime.Token).ConfigureAwait(false);
                             continue;
                         }
 
@@ -76,13 +82,14 @@ namespace FocusRgb.PluginSdk
                             ? value.Clone()
                             : JsonSerializer.SerializeToElement(new { }, PluginJson.Options);
                         var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
-                        pending[id.Value] = requestCancellation;
+                        pending[id] = requestCancellation;
                         var task = HandleRequestAsync(
                             plugin,
                             output,
                             error,
                             writeGate,
-                            id.Value,
+                            errorGate,
+                            id,
                             method,
                             parameters,
                             requestCancellation.Token);
@@ -97,7 +104,7 @@ namespace FocusRgb.PluginSdk
                         _ = task.ContinueWith(
                             _ =>
                             {
-                                pending.TryRemove(id.Value, out var completedCancellation);
+                                pending.TryRemove(id, out var completedCancellation);
                                 completedCancellation?.Dispose();
                             },
                             CancellationToken.None,
@@ -135,6 +142,7 @@ namespace FocusRgb.PluginSdk
             TextWriter output,
             TextWriter error,
             SemaphoreSlim writeGate,
+            SemaphoreSlim errorGate,
             long id,
             string method,
             JsonElement parameters,
@@ -175,7 +183,8 @@ namespace FocusRgb.PluginSdk
             }
             catch (Exception exception)
             {
-                await error.WriteLineAsync(exception.ToString()).ConfigureAwait(false);
+                await WriteLogAsync(error, errorGate, exception.ToString(), CancellationToken.None)
+                    .ConfigureAwait(false);
                 await WriteErrorAsync(output, writeGate, id, -32603, "Plugin request failed.", cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -198,23 +207,21 @@ namespace FocusRgb.PluginSdk
             method = string.Empty;
             return root.ValueKind == JsonValueKind.Object
                 && root.TryGetProperty("jsonrpc", out var version)
+                && version.ValueKind == JsonValueKind.String
                 && version.GetString() == "2.0"
                 && root.TryGetProperty("method", out var methodValue)
+                && methodValue.ValueKind == JsonValueKind.String
                 && (method = methodValue.GetString() ?? string.Empty).Length > 0;
         }
-
-        private static long? TryReadId(JsonElement root) =>
-            root.ValueKind == JsonValueKind.Object
-            && root.TryGetProperty("id", out var id)
-            && id.TryGetInt64(out var value)
-                ? value
-                : null;
 
         private static bool TryReadCancelId(JsonElement root, out long id)
         {
             id = 0;
-            return root.TryGetProperty("params", out var parameters)
+            return root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("params", out var parameters)
+                && parameters.ValueKind == JsonValueKind.Object
                 && parameters.TryGetProperty("id", out var idValue)
+                && idValue.ValueKind == JsonValueKind.Number
                 && idValue.TryGetInt64(out id);
         }
 
@@ -234,8 +241,12 @@ namespace FocusRgb.PluginSdk
             int code,
             string message,
             CancellationToken cancellationToken) =>
-            await WriteAsync(output, writeGate, new { jsonrpc = "2.0", id, error = new { code, message } },
-                cancellationToken).ConfigureAwait(false);
+            await WriteAsync(output, writeGate, new JsonObject
+            {
+                ["jsonrpc"] = "2.0",
+                ["id"] = id,
+                ["error"] = new JsonObject { ["code"] = code, ["message"] = message }
+            }, cancellationToken).ConfigureAwait(false);
 
         private static async Task WriteAsync(
             TextWriter output,
@@ -256,9 +267,48 @@ namespace FocusRgb.PluginSdk
             }
         }
 
+        private static async Task WriteLogAsync(
+            TextWriter error,
+            SemaphoreSlim errorGate,
+            string message,
+            CancellationToken cancellationToken)
+        {
+            await errorGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await error.WriteLineAsync(message.AsMemory(), cancellationToken).ConfigureAwait(false);
+                await error.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                errorGate.Release();
+            }
+        }
+
         private sealed class JsonRpcDispatchException(int code, string message) : Exception(message)
         {
             public int Code { get; } = code;
+        }
+
+        private sealed class PluginHost(
+            TextWriter output,
+            TextWriter error,
+            SemaphoreSlim writeGate,
+            SemaphoreSlim errorGate) : IPluginHost
+        {
+            public Task NotifyStatusChangedAsync(CancellationToken cancellationToken = default) =>
+                WriteAsync(output, writeGate, new
+                {
+                    jsonrpc = "2.0",
+                    method = PluginMethods.StatusChanged,
+                    @params = new { }
+                }, cancellationToken);
+
+            public async Task LogAsync(string message, CancellationToken cancellationToken = default)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(message);
+                await WriteLogAsync(error, errorGate, message, cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 }

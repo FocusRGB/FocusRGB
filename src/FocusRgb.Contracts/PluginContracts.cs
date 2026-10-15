@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FocusRgb.Contracts
 {
     /// <summary>Names the JSON-RPC methods in the frozen 0.1 plugin protocol.</summary>
@@ -14,6 +16,7 @@ namespace FocusRgb.Contracts
     }
 
     /// <summary>Describes an installed plugin package before any process is launched.</summary>
+    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public sealed class PluginManifest
     {
         public int SchemaVersion { get; init; }
