@@ -56,18 +56,65 @@ namespace FocusRgb.App.Tests
             Assert.Equal("manifest-invalid", result.ErrorCode);
         }
 
+        [Fact]
+        public void Load_AcceptsLowerMinorContractVersion()
+        {
+            WritePackage(Manifest() with { ContractVersion = "0.0" });
+
+            var result = PluginPackage.Load(_directory, "fake-output");
+
+            Assert.True(result.IsSuccess, result.ErrorMessage);
+        }
+
+        [Theory]
+        [InlineData("version")]
+        [InlineData("operating-system")]
+        [InlineData("duplicate-resource")]
+        [InlineData("source")]
+        public void Load_RejectsManifestThatDoesNotMatchSchemaRules(string invalid)
+        {
+            var manifest = invalid switch
+            {
+                "version" => Manifest() with { Version = "1.0" },
+                "operating-system" => Manifest() with { OperatingSystems = ["plan9"] },
+                "duplicate-resource" => Manifest() with { Resources = ["effect", "effect"] },
+                _ => Manifest() with { Source = "relative" }
+            };
+            WritePackage(manifest);
+
+            var result = PluginPackage.Load(_directory, "fake-output");
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("manifest-invalid", result.ErrorCode);
+        }
+
+        [Fact]
+        public void Load_RejectsUnknownManifestProperty()
+        {
+            var package = WritePackage(Manifest());
+            var path = Path.Combine(package, PluginPackage.ManifestFileName);
+            var json = File.ReadAllText(path).TrimEnd('}');
+            File.WriteAllText(path, json + ",\"unknown\":true}");
+
+            var result = PluginPackage.Load(_directory, "fake-output");
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("manifest-invalid", result.ErrorCode);
+        }
+
         public void Dispose()
         {
             if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
         }
 
-        private void WritePackage(ManifestData manifest)
+        private string WritePackage(ManifestData manifest)
         {
             var package = Path.Combine(_directory, "fake-output");
             Directory.CreateDirectory(package);
             File.WriteAllText(Path.Combine(package, "fake.dll"), string.Empty);
             File.WriteAllText(Path.Combine(package, PluginPackage.ManifestFileName),
                 JsonSerializer.Serialize(manifest, PluginJson.Options));
+            return package;
         }
 
         private static ManifestData Manifest() => new(
@@ -92,6 +139,7 @@ namespace FocusRgb.App.Tests
             IReadOnlyList<string> Architectures,
             IReadOnlyList<string> Roles,
             IReadOnlyList<string> Resources,
-            string License);
+            string License,
+            string? Source = null);
     }
 }

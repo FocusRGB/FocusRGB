@@ -34,7 +34,7 @@
       "required": ["jsonrpc", "id"],
       "properties": {
         "jsonrpc": { "const": "2.0" },
-        "id": { "type": "integer" },
+        "id": { "type": ["integer", "null"] },
         "result": {},
         "error": {
           "type": "object",
