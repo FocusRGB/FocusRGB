@@ -259,7 +259,8 @@
                 <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
                   <TextBlock Text="Theme" VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1" ItemsSource="{Binding ApplicationThemes}"
-                            SelectedItem="{Binding ApplicationTheme}" />
+                            SelectedItem="{Binding ApplicationTheme}"
+                            SelectionChanged="ApplicationTheme_OnSelectionChanged" />
                 </Grid>
               </StackPanel>
             </Border>

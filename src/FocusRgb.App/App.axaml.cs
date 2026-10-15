@@ -301,9 +301,9 @@ namespace FocusRgb.App
         private static WindowIcon CreateIcon()
         {
             // shortcut: temporary generated glyph, replace when project branding is defined.
-            const string png =
-                "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAA8SURBVDhPY1BNfv2fEsyALkAqHrYGzPv5HwNc/IipDr8Bv/8vbsIiR0cDkAFuw/AYgFvTUDCABDwMDAAA67aNBCCjJCwAAAAASUVORK5CYII=";
-            using var stream = new MemoryStream(Convert.FromBase64String(png));
+            const string ico =
+                "AAABAAEAEBAAAAEAIACnAAAAFgAAAIlQTkcNChoKAAAADUlIRFIAAAAQAAAAEAgGAAAAH/P/YQAAAAFzUkdCAK7OHOkAAAAEZ0FNQQAAsY8L/GEFAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAAPElEQVQ4T2NQTX79nxLMgC5AKh62Bsz7+R8DXPyIqQ6/Ab//L27CIkdHA5ABbsPwGIBb01AwgAQ8DAwAAOu2jQQgoyQsAAAAAElFTkSuQmCC";
+            using var stream = new MemoryStream(Convert.FromBase64String(ico));
             return new WindowIcon(stream);
         }
     }

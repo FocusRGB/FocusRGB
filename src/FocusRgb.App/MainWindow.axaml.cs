@@ -49,6 +49,7 @@ namespace FocusRgb.App
 
         public void ShowFromTray()
         {
+            ShowInTaskbar = true;
             Show();
             WindowState = WindowState.Normal;
             Activate();
@@ -76,6 +77,7 @@ namespace FocusRgb.App
             e.Cancel = true;
             if (ViewModel.ShouldMinimizeOnClose)
             {
+                ShowInTaskbar = false;
                 Hide();
                 ViewModel.NotifyWindowHidden();
                 HiddenToTray?.Invoke(this, EventArgs.Empty);
@@ -128,8 +130,17 @@ namespace FocusRgb.App
             }
         }
 
-        private void CancelApplicationSettings_OnClick(object? sender, RoutedEventArgs e) =>
+        private void ApplicationTheme_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox { SelectedItem: string theme })
+                (Application.Current as App)?.ApplyTheme(theme);
+        }
+
+        private void CancelApplicationSettings_OnClick(object? sender, RoutedEventArgs e)
+        {
             ViewModel.CancelApplicationSettings();
+            (Application.Current as App)?.ApplyTheme(ViewModel.SavedApplicationTheme);
+        }
 
         private void OpenSettingsFolder_OnClick(object? sender, RoutedEventArgs e) =>
             OpenFolder(_dataDirectory, "Opened the settings folder.");
