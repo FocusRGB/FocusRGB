@@ -27,6 +27,11 @@ Adopted 2026-10-10. Applies to people and AI assistants.
    `slice/`, `fix/`, `chore/`, and `docs/` branches.
 6. Merge slice pull requests into `develop` with squash or a merge commit. Merge `develop`
    into `main` with a merge commit, not a squash, so the two branches do not diverge.
+7. Build a pull request from several focused commits, never one commit for the whole change.
+   Stage each logical step separately (`git add <paths>` or `git add -p`), for example build
+   configuration, each project, tests, CI, and documentation, so every commit can be reviewed
+   on its own and still builds where practical. Do not stage an entire pull request with
+   `git add -A`. A merge commit keeps these commits in `develop`; a squash merge collapses them.
 
 ## Branch protection
 
