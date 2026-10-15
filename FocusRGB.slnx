@@ -13,10 +13,12 @@
     <Project Path="src/FocusRgb.App/FocusRgb.App.csproj" />
     <Project Path="src/FocusRgb.Contracts/FocusRgb.Contracts.csproj" />
     <Project Path="src/FocusRgb.Core/FocusRgb.Core.csproj" />
+    <Project Path="src/FocusRgb.PluginSdk/FocusRgb.PluginSdk.csproj" />
     <Project Path="src/FocusRgb.Platform.Windows/FocusRgb.Platform.Windows.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/FocusRgb.App.Tests/FocusRgb.App.Tests.csproj" />
     <Project Path="tests/FocusRgb.Core.Tests/FocusRgb.Core.Tests.csproj" />
+    <Project Path="tests/FocusRgb.FakePlugin/FocusRgb.FakePlugin.csproj" />
   </Folder>
 </Solution>

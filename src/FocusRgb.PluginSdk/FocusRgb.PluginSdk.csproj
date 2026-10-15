@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>FocusRgb.PluginSdk</PackageId>
+    <Description>Minimal process-plugin SDK for the FocusRGB 0.x JSON-RPC protocol.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FocusRgb.Contracts\FocusRgb.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\schemas\*.json" Pack="true" PackagePath="contentFiles\any\any\schemas" />
+  </ItemGroup>
+</Project>
