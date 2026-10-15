@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 using FocusRgb.App.Diagnostics;
+using FocusRgb.App.Plugins;
 using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Persistence;
 
@@ -15,6 +16,7 @@ namespace FocusRgb.App
         private IClassicDesktopStyleApplicationLifetime? _desktop;
         private MainWindow? _mainWindow;
         private LocalStateStore? _store;
+        private PluginRuntime? _plugins;
         private bool _quitPending;
         private bool _quitWithoutSaving;
         private bool _shutdownApproved;
@@ -56,6 +58,20 @@ namespace FocusRgb.App
                 var trayAvailable = OperatingSystem.IsWindows();
                 AppLog.Configure(directory, startup.Snapshot!.Settings.Application!.VerboseLogging == true);
                 AppLog.Write($"Started; settings source={startup.Snapshot.SettingsSource}.");
+                _plugins = await PluginRuntime.StartAsync(
+                    Path.Combine(directory, "plugins"),
+                    startup.Snapshot.Settings.Plugins!.Enabled!);
+                foreach (var plugin in _plugins.Entries)
+                {
+                    if (plugin.Client is { } client)
+                    {
+                        client.LogReceived += (_, message) => AppLog.Write($"Plugin {plugin.PluginId}: {message}");
+                    }
+                    else
+                    {
+                        AppLog.Write($"Plugin {plugin.PluginId} did not start: {plugin.ErrorCode}: {plugin.ErrorMessage}");
+                    }
+                }
                 ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
                 var mainWindow = new MainWindow(
                     MainWindowViewModel.CreatePersistent(startup.Snapshot, _store, trayAvailable),
@@ -135,6 +151,7 @@ namespace FocusRgb.App
             _quitPending = true;
             if (_quitWithoutSaving)
             {
+                await StopPluginsAsync();
                 Shutdown();
                 return;
             }
@@ -148,7 +165,15 @@ namespace FocusRgb.App
                 return;
             }
 
+            await StopPluginsAsync();
             Shutdown();
+        }
+
+        private async Task StopPluginsAsync()
+        {
+            if (_plugins is null) return;
+            await _plugins.DisposeAsync();
+            _plugins = null;
         }
 
         private async void RequestQuit()

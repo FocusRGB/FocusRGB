@@ -9,6 +9,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\FocusRgb.App\FocusRgb.App.csproj" />
+    <ProjectReference Include="..\FocusRgb.FakePlugin\FocusRgb.FakePlugin.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
