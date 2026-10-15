@@ -1,6 +1,9 @@
+using FocusRgb.Contracts;
 using FocusRgb.Core.Commands;
 using FocusRgb.Core.Configuration;
+using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
+using FocusRgb.Core.Selection;
 
 namespace FocusRgb.Core.Tests
 {
@@ -28,6 +31,22 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("movie", result.Status!.Desired.ProfileId);
             Assert.Equal("manual", result.Status.Desired.Reason.Kind);
             Assert.Null(result.Status.Applied);
+        }
+
+        [Fact]
+        public async Task SelectProfileAsync_PersistsBeforeCoordinatorApply()
+        {
+            var events = new List<string>();
+            var store = new RecordingStateStore(events: events);
+            using var coordinator = new OutputCoordinator(
+                new OrderingGateway(events), NativeSetupJson.CreateDefault());
+            var service = new SelectionCommandService(store, coordinator);
+
+            var result = await service.SelectProfileAsync(
+                Settings(), State(), "movie", Now, TestContext.Current.CancellationToken);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(["save", "apply"], events);
         }
 
         [Fact]
@@ -119,6 +138,27 @@ namespace FocusRgb.Core.Tests
             Assert.Equal(Now, store.SavedState.UpdatedAt);
         }
 
+        [Fact]
+        public async Task ReapplyAsync_DoesNotOverwriteAConcurrentNewerSelection()
+        {
+            var store = new BlockingStateStore();
+            var service = new SelectionCommandService(store);
+            var oldState = State();
+            var select = service.SelectProfileAsync(
+                Settings(), oldState, "movie", Now, TestContext.Current.CancellationToken);
+            await store.SaveStarted.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+            var reapply = service.ReapplyAsync(
+                Settings(), oldState, FocusRgb.Core.Selection.SelectionReason.Manual(),
+                TestContext.Current.CancellationToken);
+            store.AllowSave.SetResult();
+
+            await select;
+            var result = await reapply;
+            Assert.Equal("movie", result.State!.ManualProfile);
+            Assert.Equal("movie", result.Status!.Desired.ProfileId);
+        }
+
         private static SettingsDocument Settings() => SettingsJson.LoadDefaults().Settings!;
 
         private static SelectionStateDocument State(string profile = "default") => new()
@@ -130,7 +170,7 @@ namespace FocusRgb.Core.Tests
             UpdatedAt = Now.AddMinutes(-1)
         };
 
-        private sealed class RecordingStateStore(bool fail = false) : ISelectionStateStore
+        private sealed class RecordingStateStore(bool fail = false, List<string>? events = null) : ISelectionStateStore
         {
             public SelectionStateDocument? SavedState { get; private set; }
 
@@ -139,6 +179,7 @@ namespace FocusRgb.Core.Tests
                 SettingsDocument settings,
                 CancellationToken cancellationToken = default)
             {
+                events?.Add("save");
                 if (fail)
                 {
                     return Task.FromResult(SaveResult.Fail(new PersistenceError
@@ -150,6 +191,72 @@ namespace FocusRgb.Core.Tests
 
                 SavedState = state;
                 return Task.FromResult(SaveResult.Ok());
+            }
+        }
+
+        private sealed class OrderingGateway(List<string> events) : IPluginOutputGateway
+        {
+            public IReadOnlyList<PluginCapability>? GetCapabilities(string pluginId) =>
+            [
+                new PluginCapability { Id = "provider.effect.select", Support = "supported" },
+                new PluginCapability { Id = "provider.layout.select", Support = "supported" }
+            ];
+
+            public Task<PluginGatewayResult<PluginCatalogResult>> ListCatalogAsync(
+                string pluginId,
+                string kind,
+                CancellationToken cancellationToken = default) => Task.FromResult(
+                    new PluginGatewayResult<PluginCatalogResult>(new PluginCatalogResult
+                    {
+                        Support = "supported",
+                        Items =
+                        [
+                            new PluginCatalogItem
+                            {
+                                ResourceId = "resolved",
+                                DisplayName = kind == "effect" ? "Screen Ambient" : "Current provider layout",
+                                Available = true
+                            }
+                        ]
+                    }));
+
+            public Task<PluginGatewayResult<BindingApplyResult>> ApplyBindingAsync(
+                string pluginId,
+                BindingApplyParameters parameters,
+                CancellationToken cancellationToken = default)
+            {
+                events.Add("apply");
+                return Task.FromResult(new PluginGatewayResult<BindingApplyResult>(new BindingApplyResult
+                {
+                    Outcome = "applied"
+                }));
+            }
+
+            public Task<PluginGatewayResult<BindingReleaseResult>> ReleaseBindingAsync(
+                string pluginId,
+                BindingReleaseParameters parameters,
+                CancellationToken cancellationToken = default) => Task.FromResult(
+                    new PluginGatewayResult<BindingReleaseResult>(new BindingReleaseResult
+                    {
+                        Outcome = "nothing-to-release"
+                    }));
+        }
+
+        private sealed class BlockingStateStore : ISelectionStateStore
+        {
+            public TaskCompletionSource SaveStarted { get; } = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            public TaskCompletionSource AllowSave { get; } = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public async Task<SaveResult> SaveStateAsync(
+                SelectionStateDocument state,
+                SettingsDocument settings,
+                CancellationToken cancellationToken = default)
+            {
+                SaveStarted.SetResult();
+                await AllowSave.Task.WaitAsync(cancellationToken);
+                return SaveResult.Ok();
             }
         }
     }

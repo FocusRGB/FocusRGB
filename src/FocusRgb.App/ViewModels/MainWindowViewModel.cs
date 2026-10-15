@@ -260,8 +260,11 @@ namespace FocusRgb.App.ViewModels
                 if (_runtimeStatus?.Applied is { } applied
                     && applied.Bindings.Any(binding => binding.Outcome is "applied" or "unverified"))
                 {
-                    return Profiles.FirstOrDefault(profile => profile.Id == applied.ProfileId)?.DisplayName
+                    var name = Profiles.FirstOrDefault(profile => profile.Id == applied.ProfileId)?.DisplayName
                         ?? applied.ProfileId;
+                    return applied.Bindings.Any(binding => binding.Outcome == "unverified")
+                        ? $"{name} (unverified)"
+                        : name;
                 }
                 return _runtimeStatus?.Pending.Count > 0 && _runtimeStatus.Pending[0] is { } pending
                     ? $"Not applied ({pending.ReasonCode})"

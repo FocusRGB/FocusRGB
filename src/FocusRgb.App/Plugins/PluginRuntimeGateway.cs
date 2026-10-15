@@ -88,9 +88,17 @@ namespace FocusRgb.App.Plugins
             try
             {
                 var status = await entry.Client!.GetStatusAsync().ConfigureAwait(false);
-                AvailabilityChanged?.Invoke(this, new PluginAvailabilityChangedEventArgs(
-                    entry.PluginId,
-                    status.IsSuccess && status.Value!.Availability == "available"));
+                if (status.IsSuccess)
+                {
+                    AvailabilityChanged?.Invoke(this, new PluginAvailabilityChangedEventArgs(
+                        entry.PluginId,
+                        status.Value!.Availability is "available" or "degraded"));
+                }
+                else if (status.ErrorCode is "plugin-absent" or "plugin-exited")
+                {
+                    AvailabilityChanged?.Invoke(this, new PluginAvailabilityChangedEventArgs(
+                        entry.PluginId, false));
+                }
             }
             catch (Exception exception) when (exception is IOException or ObjectDisposedException)
             {

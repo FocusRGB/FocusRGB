@@ -42,7 +42,7 @@ namespace FocusRgb.Core.Tests
 
             Assert.Equal("default", status.Desired.ProfileId);
             Assert.Equal("fallback", status.Effective.Source);
-            Assert.Null(status.Applied);
+            Assert.Equal("unavailable", Assert.Single(status.Applied!.Bindings).Outcome);
             Assert.Equal("plugin-absent", Assert.Single(status.Effective.Skipped).ReasonCode);
             Assert.Equal("native-output-unavailable", Assert.Single(status.Pending).ReasonCode);
         }
@@ -79,6 +79,8 @@ namespace FocusRgb.Core.Tests
             await coordinator.ApplyAsync(settings, State("default"), SelectionReason.Manual(),
                 TestContext.Current.CancellationToken);
 
+            await coordinator.ReportAvailabilityAsync("fake-output", available: false,
+                TestContext.Current.CancellationToken);
             gateway.Enable("fake-output");
             await coordinator.ReportAvailabilityAsync("fake-output", available: true,
                 TestContext.Current.CancellationToken);
@@ -125,6 +127,8 @@ namespace FocusRgb.Core.Tests
             var settings = Settings(("default", "fake-output", "provider-managed", null));
             await coordinator.ApplyAsync(settings, State("default"), SelectionReason.Manual(),
                 TestContext.Current.CancellationToken);
+            await coordinator.ReportAvailabilityAsync("fake-output", available: false,
+                TestContext.Current.CancellationToken);
             gateway.Enable("fake-output");
             var recovered = await coordinator.ReportAvailabilityAsync("fake-output", available: true,
                 TestContext.Current.CancellationToken);
@@ -135,6 +139,228 @@ namespace FocusRgb.Core.Tests
             Assert.Empty(declined!.Notifications);
             Assert.Empty(gateway.Applied);
             Assert.Equal("fallback", declined.Effective.Source);
+        }
+
+        [Fact]
+        public async Task ApplyAsync_TriesRemainingSiblingBeforeNestedFallbacks()
+        {
+            var gateway = new FakeGateway("plugin-music");
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var settings = Settings(
+                ("default", "missing-default", "provider-managed", null),
+                ("movie", "missing-movie", "provider-managed", null),
+                ("programming", "missing-programming", "provider-managed", null),
+                ("music", "plugin-music", "provider-managed", null));
+            SetFallback(settings, "default", "movie", "music");
+            SetFallback(settings, "movie", "programming");
+
+            var status = await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            Assert.Equal("music", status.Effective.ProfileId);
+            Assert.Equal(1, status.Effective.CandidateIndex);
+            Assert.Equal(["default", "movie"],
+                status.Effective.Skipped.Select(item => item.ProfileId));
+        }
+
+        [Fact]
+        public async Task ApplyAsync_TriesFailedFallbackProfilesOwnFallbacks()
+        {
+            var gateway = new FakeGateway("plugin-music");
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var settings = Settings(
+                ("default", "missing-default", "provider-managed", null),
+                ("movie", "missing-movie", "provider-managed", null),
+                ("music", "plugin-music", "provider-managed", null));
+            SetFallback(settings, "default", "movie");
+            SetFallback(settings, "movie", "music");
+
+            var status = await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            Assert.Equal("music", status.Effective.ProfileId);
+            Assert.Equal(0, status.Effective.CandidateIndex);
+            Assert.Equal(["default", "movie"],
+                status.Effective.Skipped.Select(item => item.ProfileId));
+        }
+
+        [Theory]
+        [InlineData("timeout")]
+        [InlineData("malformed-response")]
+        [InlineData("plugin-exited")]
+        public async Task ApplyAsync_RetriesAfterTransientGatewayFailure(string errorCode)
+        {
+            var gateway = new FakeGateway("fake-output") { ApplyErrorCode = errorCode };
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var settings = Settings(("default", "fake-output", "provider-managed", null));
+
+            var failed = await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+            gateway.ApplyErrorCode = null;
+            var retried = await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            Assert.Equal(errorCode, Assert.Single(failed.Effective.Skipped).ReasonCode);
+            Assert.Equal("applied", Assert.Single(retried.Applied!.Bindings).Outcome);
+            Assert.Single(gateway.Applied);
+        }
+
+        [Fact]
+        public async Task Recovery_DeclineCanBeOverriddenByExplicitSelection()
+        {
+            var gateway = new FakeGateway();
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var settings = Settings(("default", "fake-output", "provider-managed", null));
+            await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+            await coordinator.ReportAvailabilityAsync(
+                "fake-output", false, TestContext.Current.CancellationToken);
+            gateway.Enable("fake-output");
+            var recovered = await coordinator.ReportAvailabilityAsync(
+                "fake-output", true, TestContext.Current.CancellationToken);
+            await coordinator.RespondToNotificationAsync(
+                recovered!.Notifications[0].Id, "decline", TestContext.Current.CancellationToken);
+
+            var selected = await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), approveRecovery: true,
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("applied", Assert.Single(selected.Applied!.Bindings).Outcome);
+            Assert.Empty(selected.Notifications);
+        }
+
+        [Fact]
+        public async Task ApplyAsync_AcceptsNothingToReleaseAndOverlapsProviderManagedScope()
+        {
+            var gateway = new FakeGateway("plugin-a", "plugin-b") { ReleaseOutcome = "nothing-to-release" };
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var settings = Settings(
+                ("default", "plugin-a", "provider-managed", null),
+                ("movie", "plugin-b", "devices", "desk"));
+            await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            var status = await coordinator.ApplyAsync(
+                settings, State("movie"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            Assert.Equal("movie", status.Applied!.ProfileId);
+            Assert.Single(gateway.Released);
+        }
+
+        [Fact]
+        public async Task AvailabilityLossKeepsUnconfirmedOwnershipAndReportsUnavailableAttempt()
+        {
+            var gateway = new FakeGateway("plugin-a", "plugin-b") { ReleaseErrorCode = "plugin-exited" };
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var settings = Settings(
+                ("default", "plugin-a", "devices", "desk"),
+                ("movie", "plugin-b", "devices", "desk"));
+            await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            var unavailable = await coordinator.ReportAvailabilityAsync(
+                "plugin-a", false, TestContext.Current.CancellationToken);
+            var switched = await coordinator.ApplyAsync(
+                settings, State("movie"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            Assert.Equal("unavailable", Assert.Single(unavailable!.Applied!.Bindings).Outcome);
+            Assert.Equal("movie", switched.Applied!.ProfileId);
+            Assert.Equal("unavailable", Assert.Single(switched.Applied.Bindings).Outcome);
+            Assert.Equal("device-owned-elsewhere", Assert.Single(switched.Effective.Skipped).ReasonCode);
+            Assert.DoesNotContain(gateway.Applied, item => item.Profile == "movie");
+        }
+
+        [Fact]
+        public async Task ApplyAsync_ReportsAmbiguousAndRestrictedCatalogEntries()
+        {
+            var gateway = new FakeGateway("fake-output")
+            {
+                CatalogItems =
+                [
+                    Item("Aurora", "one"),
+                    Item("Aurora", "two")
+                ]
+            };
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var settings = Settings(("default", "fake-output", "provider-managed", null));
+
+            var ambiguous = await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+            gateway.CatalogItems =
+            [
+                Item("Aurora", "paid", false, "account-restricted")
+            ];
+            var restricted = await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            Assert.Equal("resource-ambiguous", Assert.Single(ambiguous.Effective.Skipped).ReasonCode);
+            Assert.Equal("account-restricted", Assert.Single(restricted.Effective.Skipped).ReasonCode);
+        }
+
+        [Theory]
+        [InlineData("rejected", "account-restricted")]
+        [InlineData("unsupported", "capability-unsupported")]
+        public async Task ApplyAsync_PreservesPluginBusinessOutcome(string outcome, string reasonCode)
+        {
+            var gateway = new FakeGateway("fake-output")
+            {
+                ApplyOutcome = outcome,
+                ApplyReason = new PluginReason { Code = reasonCode, Message = "Request was not applied." }
+            };
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+
+            var status = await coordinator.ApplyAsync(
+                Settings(("default", "fake-output", "provider-managed", null)),
+                State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            var binding = Assert.Single(status.Applied!.Bindings);
+            Assert.Equal(outcome, binding.Outcome);
+            Assert.Equal(reasonCode, binding.ReasonCode);
+        }
+
+        [Fact]
+        public async Task ApplyAsync_UsesCaseSensitiveCatalogNames()
+        {
+            var gateway = new FakeGateway("fake-output")
+            {
+                CatalogItems = [Item("aurora", "wrong-case")]
+            };
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+
+            var status = await coordinator.ApplyAsync(
+                Settings(("default", "fake-output", "provider-managed", null)),
+                State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            Assert.Equal("resource-not-found", Assert.Single(status.Effective.Skipped).ReasonCode);
+            Assert.Empty(gateway.Applied);
+        }
+
+        [Fact]
+        public async Task ApplyAsync_BoundsFallbackCyclesWithoutInventingAReasonCode()
+        {
+            using var coordinator = new OutputCoordinator(new FakeGateway(), NativeSetupJson.CreateDefault());
+            var settings = Settings(
+                ("default", "missing-default", "provider-managed", null),
+                ("movie", "missing-movie", "provider-managed", null));
+            SetFallback(settings, "default", "movie");
+            SetFallback(settings, "movie", "default");
+
+            var status = await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            Assert.Equal(3, status.Effective.Skipped.Count);
+            Assert.DoesNotContain(status.Effective.Skipped, item => item.ReasonCode == "fallback-cycle");
+        }
+
+        [Fact]
+        public async Task RespondToNotificationAsync_ReturnsNullForUnknownId()
+        {
+            using var coordinator = new OutputCoordinator(new FakeGateway(), NativeSetupJson.CreateDefault());
+
+            var status = await coordinator.RespondToNotificationAsync(
+                "missing", "decline", TestContext.Current.CancellationToken);
+
+            Assert.Null(status);
         }
 
         private static SelectionStateDocument State(string profile) => new()
@@ -162,11 +388,49 @@ namespace FocusRgb.Core.Tests
             return SettingsJson.Load(root.ToJsonString()).Settings!;
         }
 
+        private static void SetFallback(SettingsDocument settings, string profileId, params string[] profileIds)
+        {
+            var profile = settings.Profiles!.Single(item => item.Id == profileId);
+            profile.Fallback!.Clear();
+            profile.Fallback.AddRange(profileIds.Select(id => new FallbackSettings
+            {
+                Kind = "profile",
+                Profile = id
+            }));
+        }
+
+        private static PluginCatalogItem Item(
+            string displayName,
+            string resourceId,
+            bool available = true,
+            string? reasonCode = null) => new()
+            {
+                ResourceId = resourceId,
+                DisplayName = displayName,
+                Available = available,
+                Reason = reasonCode is null ? null : new PluginReason
+                {
+                    Code = reasonCode,
+                    Message = "Resource is restricted."
+                }
+            };
+
         private sealed class FakeGateway(params string[] enabled) : IPluginOutputGateway
         {
             private readonly HashSet<string> _enabled = new(enabled, StringComparer.Ordinal);
             public List<BindingApplyParameters> Applied { get; } = [];
+            public List<BindingReleaseParameters> Released { get; } = [];
             public string ReleaseOutcome { get; init; } = "released";
+            public string? ReleaseErrorCode { get; init; }
+            public string? ApplyErrorCode { get; set; }
+            public string ApplyOutcome { get; init; } = "applied";
+            public PluginReason? ApplyReason { get; init; }
+            public IReadOnlyList<PluginCatalogItem> CatalogItems { get; set; } =
+            [
+                Item("Aurora", "fake-aurora"),
+                Item("Screen Ambient", "fake-screen"),
+                Item("Logarithmic Visualizer", "fake-music")
+            ];
 
             public void Enable(string pluginId) => _enabled.Add(pluginId);
 
@@ -187,21 +451,7 @@ namespace FocusRgb.Core.Tests
                     new PluginGatewayResult<PluginCatalogResult>(new PluginCatalogResult
                     {
                         Support = "supported",
-                        Items =
-                        [
-                            new PluginCatalogItem
-                            {
-                                ResourceId = "fake-aurora",
-                                DisplayName = "Aurora",
-                                Available = true
-                            },
-                            new PluginCatalogItem
-                            {
-                                ResourceId = "fake-screen",
-                                DisplayName = "Screen Ambient",
-                                Available = true
-                            }
-                        ]
+                        Items = CatalogItems
                     }));
 
             public Task<PluginGatewayResult<BindingApplyResult>> ApplyBindingAsync(
@@ -209,10 +459,14 @@ namespace FocusRgb.Core.Tests
                 BindingApplyParameters parameters,
                 CancellationToken cancellationToken = default)
             {
+                if (ApplyErrorCode is not null)
+                    return Task.FromResult(new PluginGatewayResult<BindingApplyResult>(
+                        ApplyErrorCode, "Transient request failure."));
                 Applied.Add(parameters);
                 return Task.FromResult(new PluginGatewayResult<BindingApplyResult>(new BindingApplyResult
                 {
-                    Outcome = "applied",
+                    Outcome = ApplyOutcome,
+                    Reason = ApplyReason,
                     Actual = new PluginSelection { Effect = parameters.Effect, Layout = parameters.Layout }
                 }));
             }
@@ -220,11 +474,16 @@ namespace FocusRgb.Core.Tests
             public Task<PluginGatewayResult<BindingReleaseResult>> ReleaseBindingAsync(
                 string pluginId,
                 BindingReleaseParameters parameters,
-                CancellationToken cancellationToken = default) => Task.FromResult(
-                    new PluginGatewayResult<BindingReleaseResult>(new BindingReleaseResult
+                CancellationToken cancellationToken = default)
+            {
+                Released.Add(parameters);
+                return Task.FromResult(ReleaseErrorCode is null
+                    ? new PluginGatewayResult<BindingReleaseResult>(new BindingReleaseResult
                     {
                         Outcome = ReleaseOutcome
-                    }));
+                    })
+                    : new PluginGatewayResult<BindingReleaseResult>(ReleaseErrorCode, "Release failed."));
+            }
         }
     }
 }

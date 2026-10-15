@@ -406,7 +406,7 @@ empty `items` list, and a reason. It never returns a guessed list.
 
 ### Reason codes
 
-`provider-not-running`, `account-restricted`, `resource-not-found`, `capability-unsupported`,
+`provider-not-running`, `account-restricted`, `resource-not-found`, `resource-ambiguous`, `capability-unsupported`,
 `selection-not-observable`, `device-owned-elsewhere`, `native-output-unavailable`,
 `plugin-absent`, `plugin-exited`, `contract-incompatible`, `timeout`, `malformed-response`.
 New codes may be added in a minor version; unknown codes display their `message`.

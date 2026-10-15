@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
@@ -6,10 +7,16 @@ using FocusRgb.Core.Selection;
 namespace FocusRgb.Core.Commands
 {
     /// <summary>Runs local selection commands and exposes status without claiming output was applied.</summary>
+    [SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable",
+        Justification = "SemaphoreSlim owns no native handle because AvailableWaitHandle is never requested.")]
     public sealed class SelectionCommandService
     {
         private readonly ISelectionStateStore _store;
         private readonly OutputCoordinator? _outputCoordinator;
+        private readonly SemaphoreSlim _commandGate = new(1, 1);
+        private SelectionStateDocument? _latestState;
+        private SelectionReason? _latestReason;
+        private long _stateGeneration;
 
         public SelectionCommandService(ISelectionStateStore store, OutputCoordinator? outputCoordinator = null)
         {
@@ -29,7 +36,9 @@ namespace FocusRgb.Core.Commands
                 return Task.FromResult(SelectionCommandResult.Fail("invalid-profile", $"Unknown profile '{profileId}'."));
 
             var next = Copy(current, "manual", profileId, profileId, now);
-            return SaveAsync(settings, next, SelectionReason.Manual(), applyOutput: true, cancellationToken);
+            return SaveAsync(
+                settings, next, SelectionReason.Manual(), applyOutput: true,
+                approveRecovery: true, cancellationToken);
         }
 
         /// <summary>Changes selection mode while retaining the last desired profile until observations exist.</summary>
@@ -47,7 +56,8 @@ namespace FocusRgb.Core.Commands
             var desired = mode == "manual" ? manualProfile : current.LastSelectedProfile!;
             var next = Copy(current, mode, manualProfile, desired, now);
             var reason = mode == "manual" ? SelectionReason.Manual() : SelectionReason.ObservationPending();
-            return SaveAsync(settings, next, reason, applyOutput: true, cancellationToken);
+            return SaveAsync(settings, next, reason, applyOutput: true,
+                approveRecovery: false, cancellationToken);
         }
 
         /// <summary>Flushes the current valid state before an explicit application shutdown.</summary>
@@ -66,7 +76,8 @@ namespace FocusRgb.Core.Commands
             var reason = current.Mode == "manual"
                 ? SelectionReason.Manual()
                 : SelectionReason.ObservationPending();
-            return SaveAsync(settings, next, reason, applyOutput: false, cancellationToken);
+            return SaveAsync(settings, next, reason, applyOutput: false,
+                approveRecovery: false, cancellationToken);
         }
 
         /// <summary>Projects desired state and explicitly reports that no output integration is connected.</summary>
@@ -117,10 +128,27 @@ namespace FocusRgb.Core.Commands
             SelectionReason reason,
             CancellationToken cancellationToken = default)
         {
-            var status = _outputCoordinator is null
-                ? GetStatus(current, reason)
-                : await _outputCoordinator.ApplyAsync(settings, current, reason, cancellationToken).ConfigureAwait(false);
-            return SelectionCommandResult.Ok(current, status);
+            var observedGeneration = Volatile.Read(ref _stateGeneration);
+            await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var useLatest = _latestState is not null
+                    && (observedGeneration != Volatile.Read(ref _stateGeneration)
+                        || _latestState.UpdatedAt > current.UpdatedAt);
+                var state = useLatest ? _latestState! : current;
+                var effectiveReason = useLatest ? _latestReason! : reason;
+                var status = _outputCoordinator is null
+                    ? GetStatus(state, effectiveReason)
+                    : await _outputCoordinator.ApplyAsync(
+                        settings, state, effectiveReason, cancellationToken: cancellationToken).ConfigureAwait(false);
+                _latestState = state;
+                _latestReason = effectiveReason;
+                return SelectionCommandResult.Ok(state, status);
+            }
+            finally
+            {
+                _commandGate.Release();
+            }
         }
 
         private async Task<SelectionCommandResult> SaveAsync(
@@ -128,20 +156,33 @@ namespace FocusRgb.Core.Commands
             SelectionStateDocument next,
             SelectionReason reason,
             bool applyOutput,
+            bool approveRecovery,
             CancellationToken cancellationToken)
         {
-            var save = await _store.SaveStateAsync(next, settings, cancellationToken).ConfigureAwait(false);
-            if (!save.IsSuccess)
+            await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
             {
-                return SelectionCommandResult.Fail(
-                    "persistence-failed",
-                    $"{save.Error!.FileName}: {save.Error.Message}");
-            }
+                var save = await _store.SaveStateAsync(next, settings, cancellationToken).ConfigureAwait(false);
+                if (!save.IsSuccess)
+                {
+                    return SelectionCommandResult.Fail(
+                        "persistence-failed",
+                        $"{save.Error!.FileName}: {save.Error.Message}");
+                }
 
-            var status = applyOutput && _outputCoordinator is not null
-                ? await _outputCoordinator.ApplyAsync(settings, next, reason, cancellationToken).ConfigureAwait(false)
-                : _outputCoordinator?.CurrentStatus ?? GetStatus(next, reason);
-            return SelectionCommandResult.Ok(next, status);
+                var status = applyOutput && _outputCoordinator is not null
+                    ? await _outputCoordinator.ApplyAsync(
+                        settings, next, reason, approveRecovery, cancellationToken).ConfigureAwait(false)
+                    : _outputCoordinator?.CurrentStatus ?? GetStatus(next, reason);
+                _latestState = next;
+                _latestReason = reason;
+                Interlocked.Increment(ref _stateGeneration);
+                return SelectionCommandResult.Ok(next, status);
+            }
+            finally
+            {
+                _commandGate.Release();
+            }
         }
 
         private static SelectionStateDocument Copy(
@@ -158,6 +199,7 @@ namespace FocusRgb.Core.Commands
                 UpdatedAt = updatedAt,
                 AdditionalProperties = source.AdditionalProperties
             };
+
     }
 
     /// <summary>Returns a completed selection command or one actionable error.</summary>

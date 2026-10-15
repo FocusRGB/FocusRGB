@@ -66,10 +66,6 @@ namespace FocusRgb.App
                 var pluginGateway = new PluginRuntimeGateway([]);
                 var outputCoordinator = new OutputCoordinator(pluginGateway, startup.Snapshot.NativeSetup);
                 _outputCoordinator = outputCoordinator;
-                var initialOutput = await outputCoordinator.ApplyAsync(
-                    startup.Snapshot.Settings,
-                    startup.Snapshot.State,
-                    startup.Snapshot.Desired.Reason);
                 pluginGateway.AvailabilityChanged += async (_, change) =>
                 {
                     try
@@ -81,6 +77,10 @@ namespace FocusRgb.App
                         AppLog.Write($"Plugin availability update failed: {exception.Message}");
                     }
                 };
+                var initialOutput = await outputCoordinator.ApplyAsync(
+                    startup.Snapshot.Settings,
+                    startup.Snapshot.State,
+                    startup.Snapshot.Desired.Reason);
                 ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
                 var mainWindow = new MainWindow(
                     MainWindowViewModel.CreatePersistent(
