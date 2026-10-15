@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using FocusRgb.Contracts;
 
@@ -8,15 +9,23 @@ namespace FocusRgb.App.Plugins
     /// <summary>Owns one plugin process and correlates bounded JSON-RPC requests over standard IO.</summary>
     public sealed class PluginProcessClient : IAsyncDisposable
     {
+        private const int MaxLineLength = 64 * 1024;
         private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan InitializeTimeout = TimeSpan.FromSeconds(10);
+        private static readonly TimeSpan ExitGrace = TimeSpan.FromMilliseconds(500);
         private readonly Process _process;
         private readonly StreamWriter _input;
         private readonly SemaphoreSlim _writeGate = new(1, 1);
         private readonly ConcurrentDictionary<long, TaskCompletionSource<RpcResponse>> _pending = new();
         private readonly CancellationTokenSource _lifetime = new();
+        private readonly object _logGate = new();
+        private readonly Queue<string> _bufferedLogs = new();
         private readonly Task _reader;
+        private readonly Task _errorReader;
+        private readonly Task _exitObserver;
+        private EventHandler<string>? _logReceived;
         private long _nextId;
+        private int _statusChangePending;
         private bool _disposed;
 
         private PluginProcessClient(Process process)
@@ -26,13 +35,31 @@ namespace FocusRgb.App.Plugins
             _input.AutoFlush = true;
             Health = "starting";
             _reader = ReadResponsesAsync();
-            _ = ObserveExitAsync();
+            _errorReader = ReadErrorsAsync();
+            _exitObserver = ObserveExitAsync();
         }
 
         public string Health { get; private set; }
         public string? PluginId { get; private set; }
         public event EventHandler? StatusChanged;
-        public event EventHandler<string>? LogReceived;
+        public event EventHandler<string>? LogReceived
+        {
+            add
+            {
+                List<string> buffered;
+                lock (_logGate)
+                {
+                    _logReceived += value;
+                    buffered = [.. _bufferedLogs];
+                    _bufferedLogs.Clear();
+                }
+                foreach (var message in buffered) value?.Invoke(this, message);
+            }
+            remove
+            {
+                lock (_logGate) _logReceived -= value;
+            }
+        }
 
         public static async Task<PluginStartResult> StartAsync(
             PluginLaunchSpec launch,
@@ -41,6 +68,7 @@ namespace FocusRgb.App.Plugins
         {
             ArgumentNullException.ThrowIfNull(launch);
             ArgumentNullException.ThrowIfNull(manifest);
+            var utf8 = new UTF8Encoding(false);
             var startInfo = new ProcessStartInfo
             {
                 FileName = launch.FileName,
@@ -48,12 +76,12 @@ namespace FocusRgb.App.Plugins
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                StandardInputEncoding = utf8,
+                StandardOutputEncoding = utf8,
+                StandardErrorEncoding = utf8,
                 CreateNoWindow = true
             };
-            foreach (var argument in launch.Arguments)
-            {
-                startInfo.ArgumentList.Add(argument);
-            }
+            foreach (var argument in launch.Arguments) startInfo.ArgumentList.Add(argument);
 
             Process process;
             try
@@ -67,39 +95,57 @@ namespace FocusRgb.App.Plugins
             }
 
             var client = new PluginProcessClient(process);
-            var initialized = await client.CallAsync<InitializeResult>(
-                PluginMethods.Initialize,
-                new InitializeParameters
+            try
+            {
+                var initialized = await client.CallAsync<InitializeResult>(
+                    PluginMethods.Initialize,
+                    new InitializeParameters
+                    {
+                        ContractVersion = ContractVersion.Current,
+                        Host = new PluginHostInfo { Name = "FocusRGB", Version = "0.1.0" }
+                    },
+                    InitializeTimeout,
+                    cancellationToken).ConfigureAwait(false);
+                if (!initialized.IsSuccess)
                 {
-                    ContractVersion = ContractVersion.Current,
-                    Host = new PluginHostInfo { Name = "FocusRGB", Version = "0.1.0" }
-                },
-                InitializeTimeout,
-                cancellationToken).ConfigureAwait(false);
-            if (!initialized.IsSuccess)
+                    await client.DisposeAsync().ConfigureAwait(false);
+                    return PluginStartResult.Fail(initialized.ErrorCode!, initialized.ErrorMessage!);
+                }
+
+                var handshake = initialized.Value!;
+                if (handshake.PluginId != manifest.Id
+                    || handshake.Capabilities is null
+                    || !PluginPackage.TryContractMajor(handshake.ContractVersion, out var major)
+                    || major != ContractVersion.Major)
+                {
+                    await client.DisposeAsync().ConfigureAwait(false);
+                    return PluginStartResult.Fail("contract-incompatible", "The plugin handshake does not match its manifest.");
+                }
+
+                client.PluginId = handshake.PluginId;
+                client.Health = "healthy";
+                return PluginStartResult.Ok(client, handshake);
+            }
+            catch
             {
                 await client.DisposeAsync().ConfigureAwait(false);
-                return PluginStartResult.Fail(initialized.ErrorCode!, initialized.ErrorMessage!);
+                throw;
             }
-
-            var handshake = initialized.Value!;
-            if (handshake.PluginId != manifest.Id
-                || !PluginPackage.TryContractMajor(handshake.ContractVersion, out var major)
-                || major != ContractVersion.Major)
-            {
-                await client.DisposeAsync().ConfigureAwait(false);
-                return PluginStartResult.Fail("contract-incompatible", "The plugin handshake does not match its manifest.");
-            }
-
-            client.PluginId = handshake.PluginId;
-            client.Health = "healthy";
-            client.BeginErrorRead();
-            return PluginStartResult.Ok(client, handshake);
         }
 
-        public Task<PluginCallResult<PluginStatusResult>> GetStatusAsync(
-            CancellationToken cancellationToken = default) =>
-            CallAsync<PluginStatusResult>(PluginMethods.StatusGet, new { }, DefaultTimeout, cancellationToken);
+        public async Task<PluginCallResult<PluginStatusResult>> GetStatusAsync(
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await CallAsync<PluginStatusResult>(
+                    PluginMethods.StatusGet, new { }, DefaultTimeout, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _statusChangePending, 0);
+            }
+        }
 
         public Task<PluginCallResult<PluginCatalogResult>> ListCatalogAsync(
             string kind,
@@ -120,7 +166,6 @@ namespace FocusRgb.App.Plugins
         public async ValueTask DisposeAsync()
         {
             if (_disposed) return;
-            _disposed = true;
             if (!_process.HasExited)
             {
                 using var shutdown = new CancellationTokenSource(TimeSpan.FromSeconds(2));
@@ -128,23 +173,27 @@ namespace FocusRgb.App.Plugins
                 {
                     await CallAsync<JsonElement>(PluginMethods.Shutdown, new { }, DefaultTimeout, shutdown.Token)
                         .ConfigureAwait(false);
+                    await _process.WaitForExitAsync().WaitAsync(ExitGrace).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException)
+                catch (Exception exception) when (exception is OperationCanceledException
+                    or TimeoutException or IOException or InvalidOperationException or ObjectDisposedException)
                 {
                 }
             }
+
+            _disposed = true;
             _lifetime.Cancel();
-            if (!_process.HasExited)
-            {
-                _process.Kill(entireProcessTree: true);
-            }
             try
             {
-                await _reader.ConfigureAwait(false);
+                if (!_process.HasExited) _process.Kill(entireProcessTree: true);
             }
-            catch (OperationCanceledException)
+            catch (InvalidOperationException)
             {
             }
+
+            await ObserveWithoutThrowingAsync(_reader).ConfigureAwait(false);
+            await ObserveWithoutThrowingAsync(_errorReader).ConfigureAwait(false);
+            await ObserveWithoutThrowingAsync(_exitObserver).ConfigureAwait(false);
             FailPending("plugin-exited", "The plugin process exited.");
             _input.Dispose();
             _process.Dispose();
@@ -158,13 +207,12 @@ namespace FocusRgb.App.Plugins
             TimeSpan timeout,
             CancellationToken cancellationToken)
         {
-            if (_process.HasExited)
+            if (_disposed || _process.HasExited)
                 return new PluginCallResult<T>("plugin-exited", "The plugin process exited.");
 
             var id = Interlocked.Increment(ref _nextId);
             var completion = new TaskCompletionSource<RpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
-            if (!_pending.TryAdd(id, completion))
-                return new PluginCallResult<T>("host-error", "Could not allocate a plugin request.");
+            while (!_pending.TryAdd(id, completion)) id = Interlocked.Increment(ref _nextId);
 
             try
             {
@@ -177,13 +225,7 @@ namespace FocusRgb.App.Plugins
                 }
                 catch (TimeoutException)
                 {
-                    _pending.TryRemove(id, out _);
-                    await WriteAsync(new
-                    {
-                        jsonrpc = "2.0",
-                        method = PluginMethods.Cancel,
-                        @params = new CancelParameters { Id = id }
-                    }, CancellationToken.None).ConfigureAwait(false);
+                    await CancelRequestAsync(id).ConfigureAwait(false);
                     return new PluginCallResult<T>("timeout", $"Plugin request '{method}' timed out.");
                 }
 
@@ -203,10 +245,15 @@ namespace FocusRgb.App.Plugins
             }
             catch (OperationCanceledException)
             {
-                _pending.TryRemove(id, out _);
+                await CancelRequestAsync(id).ConfigureAwait(false);
                 throw;
             }
-            catch (IOException exception)
+            catch (TimeoutException)
+            {
+                await CancelRequestAsync(id).ConfigureAwait(false);
+                return new PluginCallResult<T>("timeout", $"Writing plugin request '{method}' timed out.");
+            }
+            catch (Exception exception) when (exception is IOException or ObjectDisposedException)
             {
                 return new PluginCallResult<T>("plugin-exited", exception.Message);
             }
@@ -216,13 +263,33 @@ namespace FocusRgb.App.Plugins
             }
         }
 
+        private async Task CancelRequestAsync(long id)
+        {
+            _pending.TryRemove(id, out _);
+            try
+            {
+                await WriteAsync(new
+                {
+                    jsonrpc = "2.0",
+                    method = PluginMethods.Cancel,
+                    @params = new CancelParameters { Id = id }
+                }, _lifetime.Token).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is OperationCanceledException
+                or TimeoutException or IOException or ObjectDisposedException)
+            {
+            }
+        }
+
         private async Task WriteAsync(object message, CancellationToken cancellationToken)
         {
             var json = JsonSerializer.Serialize(message, PluginJson.Options);
-            await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await _writeGate.WaitAsync(DefaultTimeout, cancellationToken).ConfigureAwait(false))
+                throw new TimeoutException("Writing to the plugin timed out.");
             try
             {
-                await _input.WriteLineAsync(json.AsMemory(), cancellationToken).ConfigureAwait(false);
+                await _input.WriteLineAsync(json.AsMemory(), cancellationToken)
+                    .WaitAsync(DefaultTimeout, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -236,82 +303,167 @@ namespace FocusRgb.App.Plugins
             {
                 while (!_lifetime.IsCancellationRequested)
                 {
-                    var line = await _process.StandardOutput.ReadLineAsync(_lifetime.Token).ConfigureAwait(false);
-                    if (line is null) break;
-                    JsonDocument document;
-                    try
-                    {
-                        document = JsonDocument.Parse(line);
-                    }
-                    catch (JsonException exception)
+                    var line = await ReadLineAsync(
+                        _process.StandardOutput, MaxLineLength, _lifetime.Token).ConfigureAwait(false);
+                    if (line.EndOfStream) break;
+                    if (line.WasTooLong)
                     {
                         Health = "unhealthy";
-                        FailPending("malformed-response", exception.Message);
+                        FailOnlyPendingMalformed("The plugin response exceeded the 64 KiB limit.");
                         continue;
                     }
-                    using (document)
-                    {
-                        var root = document.RootElement;
-                        if (root.TryGetProperty("method", out var method)
-                            && method.GetString() == PluginMethods.StatusChanged)
-                        {
-                            StatusChanged?.Invoke(this, EventArgs.Empty);
-                            continue;
-                        }
-                        if (!root.TryGetProperty("id", out var idValue)
-                            || !idValue.TryGetInt64(out var id)
-                            || !_pending.TryRemove(id, out var completion))
-                        {
-                            continue;
-                        }
-                        if (root.TryGetProperty("error", out var error))
-                        {
-                            completion.TrySetResult(new RpcResponse
-                            {
-                                ErrorCode = "plugin-error",
-                                ErrorMessage = error.TryGetProperty("message", out var message)
-                                    ? message.GetString() ?? "Plugin request failed."
-                                    : "Plugin request failed."
-                            });
-                        }
-                        else if (root.TryGetProperty("result", out var result))
-                        {
-                            completion.TrySetResult(new RpcResponse { Result = result.Clone() });
-                        }
-                        else
-                        {
-                            completion.TrySetResult(new RpcResponse
-                            {
-                                ErrorCode = "malformed-response",
-                                ErrorMessage = "The plugin response had neither result nor error."
-                            });
-                        }
-                    }
+                    ProcessResponse(line.Value!);
                 }
             }
             catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
             {
             }
-            catch (IOException exception)
+            catch (Exception exception) when (exception is IOException or ObjectDisposedException)
             {
                 FailPending("plugin-exited", exception.Message);
+            }
+            catch (Exception exception) when (exception is JsonException or InvalidOperationException)
+            {
+                Health = "unhealthy";
+                FailPending("malformed-response", exception.Message);
+            }
+        }
+
+        private void ProcessResponse(string line)
+        {
+            JsonDocument document;
+            try
+            {
+                document = JsonDocument.Parse(line);
+            }
+            catch (JsonException)
+            {
+                Health = "unhealthy";
+                FailOnlyPendingMalformed("The plugin response was not valid JSON.");
+                return;
+            }
+
+            using (document)
+            {
+                var root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object)
+                {
+                    Health = "unhealthy";
+                    FailOnlyPendingMalformed("The plugin response was not a JSON object.");
+                    return;
+                }
+                if (root.TryGetProperty("method", out var method)
+                    && method.ValueKind == JsonValueKind.String
+                    && method.GetString() == PluginMethods.StatusChanged)
+                {
+                    if (Interlocked.Exchange(ref _statusChangePending, 1) == 0) RaiseStatusChanged();
+                    return;
+                }
+                if (!root.TryGetProperty("id", out var idValue)
+                    || idValue.ValueKind != JsonValueKind.Number
+                    || !idValue.TryGetInt64(out var id))
+                {
+                    Health = "unhealthy";
+                    FailOnlyPendingMalformed("The plugin response had no valid request id.");
+                    return;
+                }
+                if (!_pending.TryRemove(id, out var completion)) return;
+                if (root.TryGetProperty("error", out var error))
+                {
+                    if (error.ValueKind != JsonValueKind.Object
+                        || !error.TryGetProperty("message", out var message)
+                        || message.ValueKind != JsonValueKind.String)
+                    {
+                        CompleteMalformed(completion, "The plugin response contained an invalid error object.");
+                        return;
+                    }
+                    completion.TrySetResult(new RpcResponse
+                    {
+                        ErrorCode = "malformed-response",
+                        ErrorMessage = message.GetString() ?? "Plugin request failed."
+                    });
+                }
+                else if (root.TryGetProperty("result", out var result))
+                {
+                    Health = "healthy";
+                    completion.TrySetResult(new RpcResponse { Result = result.Clone() });
+                }
+                else
+                {
+                    CompleteMalformed(completion, "The plugin response had neither result nor error.");
+                }
+            }
+        }
+
+        private void CompleteMalformed(TaskCompletionSource<RpcResponse> completion, string message)
+        {
+            Health = "unhealthy";
+            completion.TrySetResult(new RpcResponse
+            {
+                ErrorCode = "malformed-response",
+                ErrorMessage = message
+            });
+        }
+
+        private void FailOnlyPendingMalformed(string message)
+        {
+            if (_pending.Count != 1) return;
+            var pending = _pending.First();
+            if (_pending.TryRemove(pending.Key, out var completion))
+                CompleteMalformed(completion, message);
+        }
+
+        private async Task ReadErrorsAsync()
+        {
+            try
+            {
+                while (!_lifetime.IsCancellationRequested)
+                {
+                    var line = await ReadLineAsync(
+                        _process.StandardError, MaxLineLength, _lifetime.Token).ConfigureAwait(false);
+                    if (line.EndOfStream) break;
+                    if (!line.WasTooLong && !string.IsNullOrWhiteSpace(line.Value)) PublishLog(line.Value);
+                }
+            }
+            catch (Exception exception) when (exception is OperationCanceledException
+                or IOException or ObjectDisposedException)
+            {
+            }
+        }
+
+        private void PublishLog(string message)
+        {
+            EventHandler<string>? handler;
+            lock (_logGate)
+            {
+                handler = _logReceived;
+                if (handler is null)
+                {
+                    _bufferedLogs.Enqueue(message);
+                    return;
+                }
+            }
+            try
+            {
+                handler.Invoke(this, message);
+            }
+            catch (Exception)
+            {
             }
         }
 
         private async Task ObserveExitAsync()
         {
-            await _process.WaitForExitAsync().ConfigureAwait(false);
-            Health = "exited";
-            FailPending("plugin-exited", "The plugin process exited.");
-        }
-
-        private void BeginErrorRead()
-        {
-            _process.ErrorDataReceived += (_, args) =>
+            try
             {
-                if (!string.IsNullOrWhiteSpace(args.Data)) LogReceived?.Invoke(this, args.Data);
-            };
-            _process.BeginErrorReadLine();
+                await _process.WaitForExitAsync().ConfigureAwait(false);
+                Health = "exited";
+                FailPending("plugin-exited", "The plugin process exited.");
+                RaiseStatusChanged();
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or ObjectDisposedException)
+            {
+            }
         }
 
         private void FailPending(string code, string message)
@@ -319,11 +471,53 @@ namespace FocusRgb.App.Plugins
             foreach (var request in _pending.ToArray())
             {
                 if (_pending.TryRemove(request.Key, out var completion))
-                {
                     completion.TrySetResult(new RpcResponse { ErrorCode = code, ErrorMessage = message });
-                }
             }
         }
+
+        private void RaiseStatusChanged()
+        {
+            try
+            {
+                StatusChanged?.Invoke(this, EventArgs.Empty);
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        private static async Task<BoundedLine> ReadLineAsync(
+            StreamReader reader,
+            int maxLength,
+            CancellationToken cancellationToken)
+        {
+            var value = new StringBuilder(Math.Min(maxLength, 4096));
+            var character = new char[1];
+            var tooLong = false;
+            while (await reader.ReadAsync(character.AsMemory(), cancellationToken).ConfigureAwait(false) > 0)
+            {
+                if (character[0] == '\n') return new BoundedLine(value.ToString(), tooLong, false);
+                if (character[0] == '\r') continue;
+                if (value.Length < maxLength) value.Append(character[0]);
+                else tooLong = true;
+            }
+            return value.Length == 0 && !tooLong
+                ? new BoundedLine(null, false, true)
+                : new BoundedLine(value.ToString(), tooLong, false);
+        }
+
+        private static async Task ObserveWithoutThrowingAsync(Task task)
+        {
+            try
+            {
+                await task.ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        private readonly record struct BoundedLine(string? Value, bool WasTooLong, bool EndOfStream);
 
         private sealed class RpcResponse
         {
@@ -370,6 +564,5 @@ namespace FocusRgb.App.Plugins
         public T? Value { get; private init; }
         public string? ErrorCode { get; private init; }
         public string? ErrorMessage { get; private init; }
-
     }
 }

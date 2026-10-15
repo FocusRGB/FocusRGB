@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using FocusRgb.App.Plugins;
 using FocusRgb.Contracts;
@@ -43,6 +44,24 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task StartAsync_AcceptsLowerMinorContractVersion()
+        {
+            var started = await StartAsync("--contract-version", "0.0");
+
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await started.Client!.DisposeAsync();
+        }
+
+        [Fact]
+        public async Task StartAsync_RejectsNullCapabilities()
+        {
+            var started = await StartAsync("--null-capabilities");
+
+            Assert.False(started.IsSuccess);
+            Assert.Equal("contract-incompatible", started.ErrorCode);
+        }
+
+        [Fact]
         public async Task StartAsync_ReturnsMalformedResponse_WhenStdoutIsNotJson()
         {
             var started = await StartAsync("--malformed");
@@ -57,11 +76,15 @@ namespace FocusRgb.App.Tests
             var started = await StartAsync("--exit-on-status");
             Assert.True(started.IsSuccess, started.ErrorMessage);
             await using var client = started.Client!;
+            var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            client.StatusChanged += (_, _) => exited.TrySetResult();
 
             var status = await client.GetStatusAsync(TestContext.Current.CancellationToken);
+            await exited.Task.WaitAsync(TestContext.Current.CancellationToken);
 
             Assert.False(status.IsSuccess);
             Assert.Equal("plugin-exited", status.ErrorCode);
+            Assert.Equal("exited", client.Health);
         }
 
         [Fact]
@@ -75,6 +98,126 @@ namespace FocusRgb.App.Tests
 
             Assert.False(status.IsSuccess);
             Assert.Equal("timeout", status.ErrorCode);
+        }
+
+        [Theory]
+        [InlineData("string-id")]
+        [InlineData("null-id")]
+        [InlineData("array")]
+        [InlineData("error-string")]
+        [InlineData("oversize")]
+        public async Task MalformedLine_DoesNotStopReaderOrBreakDispose(string kind)
+        {
+            var started = await StartAsync("--invalid-response", kind);
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+
+            var status = await client.GetStatusAsync(TestContext.Current.CancellationToken);
+            var catalog = await client.ListCatalogAsync("effect", TestContext.Current.CancellationToken);
+
+            Assert.Equal("malformed-response", status.ErrorCode);
+            Assert.True(catalog.IsSuccess, catalog.ErrorMessage);
+        }
+
+        [Fact]
+        public async Task StartAsync_DrainsAndBuffersUtf8StderrBeforeHandshake()
+        {
+            var started = await StartAsync("--stderr-bytes", "200000");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+            var received = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var length = 0;
+
+            client.LogReceived += (_, value) =>
+            {
+                if (Interlocked.Add(ref length, value.Length) == 200000) received.TrySetResult();
+            };
+
+            await received.Task.WaitAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(200000, length);
+        }
+
+        [Fact]
+        public async Task Catalog_PreservesUtf8Text()
+        {
+            var started = await StartAsync("--catalog-name", "Café");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+
+            var catalog = await client.ListCatalogAsync("effect", TestContext.Current.CancellationToken);
+
+            Assert.Equal("Café", Assert.Single(catalog.Value!.Items).DisplayName);
+        }
+
+        [Fact]
+        public async Task ConcurrentCalls_CorrelateOutOfOrderResponses()
+        {
+            var started = await StartAsync("--delay-ms", "200");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+
+            var status = client.GetStatusAsync(TestContext.Current.CancellationToken);
+            var catalog = client.ListCatalogAsync("effect", TestContext.Current.CancellationToken);
+            await Task.WhenAll(status, catalog);
+            var statusResult = await status;
+            var catalogResult = await catalog;
+
+            Assert.True(statusResult.IsSuccess, statusResult.ErrorMessage);
+            Assert.True(catalogResult.IsSuccess, catalogResult.ErrorMessage);
+        }
+
+        [Fact]
+        public async Task StatusChanged_IsCoalescedUntilStatusIsRead()
+        {
+            var started = await StartAsync("--notify-count", "3");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+            var notifications = 0;
+            client.StatusChanged += (_, _) => Interlocked.Increment(ref notifications);
+            var parameters = new BindingApplyParameters
+            {
+                Profile = "default",
+                BindingId = "main",
+                RenderingAuthority = "provider",
+                DeviceScope = new PluginDeviceScope { Kind = "provider-managed" }
+            };
+
+            await client.ApplyBindingAsync(parameters, TestContext.Current.CancellationToken);
+            Assert.Equal(1, notifications);
+            await client.GetStatusAsync(TestContext.Current.CancellationToken);
+            await client.ApplyBindingAsync(parameters, TestContext.Current.CancellationToken);
+
+            Assert.Equal(2, notifications);
+        }
+
+        [Fact]
+        public async Task StartAsync_KillsProcess_WhenInitializationIsCancelled()
+        {
+            var pidFile = Path.Combine(Path.GetTempPath(), $"FocusRgb.{Guid.NewGuid():N}.pid");
+            using var cancellation = new CancellationTokenSource();
+            try
+            {
+                var start = StartAsync(cancellation.Token, "--pid-file", pidFile, "--initialize-delay-ms", "5000");
+                while (!File.Exists(pidFile))
+                    await Task.Delay(20, TestContext.Current.CancellationToken);
+                var pid = int.Parse(
+                    await File.ReadAllTextAsync(pidFile, TestContext.Current.CancellationToken),
+                    System.Globalization.CultureInfo.InvariantCulture);
+                cancellation.Cancel();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => start);
+
+                try
+                {
+                    await Process.GetProcessById(pid).WaitForExitAsync(TestContext.Current.CancellationToken);
+                }
+                catch (ArgumentException)
+                {
+                }
+            }
+            finally
+            {
+                if (File.Exists(pidFile)) File.Delete(pidFile);
+            }
         }
 
         [Fact]
@@ -97,13 +240,18 @@ namespace FocusRgb.App.Tests
         }
 
         private static Task<PluginStartResult> StartAsync(params string[] arguments)
+            => StartAsync(TestContext.Current.CancellationToken, arguments);
+
+        private static Task<PluginStartResult> StartAsync(
+            CancellationToken cancellationToken,
+            params string[] arguments)
         {
             var launchArguments = new List<string> { FakePluginPath() };
             launchArguments.AddRange(arguments);
             return PluginProcessClient.StartAsync(
                 new PluginLaunchSpec { FileName = "dotnet", Arguments = launchArguments },
                 Manifest(),
-                TestContext.Current.CancellationToken);
+                cancellationToken);
         }
 
         private static PluginManifest Manifest() => new()

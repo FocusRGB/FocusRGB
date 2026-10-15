@@ -17,6 +17,8 @@ namespace FocusRgb.App
         private MainWindow? _mainWindow;
         private LocalStateStore? _store;
         private PluginRuntime? _plugins;
+        private CancellationTokenSource? _pluginStartupCancellation;
+        private Task<PluginRuntime>? _pluginStartupTask;
         private bool _quitPending;
         private bool _quitWithoutSaving;
         private bool _shutdownApproved;
@@ -58,20 +60,6 @@ namespace FocusRgb.App
                 var trayAvailable = OperatingSystem.IsWindows();
                 AppLog.Configure(directory, startup.Snapshot!.Settings.Application!.VerboseLogging == true);
                 AppLog.Write($"Started; settings source={startup.Snapshot.SettingsSource}.");
-                _plugins = await PluginRuntime.StartAsync(
-                    Path.Combine(directory, "plugins"),
-                    startup.Snapshot.Settings.Plugins!.Enabled!);
-                foreach (var plugin in _plugins.Entries)
-                {
-                    if (plugin.Client is { } client)
-                    {
-                        client.LogReceived += (_, message) => AppLog.Write($"Plugin {plugin.PluginId}: {message}");
-                    }
-                    else
-                    {
-                        AppLog.Write($"Plugin {plugin.PluginId} did not start: {plugin.ErrorCode}: {plugin.ErrorMessage}");
-                    }
-                }
                 ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
                 var mainWindow = new MainWindow(
                     MainWindowViewModel.CreatePersistent(startup.Snapshot, _store, trayAvailable),
@@ -94,6 +82,9 @@ namespace FocusRgb.App
                 }
                 else
                     mainWindow.Show();
+                await StartPluginsAsync(
+                    Path.Combine(directory, "plugins"),
+                    startup.Snapshot.Settings.Plugins!.Enabled!);
             }
             catch (Exception exception)
             {
@@ -171,9 +162,62 @@ namespace FocusRgb.App
 
         private async Task StopPluginsAsync()
         {
-            if (_plugins is null) return;
-            await _plugins.DisposeAsync();
-            _plugins = null;
+            _pluginStartupCancellation?.Cancel();
+            if (_pluginStartupTask is not null)
+            {
+                try
+                {
+                    await _pluginStartupTask;
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+            if (_plugins is not null)
+            {
+                await _plugins.DisposeAsync();
+                _plugins = null;
+            }
+        }
+
+        private async Task StartPluginsAsync(string packagesDirectory, IEnumerable<string> enabledPluginIds)
+        {
+            using var cancellation = new CancellationTokenSource();
+            _pluginStartupCancellation = cancellation;
+            var startup = PluginRuntime.StartAsync(packagesDirectory, enabledPluginIds, cancellation.Token);
+            _pluginStartupTask = startup;
+            try
+            {
+                var runtime = await startup;
+                if (cancellation.IsCancellationRequested)
+                {
+                    await runtime.DisposeAsync();
+                    return;
+                }
+                _plugins = runtime;
+                foreach (var plugin in runtime.Entries)
+                {
+                    if (plugin.Client is { } client)
+                        client.LogReceived += (_, message) => AppLog.Write($"Plugin {plugin.PluginId}: {message}");
+                    else
+                        AppLog.Write($"Plugin {plugin.PluginId} did not start: {plugin.ErrorCode}: {plugin.ErrorMessage}");
+                }
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            {
+            }
+            catch (Exception exception)
+            {
+                AppLog.Write($"Plugin startup failed: {exception.Message}");
+            }
+            finally
+            {
+                if (ReferenceEquals(_pluginStartupCancellation, cancellation))
+                {
+                    _pluginStartupCancellation = null;
+                    _pluginStartupTask = null;
+                }
+            }
         }
 
         private async void RequestQuit()
