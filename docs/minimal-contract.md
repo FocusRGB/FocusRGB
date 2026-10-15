@@ -46,7 +46,7 @@ of `settings.json`.
 | `state.json` | Selection intent | After every validated mode or profile change |
 | `native-setup.json` | Native fallback snapshot | Only when the user applies a native setup (never by previews or provider changes) |
 
-### `settings.json` — frozen at schema version 2
+### `settings.json` — frozen at schema version 3
 
 Seeded on first run with four acceptance profiles. The `default` profile identity is protected:
 it must exist, cannot be removed, and remains `selection.defaultProfile`. Other profile values
@@ -54,12 +54,15 @@ and all automatic mappings are user-editable.
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "application": {
     "closeButtonBehavior": "minimize-to-tray",
     "startMinimized": false,
     "theme": "system",
     "verboseLogging": false
+  },
+  "plugins": {
+    "enabled": []
   },
   "selection": {
     "defaultProfile": "default",
@@ -175,6 +178,9 @@ Profiles:
   different resource. Fixture names are data: slice 14 investigates the real catalog, slice 15
   exposes it through the plugin, and slice 16 reconciles/saves the selected ID (for example
   Screen Ambient versus the historical Screen Ambience).
+- `plugins.enabled` contains validated package IDs. It is empty by default; only listed packages
+  under the per-user `plugins` folder are launched. Schema versions 1 and 2 migrate to this
+  disabled-by-default value.
 - `deviceScope.kind` is `provider-managed` (every device the provider currently manages) or
   **reserved** `devices` with an explicit `deviceIds` list. Provider-managed scope arrives with
   external provider integration; explicit native device scope is implemented with native output.

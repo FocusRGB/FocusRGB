@@ -6,7 +6,7 @@ The solution file is `../FocusRGB.slnx`.
 | Project | Purpose | May reference |
 |---|---|---|
 | `FocusRgb.Contracts/` | Provider-neutral plugin messages, capabilities, results, and resource IDs | Nothing project-specific |
-| `FocusRgb.PluginSdk/` (slice 10) | Plugin-side protocol/runtime helpers published as a versioned package | Contracts |
+| `FocusRgb.PluginSdk/` | Plugin-side protocol/runtime helpers published as a versioned package | Contracts |
 | `FocusRgb.Core/` | Profiles, selection, persistence, commands, fallback, and ownership | Contracts |
 | `FocusRgb.Platform.Windows/` | Windows focus/process detection, later screen capture (`net10.0-windows`) | Contracts, Core |
 | `FocusRgb.App/` | Avalonia tray/settings UI and plugin host wiring; builds `FocusRGB.exe` (`net10.0-windows`) | Contracts, Core, Platform |

@@ -2,7 +2,7 @@
 
 A desktop RGB controller under active development with an Avalonia UI and .NET 10 background core.
 The first executable targets Windows; shared code remains portable for future platforms.
-**Early implementation:** slices 00–09 provide the contract, solution scaffold, validated
+**Early implementation:** slices 00–10 provide the contract, solution scaffold, validated
 profile configuration, a runnable selected-item UI, named application groups, an ordered
 in-memory mapping editor with insertion drag/drop, the portable selection engine, and a persistent
 profile editor. Profiles can be created, edited, duplicated, or safely removed; Default remains
@@ -10,8 +10,8 @@ protected. The Windows app now starts asynchronously, persists manual selection,
 tray icon, and saves again before tray Quit or OS shutdown. The Settings page persists close
 behavior, start-minimized, theme, and diagnostic-logging preferences, with versioned migration,
 last-known-good recovery, and a
-privacy-limited diagnostics export. Application-group persistence, OS observations, and plugin
-integration are still pending. See
+privacy-limited diagnostics export. The app now hosts explicitly enabled local process plugins
+through the packaged 0.1 SDK; application-group persistence and OS observations are still pending. See
 [Core configuration](src/FocusRgb.Core/README.md).
 
 The app will select lighting profiles manually or from named application groups using a
@@ -30,9 +30,9 @@ profile.
 
 ## Implementation roadmap
 
-1. Build native effects, LED placement layouts, screen ambience, and output plugins.
-2. Add external-application automation and integrations: detection/mappings, SignalRGB, games,
-   and local-model MCP control.
+1. Add the coordination needed by integrations, then external-application automation,
+   SignalRGB, games, and local-model MCP control.
+2. Build standalone native effects, LED placement layouts, screen ambience, and output plugins.
 
 SignalRGB owns rendering and its existing layout while its integration is active, including
 its WLED output. A separate WLED plugin supports native operation. Application mappings are
@@ -64,7 +64,7 @@ to preserve progress when switching models or reaching a session limit.
 
 ## Repository conventions
 
-The main repository owns contracts, the future .NET plugin SDK, host, schemas, conformance
+The main repository owns contracts, the minimal .NET plugin SDK, host, schemas, conformance
 tests, and fake/reference plugin. Production integrations live in independent repositories
 named `FocusRGB-Plugin-<Name>` and consume a published SDK version; they are not Git submodules
 or app project references. Repositories are created when their implementation slice starts.
@@ -80,12 +80,15 @@ projects live under [src/](src/README.md); the shared screen colour test remains
 FocusRGB.slnx
 src/
   FocusRgb.Contracts/          net10.0, provider-neutral plugin protocol types
+  FocusRgb.PluginSdk/          net10.0, packaged plugin-side JSON-RPC runtime
   FocusRgb.Core/               net10.0, profiles, selection, and local persistence
   FocusRgb.Platform.Windows/   net10.0-windows, focus/process detection
   FocusRgb.App/                net10.0-windows, Avalonia shell (FocusRGB.exe)
 tests/
   FocusRgb.App.Tests/          xUnit; UI-facing preview-state tests
   FocusRgb.Core.Tests/         xUnit; dependency-boundary and core tests
+  FocusRgb.FakePlugin/         executable plugin protocol fixture
+schemas/                       plugin manifest and protocol JSON schemas
 modules/
   signalrgb/                   Temporary SignalRGB research/tool staging
   arduino/                     Earlier Arduino sketches

@@ -150,6 +150,11 @@ visible output. Claude's MCP tools do not automatically form a standalone app AP
 
 Begin with explicitly installed and enabled local plugins. Do not build a marketplace or
 automatic plugin updater in the first version. Keep secrets outside committed profiles/logs.
+The initial host discovers a package at
+`%LOCALAPPDATA%\FocusRGB\plugins\<plugin-id>\focusrgb-plugin.json` only when the ID appears in
+`settings.json` under `plugins.enabled`. Each manifest resolves one entry point within its own
+package directory; invalid paths, platforms, architectures, or contract majors are rejected
+before launch.
 
 ## Selection rules
 

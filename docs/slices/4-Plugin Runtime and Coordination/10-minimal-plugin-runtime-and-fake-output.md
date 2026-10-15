@@ -17,3 +17,9 @@ artifact without a FocusRGB source checkout; the app has no project reference to
 plugin; removing the fake executable leaves core and app usable. No marketplace, automatic
 plugin updater, or complete version-1 SDK design.
 
+Status: **Complete (2026-10-15).** The host loads only explicitly enabled per-user packages,
+validates manifests and handshakes, bounds requests, and isolates plugin failures. The portable
+SDK package, protocol/manifest schemas, fake executable, and clean-room package consumer are in
+place. Release build: 0 warnings/errors; tests: 178/178; package-content reproducibility and the
+external consumer build pass via `tools/verify-plugin-sdk-package.ps1`.
+

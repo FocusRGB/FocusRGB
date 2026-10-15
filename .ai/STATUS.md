@@ -4,6 +4,13 @@ Updated: 2026-10-15.
 
 ## Completed
 
+- Slice 10 adds the portable `FocusRgb.PluginSdk` 0.1 package, frozen contract DTOs and JSON
+  schemas, an app-side out-of-process JSON-RPC host, and a fake conformance executable. Settings
+  schema 3 records an explicit disabled-by-default plugin list under the per-user `plugins`
+  folder. Manifest/handshake validation, request cancellation/timeouts, malformed responses,
+  process exits, catalog/apply calls, package reproducibility, and a clean-room package consumer
+  are covered. Release build passes with 0 warnings and all 178 tests pass.
+
 - Review remediation for slices 07–09 removes the UI-thread startup deadlock, serializes local
   persistence, fixes last-known-good ordering/freshness/missing-file recovery and schema-1 backup,
   guards overlapping settings saves, validates profile removal before state writes, protects
@@ -112,8 +119,8 @@ fallback/recovery policies and separate desired versus applied state. Editing su
 Live preview on pointer release, with explicit Save otherwise. Native placement layouts support
 stacked groups with different LED counts, scaling, and unassigned-device exclusion. Game
 rendering is designed as canvas, semantic-zone, and direct named-key/LED layers. Detailed
-behavior is in `../docs/plugin-architecture.md`; only the selection/persistence and profile-editing
-parts are implemented so far.
+behavior is in `../docs/plugin-architecture.md`; selection/persistence, profile editing, and the
+minimal plugin process boundary are implemented so far.
 
 Fallback/reconnect choices are confirmed: use the app's default native setup until modified,
 then its last applied native setup. Recovered plugins generate a notification and resume use
@@ -145,9 +152,10 @@ while-running/while-focused eligibility, deterministic priority, focus debounce,
 windows, process-exit handling, protected Default fallback, and explicit reasons. The portable
 local store validates and atomically persists settings, desired selection state, and an
 independent native fallback snapshot; it seeds first run, restores restarts, and archives
-malformed or invalid-reference documents with explicit recovery details. No detector wiring,
-plugin loader, hardware output, or startup task exists yet.
-The Settings page persists application preferences in schema-version-2 `settings.json`, applies
+malformed or invalid-reference documents with explicit recovery details. The desktop starts
+explicitly enabled local process plugins through the 0.1 SDK and isolates package/protocol failures.
+No detector wiring, command coordination, hardware output, or startup task exists yet.
+The Settings page persists application preferences in schema-version-3 `settings.json`, applies
 System/Light/Dark only to the Avalonia UI, supports saved close-to-tray or clean-exit behavior,
 and can start with the window hidden without registering OS startup. It can open local settings
 and log folders and export a diagnostic ZIP that excludes profiles, mappings, paths, and secrets.
@@ -160,26 +168,26 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 ## Active implementation slice
 
 - Slice: 10 — Minimal plugin runtime, SDK, and fake output
-- State: prepared; implementation not started
+- State: complete
 - Branch, latest relevant code commit, and pull request target:
   `slice/10-minimal-plugin-runtime-and-fake-output`, based on `fix/slice-07-09-review` commit
   `4a9d5b9` (local, not yet pushed or reviewed); its future pull request targets
   `fix/slice-07-09-review` while the stack remains unmerged.
 - Scope and dependencies verified: follows the Slice 02 contracts/configuration boundary and the
-  Slice 08 desktop runtime that hosts plugins. Add only
-  the minimal plugin SDK, app-side process host, schemas, and fake output needed to prove the
-  protocol; no production provider, complete version-1 SDK, or hardware output belongs here.
-- Implemented files and entry points: none yet; inventory the frozen contract and current project
-  boundaries before adding projects.
-- Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passes with 0 warnings and
-  `dotnet test --solution FocusRGB.slnx -c Release --no-restore` passes 158/158 tests.
+  Slice 08 desktop runtime. It contains only the minimal 0.1 SDK, generic app process host,
+  schemas, settings migration, and fake output; no production provider or hardware output.
+- Implemented files and entry points: `src/FocusRgb.Contracts/PluginContracts.cs`,
+  `src/FocusRgb.PluginSdk/PluginServer.cs`, `src/FocusRgb.App/Plugins/`, settings schema 3,
+  `schemas/`, `tests/FocusRgb.FakePlugin/`, process/package tests, and the clean-room consumer.
+- Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passes with 0 warnings/errors;
+  `dotnet test --solution FocusRGB.slnx -c Release --no-build --no-restore` passes 178/178;
+  `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-plugin-sdk-package.ps1`
+  verifies repeatable package contents and builds outside the repository from the local packages.
 - External/live evidence: none required; fake and clean-room fixtures provide acceptance evidence.
-- Remaining acceptance criteria: fake catalog/apply, protocol/version/malformed-response/timeout/
-  process-exit failures, reproducible SDK packaging, and a clean-room external build.
+- Remaining acceptance criteria: none.
 - Current blocker or required product input: none.
-- Uncommitted work to preserve: none.
-- Next action: inventory the frozen plugin messages and current solution boundaries before adding
-  the SDK, host, and fake executable projects.
+- Uncommitted work to preserve: none after the Slice 10 documentation commit.
+- Next action: begin Slice 11 from its command-coordination and fallback acceptance criteria.
 - Next slice: 11 — Command coordination and fallback state, only after Slice 10 acceptance passes.
 
 
@@ -205,9 +213,9 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slices 10–29 are pending. Continue with the minimal plugin runtime and fake output at Slice 10.
-Profile persistence, the tray runtime, and application settings are complete; command
-coordination follows in Slice 11.
+Slices 11–29 are pending. Continue with command coordination and fallback state at Slice 11.
+Profile persistence, the tray runtime, application settings, and the minimal plugin boundary are
+complete.
 
 Windows observations start at 12 and application mappings at 13. SignalRGB investigation starts
 at 14, its external plugin at 15, and its acceptance gate at 16.
@@ -220,8 +228,6 @@ Claude tool availability does not itself establish an app API.
 
 Each choice names the first slice that needs it.
 
-- Slice 10: local plugin folder and enablement UX (proposed default: per-user `plugins` folder,
-  explicit enabled list, everything disabled until enabled).
 - Slice 16: interim SignalRGB background effect during games.
 - Slice 19: generic game profile first or individual game profiles.
 - Slice 20: first supported game API and its normalized event capabilities.

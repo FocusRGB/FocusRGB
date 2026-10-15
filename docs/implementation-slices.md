@@ -8,7 +8,7 @@ Requirements live in [`app-brief.md`](app-brief.md), contracts and behavior in
 [`plugin-architecture.md`](plugin-architecture.md), and verified external facts in
 [`integration-evidence.md`](integration-evidence.md).
 
-Status: **00–09 complete on the stacked pull-request chain. 10 is next.**
+Status: **00–10 complete on the stacked pull-request chain. 11 is next.**
 
 ## 1 — Foundation
 
@@ -41,10 +41,10 @@ Status: **00–09 complete on the stacked pull-request chain. 10 is next.**
 
 ## 4 — Plugin Runtime and Coordination
 
-- ▶️ [10 — Plugin runtime, SDK, and fake output](<slices/4-Plugin Runtime and Coordination/10-minimal-plugin-runtime-and-fake-output.md>):
-  package the minimal SDK and host a JSON-RPC fake output plugin required by provider plugins. **Next.**
-- ⏳ [11 — Command coordination and fallback](<slices/4-Plugin Runtime and Coordination/11-command-coordination-and-fallback-state.md>):
-  track desired/applied/pending state, fallback, ownership, and reconnect approval.
+- ✅ [10 — Plugin runtime, SDK, and fake output](<slices/4-Plugin Runtime and Coordination/10-minimal-plugin-runtime-and-fake-output.md>):
+  package the minimal SDK and host a JSON-RPC fake output plugin required by provider plugins.
+- ▶️ [11 — Command coordination and fallback](<slices/4-Plugin Runtime and Coordination/11-command-coordination-and-fallback-state.md>):
+  track desired/applied/pending state, fallback, ownership, and reconnect approval. **Next.**
 
 ## 5 — External Applications
 
