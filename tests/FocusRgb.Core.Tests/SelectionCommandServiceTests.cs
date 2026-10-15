@@ -27,7 +27,7 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("movie", result.State.ManualProfile);
             Assert.Equal("movie", result.Status!.Desired.ProfileId);
             Assert.Equal("manual", result.Status.Desired.Reason.Kind);
-            Assert.Null(result.Status.AppliedProfileId);
+            Assert.Null(result.Status.Applied);
         }
 
         [Fact]
