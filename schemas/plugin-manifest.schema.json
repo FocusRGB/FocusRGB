@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://focusrgb.dev/schemas/plugin-manifest.schema.json",
+  "title": "FocusRGB plugin manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "version",
+    "contractVersion",
+    "entryPoint",
+    "operatingSystems",
+    "architectures",
+    "roles",
+    "resources",
+    "license"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "contractVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "entryPoint": { "type": "string", "minLength": 1 },
+    "operatingSystems": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["windows", "linux", "macos"] }
+    },
+    "architectures": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["x64", "arm64"] }
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["detector", "discovery", "integration", "output", "effect"] }
+    },
+    "resources": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "license": { "type": "string", "minLength": 1 },
+    "source": { "type": "string", "format": "uri" }
+  }
+}

@@ -128,8 +128,10 @@ The first implementation goal is a self-contained Avalonia/.NET 10 Windows execu
 portable background core: persistent profile management, manual selection, tray behavior,
 application preferences, and restart restoration without depending on another desktop app.
 
-The second goal is the app's native effect renderer and layout system, followed by WLED and one
-peripheral output plugin. Profiles gain reusable effects/layouts before external automation.
+The second goal is external-application support: Windows app detection/mappings, the separately
+packaged `FocusRGB-Plugin-SignalRGB`, game discovery/APIs, and local MCP control. The main
+repository keeps the minimal SDK and fake integration; the public SDK is stabilized after the
+fake and SignalRGB plugins prove the boundary.
 
 The later SignalRGB acceptance profiles are Default → Aurora; Programming → Aurora for VS Code and
 Visual Studio; Movie → Screen Ambient for PotPlayer and Stremio; and Music → Logarithmic
@@ -139,11 +141,10 @@ when automatic mode has no eligible mapped application. On first run it is selec
 mode. Later starts restore and apply the last mode and profile; restored automatic mode may
 select another profile after the detector produces a stable match.
 
-The third goal is external-application support: Windows app detection/mappings, the separately
-packaged `FocusRGB-Plugin-SignalRGB`, game discovery/APIs, and local MCP control. Each profile
-still combines an effect and LED layout and can later consume supported game events. External
-failures must not make manual profiles or native output unusable. The main repository keeps the
-minimal SDK and fake integration; the complete public SDK is stabilized only after real plugins.
+The third goal is the standalone native RGB system: the app's own effect renderer and layout
+system, followed by WLED and one peripheral output plugin. Each profile still combines an effect
+and LED layout and can consume supported game events. External failures must not make manual
+profiles or native output unusable.
 
 Plugin package signing/distribution and installation UX remain undecided. Startup automation
 is off by default, remains user-controlled, and follows reliable cleanup/recovery. The Arduino

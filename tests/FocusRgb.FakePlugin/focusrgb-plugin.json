@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "fake-output",
+  "version": "0.1.0",
+  "contractVersion": "0.1",
+  "entryPoint": "FocusRgb.FakePlugin.dll",
+  "operatingSystems": ["windows", "linux", "macos"],
+  "architectures": ["x64", "arm64"],
+  "roles": ["output"],
+  "resources": [],
+  "license": "MIT",
+  "source": "https://github.com/MAJ224/FocusRGB"
+}

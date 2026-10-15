@@ -15,9 +15,16 @@ namespace FocusRgb.Core.Configuration
     {
         public int? SchemaVersion { get; init; }
         public ApplicationSettings? Application { get; init; }
+        public PluginSettings? Plugins { get; init; }
         public SelectionSettings? Selection { get; init; }
         public List<ProfileSettings>? Profiles { get; init; }
         public List<RuleSettings>? Rules { get; init; }
+    }
+
+    /// <summary>Records the local plugin packages the user explicitly allowed the app to launch.</summary>
+    public sealed class PluginSettings : ExtensibleConfiguration
+    {
+        public List<string>? Enabled { get; init; }
     }
 
     /// <summary>Stores desktop lifecycle, appearance, and diagnostic preferences.</summary>

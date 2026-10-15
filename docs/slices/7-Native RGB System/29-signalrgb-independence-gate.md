@@ -2,7 +2,8 @@
 
 [← All implementation slices](../../implementation-slices.md)
 
-Depends on: required native slices 10–18 plus 23. Scope: inventory remaining provider-dependent
+Depends on: 16, 22, 24–28. Required runtime foundations from 10, 11, 21, and 23 are inherited
+through those dependencies. Scope: inventory remaining provider-dependent
 profiles, migrate required ones with user review, and run with SignalRGB stopped.
 Acceptance: required effects/layouts/devices and fallback work independently; other integration
 plugins remain usable. Removing/uninstalling SignalRGB or modifying its startup is a separate

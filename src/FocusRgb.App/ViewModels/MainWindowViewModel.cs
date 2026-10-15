@@ -802,6 +802,7 @@ namespace FocusRgb.App.ViewModels
         {
             SchemaVersion = _settings.SchemaVersion,
             Application = _settings.Application,
+            Plugins = _settings.Plugins,
             Selection = _settings.Selection,
             Profiles = profiles,
             Rules = _settings.Rules,
@@ -812,6 +813,7 @@ namespace FocusRgb.App.ViewModels
         {
             SchemaVersion = _settings.SchemaVersion,
             Application = application,
+            Plugins = _settings.Plugins,
             Selection = _settings.Selection,
             Profiles = _settings.Profiles,
             Rules = _settings.Rules,

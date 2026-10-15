@@ -32,7 +32,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public async Task InitializeAsync_MigratesSchemaOneSettingsAndPersistsVersionTwo()
+        public async Task InitializeAsync_MigratesSchemaOneSettingsAndPersistsCurrentVersion()
         {
             var firstRun = await Store().InitializeAsync(Start, TestContext.Current.CancellationToken);
             Assert.True(firstRun.IsSuccess);
@@ -54,7 +54,28 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("system", restarted.Snapshot.Settings.Application!.Theme);
             Assert.Equal(SettingsJson.CurrentSchemaVersion, persisted["schemaVersion"]!.GetValue<int>());
             Assert.NotNull(persisted["application"]);
+            Assert.NotNull(persisted["plugins"]);
             Assert.Single(Directory.GetFiles(_directory, "settings.json.schema-1-*.backup"));
+        }
+
+        [Fact]
+        public async Task InitializeAsync_MigratesSchemaTwoAndKeepsBackup()
+        {
+            var firstRun = await Store().InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(firstRun.IsSuccess);
+            var legacy = JsonNode.Parse(SettingsJson.Serialize(firstRun.Snapshot!.Settings))!;
+            legacy["schemaVersion"] = 2;
+            legacy.AsObject().Remove("plugins");
+            await File.WriteAllTextAsync(
+                PathFor(LocalStateStore.SettingsFileName),
+                legacy.ToJsonString(),
+                TestContext.Current.CancellationToken);
+
+            var restarted = await Store().InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess);
+            Assert.Empty(restarted.Snapshot!.Settings.Plugins!.Enabled!);
+            Assert.Single(Directory.GetFiles(_directory, "settings.json.schema-2-*.backup"));
         }
 
         [Fact]
@@ -225,6 +246,7 @@ namespace FocusRgb.Core.Tests
                     Theme = "dark",
                     VerboseLogging = current.Application.VerboseLogging
                 },
+                Plugins = current.Plugins,
                 Selection = current.Selection,
                 Profiles = current.Profiles,
                 Rules = current.Rules,
@@ -371,6 +393,7 @@ namespace FocusRgb.Core.Tests
             {
                 SchemaVersion = current.SchemaVersion,
                 Application = current.Application,
+                Plugins = current.Plugins,
                 Selection = current.Selection,
                 Profiles = current.Profiles,
                 Rules = current.Rules,
@@ -455,6 +478,7 @@ namespace FocusRgb.Core.Tests
                 Theme = theme,
                 VerboseLogging = settings.Application.VerboseLogging
             },
+            Plugins = settings.Plugins,
             Selection = settings.Selection,
             Profiles = settings.Profiles,
             Rules = settings.Rules,

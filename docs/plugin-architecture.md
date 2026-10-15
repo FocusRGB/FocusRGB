@@ -55,7 +55,7 @@ transport only if JSON becomes a demonstrated streaming bottleneck.
 
 Start with the smallest SDK and host surface needed by the fake test integration. Pack it as a
 versioned `0.x` prerelease before the first external plugin repository consumes it. Once the
-SignalRGB and WLED integrations prove the boundary, stabilize the public SDK rather than
+fake and SignalRGB plugins prove the boundary, stabilize the public SDK rather than
 guessing its complete version-1 API up front.
 
 ## Profile composition
@@ -102,10 +102,10 @@ the manifest's plugin and contract versions before launch.
 
 Create each repository when its implementation slice starts, not as an empty placeholder.
 The current `modules/signalrgb/` directory is temporary staging for existing research and
-tools. Slice 22 moves maintained SignalRGB-specific material into
+tools. Slice 15 moves maintained SignalRGB-specific material into
 `FocusRGB-Plugin-SignalRGB` and leaves only a short migration link if historical references
-require it. Slice 16 creates `FocusRGB-Plugin-WLED`. A selected game integration follows the
-same convention in slice 27 and consumes the public SDK established in slice 24. Shared rules,
+require it. Slice 22 creates `FocusRGB-Plugin-WLED`. A selected game integration follows the
+same convention in slice 20 and consumes the public SDK established in slice 17. Shared rules,
 layouts, native effects, and hardware-independent
 tools remain in the main repository.
 
@@ -150,6 +150,11 @@ visible output. Claude's MCP tools do not automatically form a standalone app AP
 
 Begin with explicitly installed and enabled local plugins. Do not build a marketplace or
 automatic plugin updater in the first version. Keep secrets outside committed profiles/logs.
+The initial host discovers a package at
+`%LOCALAPPDATA%\FocusRGB\plugins\<plugin-id>\focusrgb-plugin.json` only when the ID appears in
+`settings.json` under `plugins.enabled`. Each manifest resolves one entry point within its own
+package directory; invalid paths, platforms, architectures, or contract majors are rejected
+before launch.
 
 ## Selection rules
 

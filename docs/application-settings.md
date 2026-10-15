@@ -46,8 +46,8 @@ Keep these controls with the feature that can implement and validate them:
 
 | Setting | Owner |
 |---|---|
-| Start FocusRGB when the user signs in | Slice 18 packaging/startup; default off and explicitly user-controlled |
-| Start minimized after sign-in | Slice 18; use the general Start minimized preference once startup is enabled |
+| Start FocusRGB when the user signs in | Slice 28 packaging/startup; default off and explicitly user-controlled |
+| Start minimized after sign-in | Slice 28; use the general Start minimized preference once startup is enabled |
 | Automatic update checks and release channel | A future updater/distribution slice |
 | Capture monitor, frame rate, and compatibility mode | The screen-ambience feature/editor |
 | Plugin enablement, permissions, reconnect policy, and provider diagnostics | Integrations page |

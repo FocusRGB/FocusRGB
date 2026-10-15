@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 using FocusRgb.App.Diagnostics;
+using FocusRgb.App.Plugins;
 using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Persistence;
 
@@ -15,6 +16,9 @@ namespace FocusRgb.App
         private IClassicDesktopStyleApplicationLifetime? _desktop;
         private MainWindow? _mainWindow;
         private LocalStateStore? _store;
+        private PluginRuntime? _plugins;
+        private CancellationTokenSource? _pluginStartupCancellation;
+        private Task? _pluginStartupTask;
         private bool _quitPending;
         private bool _quitWithoutSaving;
         private bool _shutdownApproved;
@@ -78,6 +82,18 @@ namespace FocusRgb.App
                 }
                 else
                     mainWindow.Show();
+                var pluginStartup = StartPluginsAsync(
+                    Path.Combine(directory, "plugins"),
+                    startup.Snapshot.Settings.Plugins!.Enabled!);
+                _pluginStartupTask = pluginStartup;
+                try
+                {
+                    await pluginStartup;
+                }
+                finally
+                {
+                    if (ReferenceEquals(_pluginStartupTask, pluginStartup)) _pluginStartupTask = null;
+                }
             }
             catch (Exception exception)
             {
@@ -135,6 +151,7 @@ namespace FocusRgb.App
             _quitPending = true;
             if (_quitWithoutSaving)
             {
+                await StopPluginsAsync();
                 Shutdown();
                 return;
             }
@@ -148,7 +165,67 @@ namespace FocusRgb.App
                 return;
             }
 
+            await StopPluginsAsync();
             Shutdown();
+        }
+
+        private async Task StopPluginsAsync()
+        {
+            _pluginStartupCancellation?.Cancel();
+            var startup = _pluginStartupTask;
+            if (startup is not null)
+            {
+                try
+                {
+                    await startup;
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+            if (_plugins is not null)
+            {
+                await _plugins.DisposeAsync();
+                _plugins = null;
+            }
+        }
+
+        private async Task StartPluginsAsync(string packagesDirectory, IEnumerable<string> enabledPluginIds)
+        {
+            using var cancellation = new CancellationTokenSource();
+            _pluginStartupCancellation = cancellation;
+            var startup = PluginRuntime.StartAsync(packagesDirectory, enabledPluginIds, cancellation.Token);
+            try
+            {
+                var runtime = await startup;
+                if (cancellation.IsCancellationRequested)
+                {
+                    await runtime.DisposeAsync();
+                    return;
+                }
+                _plugins = runtime;
+                foreach (var plugin in runtime.Entries)
+                {
+                    if (plugin.Client is { } client)
+                        client.LogReceived += (_, message) => AppLog.Write($"Plugin {plugin.PluginId}: {message}");
+                    else
+                        AppLog.Write($"Plugin {plugin.PluginId} did not start: {plugin.ErrorCode}: {plugin.ErrorMessage}");
+                }
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            {
+            }
+            catch (Exception exception)
+            {
+                AppLog.Write($"Plugin startup failed: {exception.Message}");
+            }
+            finally
+            {
+                if (ReferenceEquals(_pluginStartupCancellation, cancellation))
+                {
+                    _pluginStartupCancellation = null;
+                }
+            }
         }
 
         private async void RequestQuit()

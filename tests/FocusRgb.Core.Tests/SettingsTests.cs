@@ -37,6 +37,7 @@ namespace FocusRgb.Core.Tests
             Assert.False(result.Settings.Application.StartMinimized);
             Assert.Equal("system", result.Settings.Application.Theme);
             Assert.False(result.Settings.Application.VerboseLogging);
+            Assert.Empty(result.Settings.Plugins!.Enabled!);
             Assert.Equal(["Code.exe", "devenv.exe"], rules[0].Match!.Executables);
             Assert.Equal(["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"],
                 rules[1].Match!.Executables);
@@ -73,6 +74,8 @@ namespace FocusRgb.Core.Tests
         [InlineData("application", "application")]
         [InlineData("application.startMinimized", "application.startMinimized")]
         [InlineData("application.verboseLogging", "application.verboseLogging")]
+        [InlineData("plugins", "plugins")]
+        [InlineData("plugins.enabled", "plugins.enabled")]
         [InlineData("selection", "selection")]
         [InlineData("profiles", "profiles")]
         [InlineData("rules", "rules")]
@@ -137,7 +140,7 @@ namespace FocusRgb.Core.Tests
 
         [Theory]
         [InlineData(0)]
-        [InlineData(3)]
+        [InlineData(4)]
         public void Load_RejectsUnsupportedVersion_WithoutMigrationOrPersistence(int version)
         {
             var root = Defaults();
@@ -146,7 +149,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public void Load_MigratesSchemaOneApplicationPreferencesToDocumentedDefaults()
+        public void Load_MigratesSchemaOneApplicationAndPluginPreferencesToDocumentedDefaults()
         {
             var root = Defaults();
             root["schemaVersion"] = 1;
@@ -160,6 +163,39 @@ namespace FocusRgb.Core.Tests
             Assert.False(result.Settings.Application.StartMinimized);
             Assert.Equal("system", result.Settings.Application.Theme);
             Assert.False(result.Settings.Application.VerboseLogging);
+            Assert.Empty(result.Settings.Plugins!.Enabled!);
+        }
+
+        [Fact]
+        public void Load_MigratesSchemaTwoWithPluginsDisabledByDefault()
+        {
+            var root = Defaults();
+            root["schemaVersion"] = 2;
+            root.AsObject().Remove("plugins");
+
+            var result = SettingsJson.Load(root.ToJsonString());
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(SettingsJson.CurrentSchemaVersion, result.Settings!.SchemaVersion);
+            Assert.Empty(result.Settings.Plugins!.Enabled!);
+        }
+
+        [Fact]
+        public void Load_RejectsDuplicateEnabledPlugins()
+        {
+            var root = Defaults();
+            root["plugins"]!["enabled"] = JsonNode.Parse("""["fake-output","fake-output"]""");
+
+            AssertError(root, "plugins.enabled[1]");
+        }
+
+        [Fact]
+        public void Load_RejectsInvalidEnabledPluginId()
+        {
+            var root = Defaults();
+            root["plugins"]!["enabled"] = JsonNode.Parse("""["Bad ID"]""");
+
+            AssertError(root, "plugins.enabled[0]");
         }
 
         [Fact]

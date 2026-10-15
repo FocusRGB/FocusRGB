@@ -68,6 +68,27 @@ namespace FocusRgb.Core.Configuration
                 if (document.Application.VerboseLogging is null)
                     Error("application.verboseLogging", "required boolean");
             }
+            if (document.Plugins is null)
+            {
+                Error("plugins", "required object");
+            }
+            else if (document.Plugins.Enabled is null)
+            {
+                Error("plugins.enabled", "required array");
+            }
+            else
+            {
+                var enabled = new HashSet<string>(StringComparer.Ordinal);
+                for (var i = 0; i < document.Plugins.Enabled.Count; i++)
+                {
+                    var pluginId = document.Plugins.Enabled[i];
+                    Id(pluginId, $"plugins.enabled[{i}]");
+                    if (pluginId is not null && !enabled.Add(pluginId))
+                    {
+                        Error($"plugins.enabled[{i}]", "duplicate plugin ID '" + pluginId + "'");
+                    }
+                }
+            }
             var profiles = new Dictionary<string, ProfileSettings>(StringComparer.Ordinal);
             if (document.Profiles is null)
             {

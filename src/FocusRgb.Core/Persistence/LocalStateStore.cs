@@ -219,9 +219,10 @@ namespace FocusRgb.Core.Persistence
             var loaded = SettingsJson.Load(json);
             if (loaded.IsSuccess)
             {
-                if (ReadSchemaVersion(json) == 1)
+                var loadedVersion = ReadSchemaVersion(json);
+                if (loadedVersion < SettingsJson.CurrentSchemaVersion)
                 {
-                    BackupFile(SettingsFileName, "schema-1", now);
+                    BackupFile(SettingsFileName, $"schema-{loadedVersion}", now);
                     var save = await SaveSettingsCoreAsync(loaded.Settings!, cancellationToken).ConfigureAwait(false);
                     if (!save.IsSuccess) return SettingsStartupResult.Fail(save.Error!);
                 }

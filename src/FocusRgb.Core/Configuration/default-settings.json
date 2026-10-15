@@ -1,10 +1,13 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "application": {
     "closeButtonBehavior": "minimize-to-tray",
     "startMinimized": false,
     "theme": "system",
     "verboseLogging": false
+  },
+  "plugins": {
+    "enabled": []
   },
   "selection": {
     "defaultProfile": "default",

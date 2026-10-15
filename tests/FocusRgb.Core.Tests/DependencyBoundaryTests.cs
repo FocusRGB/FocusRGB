@@ -16,6 +16,7 @@ namespace FocusRgb.Core.Tests
         {
             ["FocusRgb.Contracts"] = [],
             ["FocusRgb.Core"] = ["FocusRgb.Contracts"],
+            ["FocusRgb.PluginSdk"] = ["FocusRgb.Contracts"],
         };
 
         public static TheoryData<string> PortableProjects() => new(AllowedProjectReferences.Keys);
@@ -71,6 +72,16 @@ namespace FocusRgb.Core.Tests
         [Fact]
         public void ContractVersion_MatchesMinimalContract() =>
             Assert.Equal("0.1", ContractVersion.Current);
+
+        [Fact]
+        public void AppProject_DoesNotReferenceFakePlugin()
+        {
+            var references = ReadProject("FocusRgb.App").Descendants()
+                .Where(element => element.Name.LocalName == "ProjectReference")
+                .Select(element => Path.GetFileNameWithoutExtension(element.Attribute("Include")!.Value));
+
+            Assert.DoesNotContain("FocusRgb.FakePlugin", references);
+        }
 
         private static bool IsFrameworkAssembly(string name) =>
             (name.StartsWith("System", StringComparison.Ordinal) || name is "netstandard" or "mscorlib")

@@ -40,7 +40,7 @@ Application authority and reserved game/device scope shapes can validate, but th
 claim runtime support.
 
 `NativeSetupJson.CreateDefault()` returns an independent empty app-default snapshot, and
-`LocalStateStore` handles its storage. Slices 10–16 add native rendering/output. The snapshot
+`LocalStateStore` handles its storage. Slices 21–22 add native rendering and output. The snapshot
 is not derived from provider bindings. Runtime intent is stored separately in `state.json`.
 
 ## Selecting a profile
@@ -58,7 +58,7 @@ rules can still win immediately.
 
 The caller owns process observation and time. The selector does not read the OS or call an
 integration or device. `LocalStateStore` persists its desired result independently of output.
-Windows observations arrive in slice 19; slice 20 wires them to automatic selection and persistence.
+Windows observations arrive in slice 12; slice 13 wires them to automatic selection and persistence.
 
 ## Persisting startup state
 

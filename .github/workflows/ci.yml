@@ -28,3 +28,6 @@ jobs:
         run: dotnet build FocusRGB.slnx -c Release --no-restore
       - name: Test
         run: dotnet test --solution FocusRGB.slnx -c Release --no-build
+      - name: Verify plugin SDK package
+        shell: pwsh
+        run: ./tools/verify-plugin-sdk-package.ps1
