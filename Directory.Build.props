@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <!-- All generated output (bin, obj, packages, test results) goes under the ignored build/ directory. -->
+    <ArtifactsPath>$(MSBuildThisFileDirectory)build/artifacts</ArtifactsPath>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <Deterministic>true</Deterministic>
+    <Version>0.1.0</Version>
+    <Authors>Amin Javan</Authors>
+    <Product>FocusRGB</Product>
+  </PropertyGroup>
+</Project>
