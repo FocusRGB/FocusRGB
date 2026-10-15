@@ -18,10 +18,10 @@ $packages = Join-Path $run 'packages'
 New-Item -ItemType Directory -Path $feedA, $feedB, $consumer | Out-Null
 
 try {
-    Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.Contracts\FocusRgb.Contracts.csproj') -c Release -o $feedA -p:ArtifactsPath=$artifactsA -p:ContinuousIntegrationBuild=true
-    Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.PluginSdk\FocusRgb.PluginSdk.csproj') -c Release -o $feedA -p:ArtifactsPath=$artifactsA -p:ContinuousIntegrationBuild=true
-    Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.Contracts\FocusRgb.Contracts.csproj') -c Release -o $feedB -p:ArtifactsPath=$artifactsB -p:ContinuousIntegrationBuild=true
-    Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.PluginSdk\FocusRgb.PluginSdk.csproj') -c Release -o $feedB -p:ArtifactsPath=$artifactsB -p:ContinuousIntegrationBuild=true
+    Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.Contracts\FocusRgb.Contracts.csproj') -c Release -o $feedA "-p:ArtifactsPath=$artifactsA" '-p:ContinuousIntegrationBuild=true'
+    Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.PluginSdk\FocusRgb.PluginSdk.csproj') -c Release -o $feedA "-p:ArtifactsPath=$artifactsA" '-p:ContinuousIntegrationBuild=true'
+    Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.Contracts\FocusRgb.Contracts.csproj') -c Release -o $feedB "-p:ArtifactsPath=$artifactsB" '-p:ContinuousIntegrationBuild=true'
+    Invoke-DotNet pack (Join-Path $repository 'src\FocusRgb.PluginSdk\FocusRgb.PluginSdk.csproj') -c Release -o $feedB "-p:ArtifactsPath=$artifactsB" '-p:ContinuousIntegrationBuild=true'
 
     $extractA = Join-Path $run 'package-a'
     $extractB = Join-Path $run 'package-b'
