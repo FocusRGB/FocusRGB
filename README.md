@@ -2,7 +2,7 @@
 
 A desktop RGB controller under active development with an Avalonia UI and .NET 10 background core.
 The first executable targets Windows; shared code remains portable for future platforms.
-**Early implementation:** slices 00–10 provide the contract, solution scaffold, validated
+**Early implementation:** slices 00–11 provide the contract, solution scaffold, validated
 profile configuration, a runnable selected-item UI, named application groups, an ordered
 in-memory mapping editor with insertion drag/drop, the portable selection engine, and a persistent
 profile editor. Profiles can be created, edited, duplicated, or safely removed; Default remains
@@ -10,8 +10,9 @@ protected. The Windows app now starts asynchronously, persists manual selection,
 tray icon, and saves again before tray Quit or OS shutdown. The Settings page persists close
 behavior, start-minimized, theme, and diagnostic-logging preferences, with versioned migration,
 last-known-good recovery, and a
-privacy-limited diagnostics export. The app now hosts explicitly enabled local process plugins
-through the packaged 0.1 SDK; application-group persistence and OS observations are still pending. See
+privacy-limited diagnostics export. The app hosts explicitly enabled local process plugins
+through the packaged 0.1 SDK and coordinates desired, applied, fallback, pending, ownership, and
+consent-gated recovery state. Application-group persistence and OS observations are still pending. See
 [Core configuration](src/FocusRgb.Core/README.md).
 
 The app will select lighting profiles manually or from named application groups using a
@@ -30,8 +31,8 @@ profile.
 
 ## Implementation roadmap
 
-1. Add the coordination needed by integrations, then external-application automation,
-   SignalRGB, games, and local-model MCP control.
+1. Add external-application automation, SignalRGB, games, and local-model MCP control on the
+   implemented plugin coordination boundary.
 2. Build standalone native effects, LED placement layouts, screen ambience, and output plugins.
 
 SignalRGB owns rendering and its existing layout while its integration is active, including
