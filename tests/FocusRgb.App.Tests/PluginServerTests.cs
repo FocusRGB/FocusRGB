@@ -37,13 +37,29 @@ namespace FocusRgb.App.Tests
             Assert.Equal(-32700, response.RootElement.GetProperty("error").GetProperty("code").GetInt32());
         }
 
-        private sealed class StubPlugin : IFocusRgbPlugin
+        [Fact]
+        public async Task RunAsync_CancelDoesNotRaceCompletedRequestDisposal()
+        {
+            const string requests =
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"status/get\",\"params\":{}}\n"
+                + "{\"jsonrpc\":\"2.0\",\"method\":\"$/cancel\",\"params\":{\"id\":1}}";
+            using var output = new StringWriter();
+
+            await PluginServer.RunAsync(
+                new CancellablePlugin(), new StringReader(requests), output, TextWriter.Null,
+                TestContext.Current.CancellationToken);
+
+            using var response = JsonDocument.Parse(output.ToString());
+            Assert.Equal(-32800, response.RootElement.GetProperty("error").GetProperty("code").GetInt32());
+        }
+
+        private class StubPlugin : IFocusRgbPlugin
         {
             public Task<InitializeResult> InitializeAsync(
                 InitializeParameters parameters,
                 CancellationToken cancellationToken) => throw new NotSupportedException();
 
-            public Task<PluginStatusResult> GetStatusAsync(CancellationToken cancellationToken) =>
+            public virtual Task<PluginStatusResult> GetStatusAsync(CancellationToken cancellationToken) =>
                 throw new NotSupportedException();
 
             public Task<PluginCatalogResult> ListCatalogAsync(
@@ -59,6 +75,15 @@ namespace FocusRgb.App.Tests
                 CancellationToken cancellationToken) => throw new NotSupportedException();
 
             public Task ShutdownAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        }
+
+        private sealed class CancellablePlugin : StubPlugin
+        {
+            public override async Task<PluginStatusResult> GetStatusAsync(CancellationToken cancellationToken)
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                throw new InvalidOperationException();
+            }
         }
     }
 }

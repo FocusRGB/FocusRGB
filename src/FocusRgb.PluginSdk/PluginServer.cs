@@ -62,9 +62,15 @@ namespace FocusRgb.PluginSdk
                         if (method == PluginMethods.Cancel)
                         {
                             if (TryReadCancelId(root, out var cancelledId)
-                                && pending.TryGetValue(cancelledId, out var cancelledRequest))
+                                && pending.TryRemove(cancelledId, out var cancelledRequest))
                             {
-                                cancelledRequest.Cancel();
+                                try
+                                {
+                                    cancelledRequest.Cancel();
+                                }
+                                catch (ObjectDisposedException)
+                                {
+                                }
                             }
                             continue;
                         }
@@ -102,10 +108,10 @@ namespace FocusRgb.PluginSdk
                         }
 
                         _ = task.ContinueWith(
-                            _ =>
+                            completed =>
                             {
-                                pending.TryRemove(id, out var completedCancellation);
-                                completedCancellation?.Dispose();
+                                pending.TryRemove(id, out _);
+                                requestCancellation.Dispose();
                             },
                             CancellationToken.None,
                             TaskContinuationOptions.ExecuteSynchronously,
@@ -119,10 +125,6 @@ namespace FocusRgb.PluginSdk
             finally
             {
                 lifetime.Cancel();
-                foreach (var request in pending.Values)
-                {
-                    request.Cancel();
-                }
                 try
                 {
                     await Task.WhenAll(tasks).ConfigureAwait(false);
@@ -130,9 +132,9 @@ namespace FocusRgb.PluginSdk
                 catch (OperationCanceledException)
                 {
                 }
-                foreach (var request in pending.Values)
+                foreach (var request in pending.ToArray())
                 {
-                    request.Dispose();
+                    if (pending.TryRemove(request.Key, out var cancellation)) cancellation.Dispose();
                 }
             }
         }
