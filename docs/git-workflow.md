@@ -51,6 +51,19 @@ Adopted 2026-10-10. Applies to people and AI assistants.
   first milestone, Slices 00-09, is tagged `v0.1.0-alpha.1`; later milestones advance the
   prerelease number until the product is ready for a stable version.
 
+## Pull request planning and review
+
+- Add active slice pull requests to the `FocusRGB Roadmap` project and to the milestone that
+  names their intended release checkpoint. Slices 10-11 share
+  `v0.2.0-alpha.1 - Plugin runtime and coordination`.
+- Assign the repository owner and the implementing assistant when both have assignable GitHub
+  identities. If an assistant has no GitHub identity, name it in the pull-request description;
+  do not substitute another bot or user merely to fill the assignee field.
+- Claude is the preferred AI reviewer. A standard review request requires its GitHub identity
+  to be a repository collaborator, or an installed Claude GitHub app must provide its own review
+  trigger. Do not grant repository access to a similarly named account without confirming that
+  it is the configured integration.
+
 ## External plugin repositories
 
 Production plugins use peer repositories named `FocusRGB-Plugin-<Name>`. Create a repository
@@ -66,11 +79,10 @@ compatibility fixtures to the exact declared versions.
 ## Branch protection
 
 Both branches are protected on GitHub by rulesets; the exported definitions are in
-`../.github/rulesets/`. Each ruleset:
+`../.github/rulesets/`. The shared rules:
 
 - blocks direct pushes (a pull request is required), force-pushes, and deletion;
 - requires review threads to be resolved (0 approvals, for a single maintainer);
-- requires the `branch-policy` check from `../.github/workflows/branch-policy.yml`;
 - allows squash or merge commits into `develop`, and merge commits only into `main`;
 - has no bypass actors, so the rules also apply to the repository owner and to automation.
 
@@ -84,12 +96,11 @@ Both pull-request workflows run for every base branch so stacked changes receive
 build checks. CI also handles the `edited` event, ensuring a base-branch retarget starts a
 fresh build without requiring another source commit.
 
-Bootstrap: a required check runs from the workflow on the target branch, so it is added
-to each ruleset only after `branch-policy.yml` exists on that branch. Until then the ruleset
-is active without the `required_status_checks` rule. Add it to `develop` once the workflow
-merges there, and to `main` after the first `develop` → `main` release merges.
+Current live rules require `branch-policy` on `develop`. The workflow also passes on `main`, and
+the `build` workflow passes on both branches, but those checks are not yet required by both
+rulesets. When enabling them, update the live rulesets and the exported definitions together.
 
 To recreate a ruleset, use Settings → Rules → Rulesets → New ruleset → Import a ruleset, or
 `gh api repos/MAJ224/FocusRGB/rulesets --method POST --input .github/rulesets/develop.json`.
-Add the CI build as a second required check once slice 01 introduces it. In an emergency the
-owner can temporarily set a ruleset's enforcement to Disabled in the GitHub UI.
+In an emergency the owner can temporarily set a ruleset's enforcement to Disabled in the
+GitHub UI.

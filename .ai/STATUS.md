@@ -221,6 +221,14 @@ and tagged it `v0.1.0-alpha.1`. Keep no more than two dependent slice PRs open. 
 `develop` to `main` releases use `release`. Version tags are SemVer tags on tested `main`
 milestones only, never per-slice tags.
 
+PR planning (2026-10-15): Slice 10 is PR #24 into `develop`; Slice 11 is PR #25 stacked on it.
+Both have passing checks, the `slice` and `enhancement` labels, owner `MAJ224` assigned, and the
+`v0.2.0-alpha.1 - Plugin runtime and coordination` milestone. Both are tracked in the renamed
+`FocusRGB Roadmap` GitHub Project. This Codex session has no assignable GitHub identity, so it is
+recorded as the implementing assistant rather than replaced by another bot. GitHub rejected
+`claude` as a standard reviewer because it is not a repository collaborator; install or confirm
+the intended Claude GitHub integration before granting access or triggering review.
+
 Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
 (`settings.json`, `state.json`, `native-setup.json`); seeded rules are `while-focused` in priority
 order Programming, Movie, Music; protected Default handles unmatched
