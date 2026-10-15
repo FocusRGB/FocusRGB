@@ -50,13 +50,15 @@ namespace FocusRgb.Core.Coordination
         private readonly IPluginOutputGateway _gateway;
         private readonly NativeSetupDocument _nativeSetup;
         private readonly SemaphoreSlim _gate = new(1, 1);
-        private readonly HashSet<string> _unavailablePlugins = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, (string ReasonCode, string Message)> _unavailablePlugins =
+            new(StringComparer.Ordinal);
         private readonly HashSet<string> _recoveryBlockedPlugins = new(StringComparer.Ordinal);
         private readonly Dictionary<string, RuntimeNotification> _notifications = new(StringComparer.Ordinal);
         private AppliedBinding? _ownedBinding;
         private SettingsDocument? _settings;
         private SelectionStateDocument? _state;
         private SelectionReason? _reason;
+        private long _statusSequence;
 
         public OutputCoordinator(IPluginOutputGateway gateway, NativeSetupDocument nativeSetup)
         {
@@ -109,9 +111,17 @@ namespace FocusRgb.Core.Coordination
         }
 
         /// <summary>Records plugin loss or exposes one consent-gated recovery notification.</summary>
+        public Task<SelectionRuntimeStatus?> ReportAvailabilityAsync(
+            string pluginId,
+            bool available,
+            CancellationToken cancellationToken = default) =>
+            ReportAvailabilityAsync(pluginId, available, null, null, cancellationToken);
+
         public async Task<SelectionRuntimeStatus?> ReportAvailabilityAsync(
             string pluginId,
             bool available,
+            string? reasonCode,
+            string? message,
             CancellationToken cancellationToken = default)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
@@ -121,7 +131,9 @@ namespace FocusRgb.Core.Coordination
             {
                 if (!available)
                 {
-                    _unavailablePlugins.Add(pluginId);
+                    _unavailablePlugins[pluginId] = (
+                        reasonCode ?? "provider-not-running",
+                        message ?? "The plugin is unavailable.");
                     _recoveryBlockedPlugins.Remove(pluginId);
                     _notifications.Remove(NotificationId(pluginId));
                     if (_ownedBinding?.PluginId == pluginId && _settings is not null && _state is not null && _reason is not null)
@@ -212,8 +224,6 @@ namespace FocusRgb.Core.Coordination
                 new() { ProfileId = desiredId, ReasonCode = desiredAttempt.ReasonCode! }
             };
             var visited = new HashSet<string>(StringComparer.Ordinal) { desiredId };
-            var lastAttempt = desiredAttempt;
-
             async Task<SelectionRuntimeStatus?> TryFallbacksAsync(ProfileSettings profile, int? rootIndex)
             {
                 var candidates = profile.Fallback ?? [];
@@ -225,7 +235,7 @@ namespace FocusRgb.Core.Coordination
                     if (candidate.Kind == "native-setup")
                     {
                         return NativeFallbackStatus(
-                            state, reason, desiredId, candidateIndex, lastAttempt, skipped);
+                            state, reason, desiredId, candidateIndex, desiredAttempt, skipped);
                     }
 
                     if (candidate.Profile is null || !visited.Add(candidate.Profile))
@@ -250,8 +260,7 @@ namespace FocusRgb.Core.Coordination
                         continue;
                     }
                     var attempt = await TryApplyProfileAsync(
-                        fallback, approveRecovery, cancellationToken).ConfigureAwait(false);
-                    lastAttempt = attempt;
+                        fallback, approveRecovery: false, cancellationToken).ConfigureAwait(false);
                     if (attempt.IsApplied)
                     {
                         return Status(
@@ -275,12 +284,12 @@ namespace FocusRgb.Core.Coordination
             }
 
             var fallbackStatus = await TryFallbacksAsync(desired, null).ConfigureAwait(false);
-            return fallbackStatus ?? Status(state, reason, desiredId, "fallback", lastAttempt, skipped,
+            return fallbackStatus ?? Status(state, reason, desiredId, "fallback", desiredAttempt, skipped,
                 [new PendingBinding
                 {
                     BindingId = desired.Bindings![0].Id!,
-                    ReasonCode = lastAttempt.ReasonCode!,
-                    Message = lastAttempt.Message!
+                    ReasonCode = desiredAttempt.ReasonCode!,
+                    Message = desiredAttempt.Message!
                 }]);
         }
 
@@ -292,8 +301,9 @@ namespace FocusRgb.Core.Coordination
             var binding = profile.Bindings![0];
             if (binding.RenderingAuthority == "application")
                 return ProfileAttempt.Fail(profile.Id!, binding, "native-output-unavailable", "Native output is not available yet.");
-            if (_unavailablePlugins.Contains(binding.Plugin!))
-                return ProfileAttempt.Fail(profile.Id!, binding, "provider-not-running", "The plugin is unavailable.");
+            if (_unavailablePlugins.TryGetValue(binding.Plugin!, out var unavailable))
+                return ProfileAttempt.Fail(
+                    profile.Id!, binding, unavailable.ReasonCode, unavailable.Message);
             if (_recoveryBlockedPlugins.Contains(binding.Plugin!))
             {
                 if (!approveRecovery)
@@ -321,7 +331,8 @@ namespace FocusRgb.Core.Coordination
                     return ProfileAttempt.Fail(profile.Id!, binding, layout.ErrorCode!, layout.ErrorMessage!);
             }
 
-            var ownershipFailure = await ReleaseCompetingOwnerAsync(binding, cancellationToken).ConfigureAwait(false);
+            var ownershipFailure = await ReleaseCompetingOwnerAsync(
+                binding, approveRecovery, cancellationToken).ConfigureAwait(false);
             if (ownershipFailure is not null)
                 return ProfileAttempt.Fail(profile.Id!, binding, "device-owned-elsewhere", ownershipFailure);
 
@@ -357,6 +368,7 @@ namespace FocusRgb.Core.Coordination
 
         private async Task<string?> ReleaseCompetingOwnerAsync(
             BindingSettings incoming,
+            bool allowDeadOwnerOverride,
             CancellationToken cancellationToken)
         {
             if (_ownedBinding is null
@@ -366,12 +378,27 @@ namespace FocusRgb.Core.Coordination
                 return null;
             }
 
+            if (allowDeadOwnerOverride && _unavailablePlugins.ContainsKey(_ownedBinding.PluginId))
+            {
+                _ownedBinding = null;
+                return null;
+            }
+
             var release = await _gateway.ReleaseBindingAsync(_ownedBinding.PluginId, new BindingReleaseParameters
             {
                 Profile = _ownedBinding.ProfileId,
                 BindingId = _ownedBinding.BindingId
             }, cancellationToken).ConfigureAwait(false);
-            if (!release.IsSuccess || release.Value!.Outcome is not ("released" or "nothing-to-release"))
+            if (!release.IsSuccess)
+            {
+                if (allowDeadOwnerOverride && release.ErrorCode == "plugin-exited")
+                {
+                    _ownedBinding = null;
+                    return null;
+                }
+                return "The previous writer did not confirm device release.";
+            }
+            if (release.Value!.Outcome is not ("released" or "nothing-to-release"))
                 return "The previous writer did not confirm device release.";
             _ownedBinding = null;
             return null;
@@ -410,10 +437,10 @@ namespace FocusRgb.Core.Coordination
                     match.Reason?.Code ?? "resource-not-found",
                     match.Reason?.Message ?? $"{kind} '{resource.DisplayName}' is unavailable.");
             return ResolvedResource.Ok(new PluginResourceReference
-                {
-                    ResourceId = match.ResourceId,
-                    DisplayName = match.DisplayName
-                });
+            {
+                ResourceId = match.ResourceId,
+                DisplayName = match.DisplayName
+            });
         }
 
         private SelectionRuntimeStatus NativeFallbackStatus(
@@ -447,6 +474,7 @@ namespace FocusRgb.Core.Coordination
             IReadOnlyList<PendingBinding> pending,
             int? candidateIndex = null) => new()
             {
+                Sequence = ++_statusSequence,
                 Mode = state.Mode!,
                 Desired = new SelectionDecision
                 {
@@ -466,7 +494,7 @@ namespace FocusRgb.Core.Coordination
                         ProfileId = attempt.ProfileId,
                         Bindings = [attempt.BindingResult]
                     }
-                    : _ownedBinding is not null && !_unavailablePlugins.Contains(_ownedBinding.PluginId)
+                    : _ownedBinding is not null && !_unavailablePlugins.ContainsKey(_ownedBinding.PluginId)
                         ? new AppliedSelection
                         {
                             ProfileId = _ownedBinding.ProfileId,
@@ -488,6 +516,7 @@ namespace FocusRgb.Core.Coordination
 
         private SelectionRuntimeStatus? CopyWithNotifications(SelectionRuntimeStatus? status) => status is null ? null : new()
         {
+            Sequence = ++_statusSequence,
             Mode = status.Mode,
             Desired = status.Desired,
             Effective = status.Effective,

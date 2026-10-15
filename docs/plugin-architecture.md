@@ -196,7 +196,9 @@ selection before resuming; dismissing or declining keeps the native fallback act
 restore a stale selection that a newer user command superseded. Coalesce repeated availability
 events into one pending notification per plugin. Falling back from SignalRGB
 to WLED still requires verified physical-device release. Plugin disconnection alone is not
-proof that SignalRGB stopped writing. Partial output failure follows the transition rules.
+proof that SignalRGB stopped writing. Automatic fallback therefore keeps the ownership claim;
+an explicit profile selection may discard a dead process's stale claim as a user-approved
+override. Partial output failure follows the transition rules.
 
 ## Layout editing and preview
 

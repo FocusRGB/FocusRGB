@@ -108,13 +108,14 @@ namespace FocusRgb.Core.Tests
             var gateway = new FakeGateway("fake-output");
             using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
             var settings = Settings(("default", "fake-output", "provider-managed", null));
-            await coordinator.ApplyAsync(settings, State("default"), SelectionReason.Manual(),
+            var applied = await coordinator.ApplyAsync(settings, State("default"), SelectionReason.Manual(),
                 TestContext.Current.CancellationToken);
 
             var unavailable = await coordinator.ReportAvailabilityAsync(
                 "fake-output", available: false, TestContext.Current.CancellationToken);
 
             Assert.Single(gateway.Applied);
+            Assert.True(unavailable!.Sequence > applied.Sequence);
             Assert.Equal("fallback", unavailable!.Effective.Source);
             Assert.Equal("native-output-unavailable", Assert.Single(unavailable.Pending).ReasonCode);
         }
@@ -184,6 +185,32 @@ namespace FocusRgb.Core.Tests
                 status.Effective.Skipped.Select(item => item.ProfileId));
         }
 
+        [Fact]
+        public async Task ApplyAsync_ReportsDesiredFailure_WhenEveryFallbackFails()
+        {
+            using var coordinator = new OutputCoordinator(new FakeGateway(), NativeSetupJson.CreateDefault());
+            var original = Settings(
+                ("default", "missing-default", "provider-managed", null),
+                ("movie", "missing-movie", "provider-managed", null));
+            var root = JsonNode.Parse(SettingsJson.Serialize(original))!;
+            var movie = root["profiles"]!.AsArray()
+                .Single(profile => profile!["id"]!.GetValue<string>() == "movie")!;
+            movie["bindings"]![0]!["id"] = "movie-binding";
+            var settings = SettingsJson.Load(root.ToJsonString()).Settings!;
+            SetFallback(settings, "default", "movie");
+            SetFallback(settings, "movie");
+
+            var status = await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            Assert.Equal("default", status.Applied!.ProfileId);
+            Assert.Equal("plugin-absent", Assert.Single(status.Applied.Bindings).ReasonCode);
+            var pending = Assert.Single(status.Pending);
+            Assert.Equal("main", pending.BindingId);
+            Assert.Equal("plugin-absent", pending.ReasonCode);
+            Assert.Contains(status.Effective.Skipped, item => item.ProfileId == "movie");
+        }
+
         [Theory]
         [InlineData("timeout")]
         [InlineData("malformed-response")]
@@ -248,7 +275,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public async Task AvailabilityLossKeepsUnconfirmedOwnershipAndReportsUnavailableAttempt()
+        public async Task ExplicitSelectionOverridesDeadOwnerButAutomaticFallbackDoesNot()
         {
             var gateway = new FakeGateway("plugin-a", "plugin-b") { ReleaseErrorCode = "plugin-exited" };
             using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
@@ -259,15 +286,20 @@ namespace FocusRgb.Core.Tests
                 settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
 
             var unavailable = await coordinator.ReportAvailabilityAsync(
-                "plugin-a", false, TestContext.Current.CancellationToken);
-            var switched = await coordinator.ApplyAsync(
+                "plugin-a", false, "plugin-exited", "The plugin process exited.",
+                TestContext.Current.CancellationToken);
+            var automatic = await coordinator.ApplyAsync(
                 settings, State("movie"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+            var selected = await coordinator.ApplyAsync(
+                settings, State("movie"), SelectionReason.Manual(), approveRecovery: true,
+                TestContext.Current.CancellationToken);
 
             Assert.Equal("unavailable", Assert.Single(unavailable!.Applied!.Bindings).Outcome);
-            Assert.Equal("movie", switched.Applied!.ProfileId);
-            Assert.Equal("unavailable", Assert.Single(switched.Applied.Bindings).Outcome);
-            Assert.Equal("device-owned-elsewhere", Assert.Single(switched.Effective.Skipped).ReasonCode);
-            Assert.DoesNotContain(gateway.Applied, item => item.Profile == "movie");
+            Assert.Equal("plugin-exited", Assert.Single(unavailable.Applied.Bindings).ReasonCode);
+            Assert.Equal("device-owned-elsewhere", Assert.Single(automatic.Effective.Skipped).ReasonCode);
+            Assert.Equal("movie", selected.Applied!.ProfileId);
+            Assert.Equal("applied", Assert.Single(selected.Applied.Bindings).Outcome);
+            Assert.Contains(gateway.Applied, item => item.Profile == "movie");
         }
 
         [Fact]
