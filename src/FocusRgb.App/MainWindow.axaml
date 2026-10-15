@@ -1,0 +1,286 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:FocusRgb.App.ViewModels"
+        x:Class="FocusRgb.App.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="FocusRGB" Width="1040" Height="680" MinWidth="820" MinHeight="560"
+        WindowStartupLocation="CenterScreen">
+  <Grid RowDefinitions="Auto,*">
+    <Border Padding="22,16" BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Text="FocusRGB" FontSize="24" FontWeight="SemiBold" />
+          <TextBlock Text="Lighting profiles that follow what you do" Opacity="0.65" />
+        </StackPanel>
+        <Border Grid.Column="1" Padding="10,5" CornerRadius="12" Background="#253B82F6">
+          <TextBlock Text="Local runtime · no hardware output" Foreground="#93C5FD" />
+        </Border>
+      </Grid>
+    </Border>
+
+    <TabControl Grid.Row="1" TabStripPlacement="Left" Margin="12">
+      <TabItem Header="Home">
+        <Grid Margin="24,16" RowDefinitions="Auto,*" RowSpacing="16">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Home" FontSize="26" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <Border Grid.Column="1" Padding="14,8" CornerRadius="8"
+                    BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Orientation="Horizontal" Spacing="14">
+                <TextBlock Text="Mode" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <RadioButton Content="Manual" GroupName="SelectionMode"
+                             IsChecked="{Binding IsManual, Mode=OneWay}" Click="ManualMode_OnClick" />
+                <RadioButton Content="Automatic" GroupName="SelectionMode"
+                             IsChecked="{Binding IsAutomatic, Mode=OneWay}" Click="AutomaticMode_OnClick" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <ScrollViewer Grid.Row="1" IsVisible="{Binding IsManual}">
+            <StackPanel Spacing="20" MaxWidth="680" HorizontalAlignment="Left">
+              <Border Padding="20" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+                <StackPanel Spacing="14">
+                  <TextBlock Text="Profile" FontSize="18" FontWeight="SemiBold" />
+                  <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile, Mode=OneWay}"
+                            IsEnabled="{Binding !IsRuntimeCommandPending}"
+                            SelectionChanged="SelectedProfile_OnSelectionChanged"
+                            PlaceholderText="No profiles available">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+              </Border>
+              <Border Padding="20" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="150,*" RowSpacing="12">
+                  <TextBlock Text="Desired profile" Opacity="0.65" /><TextBlock Grid.Column="1" Text="{Binding DesiredProfileName}" FontWeight="SemiBold" />
+                  <TextBlock Grid.Row="1" Text="Applied profile" Opacity="0.65" /><TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AppliedProfileName}" FontWeight="SemiBold" />
+                  <TextBlock Grid.Row="2" Text="Reason" Opacity="0.65" /><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectionReason}" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="3" Text="Runtime" Opacity="0.65" /><TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding RuntimeStatusMessage}" TextWrapping="Wrap" />
+                </Grid>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
+
+          <Grid Grid.Row="1" IsVisible="{Binding IsAutomatic}" RowDefinitions="Auto,*,Auto" RowSpacing="14">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel>
+                <TextBlock Text="Application mappings" FontSize="22" FontWeight="SemiBold" />
+                <TextBlock Text="Top row has highest priority. Drag rows or use the arrow buttons." Opacity="0.7" />
+              </StackPanel>
+              <CheckBox Grid.Column="1" Content="Live preview" IsChecked="{Binding MappingEditor.LivePreview}" VerticalAlignment="Center" />
+            </Grid>
+            <Grid Grid.Row="1" ColumnDefinitions="390,*" ColumnSpacing="16">
+              <Grid RowDefinitions="*,Auto" RowSpacing="8">
+                <ListBox ItemsSource="{Binding MappingEditor.Mappings}" SelectedItem="{Binding MappingEditor.SelectedMapping}">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:MappingEditorItemViewModel">
+                        <Grid Margin="4" MinHeight="30" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
+                              PointerPressed="MappingDrag_OnPointerPressed" ToolTip.Tip="Drag this row to reorder"
+                              DragDrop.AllowDrop="True" DragDrop.DragOver="MappingRow_OnDragOver"
+                              DragDrop.Drop="MappingRow_OnDrop">
+                          <TextBlock Text="{Binding Position}" VerticalAlignment="Center" Opacity="0.55" />
+                          <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Text="{Binding SelectedApplicationGroup.DisplayName}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding SelectedProfile.DisplayName}" FontSize="12" Opacity="0.65" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="2" Classes="row-actions" Orientation="Horizontal" Spacing="3">
+                            <Button Content="↑" Padding="7,3" CommandParameter="{Binding}" Click="MoveMappingUp_OnClick" ToolTip.Tip="Move up" />
+                            <Button Content="↓" Padding="7,3" CommandParameter="{Binding}" Click="MoveMappingDown_OnClick" ToolTip.Tip="Move down" />
+                            <Button Content="Edit" Padding="7,3" CommandParameter="{Binding}" Click="EditMapping_OnClick" />
+                            <Button Content="Remove" Padding="7,3" CommandParameter="{Binding}" Click="RemoveMapping_OnClick" />
+                          </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <StackPanel Grid.Row="1" Spacing="6">
+                  <TextBlock Text="Create mapping" FontWeight="SemiBold" />
+                  <ComboBox ItemsSource="{Binding ApplicationGroups}" SelectedItem="{Binding MappingEditor.NewApplicationGroup}"
+                            PlaceholderText="No application groups available">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ApplicationGroupViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding MappingEditor.NewProfile}"
+                            PlaceholderText="No profiles available">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <Button Content="Save As" Click="SaveMappingAs_OnClick" HorizontalAlignment="Left" />
+                </StackPanel>
+              </Grid>
+              <Border Grid.Column="1" Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+                <ContentControl Content="{Binding MappingEditor.SelectedMapping}">
+                  <ContentControl.ContentTemplate>
+                    <DataTemplate x:DataType="vm:MappingEditorItemViewModel">
+                      <StackPanel Spacing="10">
+                        <TextBlock Text="Mapping details" FontSize="18" FontWeight="SemiBold" />
+                        <TextBlock Text="Application group" FontWeight="SemiBold" />
+                        <ComboBox ItemsSource="{Binding ApplicationGroups}" SelectedItem="{Binding SelectedApplicationGroup}">
+                          <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ApplicationGroupViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Text="Profile" FontWeight="SemiBold" />
+                        <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}">
+                          <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Text="Eligibility" FontWeight="SemiBold" />
+                        <ComboBox ItemsSource="{Binding EligibilityOptions}" SelectedItem="{Binding Eligibility}" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ContentControl.ContentTemplate>
+                </ContentControl>
+              </Border>
+            </Grid>
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+              <StackPanel>
+                <TextBlock Text="{Binding MappingEditor.PreviewStatus}" />
+                <TextBlock Text="Unsaved draft" IsVisible="{Binding MappingEditor.IsDirty}" Foreground="#FBBF24" FontWeight="SemiBold" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Content="Cancel" Click="CancelMappings_OnClick" />
+                <Button Content="Save" Click="ApplyMappings_OnClick" />
+              </StackPanel>
+            </Grid>
+          </Grid>
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="Profiles">
+        <ScrollViewer>
+          <StackPanel Margin="28,16" Spacing="16" MaxWidth="720" HorizontalAlignment="Stretch">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="Profiles" FontSize="26" FontWeight="SemiBold" />
+              <CheckBox Grid.Column="1" Content="Live preview" IsChecked="{Binding ProfileLivePreview}" VerticalAlignment="Center" />
+            </Grid>
+            <TextBlock Text="Each profile contains exactly one effect and one layout." Opacity="0.7" />
+            <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding EditingProfile}"
+                      IsEnabled="{Binding !IsSettingsSavePending}" PlaceholderText="No profiles available">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+            <Border IsVisible="{Binding HasEditingProfile}" Padding="16" CornerRadius="8" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+                  <TextBlock Text="Name" VerticalAlignment="Center" /><TextBox Grid.Column="1" Text="{Binding ProfileName}" />
+                  <TextBlock Grid.Row="1" Text="Effect" VerticalAlignment="Center" /><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ProfileEffect}" />
+                  <TextBlock Grid.Row="2" Text="Layout" VerticalAlignment="Center" /><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ProfileLayout}" />
+                </Grid>
+                <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+                  <TextBlock Text="Fallback" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding ProfileFallbackKinds}" SelectedItem="{Binding ProfileFallbackKind}" />
+                  <TextBlock Grid.Row="1" Text="Fallback profile" VerticalAlignment="Center" IsVisible="{Binding IsProfileFallback}" />
+                  <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Profiles}"
+                            SelectedItem="{Binding ProfileFallbackProfile}" IsVisible="{Binding IsProfileFallback}"
+                            PlaceholderText="Select a fallback profile">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding !IsSettingsSavePending}">
+                  <Button Content="Save" Click="SaveProfile_OnClick" />
+                  <Button Content="Save As" Click="SaveProfileAs_OnClick" />
+                  <Button Content="Cancel" Click="CancelProfile_OnClick" />
+                  <Button Content="Remove" Click="RemoveProfile_OnClick" IsEnabled="{Binding CanRemoveEditingProfile}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <TextBlock Text="{Binding ProfileEditorStatus}" Opacity="0.7" />
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Application Groups">
+        <ScrollViewer>
+          <StackPanel Margin="28,16" Spacing="16" MaxWidth="720" HorizontalAlignment="Stretch">
+            <TextBlock Text="Application Groups" FontSize="26" FontWeight="SemiBold" />
+            <TextBlock Text="Name a group and add one or more Windows executables." Opacity="0.7" />
+            <ComboBox ItemsSource="{Binding ApplicationGroups}" SelectedItem="{Binding EditingApplicationGroup}"
+                      PlaceholderText="No application groups available">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ApplicationGroupViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button IsVisible="{Binding HasNoEditingApplicationGroup}" Content="Save As"
+                    Click="SaveApplicationGroupAs_OnClick" HorizontalAlignment="Left" />
+            <Border IsVisible="{Binding HasEditingApplicationGroup}" Padding="16" CornerRadius="8" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Spacing="10">
+                <TextBox Text="{Binding ApplicationGroupName}" PlaceholderText="Application group name" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                  <ListBox ItemsSource="{Binding DraftExecutables}" SelectedItem="{Binding SelectedDraftExecutable}" MinHeight="70" MaxHeight="180" />
+                  <StackPanel Grid.Column="1" Spacing="8">
+                    <Button Content="Add application…" Click="BrowseExecutable_OnClick" />
+                    <Button Content="Remove application" Click="RemoveExecutable_OnClick" />
+                  </StackPanel>
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="Save" Click="SaveApplicationGroup_OnClick" />
+                  <Button Content="Save As" Click="SaveApplicationGroupAs_OnClick" />
+                  <Button Content="Remove" Click="RemoveApplicationGroup_OnClick" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <TextBlock Text="{Binding ApplicationGroupEditorStatus}" Opacity="0.7" />
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Integrations">
+        <StackPanel Margin="28,16" Spacing="10">
+          <TextBlock Text="Integrations" FontSize="26" FontWeight="SemiBold" />
+          <TextBlock Text="No plugins connected. Integrations run as separate processes." />
+        </StackPanel>
+      </TabItem>
+      <TabItem Header="Devices" IsEnabled="False" />
+      <TabItem Header="Settings">
+        <ScrollViewer>
+          <StackPanel Margin="28,16" Spacing="18" MaxWidth="720" HorizontalAlignment="Stretch">
+            <TextBlock Text="Settings" FontSize="26" FontWeight="SemiBold" />
+            <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Spacing="12">
+                <TextBlock Text="General" FontSize="18" FontWeight="SemiBold" />
+                <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto" RowSpacing="10" ColumnSpacing="12">
+                  <TextBlock Text="Close button" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding CloseButtonBehaviors}"
+                            SelectedItem="{Binding CloseButtonBehavior}" />
+                  <TextBlock Grid.Row="1" Text="Start minimized" VerticalAlignment="Center" />
+                  <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding StartMinimized}"
+                            Content="Hide in the tray after launch" />
+                </Grid>
+                <TextBlock Text="Start minimized does not register FocusRGB to start with Windows."
+                           Opacity="0.65" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Spacing="12">
+                <TextBlock Text="Appearance" FontSize="18" FontWeight="SemiBold" />
+                <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+                  <TextBlock Text="Theme" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding ApplicationThemes}"
+                            SelectedItem="{Binding ApplicationTheme}" />
+                </Grid>
+              </StackPanel>
+            </Border>
+            <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Spacing="12">
+                <TextBlock Text="Diagnostics" FontSize="18" FontWeight="SemiBold" />
+                <CheckBox IsChecked="{Binding VerboseLogging}"
+                          Content="Enable basic diagnostic logging" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="Open settings folder" Click="OpenSettingsFolder_OnClick" />
+                  <Button Content="Open logs folder" Click="OpenLogsFolder_OnClick" />
+                  <Button Content="Export diagnostics…" Click="ExportDiagnostics_OnClick" />
+                </StackPanel>
+                <TextBlock Text="Diagnostic exports contain application/runtime metadata only; profiles, mappings, paths, and secrets are excluded."
+                           Opacity="0.65" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel>
+                <TextBlock Text="{Binding ApplicationSettingsStatus}" TextWrapping="Wrap" />
+                <TextBlock Text="Unsaved draft" IsVisible="{Binding IsApplicationSettingsDirty}"
+                           Foreground="#FBBF24" FontWeight="SemiBold" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Content="Cancel" Click="CancelApplicationSettings_OnClick" />
+                <Button Content="Save" Click="SaveApplicationSettings_OnClick" />
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+  </Grid>
+</Window>

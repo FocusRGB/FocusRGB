@@ -1,118 +1,116 @@
-# rgb-playground
+# FocusRGB
 
-Two RGB projects in one repo:
+A desktop RGB controller under active development with an Avalonia UI and .NET 10 background core.
+The first executable targets Windows; shared code remains portable for future platforms.
+**Early implementation:** slices 00–09 provide the contract, solution scaffold, validated
+profile configuration, a runnable selected-item UI, named application groups, an ordered
+in-memory mapping editor with insertion drag/drop, the portable selection engine, and a persistent
+profile editor. Profiles can be created, edited, duplicated, or safely removed; Default remains
+protected. The Windows app now starts asynchronously, persists manual selection, minimizes to a
+tray icon, and saves again before tray Quit or OS shutdown. The Settings page persists close
+behavior, start-minimized, theme, and diagnostic-logging preferences, with versioned migration,
+last-known-good recovery, and a
+privacy-limited diagnostics export. Application-group persistence, OS observations, and plugin
+integration are still pending. See
+[Core configuration](src/FocusRgb.Core/README.md).
 
-| Project | Location | What it is |
-|---------|----------|------------|
-| **SignalRGB development** | `effects/` `plugins/` `tools/` `docs/` | Effects (lightscripts), game/app integrations, and device plugins for SignalRGB |
-| **Arduino WS2812B tester** | `arduino/LEDStripTester/` | Standalone Arduino Uno sketch that drives a WS2812B strip through several patterns |
+The app will select lighting profiles manually or from named application groups using a
+user-ordered priority list: the top eligible row wins. Rules can remain active while an app is
+running or only while it has focus. Each profile owns exactly one effect and one layout.
+First launch uses manual mode; subsequent launches restore the saved state.
+The seeded profiles are protected Default plus Programming (VS Code/Visual Studio), Movie
+(PotPlayer/Stremio), and Music (Media Player/Spotify). In automatic mode, no eligible mapping
+returns to Default.
 
-The two are independent — nothing in `arduino/` is needed to work on SignalRGB content, or vice versa.
+The main `Home` tab always shows the Manual/Automatic mode control. Manual mode shows profile
+selection and current state; Automatic mode replaces that body with the ordered mapping editor.
+The `Profiles` tab saves profile changes under `%LOCALAPPDATA%\FocusRGB`, supports optional draft
+preview, and rejects invalid fallback cycles or removal while mappings/fallbacks still refer to a
+profile.
 
----
+## Implementation roadmap
 
-# SignalRGB development
+1. Build native effects, LED placement layouts, screen ambience, and output plugins.
+2. Add external-application automation and integrations: detection/mappings, SignalRGB, games,
+   and local-model MCP control.
 
-Workspace for writing SignalRGB **effects** (lightscripts), **game/app integrations**, and
-**device plugins**. SignalRGB loads user content from your Documents folder; this repo is the
-source of truth and `tools/sync.ps1` copies it there.
+SignalRGB owns rendering and its existing layout while its integration is active, including
+its WLED output. A separate WLED plugin supports native operation. Application mappings are
+customizable; the core and UI have no dependency on either provider's implementation.
 
-## Layout
+Native layouts will support a 2D placement canvas, stacked device groups, and device exclusion.
+Game effects can combine canvas animation, semantic zones, and direct key/LED mappings.
+A local MCP interface is planned for controlling the same commands used by the UI.
 
+## Start here
+
+- [Current status](.ai/STATUS.md): completed work, active slice, and next action.
+- [Implementation slices](docs/implementation-slices.md): compact status index linking to each
+  slice's dependency, scope, acceptance checks, and shared start/resume prompts.
+- [App brief](docs/app-brief.md): product requirements and user decisions.
+- [Application settings](docs/application-settings.md): implemented desktop lifecycle, appearance,
+  diagnostics, ownership boundaries, and defaults.
+- [Minimal contract](docs/minimal-contract.md): frozen settings, state, status, command,
+  and plugin protocol shapes for the first implementation goal.
+- [Plugin architecture](docs/plugin-architecture.md): integration contracts, selection,
+  rendering authority, fallback, and layouts.
+- [Delivery plan](docs/focus-profiles-plan.md): product goals and acceptance gates.
+- [Integration evidence](docs/integration-evidence.md): dated observations and unverified capabilities.
+
+Changes reach `develop` (the default branch) through pull requests; see the
+[Git workflow](docs/git-workflow.md). For AI-assisted development, follow the [agent instructions](.ai/AGENTS.md) and
+[handoff guide](.ai/README.md). Use the [slice checkpoint template](.ai/SLICE-HANDOFF.md)
+to preserve progress when switching models or reaching a session limit.
+
+## Repository conventions
+
+The main repository owns contracts, the future .NET plugin SDK, host, schemas, conformance
+tests, and fake/reference plugin. Production integrations live in independent repositories
+named `FocusRGB-Plugin-<Name>` and consume a published SDK version; they are not Git submodules
+or app project references. Repositories are created when their implementation slice starts.
+
+The existing [SignalRGB module](modules/signalrgb/README.md) temporarily holds research and
+tools that will move to `FocusRGB-Plugin-SignalRGB` in slice 22. The
+[Arduino module](modules/arduino/README.md) holds the earlier LED strip sketch. Application
+projects live under [src/](src/README.md); the shared screen colour test remains under `tools/`.
+
+## Project structure
+
+```text
+FocusRGB.slnx
+src/
+  FocusRgb.Contracts/          net10.0, provider-neutral plugin protocol types
+  FocusRgb.Core/               net10.0, profiles, selection, and local persistence
+  FocusRgb.Platform.Windows/   net10.0-windows, focus/process detection
+  FocusRgb.App/                net10.0-windows, Avalonia shell (FocusRGB.exe)
+tests/
+  FocusRgb.App.Tests/          xUnit; UI-facing preview-state tests
+  FocusRgb.Core.Tests/         xUnit; dependency-boundary and core tests
+modules/
+  signalrgb/                   Temporary SignalRGB research/tool staging
+  arduino/                     Earlier Arduino sketches
+docs/                          brief, architecture, contract, slices, workflow
+.ai/                           shared AI instructions, status, handoff
+build/                         generated output (git-ignored)
 ```
-effects/    HTML5 + JS lightscripts (one .html per effect, optional .png preview, same basename)
-plugins/    JS device plugins (one .js per USB device, matched by VendorId/ProductId)
-tools/      sync.ps1 (install into SignalRGB), send-event.ps1 / send-event.py (test integrations)
-docs/       cheatsheet.md (API reference, paths, links)
-```
 
-## Where SignalRGB looks
+## Build and test
 
-| Content        | Path                                                   |
-|----------------|--------------------------------------------------------|
-| Custom effects | `%USERPROFILE%\Documents\WhirlwindFX\Effects\`         |
-| User plugins   | `%USERPROFILE%\Documents\WhirlwindFX\Plugins\`         |
-| Components     | `%USERPROFILE%\Documents\WhirlwindFX\Components\`      |
-| Built-ins      | `%LOCALAPPDATA%\VortxEngine\app-<ver>\Signal-x64\`     |
-| Logs           | `%LOCALAPPDATA%\VortxEngine\app-<ver>\Signal-x64\Logs\`|
-
-If Documents is redirected to OneDrive the path is `...\OneDrive\Documents\WhirlwindFX\...`;
-`sync.ps1` detects that automatically.
-
-User plugins override built-in ones with the same VID/PID and survive SignalRGB updates.
-
-## Workflow
-
-1. Install SignalRGB (free tier is enough for everything here).
-2. Edit files in `effects/` or `plugins/`.
-3. Run `tools\sync.ps1` (or `tools\sync.ps1 -Watch` to auto-copy on save).
-4. New effect files need a SignalRGB restart to appear under Effects > Installed.
-   Existing effects reload when you re-select them. Plugins reload on device reconnect
-   or SignalRGB restart.
-5. Open the effect in SignalRGB's Effect Editor to see its live canvas and console.
-
-## Testing a game/app integration
-
-Effects receive external events through the local Canvas API:
-
-```
-POST http://localhost:16034/canvas/event?sender=<app>&event=<event>
-```
+Requires the .NET SDK pinned in `global.json` (10.0.401 or a later 10.0 feature band).
 
 ```powershell
-tools\send-event.ps1 -Sender demo -Event hit
-python tools\send-event.py demo hit
+dotnet build FocusRGB.slnx -c Release
+dotnet test --solution FocusRGB.slnx -c Release
+.\build\artifacts\bin\FocusRgb.App\release\FocusRGB.exe
 ```
 
-`effects/api-event-demo.html` reacts to `hit`, `heal`, `low`, `idle` from sender `demo`.
+Package versions are pinned centrally in `Directory.Packages.props`. CI runs the same build
+and tests for every pull request and for pushes to `develop` and `main`.
 
-## Devices in this setup
+Generated builds, packages, reports, caches, and tool artifacts belong under the Git-ignored
+`build/` directory. Maintained source and documentation stay outside it. Generated Graphify
+data lives at `build/graphify-out/` and is optional for development.
 
-- **Razer BlackWidow V4** (wired, VID `0x1532` PID `0x0287`) and **Razer Basilisk V3**
-  (wired, VID `0x1532` PID `0x0099`) are both driven by SignalRGB's built-in Razer plugin.
-  Windows Dynamic Lighting is **disabled** on this machine (`AmbientLightingEnabled = 0`) and
-  the Razer Dynamic Lighting package has been removed, so the LampArray path is not in use.
-- **Razer Synapse 4** is installed *without* the Chroma module — it provides macros and
-  special-key mappings only, no lighting. SignalRGB terminates `RazerAppEngine` during its own
-  startup, so Synapse is launched 90 s after logon by the scheduled task
-  `Synapse after SignalRGB` rather than from `HKCU\...\Run`. Both then coexist.
-- **WLED Wall** `10.0.0.37` — 300 LEDs (5 m @ 60/m, WS2815 12 V) on a single bus, GPIO 16,
-  RGB colour order, 12 mA/LED, 2700 mA limiter against a 12 V 3 A supply. Realtime receive on,
-  DDP port 4048, realtime timeout 2500 ms, boot preset 1 (warm white `[255,180,107]` @ 30 %).
-  SignalRGB discovers it over the network — no plugin needed, just Link it under Devices.
-- **WLED Desk** `10.0.0.36` — currently offline.
+## License
 
-> WS2815 strips are not colour-corrected: `[255,255,255]` renders visibly blue. Use reduced
-> blue/green values (e.g. `[255,180,107]`) for a neutral or warm white.
-
-## Docs
-
-- Developer hub: https://docs.signalrgb.com/developer/
-- Lightscripts: https://docs.signalrgb.com/developer/lightscripts/
-- Game/app integrations: https://docs.signalrgb.com/developer/lightscripts/creating-dev-integrations/
-- Plugin exports: https://docs.signalrgb.com/developer/plugins/plugin-exports/
-- Plugin tutorial (USB capture -> plugin): https://docs.signalrgb.com/developer/plugins/tutorial/
-- Community references: https://github.com/SRGBmods/public , https://github.com/Derek4aty1/signalrgb-extras
-
----
-
-# Arduino WS2812B tester
-
-`arduino/LEDStripTester/LEDStripTester.ino` — drives a WS2812B addressable strip from an
-Arduino Uno through several demonstration patterns, showing different ways to manipulate
-the LEDs.
-
-| Setting | Value | Constant |
-|---------|-------|----------|
-| Data pin | 5 | `LEDSPIN` |
-| LED count | 32 | `LEDSIZE` |
-| Refresh rate | 20 | `REFRESHRATE` |
-
-Requires the `WS2812BStrip` library (`#include <WS2812BStrip.h>`, namespace `WS2812B`).
-Adjust the constants at the top of the sketch to match your strip before flashing.
-
-Build output goes to `build/` and is **not** tracked — regenerate it with the Arduino IDE or
-`arduino-cli` rather than committing binaries.
-
-> This is unrelated to the WLED controllers above. WLED runs on ESP32 boards and is configured
-> over its HTTP JSON API; this sketch is bare-metal AVR with the strip wired directly to the Uno.
+[MIT](LICENSE).
