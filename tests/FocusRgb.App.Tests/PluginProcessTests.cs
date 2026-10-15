@@ -104,6 +104,73 @@ namespace FocusRgb.App.Tests
             Assert.Equal("timeout", status.ErrorCode);
         }
 
+        [Fact]
+        public async Task StalledStdin_MarksClientUnhealthyAndFailsLaterCallsWithoutThrowing()
+        {
+            var started = await StartAsync("--stall-after-initialize");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+
+            var stalled = await client.ListCatalogAsync(
+                new string('x', 128 * 1024), TestContext.Current.CancellationToken);
+            var startedAt = Stopwatch.GetTimestamp();
+            var later = await client.GetStatusAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal("timeout", stalled.ErrorCode);
+            Assert.Equal("timeout", later.ErrorCode);
+            Assert.Equal("unhealthy", client.Health);
+            Assert.True(Stopwatch.GetElapsedTime(startedAt) < TimeSpan.FromSeconds(1));
+        }
+
+        [Fact]
+        public async Task CancellationDuringWrite_DoesNotCorruptLaterRequests()
+        {
+            var started = await StartAsync("--invalid-response", "delayed-read");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.ListCatalogAsync(
+                new string('x', 128 * 1024), cancellation.Token));
+            var status = await client.GetStatusAsync(TestContext.Current.CancellationToken);
+
+            Assert.True(status.IsSuccess, status.ErrorMessage);
+            Assert.Equal("healthy", client.Health);
+        }
+
+        [Theory]
+        [InlineData("method-not-found", "capability-unsupported", -32601)]
+        [InlineData("request-cancelled", "request-cancelled", -32800)]
+        public async Task JsonRpcError_PreservesNumericCodeAndMapsKnownMeaning(
+            string response,
+            string expectedCode,
+            int expectedJsonRpcCode)
+        {
+            var started = await StartAsync("--invalid-response", response);
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+
+            var status = await client.GetStatusAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal(expectedCode, status.ErrorCode);
+            Assert.Equal(expectedJsonRpcCode, status.JsonRpcErrorCode);
+            Assert.Contains(expectedJsonRpcCode.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                status.ErrorMessage, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task UnknownNotification_IsIgnored()
+        {
+            var started = await StartAsync("--invalid-response", "unknown-notification");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+
+            var status = await client.GetStatusAsync(TestContext.Current.CancellationToken);
+
+            Assert.True(status.IsSuccess, status.ErrorMessage);
+            Assert.Equal("healthy", client.Health);
+        }
+
         [Theory]
         [InlineData("string-id")]
         [InlineData("null-id")]
@@ -139,6 +206,20 @@ namespace FocusRgb.App.Tests
 
             await received.Task.WaitAsync(TestContext.Current.CancellationToken);
             Assert.Equal(200000, length);
+        }
+
+        [Fact]
+        public async Task OversizedStderrLine_PublishesTruncationMarker()
+        {
+            var started = await StartAsync("--stderr-line-bytes", "70000");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+            var received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            client.LogReceived += (_, value) => received.TrySetResult(value);
+
+            var message = await received.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+            Assert.Contains("exceeded the 64 KiB limit", message, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -195,6 +276,28 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task StatusChanged_DuringStatusRead_IsNotLost()
+        {
+            var started = await StartAsync("--notify-count", "1", "--notify-during-status");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+            var notifications = 0;
+            client.StatusChanged += (_, _) => Interlocked.Increment(ref notifications);
+            var parameters = new BindingApplyParameters
+            {
+                Profile = "default",
+                BindingId = "main",
+                RenderingAuthority = "provider",
+                DeviceScope = new PluginDeviceScope { Kind = "provider-managed" }
+            };
+            await client.ApplyBindingAsync(parameters, TestContext.Current.CancellationToken);
+
+            await client.GetStatusAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal(2, notifications);
+        }
+
+        [Fact]
         public async Task StartAsync_KillsProcess_WhenInitializationIsCancelled()
         {
             var pidFile = Path.Combine(Path.GetTempPath(), $"FocusRgb.{Guid.NewGuid():N}.pid");
@@ -212,7 +315,8 @@ namespace FocusRgb.App.Tests
 
                 try
                 {
-                    await Process.GetProcessById(pid).WaitForExitAsync(TestContext.Current.CancellationToken);
+                    await Process.GetProcessById(pid).WaitForExitAsync(TestContext.Current.CancellationToken)
+                        .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
                 }
                 catch (ArgumentException)
                 {

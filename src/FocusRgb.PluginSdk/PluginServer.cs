@@ -62,9 +62,15 @@ namespace FocusRgb.PluginSdk
                         if (method == PluginMethods.Cancel)
                         {
                             if (TryReadCancelId(root, out var cancelledId)
-                                && pending.TryGetValue(cancelledId, out var cancelledRequest))
+                                && pending.TryRemove(cancelledId, out var cancelledRequest))
                             {
-                                cancelledRequest.Cancel();
+                                try
+                                {
+                                    cancelledRequest.Cancel();
+                                }
+                                catch (ObjectDisposedException)
+                                {
+                                }
                             }
                             continue;
                         }
@@ -92,7 +98,8 @@ namespace FocusRgb.PluginSdk
                             id,
                             method,
                             parameters,
-                            requestCancellation.Token);
+                            requestCancellation.Token,
+                            lifetime.Token);
                         tasks.Add(task);
 
                         if (method == PluginMethods.Shutdown)
@@ -102,10 +109,10 @@ namespace FocusRgb.PluginSdk
                         }
 
                         _ = task.ContinueWith(
-                            _ =>
+                            completed =>
                             {
-                                pending.TryRemove(id, out var completedCancellation);
-                                completedCancellation?.Dispose();
+                                pending.TryRemove(id, out _);
+                                requestCancellation.Dispose();
                             },
                             CancellationToken.None,
                             TaskContinuationOptions.ExecuteSynchronously,
@@ -119,10 +126,6 @@ namespace FocusRgb.PluginSdk
             finally
             {
                 lifetime.Cancel();
-                foreach (var request in pending.Values)
-                {
-                    request.Cancel();
-                }
                 try
                 {
                     await Task.WhenAll(tasks).ConfigureAwait(false);
@@ -130,9 +133,9 @@ namespace FocusRgb.PluginSdk
                 catch (OperationCanceledException)
                 {
                 }
-                foreach (var request in pending.Values)
+                foreach (var request in pending.ToArray())
                 {
-                    request.Dispose();
+                    if (pending.TryRemove(request.Key, out var cancellation)) cancellation.Dispose();
                 }
             }
         }
@@ -146,46 +149,50 @@ namespace FocusRgb.PluginSdk
             long id,
             string method,
             JsonElement parameters,
-            CancellationToken cancellationToken)
+            CancellationToken requestCancellationToken,
+            CancellationToken responseCancellationToken)
         {
             try
             {
                 object result = method switch
                 {
                     PluginMethods.Initialize => await plugin.InitializeAsync(
-                        Deserialize<InitializeParameters>(parameters), cancellationToken).ConfigureAwait(false),
-                    PluginMethods.StatusGet => await plugin.GetStatusAsync(cancellationToken).ConfigureAwait(false),
+                        Deserialize<InitializeParameters>(parameters), requestCancellationToken).ConfigureAwait(false),
+                    PluginMethods.StatusGet => await plugin.GetStatusAsync(requestCancellationToken).ConfigureAwait(false),
                     PluginMethods.CatalogList => await plugin.ListCatalogAsync(
-                        Deserialize<CatalogListParameters>(parameters), cancellationToken).ConfigureAwait(false),
+                        Deserialize<CatalogListParameters>(parameters), requestCancellationToken).ConfigureAwait(false),
                     PluginMethods.BindingApply => await plugin.ApplyBindingAsync(
-                        Deserialize<BindingApplyParameters>(parameters), cancellationToken).ConfigureAwait(false),
+                        Deserialize<BindingApplyParameters>(parameters), requestCancellationToken).ConfigureAwait(false),
                     PluginMethods.BindingRelease => await plugin.ReleaseBindingAsync(
-                        Deserialize<BindingReleaseParameters>(parameters), cancellationToken).ConfigureAwait(false),
-                    PluginMethods.Shutdown => await ShutdownAsync(plugin, cancellationToken).ConfigureAwait(false),
+                        Deserialize<BindingReleaseParameters>(parameters), requestCancellationToken).ConfigureAwait(false),
+                    PluginMethods.Shutdown => await ShutdownAsync(plugin, requestCancellationToken).ConfigureAwait(false),
                     _ => throw new JsonRpcDispatchException(-32601, $"Unknown method '{method}'.")
                 };
-                await WriteResultAsync(output, writeGate, id, result, cancellationToken).ConfigureAwait(false);
+                await WriteResultAsync(output, writeGate, id, result, responseCancellationToken).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (requestCancellationToken.IsCancellationRequested)
             {
-                await WriteErrorAsync(output, writeGate, id, -32800, "Request cancelled.", CancellationToken.None)
+                await WriteErrorAsync(
+                    output, writeGate, id, -32800, "Request cancelled.", responseCancellationToken)
                     .ConfigureAwait(false);
             }
             catch (JsonException exception)
             {
-                await WriteErrorAsync(output, writeGate, id, -32602, exception.Message, cancellationToken)
+                await WriteErrorAsync(output, writeGate, id, -32602, exception.Message, responseCancellationToken)
                     .ConfigureAwait(false);
             }
             catch (JsonRpcDispatchException exception)
             {
-                await WriteErrorAsync(output, writeGate, id, exception.Code, exception.Message, cancellationToken)
+                await WriteErrorAsync(
+                    output, writeGate, id, exception.Code, exception.Message, responseCancellationToken)
                     .ConfigureAwait(false);
             }
             catch (Exception exception)
             {
                 await WriteLogAsync(error, errorGate, exception.ToString(), CancellationToken.None)
                     .ConfigureAwait(false);
-                await WriteErrorAsync(output, writeGate, id, -32603, "Plugin request failed.", cancellationToken)
+                await WriteErrorAsync(
+                    output, writeGate, id, -32603, "Plugin request failed.", responseCancellationToken)
                     .ConfigureAwait(false);
             }
         }

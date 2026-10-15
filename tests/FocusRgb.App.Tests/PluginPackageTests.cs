@@ -5,6 +5,7 @@ using FocusRgb.Contracts;
 namespace FocusRgb.App.Tests
 {
     /// <summary>Checks package trust boundaries before an external executable can be launched.</summary>
+    [Collection("Environment variables")]
     public sealed class PluginPackageTests : IDisposable
     {
         private readonly string _directory = Path.Combine(
@@ -102,6 +103,35 @@ namespace FocusRgb.App.Tests
             Assert.Equal("manifest-invalid", result.ErrorCode);
         }
 
+        [Fact]
+        public void Load_ResolvesDllHostFromDotNetRootBeforePath()
+        {
+            var root = Path.Combine(_directory, "dotnet-root");
+            Directory.CreateDirectory(root);
+            var host = Path.Combine(root, OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet");
+            File.WriteAllText(host, string.Empty);
+            WritePackage(Manifest());
+            var previousHost = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
+            var previousRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+            var previousPath = Environment.GetEnvironmentVariable("PATH");
+            try
+            {
+                Environment.SetEnvironmentVariable("DOTNET_HOST_PATH", null);
+                Environment.SetEnvironmentVariable("DOTNET_ROOT", root);
+                Environment.SetEnvironmentVariable("PATH", string.Empty);
+
+                var result = PluginPackage.Load(_directory, "fake-output");
+
+                Assert.Equal(Path.GetFullPath(host), result.Launch!.FileName);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("DOTNET_HOST_PATH", previousHost);
+                Environment.SetEnvironmentVariable("DOTNET_ROOT", previousRoot);
+                Environment.SetEnvironmentVariable("PATH", previousPath);
+            }
+        }
+
         public void Dispose()
         {
             if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
@@ -142,4 +172,7 @@ namespace FocusRgb.App.Tests
             string License,
             string? Source = null);
     }
+
+    [CollectionDefinition("Environment variables", DisableParallelization = true)]
+    public sealed class EnvironmentVariablesTests;
 }
