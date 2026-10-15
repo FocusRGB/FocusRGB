@@ -408,7 +408,8 @@ empty `items` list, and a reason. It never returns a guessed list.
 
 `provider-not-running`, `account-restricted`, `resource-not-found`, `capability-unsupported`,
 `selection-not-observable`, `device-owned-elsewhere`, `native-output-unavailable`,
-`plugin-absent`, `plugin-exited`, `contract-incompatible`, `timeout`, `malformed-response`.
+`plugin-absent`, `plugin-exited`, `contract-incompatible`, `timeout`, `request-cancelled`,
+`malformed-response`.
 New codes may be added in a minor version; unknown codes display their `message`.
 
 ## Scenarios

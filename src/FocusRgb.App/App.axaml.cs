@@ -18,7 +18,7 @@ namespace FocusRgb.App
         private LocalStateStore? _store;
         private PluginRuntime? _plugins;
         private CancellationTokenSource? _pluginStartupCancellation;
-        private Task<PluginRuntime>? _pluginStartupTask;
+        private Task? _pluginStartupTask;
         private bool _quitPending;
         private bool _quitWithoutSaving;
         private bool _shutdownApproved;
@@ -82,9 +82,18 @@ namespace FocusRgb.App
                 }
                 else
                     mainWindow.Show();
-                await StartPluginsAsync(
+                var pluginStartup = StartPluginsAsync(
                     Path.Combine(directory, "plugins"),
                     startup.Snapshot.Settings.Plugins!.Enabled!);
+                _pluginStartupTask = pluginStartup;
+                try
+                {
+                    await pluginStartup;
+                }
+                finally
+                {
+                    if (ReferenceEquals(_pluginStartupTask, pluginStartup)) _pluginStartupTask = null;
+                }
             }
             catch (Exception exception)
             {
@@ -163,11 +172,12 @@ namespace FocusRgb.App
         private async Task StopPluginsAsync()
         {
             _pluginStartupCancellation?.Cancel();
-            if (_pluginStartupTask is not null)
+            var startup = _pluginStartupTask;
+            if (startup is not null)
             {
                 try
                 {
-                    await _pluginStartupTask;
+                    await startup;
                 }
                 catch (OperationCanceledException)
                 {
@@ -185,7 +195,6 @@ namespace FocusRgb.App
             using var cancellation = new CancellationTokenSource();
             _pluginStartupCancellation = cancellation;
             var startup = PluginRuntime.StartAsync(packagesDirectory, enabledPluginIds, cancellation.Token);
-            _pluginStartupTask = startup;
             try
             {
                 var runtime = await startup;
@@ -215,7 +224,6 @@ namespace FocusRgb.App
                 if (ReferenceEquals(_pluginStartupCancellation, cancellation))
                 {
                     _pluginStartupCancellation = null;
-                    _pluginStartupTask = null;
                 }
             }
         }

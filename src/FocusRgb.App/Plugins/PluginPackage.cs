@@ -147,6 +147,12 @@ namespace FocusRgb.App.Plugins
             if (!string.IsNullOrWhiteSpace(configured) && File.Exists(configured))
                 return Path.GetFullPath(configured);
             var fileName = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet";
+            var root = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+            if (!string.IsNullOrWhiteSpace(root))
+            {
+                var candidate = Path.Combine(root, fileName);
+                if (File.Exists(candidate)) return Path.GetFullPath(candidate);
+            }
             foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
                 .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {

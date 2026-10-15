@@ -13,6 +13,7 @@ namespace FocusRgb.App.Plugins
         private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan InitializeTimeout = TimeSpan.FromSeconds(10);
         private static readonly TimeSpan ExitGrace = TimeSpan.FromMilliseconds(500);
+        private const string WriteFailureMessage = "The plugin stopped reading requests.";
         private readonly Process _process;
         private readonly StreamWriter _input;
         private readonly SemaphoreSlim _writeGate = new(1, 1);
@@ -26,6 +27,7 @@ namespace FocusRgb.App.Plugins
         private EventHandler<string>? _logReceived;
         private long _nextId;
         private int _statusChangePending;
+        private int _writeFailed;
         private bool _disposed;
 
         private PluginProcessClient(Process process)
@@ -136,15 +138,9 @@ namespace FocusRgb.App.Plugins
         public async Task<PluginCallResult<PluginStatusResult>> GetStatusAsync(
             CancellationToken cancellationToken = default)
         {
-            try
-            {
-                return await CallAsync<PluginStatusResult>(
-                    PluginMethods.StatusGet, new { }, DefaultTimeout, cancellationToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                Interlocked.Exchange(ref _statusChangePending, 0);
-            }
+            Interlocked.Exchange(ref _statusChangePending, 0);
+            return await CallAsync<PluginStatusResult>(
+                PluginMethods.StatusGet, new { }, DefaultTimeout, cancellationToken).ConfigureAwait(false);
         }
 
         public Task<PluginCallResult<PluginCatalogResult>> ListCatalogAsync(
@@ -209,6 +205,8 @@ namespace FocusRgb.App.Plugins
         {
             if (_disposed || _process.HasExited)
                 return new PluginCallResult<T>("plugin-exited", "The plugin process exited.");
+            if (Volatile.Read(ref _writeFailed) != 0)
+                return new PluginCallResult<T>("timeout", WriteFailureMessage);
 
             var id = Interlocked.Increment(ref _nextId);
             var completion = new TaskCompletionSource<RpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -230,7 +228,8 @@ namespace FocusRgb.App.Plugins
                 }
 
                 if (response.ErrorCode is not null)
-                    return new PluginCallResult<T>(response.ErrorCode, response.ErrorMessage!);
+                    return new PluginCallResult<T>(
+                        response.ErrorCode, response.ErrorMessage!, response.JsonRpcErrorCode);
                 try
                 {
                     var value = response.Result.Deserialize<T>(PluginJson.Options);
@@ -252,6 +251,11 @@ namespace FocusRgb.App.Plugins
             {
                 await CancelRequestAsync(id).ConfigureAwait(false);
                 return new PluginCallResult<T>("timeout", $"Writing plugin request '{method}' timed out.");
+            }
+            catch (InvalidOperationException exception)
+            {
+                MarkWriteFailure(exception.Message);
+                return new PluginCallResult<T>("timeout", WriteFailureMessage);
             }
             catch (Exception exception) when (exception is IOException or ObjectDisposedException)
             {
@@ -276,7 +280,7 @@ namespace FocusRgb.App.Plugins
                 }, _lifetime.Token).ConfigureAwait(false);
             }
             catch (Exception exception) when (exception is OperationCanceledException
-                or TimeoutException or IOException or ObjectDisposedException)
+                or TimeoutException or IOException or InvalidOperationException or ObjectDisposedException)
             {
             }
         }
@@ -284,12 +288,31 @@ namespace FocusRgb.App.Plugins
         private async Task WriteAsync(object message, CancellationToken cancellationToken)
         {
             var json = JsonSerializer.Serialize(message, PluginJson.Options);
+            if (Volatile.Read(ref _writeFailed) != 0) throw new TimeoutException(WriteFailureMessage);
             if (!await _writeGate.WaitAsync(DefaultTimeout, cancellationToken).ConfigureAwait(false))
+            {
+                MarkWriteFailure(WriteFailureMessage);
                 throw new TimeoutException("Writing to the plugin timed out.");
+            }
             try
             {
-                await _input.WriteLineAsync(json.AsMemory(), cancellationToken)
-                    .WaitAsync(DefaultTimeout, cancellationToken).ConfigureAwait(false);
+                if (Volatile.Read(ref _writeFailed) != 0) throw new TimeoutException(WriteFailureMessage);
+                var write = _input.WriteLineAsync(json.AsMemory(), cancellationToken);
+                try
+                {
+                    await write.WaitAsync(DefaultTimeout, cancellationToken).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    _ = ObserveWithoutThrowingAsync(write);
+                    MarkWriteFailure(WriteFailureMessage);
+                    throw;
+                }
+                catch (InvalidOperationException exception)
+                {
+                    MarkWriteFailure(exception.Message);
+                    throw;
+                }
             }
             finally
             {
@@ -354,9 +377,13 @@ namespace FocusRgb.App.Plugins
                 }
                 if (root.TryGetProperty("method", out var method)
                     && method.ValueKind == JsonValueKind.String
-                    && method.GetString() == PluginMethods.StatusChanged)
+                    && !root.TryGetProperty("id", out _))
                 {
-                    if (Interlocked.Exchange(ref _statusChangePending, 1) == 0) RaiseStatusChanged();
+                    if (method.GetString() == PluginMethods.StatusChanged
+                        && Interlocked.Exchange(ref _statusChangePending, 1) == 0)
+                    {
+                        RaiseStatusChanged();
+                    }
                     return;
                 }
                 if (!root.TryGetProperty("id", out var idValue)
@@ -371,6 +398,9 @@ namespace FocusRgb.App.Plugins
                 if (root.TryGetProperty("error", out var error))
                 {
                     if (error.ValueKind != JsonValueKind.Object
+                        || !error.TryGetProperty("code", out var code)
+                        || code.ValueKind != JsonValueKind.Number
+                        || !code.TryGetInt32(out var jsonRpcCode)
                         || !error.TryGetProperty("message", out var message)
                         || message.ValueKind != JsonValueKind.String)
                     {
@@ -379,13 +409,19 @@ namespace FocusRgb.App.Plugins
                     }
                     completion.TrySetResult(new RpcResponse
                     {
-                        ErrorCode = "malformed-response",
-                        ErrorMessage = message.GetString() ?? "Plugin request failed."
+                        ErrorCode = jsonRpcCode switch
+                        {
+                            -32601 => "capability-unsupported",
+                            -32800 => "request-cancelled",
+                            _ => "malformed-response"
+                        },
+                        ErrorMessage = $"JSON-RPC error {jsonRpcCode}: {message.GetString() ?? "Plugin request failed."}",
+                        JsonRpcErrorCode = jsonRpcCode
                     });
                 }
                 else if (root.TryGetProperty("result", out var result))
                 {
-                    Health = "healthy";
+                    if (Volatile.Read(ref _writeFailed) == 0) Health = "healthy";
                     completion.TrySetResult(new RpcResponse { Result = result.Clone() });
                 }
                 else
@@ -422,7 +458,10 @@ namespace FocusRgb.App.Plugins
                     var line = await ReadLineAsync(
                         _process.StandardError, MaxLineLength, _lifetime.Token).ConfigureAwait(false);
                     if (line.EndOfStream) break;
-                    if (!line.WasTooLong && !string.IsNullOrWhiteSpace(line.Value)) PublishLog(line.Value);
+                    if (line.WasTooLong)
+                        PublishLog("Plugin stderr line exceeded the 64 KiB limit and was truncated.");
+                    else if (!string.IsNullOrWhiteSpace(line.Value))
+                        PublishLog(line.Value);
                 }
             }
             catch (Exception exception) when (exception is OperationCanceledException
@@ -475,6 +514,14 @@ namespace FocusRgb.App.Plugins
             }
         }
 
+        private void MarkWriteFailure(string message)
+        {
+            if (Interlocked.Exchange(ref _writeFailed, 1) != 0) return;
+            Health = "unhealthy";
+            FailPending("timeout", string.IsNullOrWhiteSpace(message) ? WriteFailureMessage : message);
+            RaiseStatusChanged();
+        }
+
         private void RaiseStatusChanged()
         {
             try
@@ -524,6 +571,7 @@ namespace FocusRgb.App.Plugins
             public JsonElement Result { get; init; }
             public string? ErrorCode { get; init; }
             public string? ErrorMessage { get; init; }
+            public int? JsonRpcErrorCode { get; init; }
         }
     }
 
@@ -554,15 +602,17 @@ namespace FocusRgb.App.Plugins
     {
         internal PluginCallResult(T value) => Value = value;
 
-        internal PluginCallResult(string code, string message)
+        internal PluginCallResult(string code, string message, int? jsonRpcErrorCode = null)
         {
             ErrorCode = code;
             ErrorMessage = message;
+            JsonRpcErrorCode = jsonRpcErrorCode;
         }
 
         public bool IsSuccess => ErrorCode is null;
         public T? Value { get; private init; }
         public string? ErrorCode { get; private init; }
         public string? ErrorMessage { get; private init; }
+        public int? JsonRpcErrorCode { get; private init; }
     }
 }

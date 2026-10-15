@@ -8,10 +8,17 @@ Console.OutputEncoding = new UTF8Encoding(false);
 
 var pidFile = ReadStringOption(args, "--pid-file");
 if (pidFile is not null)
-    await File.WriteAllTextAsync(pidFile, Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+{
+    var pendingPidFile = pidFile + ".pending";
+    await File.WriteAllTextAsync(
+        pendingPidFile,
+        Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    File.Move(pendingPidFile, pidFile, overwrite: true);
+}
 
 var rawResponse = ReadStringOption(args, "--invalid-response");
 if (args.Contains("--null-capabilities", StringComparer.Ordinal)) rawResponse = "null-capabilities";
+if (args.Contains("--stall-after-initialize", StringComparer.Ordinal)) rawResponse = "stalled-stdin";
 if (rawResponse is not null)
 {
     await RunRawProbeAsync(rawResponse);
@@ -31,6 +38,12 @@ var initializeDelay = ReadOption(args, "--initialize-delay-ms", 0);
 var contractVersion = ReadStringOption(args, "--contract-version") ?? ContractVersion.Current;
 var exitOnStatus = args.Contains("--exit-on-status", StringComparer.Ordinal);
 var stderrBytes = ReadOption(args, "--stderr-bytes", 0);
+var stderrLineBytes = ReadOption(args, "--stderr-line-bytes", 0);
+if (stderrLineBytes > 0)
+{
+    await Console.Error.WriteLineAsync(new string('x', stderrLineBytes));
+    await Console.Error.FlushAsync();
+}
 if (stderrBytes > 0)
 {
     while (stderrBytes > 0)
@@ -48,7 +61,8 @@ await PluginServer.RunAsync(
         contractVersion,
         exitOnStatus,
         ReadStringOption(args, "--catalog-name") ?? "Aurora",
-        ReadOption(args, "--notify-count", 0)),
+        ReadOption(args, "--notify-count", 0),
+        args.Contains("--notify-during-status", StringComparer.Ordinal)),
     Console.In,
     Console.Out,
     Console.Error);
@@ -101,10 +115,17 @@ static async Task RunRawProbeAsync(string invalidResponse)
                     capabilities = Array.Empty<object>()
                 }
             });
+            if (invalidResponse == "stalled-stdin") await Task.Delay(Timeout.InfiniteTimeSpan);
             continue;
         }
         if (method == PluginMethods.StatusGet)
         {
+            if (invalidResponse == "unknown-notification")
+            {
+                await WriteAsync(new { jsonrpc = "2.0", method = "future/changed", @params = new { } });
+                await WriteAsync(new { jsonrpc = "2.0", id, result = new { availability = "available" } });
+                continue;
+            }
             var malformed = invalidResponse switch
             {
                 "string-id" => "{\"jsonrpc\":\"2.0\",\"id\":\"abc\",\"result\":{}}",
@@ -112,11 +133,19 @@ static async Task RunRawProbeAsync(string invalidResponse)
                 "array" => "[]",
                 "error-string" => $$"""{"jsonrpc":"2.0","id":{{id}},"error":"bad"}""",
                 "oversize" => new string('x', 64 * 1024 + 1),
+                "method-not-found" => JsonSerializer.Serialize(new
+                {
+                    jsonrpc = "2.0", id, error = new { code = -32601, message = "Unknown method." }
+                }),
+                "request-cancelled" => JsonSerializer.Serialize(new
+                {
+                    jsonrpc = "2.0", id, error = new { code = -32800, message = "Cancelled." }
+                }),
                 _ => "not-json"
             };
             await Console.Out.WriteLineAsync(malformed);
             await Console.Out.FlushAsync();
-            if (invalidResponse != "error-string")
+            if (invalidResponse is not ("error-string" or "method-not-found" or "request-cancelled"))
                 await WriteAsync(new { jsonrpc = "2.0", id, result = new { availability = "available" } });
             continue;
         }
@@ -145,7 +174,8 @@ internal sealed class FakePlugin(
     string contractVersion,
     bool exitOnStatus,
     string catalogName,
-    int notifyCount)
+    int notifyCount,
+    bool notifyDuringStatus)
     : IFocusRgbPlugin
 {
     private PluginSelection? _current;
@@ -177,6 +207,7 @@ internal sealed class FakePlugin(
     public async Task<PluginStatusResult> GetStatusAsync(CancellationToken cancellationToken)
     {
         if (exitOnStatus) Environment.Exit(23);
+        if (notifyDuringStatus) await _host!.NotifyStatusChangedAsync(cancellationToken);
         if (delayMilliseconds > 0)
             await Task.Delay(delayMilliseconds, cancellationToken);
         return new PluginStatusResult { Availability = "available", Current = _current };
