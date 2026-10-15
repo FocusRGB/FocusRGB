@@ -389,6 +389,27 @@ namespace FocusRgb.App.Tests
             Assert.Empty(status.Pending);
         }
 
+        [Fact]
+        public async Task Gateway_PreservesPluginExitedAvailabilityReason()
+        {
+            var started = await StartAsync("--exit-on-status");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+            var gateway = new PluginRuntimeGateway([]);
+            gateway.Attach([PluginRuntimeEntry.Ok("fake-output", client, started.Handshake!)]);
+            var unavailable = new TaskCompletionSource<PluginAvailabilityChangedEventArgs>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            gateway.AvailabilityChanged += (_, change) =>
+            {
+                if (!change.IsAvailable) unavailable.TrySetResult(change);
+            };
+
+            await client.GetStatusAsync(TestContext.Current.CancellationToken);
+            var change = await unavailable.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal("plugin-exited", change.ReasonCode);
+        }
+
         private static Task<PluginStartResult> StartAsync(params string[] arguments)
             => StartAsync(TestContext.Current.CancellationToken, arguments);
 
