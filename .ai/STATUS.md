@@ -4,6 +4,14 @@ Updated: 2026-10-15.
 
 ## Completed
 
+- Slice 11 connects persisted selection commands to provider-neutral output coordination.
+  Runtime status separates desired, effective, applied, pending, and recovery-notification
+  state; resource/capability checks and confirmed writer release precede output. Failure keeps
+  current intent, native fallback remains pending without native output, and recovered plugins
+  require one coalesced Accept/Decline choice whose Accept path reapplies current intent. The App
+  gateway is proven through the real fake process. Release build passes with 0 warnings and all
+  207 tests pass.
+
 - Slice 10 adds the portable `FocusRgb.PluginSdk` 0.1 package, frozen contract DTOs and JSON
   schemas, an app-side out-of-process JSON-RPC host, and a fake conformance executable. Settings
   schema 3 records an explicit disabled-by-default plugin list under the per-user `plugins`
@@ -154,7 +162,10 @@ local store validates and atomically persists settings, desired selection state,
 independent native fallback snapshot; it seeds first run, restores restarts, and archives
 malformed or invalid-reference documents with explicit recovery details. The desktop starts
 explicitly enabled local process plugins through the 0.1 SDK and isolates package/protocol failures.
-No detector wiring, command coordination, hardware output, or startup task exists yet.
+Selection commands feed a portable coordinator that reports desired/effective/applied/pending
+state, prevents an unconfirmed competing writer, activates validated fallback, and requires
+consent before recovered output resumes. No detector wiring, native hardware output, or startup
+task exists yet.
 The Settings page persists application preferences in schema-version-3 `settings.json`, applies
 System/Light/Dark only to the Avalonia UI, supports saved close-to-tray or clean-exit behavior,
 and can start with the window hidden without registering OS startup. It can open local settings
@@ -167,33 +178,33 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 10 — Minimal plugin runtime, SDK, and fake output
+- Slice: 11 — Command coordination and fallback state
 - State: complete
-- Branch, latest relevant code commit, and pull request target:
-  `slice/10-minimal-plugin-runtime-and-fake-output`, based on `fix/slice-07-09-review` commit
-  `4a9d5b9` (local, not yet pushed or reviewed); its future pull request targets
-  `fix/slice-07-09-review` while the stack remains unmerged.
-- Scope and dependencies verified: follows the Slice 02 contracts/configuration boundary and the
-  Slice 08 desktop runtime. It contains only the minimal 0.1 SDK, generic app process host,
-  schemas, settings migration, and fake output; no production provider or hardware output.
-- Implemented files and entry points: `src/FocusRgb.Contracts/PluginContracts.cs`,
-  `src/FocusRgb.PluginSdk/PluginServer.cs`, `src/FocusRgb.App/Plugins/`, settings schema 3,
-  `schemas/`, `tests/FocusRgb.FakePlugin/`, process/package tests, and the clean-room consumer.
+- Branch, latest relevant code commits, and pull request target:
+  `slice/11-command-coordination-and-fallback-state`; Core coordination is `c787b90` and desktop
+  wiring is `b48e5b1`. Its future pull request targets
+  `slice/10-minimal-plugin-runtime-and-fake-output` while stacked.
+- Scope and dependencies verified: follows selection, persistence, and the minimal plugin runtime.
+  It adds only runtime command/output state, fallback, ownership checks, and reconnect consent;
+  no detector or native renderer/output is included.
+- Implemented files and entry points: `src/FocusRgb.Core/Coordination/OutputCoordinator.cs`,
+  `SelectionCommandService`, `PluginRuntimeGateway`, desktop startup/view-model recovery wiring,
+  coordinator unit tests, and the real fake-process coordination test.
 - Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passes with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release --no-build --no-restore` passes 200/200;
+  `dotnet test --solution FocusRGB.slnx -c Release --no-build --no-restore` passes 207/207;
   `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-plugin-sdk-package.ps1`
   verifies repeatable package contents and builds outside the repository from the local packages.
-- External/live evidence: none required; fake and clean-room fixtures provide acceptance evidence.
+- External/live evidence: none required; fake child-process and clean-room fixtures provide acceptance evidence.
 - Remaining acceptance criteria: none.
 - Current blocker or required product input: none.
-- Uncommitted work to preserve: none after the Slice 10 documentation commit.
+- Uncommitted work to preserve: none after the Slice 11 documentation commit.
 - PR review hardening bounds and validates protocol input, drains stderr before initialization,
   cleans up cancelled starts, starts plugins concurrently after the window is visible, reports
   exits as availability changes, and gives cooperative shutdown a grace period. The SDK now
   emits status notifications and synchronized stderr logs, while invalid requests return JSON-RPC
   errors with `id: null` instead of terminating the server.
-- Next action: begin Slice 11 from its command-coordination and fallback acceptance criteria.
-- Next slice: 11 — Command coordination and fallback state, only after Slice 10 acceptance passes.
+- Next action: begin Slice 12 — Windows application observations.
+- Next slice: 12 — Windows application observations, only after Slice 11 acceptance passes.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -206,8 +217,27 @@ use the `FocusRgb.*` prefix (`FocusRgb.Contracts`, `FocusRgb.Core`, `FocusRgb.Pl
 
 Git workflow (2026-10-10): `develop` is the default branch; all work reaches it through pull
 requests (`../docs/git-workflow.md`). Rulesets protect `develop` and `main`; `develop` requires
-the `branch-policy` check. Add `branch-policy` to `main` after the first release merge, and the
-CI `build` check to both rulesets after CI first runs on `develop`.
+the `branch-policy` check. The first release checks passed, but making `build` required on both
+branches and `branch-policy` required on `main` remains a repository-administration task.
+
+Repository consolidation (2026-10-15): PR #7 and the verified Slices 01-09 milestone PR #22
+were merged into `develop`; obsolete stacked PRs #6 and #8-21 were closed as superseded without
+deleting their branches. Release PR #23 merged that runnable application foundation into `main`
+and tagged it `v0.1.0-alpha.1`. Keep no more than two dependent slice PRs open. Slice PRs use
+`slice` plus `enhancement`; fixes use `bug`, documentation-only work uses `documentation`, and
+`develop` to `main` releases use `release`. Version tags are SemVer tags on tested `main`
+milestones only, never per-slice tags.
+
+PR planning (2026-10-15): Slice 10 is PR #24 into `develop`; Slice 11 is PR #25 stacked on it.
+Both have passing checks, the `slice` and `enhancement` labels, owner `MAJ224` assigned, and the
+`v0.2.0-alpha.1 - Plugin runtime and coordination` milestone. Both are tracked in the renamed
+`FocusRGB Roadmap` GitHub Project. Repository actions and authored text use the owner's identity;
+assistant contributions are recorded only with the matching `Assisted-by:` trailer.
+
+Issue planning (2026-10-15): every Slice 00–29 has one owner-assigned GitHub issue with linked
+dependencies, `slice` and `enhancement` labels, and a release milestone. Issues for completed
+Slices 00–11 are closed as completed; Slice 12 is next and Slices 12–29 remain open. The durable
+issue and milestone map is `../docs/github-roadmap.md`.
 
 Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
 (`settings.json`, `state.json`, `native-setup.json`); seeded rules are `while-focused` in priority
@@ -218,9 +248,8 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slices 11–29 are pending. Continue with command coordination and fallback state at Slice 11.
-Profile persistence, the tray runtime, application settings, and the minimal plugin boundary are
-complete.
+Slices 12–29 are pending. Continue with Windows application observations at Slice 12. Profile
+persistence, the tray runtime, application settings, plugin hosting, and coordination are complete.
 
 Windows observations start at 12 and application mappings at 13. SignalRGB investigation starts
 at 14, its external plugin at 15, and its acceptance gate at 16.
@@ -242,5 +271,4 @@ Each choice names the first slice that needs it.
 - Slice 27: native keyboard first or mouse first, and keyboard calibration approach.
 - After slice 17: plugin signing, distribution, and installation UX beyond local packages.
 
-These remain pending; only the slice 10 choice affects the next implementation slice, and it
-has a proposed default.
+These remain pending and do not block Slice 12.

@@ -3,12 +3,13 @@
 This is the compact roadmap and status index. Each linked slice file contains its dependency,
 scope, and acceptance criteria. The active slice's exact resume state belongs in
 [`../.ai/STATUS.md`](../.ai/STATUS.md), not here.
+GitHub issue and milestone mappings are recorded in [`github-roadmap.md`](github-roadmap.md).
 
 Requirements live in [`app-brief.md`](app-brief.md), contracts and behavior in
 [`plugin-architecture.md`](plugin-architecture.md), and verified external facts in
 [`integration-evidence.md`](integration-evidence.md).
 
-Status: **00–10 complete on the stacked pull-request chain. 11 is next.**
+Status: **00–11 complete on the stacked pull-request chain. 12 is next.**
 
 ## 1 — Foundation
 
@@ -43,13 +44,13 @@ Status: **00–10 complete on the stacked pull-request chain. 11 is next.**
 
 - ✅ [10 — Plugin runtime, SDK, and fake output](<slices/4-Plugin Runtime and Coordination/10-minimal-plugin-runtime-and-fake-output.md>):
   package the minimal SDK and host a JSON-RPC fake output plugin required by provider plugins.
-- ▶️ [11 — Command coordination and fallback](<slices/4-Plugin Runtime and Coordination/11-command-coordination-and-fallback-state.md>):
-  track desired/applied/pending state, fallback, ownership, and reconnect approval. **Next.**
+- ✅ [11 — Command coordination and fallback](<slices/4-Plugin Runtime and Coordination/11-command-coordination-and-fallback-state.md>):
+  track desired/applied/pending state, fallback, ownership, and reconnect approval.
 
 ## 5 — External Applications
 
-- ⏳ [12 — Windows application observations](<slices/5-External Applications/12-windows-application-observations.md>):
-  detect foreground and running applications behind the platform boundary.
+- ▶️ [12 — Windows application observations](<slices/5-External Applications/12-windows-application-observations.md>):
+  detect foreground and running applications behind the platform boundary. **Next.**
 - ⏳ [13 — Application mappings](<slices/5-External Applications/13-application-mappings-and-persistence.md>):
   add detected/manual applications, persist automation rules, and wire automatic profile selection.
 - ⏳ [14 — SignalRGB investigation](<slices/5-External Applications/14-signalrgb-capability-investigation.md>):

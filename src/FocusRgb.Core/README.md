@@ -1,7 +1,7 @@
 # FocusRgb.Core
 
-Portable .NET 10 application logic. Configuration, pure profile selection, and atomic local
-selection commands are implemented; coordination and output remain later slices. Only shared Contracts
+Portable .NET 10 application logic. Configuration, pure profile selection, atomic local
+selection commands, and provider-neutral output coordination are implemented. Only shared Contracts
 may be referenced. There are no provider SDKs, platform APIs, or lighting calls here.
 
 ```text
@@ -13,6 +13,8 @@ Configuration/
   default-settings.json     editable acceptance mappings, embedded as seed data
 Commands/
   SelectionCommandService.cs persisted select-profile, set-mode, save, and local status
+Coordination/
+  OutputCoordinator.cs       desired/applied/fallback state, ownership, and recovery consent
 Selection/
   SelectionModels.cs        observation, mode, decision, and reason types
   SelectionEngine.cs        manual/automatic arbitration and focus debounce
@@ -33,9 +35,9 @@ The `default` profile ID is protected: validation requires it and requires
 `selection.defaultProfile` to keep referencing it. Seeded unmatched selection is always
 `default-profile`.
 
-Missing fields stay distinguishable from valid zero/false values. Settings schema version 1 is
-migrated to version 2 with default application preferences; version 2 is the current write
-format. Unsupported newer versions are preserved and reported rather than overwritten.
+Missing fields stay distinguishable from valid zero/false values. Settings schema versions 1
+and 2 migrate to version 3 with application preferences and disabled-by-default plugin
+enablement. Unsupported newer versions are preserved and reported rather than overwritten.
 Application authority and reserved game/device scope shapes can validate, but this does not
 claim runtime support.
 
@@ -88,12 +90,13 @@ The Windows app stores these files under `%LOCALAPPDATA%\FocusRGB`.
 
 ## Running local selection commands
 
-Construct `SelectionCommandService` with an `ISelectionStateStore`. `SelectProfileAsync`,
-`SetModeAsync`, and `SaveCurrentAsync` validate and save the replacement state before returning
-it to the caller, so a failed write never changes visible runtime intent. `GetStatus` reports the
-desired profile and reason while explicitly leaving applied output empty until an integration or
-native output exists. The Avalonia UI uses this service; the future local MCP adapter can call the
-same boundary without referencing desktop controls.
+Construct `SelectionCommandService` with an `ISelectionStateStore` and optional
+`OutputCoordinator`. `SelectProfileAsync` and `SetModeAsync` save replacement intent before output,
+so failed persistence never changes lighting. The coordinator resolves provider resources and
+capabilities, prevents an unconfirmed second writer, walks validated fallbacks, and reports
+native fallback as pending until native output exists. Recovered plugins remain blocked behind a
+coalesced Accept/Decline notification; Accept reapplies current intent. The Avalonia UI uses this
+service, and the future local MCP adapter can call the same boundary without desktop controls.
 
 ## Adding a profile
 

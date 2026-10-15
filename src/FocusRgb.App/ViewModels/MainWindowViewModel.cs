@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using FocusRgb.Core.Commands;
 using FocusRgb.Core.Configuration;
+using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
 using FocusRgb.Core.Selection;
 
@@ -17,6 +18,7 @@ namespace FocusRgb.App.ViewModels
         private SettingsDocument _settings;
         private SelectionStateDocument? _selectionState;
         private SelectionReason _selectionReason = FocusRgb.Core.Selection.SelectionReason.Manual();
+        private SelectionRuntimeStatus? _runtimeStatus;
         private string _runtimeStatusMessage = "Preview state; runtime persistence is not connected.";
         private bool _isRuntimeCommandPending;
         private ProfileOptionViewModel _selectedProfile;
@@ -53,6 +55,7 @@ namespace FocusRgb.App.ViewModels
             SelectionStateDocument? selectionState,
             SelectionCommandService? selectionCommands,
             SelectionReason? selectionReason,
+            SelectionRuntimeStatus? runtimeStatus,
             bool canMinimizeToTray)
         {
             Profiles = profiles;
@@ -62,10 +65,11 @@ namespace FocusRgb.App.ViewModels
             _settingsStore = settingsStore;
             _selectionState = selectionState;
             _selectionCommands = selectionCommands;
+            _runtimeStatus = runtimeStatus;
             CanMinimizeToTray = canMinimizeToTray;
             if (selectionReason is not null) _selectionReason = selectionReason;
             if (selectionCommands is not null)
-                _runtimeStatusMessage = "Local runtime is ready; no output integration is connected.";
+                _runtimeStatusMessage = runtimeStatus?.AppliedDetail ?? "Local runtime is ready; no output integration is connected.";
             EditingProfile = profiles.Count > 0 ? profiles[0] : null;
             EditingApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
             LoadApplicationSettings();
@@ -248,9 +252,29 @@ namespace FocusRgb.App.ViewModels
         }
 
         public string DesiredProfileName => SelectedProfile.DisplayName;
-        public string AppliedProfileName => _selectionCommands is null
-            ? $"{SelectedProfile.DisplayName} (preview)"
-            : "Not applied (no output integration)";
+        public string AppliedProfileName
+        {
+            get
+            {
+                if (_selectionCommands is null) return $"{SelectedProfile.DisplayName} (preview)";
+                if (_runtimeStatus?.Applied is { } applied
+                    && applied.Bindings.Any(binding => binding.Outcome is "applied" or "unverified"))
+                {
+                    var name = Profiles.FirstOrDefault(profile => profile.Id == applied.ProfileId)?.DisplayName
+                        ?? applied.ProfileId;
+                    return applied.Bindings.Any(binding => binding.Outcome == "unverified")
+                        ? $"{name} (unverified)"
+                        : name;
+                }
+                return _runtimeStatus?.Pending.Count > 0 && _runtimeStatus.Pending[0] is { } pending
+                    ? $"Not applied ({pending.ReasonCode})"
+                    : "Not applied";
+            }
+        }
+        public bool HasRecoveryNotification => _runtimeStatus?.Notifications.Count > 0;
+        public string RecoveryNotificationMessage => HasRecoveryNotification
+            ? $"Plugin '{_runtimeStatus!.Notifications[0].PluginId}' recovered. Resume current lighting intent?"
+            : string.Empty;
         public string SelectionReason => _selectionCommands is null
             ? IsManual
                 ? "Manual preview selection; no command was sent."
@@ -315,6 +339,28 @@ namespace FocusRgb.App.ViewModels
             ApplyRuntimeResult(result);
             RuntimeStatusMessage = "Selection state saved. FocusRGB can quit safely.";
             return true;
+        }
+
+        public async Task RespondToRecoveryAsync(
+            bool accept,
+            CancellationToken cancellationToken = default)
+        {
+            var status = _runtimeStatus;
+            if (_selectionCommands is null || _selectionState is null
+                || status is null || status.Notifications.Count == 0)
+            {
+                return;
+            }
+            var notification = status.Notifications[0];
+
+            await RunRuntimeCommandAsync(
+                () => _selectionCommands.RespondToNotificationAsync(
+                    _settings,
+                    _selectionState,
+                    notification.Id,
+                    accept ? "accept" : "decline",
+                    cancellationToken),
+                accept ? "Recovered plugin accepted for current intent." : "Recovered plugin remains inactive.");
         }
 
         public void NotifyWindowHidden() =>
@@ -384,6 +430,7 @@ namespace FocusRgb.App.ViewModels
                 }
 
                 _settings = candidate;
+                await ReapplyOutputAsync(cancellationToken);
                 EditingProfile.DisplayName = name;
                 EditingProfile.EffectName = replacement.Bindings![0].Effect!.DisplayName!;
                 EditingProfile.LayoutName = replacement.Bindings[0].Layout?.DisplayName ?? "Current provider layout";
@@ -484,6 +531,7 @@ namespace FocusRgb.App.ViewModels
                 }
 
                 _settings = candidate;
+                await ReapplyOutputAsync(cancellationToken);
                 if (ReferenceEquals(SelectedProfile, EditingProfile))
                     SelectedProfile = Profiles.First(profile => !ReferenceEquals(profile, EditingProfile));
                 Profiles.Remove(EditingProfile);
@@ -563,16 +611,18 @@ namespace FocusRgb.App.ViewModels
                 throw new InvalidOperationException("Validated default profiles are unavailable.");
             }
 
-            return Create(result.Settings, null, null, null, null, canMinimizeToTray: true);
+            return Create(result.Settings, null, null, null, null, null, canMinimizeToTray: true);
         }
 
         public static MainWindowViewModel CreatePreview(SettingsDocument settings)
-            => Create(settings, null, null, null, null, canMinimizeToTray: true);
+            => Create(settings, null, null, null, null, null, canMinimizeToTray: true);
 
         public static MainWindowViewModel CreatePersistent(
             StartupSnapshot snapshot,
             LocalStateStore settingsStore,
-            bool canMinimizeToTray = true)
+            bool canMinimizeToTray = true,
+            OutputCoordinator? outputCoordinator = null,
+            SelectionRuntimeStatus? runtimeStatus = null)
         {
             ArgumentNullException.ThrowIfNull(snapshot);
             ArgumentNullException.ThrowIfNull(settingsStore);
@@ -580,8 +630,9 @@ namespace FocusRgb.App.ViewModels
                 snapshot.Settings,
                 settingsStore,
                 snapshot.State,
-                new SelectionCommandService(settingsStore),
+                new SelectionCommandService(settingsStore, outputCoordinator),
                 snapshot.Desired.Reason,
+                runtimeStatus,
                 canMinimizeToTray);
             viewModel.IsManual = snapshot.State.Mode == "manual";
             var selectedId = viewModel.IsManual
@@ -604,6 +655,7 @@ namespace FocusRgb.App.ViewModels
             SelectionStateDocument? selectionState,
             SelectionCommandService? selectionCommands,
             SelectionReason? selectionReason,
+            SelectionRuntimeStatus? runtimeStatus,
             bool canMinimizeToTray)
         {
             ArgumentNullException.ThrowIfNull(settings);
@@ -638,6 +690,7 @@ namespace FocusRgb.App.ViewModels
                 selectionState,
                 selectionCommands,
                 selectionReason,
+                runtimeStatus,
                 canMinimizeToTray);
         }
 
@@ -671,12 +724,26 @@ namespace FocusRgb.App.ViewModels
         private void ApplyRuntimeResult(SelectionCommandResult result)
         {
             _selectionState = result.State!;
+            if (_runtimeStatus is not null && result.Status!.Sequence < _runtimeStatus.Sequence) return;
             _selectionReason = result.Status!.Desired.Reason;
+            _runtimeStatus = result.Status;
             _isManual = result.Status.Mode == "manual";
             _selectedProfile = Profiles.Single(profile => profile.Id == result.Status.Desired.ProfileId);
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsManual)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAutomatic)));
             NotifyStateChanged(nameof(SelectedProfile));
+        }
+
+        public void ApplyOutputStatus(SelectionRuntimeStatus status)
+        {
+            ArgumentNullException.ThrowIfNull(status);
+            if (_runtimeStatus is not null && status.Sequence < _runtimeStatus.Sequence) return;
+            _runtimeStatus = status;
+            _selectionReason = status.Desired.Reason;
+            RuntimeStatusMessage = status.AppliedDetail;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AppliedProfileName)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasRecoveryNotification)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RecoveryNotificationMessage)));
         }
 
         private static string DescribeReason(SelectionReason reason) => reason.Kind switch
@@ -700,6 +767,8 @@ namespace FocusRgb.App.ViewModels
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DesiredProfileName)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AppliedProfileName)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectionReason)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasRecoveryNotification)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RecoveryNotificationMessage)));
         }
 
         private void ReplaceExecutables(ApplicationGroupViewModel group)
@@ -864,6 +933,14 @@ namespace FocusRgb.App.ViewModels
         private string SavedStatus(string message) => _settingsSaveWarning is null
             ? message
             : $"{message} Warning: {_settingsSaveWarning}";
+
+        public async Task ReapplyOutputAsync(CancellationToken cancellationToken = default)
+        {
+            if (_selectionCommands is null || _selectionState is null) return;
+            var result = await _selectionCommands.ReapplyAsync(
+                _settings, _selectionState, _selectionReason, cancellationToken);
+            ApplyRuntimeResult(result);
+        }
 
         private static string? ValidateCandidate(SettingsDocument candidate)
         {

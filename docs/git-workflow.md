@@ -35,6 +35,50 @@ Adopted 2026-10-10. Applies to people and AI assistants.
    configuration, each project, tests, CI, and documentation, so every commit can be reviewed
    on its own and still builds where practical. Do not stage an entire pull request with
    `git add -A`. A merge commit keeps these commits in `develop`; a squash merge collapses them.
+8. Keep at most two dependent slice pull requests open. Merge or close the reviewed base before
+   opening a third, then retarget its child to `develop`. If an old stack must be consolidated,
+   merge its newest fully verified head with history preserved and close the contained pull
+   requests as superseded; retain their branches until the consolidation is confirmed.
+
+## Identity and assistance
+
+- Commits use the repository owner's configured author and committer identity. Pull requests,
+  reviews, comments, assignments, merges, and other GitHub actions use the owner's account.
+- An assistant is not listed as an author, committer, assignee, or reviewer. Text or commits it
+  prepares end with an attribution trailer such as `Assisted-by: OpenAI Codex` or
+  `Assisted-by: Claude`, using the assistant that actually contributed.
+- Do not rewrite existing history solely to add or change assistance attribution.
+
+## Labels and version tags
+
+- Add `slice` and `enhancement` to implementation-slice pull requests.
+- Use `bug` for fixes, `documentation` for documentation-only changes, and `release` only for
+  `develop` to `main` pull requests. Add more labels only when they change triage decisions.
+- Tag only tested commits merged into `main`, using SemVer such as `v0.1.0-alpha.1`. Do not tag
+  individual slices or integration-branch commits.
+- Merge `develop` to `main` at a coherent, runnable milestone rather than after every slice. The
+  first milestone, Slices 00-09, is tagged `v0.1.0-alpha.1`; later milestones advance the
+  prerelease number until the product is ready for a stable version.
+
+## Issues and milestones
+
+- Track every implementation slice with one GitHub issue whose body links the authoritative slice
+  document, its dependency issues, scope, and acceptance criteria. Keep the issue-to-slice map in
+  [`github-roadmap.md`](github-roadmap.md).
+- Assign slice issues only to the repository owner and label them `slice` and `enhancement`.
+- Group slices into coherent release milestones without invented due dates. Close a slice issue as
+  completed only when the roadmap says it is complete; close its milestone after the related pull
+  requests have also landed.
+
+## Pull request planning and review
+
+- Add active slice pull requests to the `FocusRGB Roadmap` project and to the milestone that
+  names their intended release checkpoint. Slices 10-11 share
+  `v0.2.0-alpha.1 - Plugin runtime and coordination`.
+- Assign only the repository owner. If an assistant helps implement or review a change, record it
+  with the matching `Assisted-by:` trailer instead of assigning or requesting review from it.
+- Reviews are submitted under the repository owner's account. A review drafted with Claude or
+  another assistant carries that assistant's `Assisted-by:` trailer.
 
 ## External plugin repositories
 
@@ -51,11 +95,10 @@ compatibility fixtures to the exact declared versions.
 ## Branch protection
 
 Both branches are protected on GitHub by rulesets; the exported definitions are in
-`../.github/rulesets/`. Each ruleset:
+`../.github/rulesets/`. The shared rules:
 
 - blocks direct pushes (a pull request is required), force-pushes, and deletion;
 - requires review threads to be resolved (0 approvals, for a single maintainer);
-- requires the `branch-policy` check from `../.github/workflows/branch-policy.yml`;
 - allows squash or merge commits into `develop`, and merge commits only into `main`;
 - has no bypass actors, so the rules also apply to the repository owner and to automation.
 
@@ -69,12 +112,11 @@ Both pull-request workflows run for every base branch so stacked changes receive
 build checks. CI also handles the `edited` event, ensuring a base-branch retarget starts a
 fresh build without requiring another source commit.
 
-Bootstrap: a required check runs from the workflow on the target branch, so it is added
-to each ruleset only after `branch-policy.yml` exists on that branch. Until then the ruleset
-is active without the `required_status_checks` rule. Add it to `develop` once the workflow
-merges there, and to `main` after the first `develop` → `main` release merges.
+Current live rules require `branch-policy` on `develop`. The workflow also passes on `main`, and
+the `build` workflow passes on both branches, but those checks are not yet required by both
+rulesets. When enabling them, update the live rulesets and the exported definitions together.
 
 To recreate a ruleset, use Settings → Rules → Rulesets → New ruleset → Import a ruleset, or
 `gh api repos/MAJ224/FocusRGB/rulesets --method POST --input .github/rulesets/develop.json`.
-Add the CI build as a second required check once slice 01 introduces it. In an emergency the
-owner can temporarily set a ruleset's enforcement to Disabled in the GitHub UI.
+In an emergency the owner can temporarily set a ruleset's enforcement to Disabled in the
+GitHub UI.

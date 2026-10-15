@@ -13,7 +13,7 @@
           <TextBlock Text="Lighting profiles that follow what you do" Opacity="0.65" />
         </StackPanel>
         <Border Grid.Column="1" Padding="10,5" CornerRadius="12" Background="#253B82F6">
-          <TextBlock Text="Local runtime · no hardware output" Foreground="#93C5FD" />
+          <TextBlock Text="Local runtime · coordinated plugin output" Foreground="#93C5FD" />
         </Border>
       </Grid>
     </Border>
@@ -57,6 +57,16 @@
                   <TextBlock Grid.Row="2" Text="Reason" Opacity="0.65" /><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectionReason}" TextWrapping="Wrap" />
                   <TextBlock Grid.Row="3" Text="Runtime" Opacity="0.65" /><TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding RuntimeStatusMessage}" TextWrapping="Wrap" />
                 </Grid>
+              </Border>
+              <Border IsVisible="{Binding HasRecoveryNotification}" Padding="16" CornerRadius="8"
+                      BorderBrush="#F59E0B" BorderThickness="1">
+                <StackPanel Spacing="10">
+                  <TextBlock Text="{Binding RecoveryNotificationMessage}" TextWrapping="Wrap" />
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Accept" Click="AcceptRecovery_OnClick" IsEnabled="{Binding !IsRuntimeCommandPending}" />
+                    <Button Content="Decline" Click="DeclineRecovery_OnClick" IsEnabled="{Binding !IsRuntimeCommandPending}" />
+                  </StackPanel>
+                </StackPanel>
               </Border>
             </StackPanel>
           </ScrollViewer>

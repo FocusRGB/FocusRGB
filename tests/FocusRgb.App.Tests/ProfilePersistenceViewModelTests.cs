@@ -1,5 +1,7 @@
+using FocusRgb.App.Plugins;
 using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Configuration;
+using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
 
 namespace FocusRgb.App.Tests
@@ -272,6 +274,35 @@ namespace FocusRgb.App.Tests
             Assert.Equal("default", viewModel.SelectedProfile.Id);
             Assert.False(viewModel.IsRuntimeCommandPending);
             Assert.Contains(LocalStateStore.StateFileName, viewModel.RuntimeStatusMessage, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task SelectProfileAsync_DoesNotOverwriteNewerPushedStatus()
+        {
+            var store = Store();
+            var startup = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(startup.IsSuccess, startup.Error?.Message);
+            using var coordinator = new OutputCoordinator(
+                new PluginRuntimeGateway([]), startup.Snapshot!.NativeSetup);
+            var viewModel = MainWindowViewModel.CreatePersistent(startup.Snapshot, store, outputCoordinator: coordinator);
+            var pushedNewerStatus = false;
+            coordinator.StatusChanged += (_, status) =>
+            {
+                viewModel.ApplyOutputStatus(status);
+                if (pushedNewerStatus) return;
+                pushedNewerStatus = true;
+                coordinator.ApplyAsync(
+                    startup.Snapshot.Settings,
+                    startup.Snapshot.State,
+                    startup.Snapshot.Desired.Reason,
+                    TestContext.Current.CancellationToken).GetAwaiter().GetResult();
+            };
+
+            await viewModel.SelectProfileAsync(
+                viewModel.Profiles.Single(profile => profile.Id == "movie"),
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("default", viewModel.SelectedProfile.Id);
         }
 
         [Fact]
