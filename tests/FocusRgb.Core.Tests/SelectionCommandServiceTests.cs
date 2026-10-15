@@ -160,7 +160,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public async Task ReapplyAsync_UsesPersistedSelection_WhenItsFirstApplyThrows()
+        public async Task ReapplyAsync_UsesPersistedSelection_WhenItsFirstApplyThrowsAndClockMovesBackward()
         {
             var gateway = new OrderingGateway([]) { ThrowOnApply = true };
             using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
@@ -169,7 +169,7 @@ namespace FocusRgb.Core.Tests
             var oldState = State();
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => service.SelectProfileAsync(
-                settings, oldState, "movie", Now, TestContext.Current.CancellationToken));
+                settings, oldState, "movie", Now.AddMinutes(-2), TestContext.Current.CancellationToken));
             gateway.ThrowOnApply = false;
             var result = await service.ReapplyAsync(
                 settings, oldState, FocusRgb.Core.Selection.SelectionReason.Manual(),

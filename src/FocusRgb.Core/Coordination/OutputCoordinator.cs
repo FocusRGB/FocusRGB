@@ -378,7 +378,9 @@ namespace FocusRgb.Core.Coordination
                 return null;
             }
 
-            if (allowDeadOwnerOverride && _unavailablePlugins.ContainsKey(_ownedBinding.PluginId))
+            if (allowDeadOwnerOverride
+                && _unavailablePlugins.TryGetValue(_ownedBinding.PluginId, out var unavailable)
+                && unavailable.ReasonCode is "plugin-exited" or "plugin-absent")
             {
                 _ownedBinding = null;
                 return null;

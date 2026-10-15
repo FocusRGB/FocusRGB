@@ -303,6 +303,28 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public async Task ExplicitSelectionAsksUnavailableLiveOwnerToRelease()
+        {
+            var gateway = new FakeGateway("plugin-a", "plugin-b");
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var settings = Settings(
+                ("default", "plugin-a", "devices", "desk"),
+                ("movie", "plugin-b", "devices", "desk"));
+            await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+            await coordinator.ReportAvailabilityAsync(
+                "plugin-a", false, "provider-not-running", "The provider is unavailable.",
+                TestContext.Current.CancellationToken);
+
+            var selected = await coordinator.ApplyAsync(
+                settings, State("movie"), SelectionReason.Manual(), approveRecovery: true,
+                TestContext.Current.CancellationToken);
+
+            Assert.Single(gateway.Released);
+            Assert.Equal("movie", selected.Applied!.ProfileId);
+        }
+
+        [Fact]
         public async Task ApplyAsync_ReportsAmbiguousAndRestrictedCatalogEntries()
         {
             var gateway = new FakeGateway("fake-output")

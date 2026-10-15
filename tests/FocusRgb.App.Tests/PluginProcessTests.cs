@@ -405,7 +405,8 @@ namespace FocusRgb.App.Tests
             };
 
             await client.GetStatusAsync(TestContext.Current.CancellationToken);
-            var change = await unavailable.Task.WaitAsync(TestContext.Current.CancellationToken);
+            var change = await unavailable.Task.WaitAsync(
+                TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
             Assert.Equal("plugin-exited", change.ReasonCode);
         }

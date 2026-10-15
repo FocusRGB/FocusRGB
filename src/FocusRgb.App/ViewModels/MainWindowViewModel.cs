@@ -724,6 +724,7 @@ namespace FocusRgb.App.ViewModels
         private void ApplyRuntimeResult(SelectionCommandResult result)
         {
             _selectionState = result.State!;
+            if (_runtimeStatus is not null && result.Status!.Sequence < _runtimeStatus.Sequence) return;
             _selectionReason = result.Status!.Desired.Reason;
             _runtimeStatus = result.Status;
             _isManual = result.Status.Mode == "manual";

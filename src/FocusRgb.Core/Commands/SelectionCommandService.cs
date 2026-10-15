@@ -16,7 +16,6 @@ namespace FocusRgb.Core.Commands
         private readonly SemaphoreSlim _commandGate = new(1, 1);
         private SelectionStateDocument? _latestState;
         private SelectionReason? _latestReason;
-        private long _stateGeneration;
 
         public SelectionCommandService(ISelectionStateStore store, OutputCoordinator? outputCoordinator = null)
         {
@@ -128,13 +127,10 @@ namespace FocusRgb.Core.Commands
             SelectionReason reason,
             CancellationToken cancellationToken = default)
         {
-            var observedGeneration = Volatile.Read(ref _stateGeneration);
             await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                var useLatest = _latestState is not null
-                    && (observedGeneration != Volatile.Read(ref _stateGeneration)
-                        || _latestState.UpdatedAt > current.UpdatedAt);
+                var useLatest = _latestState is not null;
                 var state = useLatest ? _latestState! : current;
                 var effectiveReason = useLatest ? _latestReason! : reason;
                 var status = _outputCoordinator is null
@@ -172,7 +168,6 @@ namespace FocusRgb.Core.Commands
 
                 _latestState = next;
                 _latestReason = reason;
-                Interlocked.Increment(ref _stateGeneration);
                 var status = applyOutput && _outputCoordinator is not null
                     ? await _outputCoordinator.ApplyAsync(
                         settings, next, reason, approveRecovery, cancellationToken).ConfigureAwait(false)
