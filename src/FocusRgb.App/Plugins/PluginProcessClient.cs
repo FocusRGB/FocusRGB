@@ -202,7 +202,13 @@ namespace FocusRgb.App.Plugins
             await ObserveWithoutThrowingAsync(_errorReader).ConfigureAwait(false);
             await ObserveWithoutThrowingAsync(_exitObserver).ConfigureAwait(false);
             FailPending("plugin-exited", "The plugin process exited.");
-            _input.Dispose();
+            try
+            {
+                _input.Dispose();
+            }
+            catch (IOException)
+            {
+            }
             _process.Dispose();
             _writeGate.Dispose();
             _lifetime.Dispose();
