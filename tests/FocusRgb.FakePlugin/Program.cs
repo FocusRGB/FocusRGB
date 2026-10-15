@@ -78,7 +78,9 @@ static string? ReadStringOption(string[] values, string name)
 
 static async Task RunRawProbeAsync(string invalidResponse)
 {
-    while (await Console.In.ReadLineAsync() is { } line)
+    var delayNextRead = invalidResponse == "delayed-read";
+    var initialized = false;
+    while (await ReadRequestAsync() is { } line)
     {
         using var request = JsonDocument.Parse(line);
         var root = request.RootElement;
@@ -115,11 +117,17 @@ static async Task RunRawProbeAsync(string invalidResponse)
                     capabilities = Array.Empty<object>()
                 }
             });
+            initialized = true;
             if (invalidResponse == "stalled-stdin") await Task.Delay(Timeout.InfiniteTimeSpan);
             continue;
         }
         if (method == PluginMethods.StatusGet)
         {
+            if (invalidResponse == "delayed-read")
+            {
+                await WriteAsync(new { jsonrpc = "2.0", id, result = new { availability = "available" } });
+                continue;
+            }
             if (invalidResponse == "unknown-notification")
             {
                 await WriteAsync(new { jsonrpc = "2.0", method = "future/changed", @params = new { } });
@@ -135,11 +143,15 @@ static async Task RunRawProbeAsync(string invalidResponse)
                 "oversize" => new string('x', 64 * 1024 + 1),
                 "method-not-found" => JsonSerializer.Serialize(new
                 {
-                    jsonrpc = "2.0", id, error = new { code = -32601, message = "Unknown method." }
+                    jsonrpc = "2.0",
+                    id,
+                    error = new { code = -32601, message = "Unknown method." }
                 }),
                 "request-cancelled" => JsonSerializer.Serialize(new
                 {
-                    jsonrpc = "2.0", id, error = new { code = -32800, message = "Cancelled." }
+                    jsonrpc = "2.0",
+                    id,
+                    error = new { code = -32800, message = "Cancelled." }
                 }),
                 _ => "not-json"
             };
@@ -159,6 +171,16 @@ static async Task RunRawProbeAsync(string invalidResponse)
             await WriteAsync(new { jsonrpc = "2.0", id, result = new { } });
             return;
         }
+    }
+
+    async Task<string?> ReadRequestAsync()
+    {
+        if (!initialized || !delayNextRead) return await Console.In.ReadLineAsync();
+        delayNextRead = false;
+        var first = new char[1];
+        if (await Console.In.ReadAsync(first.AsMemory()) == 0) return null;
+        await Task.Delay(500);
+        return first[0] + await Console.In.ReadLineAsync();
     }
 
     static async Task WriteAsync(object value)

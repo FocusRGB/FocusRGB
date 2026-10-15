@@ -118,6 +118,22 @@ namespace FocusRgb.App.Tests
             Assert.True(Stopwatch.GetElapsedTime(startedAt) < TimeSpan.FromSeconds(1));
         }
 
+        [Fact]
+        public async Task CancellationDuringWrite_DoesNotCorruptLaterRequests()
+        {
+            var started = await StartAsync("--invalid-response", "delayed-read");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.ListCatalogAsync(
+                new string('x', 128 * 1024), cancellation.Token));
+            var status = await client.GetStatusAsync(TestContext.Current.CancellationToken);
+
+            Assert.True(status.IsSuccess, status.ErrorMessage);
+            Assert.Equal("healthy", client.Health);
+        }
+
         [Theory]
         [InlineData("method-not-found", "capability-unsupported", -32601)]
         [InlineData("request-cancelled", "request-cancelled", -32800)]

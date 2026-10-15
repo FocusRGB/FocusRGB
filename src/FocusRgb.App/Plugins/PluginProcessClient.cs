@@ -10,6 +10,11 @@ namespace FocusRgb.App.Plugins
     public sealed class PluginProcessClient : IAsyncDisposable
     {
         private const int MaxLineLength = 64 * 1024;
+        private const int HealthStarting = 0;
+        private const int HealthHealthy = 1;
+        private const int HealthUnhealthy = 2;
+        private const int HealthWriteFailed = 3;
+        private const int HealthExited = 4;
         private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan InitializeTimeout = TimeSpan.FromSeconds(10);
         private static readonly TimeSpan ExitGrace = TimeSpan.FromMilliseconds(500);
@@ -27,6 +32,7 @@ namespace FocusRgb.App.Plugins
         private EventHandler<string>? _logReceived;
         private long _nextId;
         private int _statusChangePending;
+        private int _health;
         private int _writeFailed;
         private bool _disposed;
 
@@ -35,13 +41,18 @@ namespace FocusRgb.App.Plugins
             _process = process;
             _input = process.StandardInput;
             _input.AutoFlush = true;
-            Health = "starting";
             _reader = ReadResponsesAsync();
             _errorReader = ReadErrorsAsync();
             _exitObserver = ObserveExitAsync();
         }
 
-        public string Health { get; private set; }
+        public string Health => Volatile.Read(ref _health) switch
+        {
+            HealthStarting => "starting",
+            HealthHealthy => "healthy",
+            HealthExited => "exited",
+            _ => "unhealthy"
+        };
         public string? PluginId { get; private set; }
         public event EventHandler? StatusChanged;
         public event EventHandler<string>? LogReceived
@@ -125,7 +136,7 @@ namespace FocusRgb.App.Plugins
                 }
 
                 client.PluginId = handshake.PluginId;
-                client.Health = "healthy";
+                client.SetRecoverableHealth(HealthHealthy);
                 return PluginStartResult.Ok(client, handshake);
             }
             catch
@@ -211,11 +222,13 @@ namespace FocusRgb.App.Plugins
             var id = Interlocked.Increment(ref _nextId);
             var completion = new TaskCompletionSource<RpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
             while (!_pending.TryAdd(id, completion)) id = Interlocked.Increment(ref _nextId);
+            var requestWritten = false;
 
             try
             {
                 await WriteAsync(new { jsonrpc = "2.0", id, method, @params = parameters }, cancellationToken)
                     .ConfigureAwait(false);
+                requestWritten = true;
                 RpcResponse response;
                 try
                 {
@@ -244,12 +257,11 @@ namespace FocusRgb.App.Plugins
             }
             catch (OperationCanceledException)
             {
-                await CancelRequestAsync(id).ConfigureAwait(false);
+                if (requestWritten) await CancelRequestAsync(id).ConfigureAwait(false);
                 throw;
             }
             catch (TimeoutException)
             {
-                await CancelRequestAsync(id).ConfigureAwait(false);
                 return new PluginCallResult<T>("timeout", $"Writing plugin request '{method}' timed out.");
             }
             catch (InvalidOperationException exception)
@@ -291,16 +303,15 @@ namespace FocusRgb.App.Plugins
             if (Volatile.Read(ref _writeFailed) != 0) throw new TimeoutException(WriteFailureMessage);
             if (!await _writeGate.WaitAsync(DefaultTimeout, cancellationToken).ConfigureAwait(false))
             {
-                MarkWriteFailure(WriteFailureMessage);
                 throw new TimeoutException("Writing to the plugin timed out.");
             }
             try
             {
                 if (Volatile.Read(ref _writeFailed) != 0) throw new TimeoutException(WriteFailureMessage);
-                var write = _input.WriteLineAsync(json.AsMemory(), cancellationToken);
+                var write = _input.WriteLineAsync(json.AsMemory(), _lifetime.Token);
                 try
                 {
-                    await write.WaitAsync(DefaultTimeout, cancellationToken).ConfigureAwait(false);
+                    await write.WaitAsync(DefaultTimeout, _lifetime.Token).ConfigureAwait(false);
                 }
                 catch (TimeoutException)
                 {
@@ -331,7 +342,7 @@ namespace FocusRgb.App.Plugins
                     if (line.EndOfStream) break;
                     if (line.WasTooLong)
                     {
-                        Health = "unhealthy";
+                        SetRecoverableHealth(HealthUnhealthy);
                         FailOnlyPendingMalformed("The plugin response exceeded the 64 KiB limit.");
                         continue;
                     }
@@ -347,7 +358,7 @@ namespace FocusRgb.App.Plugins
             }
             catch (Exception exception) when (exception is JsonException or InvalidOperationException)
             {
-                Health = "unhealthy";
+                SetRecoverableHealth(HealthUnhealthy);
                 FailPending("malformed-response", exception.Message);
             }
         }
@@ -361,7 +372,7 @@ namespace FocusRgb.App.Plugins
             }
             catch (JsonException)
             {
-                Health = "unhealthy";
+                SetRecoverableHealth(HealthUnhealthy);
                 FailOnlyPendingMalformed("The plugin response was not valid JSON.");
                 return;
             }
@@ -371,7 +382,7 @@ namespace FocusRgb.App.Plugins
                 var root = document.RootElement;
                 if (root.ValueKind != JsonValueKind.Object)
                 {
-                    Health = "unhealthy";
+                    SetRecoverableHealth(HealthUnhealthy);
                     FailOnlyPendingMalformed("The plugin response was not a JSON object.");
                     return;
                 }
@@ -390,7 +401,7 @@ namespace FocusRgb.App.Plugins
                     || idValue.ValueKind != JsonValueKind.Number
                     || !idValue.TryGetInt64(out var id))
                 {
-                    Health = "unhealthy";
+                    SetRecoverableHealth(HealthUnhealthy);
                     FailOnlyPendingMalformed("The plugin response had no valid request id.");
                     return;
                 }
@@ -421,7 +432,7 @@ namespace FocusRgb.App.Plugins
                 }
                 else if (root.TryGetProperty("result", out var result))
                 {
-                    if (Volatile.Read(ref _writeFailed) == 0) Health = "healthy";
+                    SetRecoverableHealth(HealthHealthy);
                     completion.TrySetResult(new RpcResponse { Result = result.Clone() });
                 }
                 else
@@ -433,7 +444,7 @@ namespace FocusRgb.App.Plugins
 
         private void CompleteMalformed(TaskCompletionSource<RpcResponse> completion, string message)
         {
-            Health = "unhealthy";
+            SetRecoverableHealth(HealthUnhealthy);
             completion.TrySetResult(new RpcResponse
             {
                 ErrorCode = "malformed-response",
@@ -496,7 +507,7 @@ namespace FocusRgb.App.Plugins
             try
             {
                 await _process.WaitForExitAsync().ConfigureAwait(false);
-                Health = "exited";
+                Interlocked.Exchange(ref _health, HealthExited);
                 FailPending("plugin-exited", "The plugin process exited.");
                 RaiseStatusChanged();
             }
@@ -517,9 +528,29 @@ namespace FocusRgb.App.Plugins
         private void MarkWriteFailure(string message)
         {
             if (Interlocked.Exchange(ref _writeFailed, 1) != 0) return;
-            Health = "unhealthy";
+            SetWriteFailedHealth();
             FailPending("timeout", string.IsNullOrWhiteSpace(message) ? WriteFailureMessage : message);
             RaiseStatusChanged();
+        }
+
+        private void SetRecoverableHealth(int health)
+        {
+            while (true)
+            {
+                var current = Volatile.Read(ref _health);
+                if (current >= HealthWriteFailed) return;
+                if (Interlocked.CompareExchange(ref _health, health, current) == current) return;
+            }
+        }
+
+        private void SetWriteFailedHealth()
+        {
+            while (true)
+            {
+                var current = Volatile.Read(ref _health);
+                if (current == HealthExited || current == HealthWriteFailed) return;
+                if (Interlocked.CompareExchange(ref _health, HealthWriteFailed, current) == current) return;
+            }
         }
 
         private void RaiseStatusChanged()
