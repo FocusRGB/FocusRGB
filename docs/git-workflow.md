@@ -40,6 +40,15 @@ Adopted 2026-10-10. Applies to people and AI assistants.
    merge its newest fully verified head with history preserved and close the contained pull
    requests as superseded; retain their branches until the consolidation is confirmed.
 
+## Identity and assistance
+
+- Commits use the repository owner's configured author and committer identity. Pull requests,
+  reviews, comments, assignments, merges, and other GitHub actions use the owner's account.
+- An assistant is not listed as an author, committer, assignee, or reviewer. Text or commits it
+  prepares end with an attribution trailer such as `Assisted-by: OpenAI Codex` or
+  `Assisted-by: Claude`, using the assistant that actually contributed.
+- Do not rewrite existing history solely to add or change assistance attribution.
+
 ## Labels and version tags
 
 - Add `slice` and `enhancement` to implementation-slice pull requests.
@@ -56,13 +65,10 @@ Adopted 2026-10-10. Applies to people and AI assistants.
 - Add active slice pull requests to the `FocusRGB Roadmap` project and to the milestone that
   names their intended release checkpoint. Slices 10-11 share
   `v0.2.0-alpha.1 - Plugin runtime and coordination`.
-- Assign the repository owner and the implementing assistant when both have assignable GitHub
-  identities. If an assistant has no GitHub identity, name it in the pull-request description;
-  do not substitute another bot or user merely to fill the assignee field.
-- Claude is the preferred AI reviewer. A standard review request requires its GitHub identity
-  to be a repository collaborator, or an installed Claude GitHub app must provide its own review
-  trigger. Do not grant repository access to a similarly named account without confirming that
-  it is the configured integration.
+- Assign only the repository owner. If an assistant helps implement or review a change, record it
+  with the matching `Assisted-by:` trailer instead of assigning or requesting review from it.
+- Reviews are submitted under the repository owner's account. A review drafted with Claude or
+  another assistant carries that assistant's `Assisted-by:` trailer.
 
 ## External plugin repositories
 
