@@ -210,8 +210,16 @@ use the `FocusRgb.*` prefix (`FocusRgb.Contracts`, `FocusRgb.Core`, `FocusRgb.Pl
 
 Git workflow (2026-10-10): `develop` is the default branch; all work reaches it through pull
 requests (`../docs/git-workflow.md`). Rulesets protect `develop` and `main`; `develop` requires
-the `branch-policy` check. Add `branch-policy` to `main` after the first release merge, and the
-CI `build` check to both rulesets after CI first runs on `develop`.
+the `branch-policy` check. The first release checks passed, but making `build` required on both
+branches and `branch-policy` required on `main` remains a repository-administration task.
+
+Repository consolidation (2026-10-15): PR #7 and the verified Slices 01-09 milestone PR #22
+were merged into `develop`; obsolete stacked PRs #6 and #8-21 were closed as superseded without
+deleting their branches. Release PR #23 merged that runnable application foundation into `main`
+and tagged it `v0.1.0-alpha.1`. Keep no more than two dependent slice PRs open. Slice PRs use
+`slice` plus `enhancement`; fixes use `bug`, documentation-only work uses `documentation`, and
+`develop` to `main` releases use `release`. Version tags are SemVer tags on tested `main`
+milestones only, never per-slice tags.
 
 Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
 (`settings.json`, `state.json`, `native-setup.json`); seeded rules are `while-focused` in priority

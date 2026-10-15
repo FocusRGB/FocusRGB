@@ -30,6 +30,26 @@ Adopted 2026-10-10. Applies to people and AI assistants.
    `slice/`, `fix/`, `chore/`, and `docs/` branches.
 6. Merge slice pull requests into `develop` with squash or a merge commit. Merge `develop`
    into `main` with a merge commit, not a squash, so the two branches do not diverge.
+7. Build a pull request from several focused commits, never one commit for the whole change.
+   Stage each logical step separately (`git add <paths>` or `git add -p`), for example build
+   configuration, each project, tests, CI, and documentation, so every commit can be reviewed
+   on its own and still builds where practical. Do not stage an entire pull request with
+   `git add -A`. A merge commit keeps these commits in `develop`; a squash merge collapses them.
+8. Keep at most two dependent slice pull requests open. Merge or close the reviewed base before
+   opening a third, then retarget its child to `develop`. If an old stack must be consolidated,
+   merge its newest fully verified head with history preserved and close the contained pull
+   requests as superseded; retain their branches until the consolidation is confirmed.
+
+## Labels and version tags
+
+- Add `slice` and `enhancement` to implementation-slice pull requests.
+- Use `bug` for fixes, `documentation` for documentation-only changes, and `release` only for
+  `develop` to `main` pull requests. Add more labels only when they change triage decisions.
+- Tag only tested commits merged into `main`, using SemVer such as `v0.1.0-alpha.1`. Do not tag
+  individual slices or integration-branch commits.
+- Merge `develop` to `main` at a coherent, runnable milestone rather than after every slice. The
+  first milestone, Slices 00-09, is tagged `v0.1.0-alpha.1`; later milestones advance the
+  prerelease number until the product is ready for a stable version.
 
 ## External plugin repositories
 
