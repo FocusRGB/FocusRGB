@@ -220,7 +220,22 @@ namespace FocusRgb.App.Tests
             }
             finally
             {
-                if (File.Exists(pidFile)) File.Delete(pidFile);
+                await DeleteWithRetryAsync(pidFile, TestContext.Current.CancellationToken);
+            }
+        }
+
+        private static async Task DeleteWithRetryAsync(string path, CancellationToken cancellationToken)
+        {
+            for (var attempt = 0; File.Exists(path); attempt++)
+            {
+                try
+                {
+                    File.Delete(path);
+                }
+                catch (IOException) when (attempt < 49)
+                {
+                    await Task.Delay(20, cancellationToken);
+                }
             }
         }
 

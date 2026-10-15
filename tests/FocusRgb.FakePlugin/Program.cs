@@ -8,7 +8,13 @@ Console.OutputEncoding = new UTF8Encoding(false);
 
 var pidFile = ReadStringOption(args, "--pid-file");
 if (pidFile is not null)
-    await File.WriteAllTextAsync(pidFile, Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+{
+    var pendingPidFile = pidFile + ".pending";
+    await File.WriteAllTextAsync(
+        pendingPidFile,
+        Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    File.Move(pendingPidFile, pidFile, overwrite: true);
+}
 
 var rawResponse = ReadStringOption(args, "--invalid-response");
 if (args.Contains("--null-capabilities", StringComparer.Ordinal)) rawResponse = "null-capabilities";
