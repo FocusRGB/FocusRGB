@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
@@ -17,6 +18,7 @@ namespace FocusRgb.Core.Commands
         private SelectionStateDocument? _latestState;
         private SelectionReason? _latestReason;
         private long _latestApplyRequest;
+        private readonly ConcurrentDictionary<long, CancellationToken> _applyRequests = new();
 
         public SelectionCommandService(ISelectionStateStore store, OutputCoordinator? outputCoordinator = null)
         {
@@ -36,6 +38,7 @@ namespace FocusRgb.Core.Commands
                 return Task.FromResult(SelectionCommandResult.Fail("invalid-profile", $"Unknown profile '{profileId}'."));
 
             var request = Interlocked.Increment(ref _latestApplyRequest);
+            _applyRequests[request] = cancellationToken;
             return SaveAsync(
                 settings, current, state => Copy(state, "manual", profileId, profileId, now),
                 SelectionReason.Manual(), applyOutput: true,
@@ -54,6 +57,7 @@ namespace FocusRgb.Core.Commands
                 return Task.FromResult(SelectionCommandResult.Fail("invalid-mode", $"Unknown mode '{mode}'."));
 
             var request = Interlocked.Increment(ref _latestApplyRequest);
+            _applyRequests[request] = cancellationToken;
             var reason = mode == "manual" ? SelectionReason.Manual() : SelectionReason.ObservationPending();
             return SaveAsync(settings, current, state =>
             {
@@ -111,6 +115,8 @@ namespace FocusRgb.Core.Commands
         {
             if (_outputCoordinator is null)
                 return SelectionCommandResult.Fail("output-not-connected", "No output coordinator is connected.");
+            if (_outputCoordinator.IsDisposed)
+                return SelectionCommandResult.Fail("output-not-connected", "The output coordinator has stopped.");
             if (response is not ("accept" or "decline"))
                 return SelectionCommandResult.Fail("invalid-response", "Response must be accept or decline.");
 
@@ -129,15 +135,26 @@ namespace FocusRgb.Core.Commands
             CancellationToken cancellationToken = default)
         {
             var request = Interlocked.Increment(ref _latestApplyRequest);
-            await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            _applyRequests[request] = cancellationToken;
             try
             {
+                await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                _applyRequests.TryRemove(request, out _);
+                throw;
+            }
+            try
+            {
+                if (_outputCoordinator?.IsDisposed == true)
+                    return SelectionCommandResult.Fail("output-not-connected", "The output coordinator has stopped.");
                 var useLatest = _latestState is not null;
                 var state = useLatest ? _latestState! : current;
                 var effectiveReason = useLatest ? _latestReason! : reason;
                 var status = _outputCoordinator is null
                     ? GetStatus(state, effectiveReason)
-                    : request != Volatile.Read(ref _latestApplyRequest)
+                    : !IsLatestActiveRequest(request)
                         ? GetStatus(state, effectiveReason)
                     : await _outputCoordinator.ApplyAsync(
                         settings, state, effectiveReason, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -147,6 +164,7 @@ namespace FocusRgb.Core.Commands
             }
             finally
             {
+                _applyRequests.TryRemove(request, out _);
                 _commandGate.Release();
             }
         }
@@ -161,7 +179,15 @@ namespace FocusRgb.Core.Commands
             long request,
             CancellationToken cancellationToken)
         {
-            await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                _applyRequests.TryRemove(request, out _);
+                throw;
+            }
             try
             {
                 if (applyOutput && _outputCoordinator?.IsDisposed == true)
@@ -170,6 +196,14 @@ namespace FocusRgb.Core.Commands
                 var save = await _store.SaveStateAsync(next, settings, cancellationToken).ConfigureAwait(false);
                 if (!save.IsSuccess)
                 {
+                    if (applyOutput && IsLatestActiveRequest(request)
+                        && _latestState is not null && _latestReason is not null
+                        && _outputCoordinator is { IsDisposed: false })
+                    {
+                        await _outputCoordinator.ApplyAsync(
+                            settings, _latestState, _latestReason, cancellationToken: cancellationToken)
+                            .ConfigureAwait(false);
+                    }
                     return SelectionCommandResult.Fail(
                         "persistence-failed",
                         $"{save.Error!.FileName}: {save.Error.Message}");
@@ -178,7 +212,7 @@ namespace FocusRgb.Core.Commands
                 _latestState = next;
                 _latestReason = reason;
                 var status = applyOutput && _outputCoordinator is not null
-                    && request == Volatile.Read(ref _latestApplyRequest)
+                    && IsLatestActiveRequest(request)
                     ? await _outputCoordinator.ApplyAsync(
                         settings, next, reason, approveRecovery, cancellationToken).ConfigureAwait(false)
                     : _outputCoordinator?.CurrentStatus ?? GetStatus(next, reason);
@@ -186,9 +220,13 @@ namespace FocusRgb.Core.Commands
             }
             finally
             {
+                _applyRequests.TryRemove(request, out _);
                 _commandGate.Release();
             }
         }
+
+        private bool IsLatestActiveRequest(long request) => !_applyRequests.Any(candidate =>
+            candidate.Key > request && !candidate.Value.IsCancellationRequested);
 
         private static SelectionStateDocument Copy(
             SelectionStateDocument source,

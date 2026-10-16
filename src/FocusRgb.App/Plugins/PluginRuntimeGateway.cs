@@ -91,12 +91,18 @@ namespace FocusRgb.App.Plugins
                 var status = await entry.Client!.GetStatusAsync().ConfigureAwait(false);
                 if (status.IsSuccess)
                 {
-                    var available = status.Value!.Availability is "available" or "degraded";
+                    var value = status.Value!;
+                    var available = entry.Client.Health == "healthy"
+                        && value.Availability is "available" or "degraded";
                     AvailabilityChanged?.Invoke(this, new PluginAvailabilityChangedEventArgs(
                         entry.PluginId,
                         available,
-                        available ? null : status.Value.Reason?.Code ?? "provider-not-running",
-                        available ? null : status.Value.Reason?.Message ?? "The plugin is unavailable."));
+                        available ? null : entry.Client.Health == "unhealthy"
+                            ? "timeout"
+                            : value.Reason?.Code ?? "provider-not-running",
+                        available ? null : entry.Client.Health == "unhealthy"
+                            ? "The plugin stopped responding."
+                            : value.Reason?.Message ?? "The plugin is unavailable."));
                 }
                 else if (status.ErrorCode is "plugin-absent" or "plugin-exited")
                 {

@@ -233,6 +233,24 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public async Task ApplyAsync_DoesNotRetryTimedOutPluginThroughFallbacks()
+        {
+            var gateway = new FakeGateway("fake-output") { ApplyErrorCode = "timeout" };
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var settings = Settings(
+                ("default", "fake-output", "provider-managed", null),
+                ("movie", "fake-output", "provider-managed", null),
+                ("music", "fake-output", "provider-managed", null));
+            SetFallback(settings, "default", "movie", "music");
+
+            var status = await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            Assert.Equal(1, gateway.ApplyCalls);
+            Assert.Equal("Transient request failure.", status.AppliedDetail);
+        }
+
+        [Fact]
         public async Task Recovery_DeclineCanBeOverriddenByExplicitSelection()
         {
             var gateway = new FakeGateway();
@@ -478,6 +496,7 @@ namespace FocusRgb.Core.Tests
             public string ReleaseOutcome { get; init; } = "released";
             public string? ReleaseErrorCode { get; init; }
             public string? ApplyErrorCode { get; set; }
+            public int ApplyCalls { get; private set; }
             public string ApplyOutcome { get; init; } = "applied";
             public PluginReason? ApplyReason { get; init; }
             public IReadOnlyList<PluginCatalogItem> CatalogItems { get; set; } =
@@ -514,6 +533,7 @@ namespace FocusRgb.Core.Tests
                 BindingApplyParameters parameters,
                 CancellationToken cancellationToken = default)
             {
+                ApplyCalls++;
                 if (ApplyErrorCode is not null)
                     return Task.FromResult(new PluginGatewayResult<BindingApplyResult>(
                         ApplyErrorCode, "Transient request failure."));

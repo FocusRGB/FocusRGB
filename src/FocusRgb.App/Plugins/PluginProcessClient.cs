@@ -463,7 +463,6 @@ namespace FocusRgb.App.Plugins
                 }
                 else if (root.TryGetProperty("result", out var result))
                 {
-                    SetRecoverableHealth(HealthHealthy);
                     completion.TrySetResult(new RpcResponse { Result = result.Clone() });
                 }
                 else

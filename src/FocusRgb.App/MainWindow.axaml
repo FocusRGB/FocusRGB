@@ -109,10 +109,12 @@
                 <StackPanel Grid.Row="1" Spacing="6">
                   <TextBlock Text="Create mapping" FontWeight="SemiBold" />
                   <ComboBox ItemsSource="{Binding ApplicationGroups}" SelectedItem="{Binding MappingEditor.NewApplicationGroup}"
+                            AutomationProperties.Name="New mapping application group"
                             PlaceholderText="No application groups available">
                     <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ApplicationGroupViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                   </ComboBox>
                   <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding MappingEditor.NewProfile}"
+                            AutomationProperties.Name="New mapping profile"
                             PlaceholderText="No profiles available">
                     <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                   </ComboBox>
@@ -126,15 +128,18 @@
                       <StackPanel Spacing="10">
                         <TextBlock Text="Mapping details" FontSize="18" FontWeight="SemiBold" />
                         <TextBlock Text="Application group" FontWeight="SemiBold" />
-                        <ComboBox ItemsSource="{Binding ApplicationGroups}" SelectedItem="{Binding SelectedApplicationGroup}">
+                        <ComboBox ItemsSource="{Binding ApplicationGroups}" SelectedItem="{Binding SelectedApplicationGroup}"
+                                  AutomationProperties.Name="Mapping application group">
                           <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ApplicationGroupViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
                         <TextBlock Text="Profile" FontWeight="SemiBold" />
-                        <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}">
+                        <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"
+                                  AutomationProperties.Name="Mapping profile">
                           <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
                         <TextBlock Text="Eligibility" FontWeight="SemiBold" />
-                        <ComboBox ItemsSource="{Binding EligibilityOptions}" SelectedItem="{Binding Eligibility}" />
+                        <ComboBox ItemsSource="{Binding EligibilityOptions}" SelectedItem="{Binding Eligibility}"
+                                  AutomationProperties.Name="Mapping eligibility" />
                       </StackPanel>
                     </DataTemplate>
                   </ContentControl.ContentTemplate>
@@ -164,6 +169,7 @@
             </Grid>
             <TextBlock Text="Each profile contains exactly one effect and one layout." Opacity="0.7" />
             <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding EditingProfile}"
+                      AutomationProperties.Name="Profile to edit"
                       IsEnabled="{Binding !IsSettingsSavePending}" PlaceholderText="No profiles available">
               <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
             </ComboBox>
@@ -176,10 +182,12 @@
                 </Grid>
                 <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                   <TextBlock Text="Fallback" VerticalAlignment="Center" />
-                  <ComboBox Grid.Column="1" ItemsSource="{Binding ProfileFallbackKinds}" SelectedItem="{Binding ProfileFallbackKind}" />
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding ProfileFallbackKinds}" SelectedItem="{Binding ProfileFallbackKind}"
+                            AutomationProperties.Name="Fallback kind" />
                   <TextBlock Grid.Row="1" Text="Fallback profile" VerticalAlignment="Center" IsVisible="{Binding IsProfileFallback}" />
                   <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Profiles}"
                             SelectedItem="{Binding ProfileFallbackProfile}" IsVisible="{Binding IsProfileFallback}"
+                            AutomationProperties.Name="Fallback profile"
                             PlaceholderText="Select a fallback profile">
                     <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                   </ComboBox>
@@ -203,6 +211,7 @@
             <TextBlock Text="Application Groups" FontSize="26" FontWeight="SemiBold" />
             <TextBlock Text="Name a group and add one or more Windows executables." Opacity="0.7" />
             <ComboBox ItemsSource="{Binding ApplicationGroups}" SelectedItem="{Binding EditingApplicationGroup}"
+                      AutomationProperties.Name="Application group to edit"
                       PlaceholderText="No application groups available">
               <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ApplicationGroupViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
             </ComboBox>
@@ -247,6 +256,7 @@
                 <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto" RowSpacing="10" ColumnSpacing="12">
                   <TextBlock Text="Close button" VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1" ItemsSource="{Binding CloseButtonBehaviors}"
+                            AutomationProperties.Name="Close button behavior"
                             SelectedItem="{Binding CloseButtonBehavior}" />
                   <TextBlock Grid.Row="1" Text="Start minimized" VerticalAlignment="Center" />
                   <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding StartMinimized}"
@@ -262,6 +272,7 @@
                 <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
                   <TextBlock Text="Theme" VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1" ItemsSource="{Binding ApplicationThemes}"
+                            AutomationProperties.Name="Application theme"
                             SelectedItem="{Binding ApplicationTheme}"
                             SelectionChanged="ApplicationTheme_OnSelectionChanged" />
                 </Grid>

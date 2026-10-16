@@ -200,6 +200,28 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public async Task CancelledNewestSelectionDoesNotSuppressEarlierPersistedIntent()
+        {
+            var store = new BlockingStateStore();
+            var gateway = new OrderingGateway([]);
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var service = new SelectionCommandService(store, coordinator);
+            var first = service.SelectProfileAsync(
+                Settings(), State(), "movie", Now, TestContext.Current.CancellationToken);
+            await store.SaveStarted.Task.WaitAsync(TestContext.Current.CancellationToken);
+            using var cancellation = new CancellationTokenSource();
+            var cancelled = service.SelectProfileAsync(
+                Settings(), State(), "music", Now.AddSeconds(1), cancellation.Token);
+
+            cancellation.Cancel();
+            store.AllowSave.SetResult();
+
+            await first;
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled);
+            Assert.Equal(["movie"], gateway.AppliedProfiles);
+        }
+
+        [Fact]
         public async Task CommandAfterCoordinatorDisposeDoesNotPersist()
         {
             var store = new RecordingStateStore();
@@ -212,6 +234,22 @@ namespace FocusRgb.Core.Tests
             Assert.False(result.IsSuccess);
             Assert.Equal("output-not-connected", result.ErrorCode);
             Assert.Null(store.SavedState);
+        }
+
+        [Fact]
+        public async Task ReapplyAndNotificationAfterCoordinatorDisposeReturnFailure()
+        {
+            var coordinator = new OutputCoordinator(new OrderingGateway([]), NativeSetupJson.CreateDefault());
+            coordinator.Dispose();
+            var service = new SelectionCommandService(new RecordingStateStore(), coordinator);
+
+            var reapplied = await service.ReapplyAsync(
+                Settings(), State(), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+            var responded = await service.RespondToNotificationAsync(
+                Settings(), State(), "missing", "decline", TestContext.Current.CancellationToken);
+
+            Assert.Equal("output-not-connected", reapplied.ErrorCode);
+            Assert.Equal("output-not-connected", responded.ErrorCode);
         }
 
         [Fact]

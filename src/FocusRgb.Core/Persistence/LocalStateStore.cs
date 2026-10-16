@@ -308,7 +308,7 @@ namespace FocusRgb.Core.Persistence
             SelectionReason reason,
             CancellationToken cancellationToken)
         {
-            var state = StateJson.CreateFirstRun(settings.Selection!.DefaultProfile!, now);
+            var state = StateJson.CreateFirstRun(settings.Selection!.DefaultProfile!, now.ToUniversalTime());
             var save = await SaveStateCoreAsync(state, settings, cancellationToken).ConfigureAwait(false);
             return save.IsSuccess
                 ? StateStartupResult.Ok(state, reason)
@@ -496,6 +496,7 @@ namespace FocusRgb.Core.Persistence
                 {
                     try
                     {
+                        if (DateTime.UtcNow - File.GetLastWriteTimeUtc(path) < TimeSpan.FromSeconds(5)) continue;
                         File.Delete(path);
                     }
                     catch (Exception exception) when (IsPersistenceException(exception))

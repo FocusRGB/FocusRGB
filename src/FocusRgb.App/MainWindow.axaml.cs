@@ -173,10 +173,12 @@ namespace FocusRgb.App
                     await using var logOutput = logEntry.Open();
                     await using var writer = new StreamWriter(logOutput, new UTF8Encoding(false));
                     var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                    var forwardSlashProfile = userProfile.Replace('\\', '/');
                     foreach (var line in await File.ReadAllLinesAsync(logPath))
                         await writer.WriteLineAsync(string.IsNullOrEmpty(userProfile)
                             ? line
-                            : line.Replace(userProfile, "%USERPROFILE%", StringComparison.OrdinalIgnoreCase));
+                            : line.Replace(userProfile, "%USERPROFILE%", StringComparison.OrdinalIgnoreCase)
+                                .Replace(forwardSlashProfile, "%USERPROFILE%", StringComparison.OrdinalIgnoreCase));
                 }
                 ViewModel.ReportSettingsAction("Exported diagnostics without profiles, mappings, paths, or secrets.");
             }
