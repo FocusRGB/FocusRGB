@@ -84,7 +84,7 @@ namespace FocusRgb.App.Plugins
         public InitializeResult? Handshake { get; private init; }
         public string? ErrorCode { get; private init; }
         public string? ErrorMessage { get; private init; }
-        public bool IsRunning => Client is not null;
+        public bool IsRunning => Client?.Health is "starting" or "healthy";
 
         public static PluginRuntimeEntry Ok(
             string pluginId,

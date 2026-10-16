@@ -25,7 +25,7 @@ namespace FocusRgb.App.Plugins
             ArgumentNullException.ThrowIfNull(entries);
             foreach (var entry in entries)
             {
-                _entries.Add(entry.PluginId, entry);
+                _entries[entry.PluginId] = entry;
                 if (entry.Client is not null)
                     entry.Client.StatusChanged += (_, _) => _ = RefreshAvailabilityAsync(entry);
             }
@@ -78,13 +78,14 @@ namespace FocusRgb.App.Plugins
         }
 
         private PluginProcessClient? Client(string pluginId) =>
-            _entries.TryGetValue(pluginId, out var entry) ? entry.Client : null;
+            _entries.TryGetValue(pluginId, out var entry) && entry.IsRunning ? entry.Client : null;
 
         private static PluginGatewayResult<T> Missing<T>(string pluginId) =>
             new("plugin-absent", $"Plugin '{pluginId}' is not running.");
 
         private async Task RefreshAvailabilityAsync(PluginRuntimeEntry entry)
         {
+            if (!_entries.TryGetValue(entry.PluginId, out var current) || !ReferenceEquals(current, entry)) return;
             try
             {
                 var status = await entry.Client!.GetStatusAsync().ConfigureAwait(false);
