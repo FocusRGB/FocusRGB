@@ -155,7 +155,7 @@ namespace FocusRgb.App
                 var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
                 {
                     Title = "Export FocusRGB diagnostics",
-                    SuggestedFileName = $"FocusRGB-diagnostics-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip",
+                    SuggestedFileName = $"FocusRGB-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.zip",
                     FileTypeChoices = [new FilePickerFileType("ZIP archive") { Patterns = ["*.zip"] }]
                 });
                 if (file is null) return;
@@ -171,8 +171,12 @@ namespace FocusRgb.App
                 {
                     var logEntry = archive.CreateEntry("focusrgb.log", CompressionLevel.Optimal);
                     await using var logOutput = logEntry.Open();
-                    await using var logInput = File.OpenRead(logPath);
-                    await logInput.CopyToAsync(logOutput);
+                    await using var writer = new StreamWriter(logOutput, new UTF8Encoding(false));
+                    var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                    foreach (var line in await File.ReadAllLinesAsync(logPath))
+                        await writer.WriteLineAsync(string.IsNullOrEmpty(userProfile)
+                            ? line
+                            : line.Replace(userProfile, "%USERPROFILE%", StringComparison.OrdinalIgnoreCase));
                 }
                 ViewModel.ReportSettingsAction("Exported diagnostics without profiles, mappings, paths, or secrets.");
             }

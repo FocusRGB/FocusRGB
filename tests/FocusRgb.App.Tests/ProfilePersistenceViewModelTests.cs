@@ -42,8 +42,8 @@ namespace FocusRgb.App.Tests
             var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
             var viewModel = MainWindowViewModel.CreatePersistent(restarted.Snapshot!, store);
 
-            Assert.Contains($"Recovered {LocalStateStore.StateFileName}", viewModel.RuntimeStatusMessage, StringComparison.Ordinal);
-            Assert.Contains(".corrupt-", viewModel.RuntimeStatusMessage, StringComparison.Ordinal);
+            Assert.Contains($"Recovered {LocalStateStore.StateFileName}", viewModel.StartupStatusMessage, StringComparison.Ordinal);
+            Assert.Contains(".corrupt-", viewModel.StartupStatusMessage, StringComparison.Ordinal);
         }
 
         [Fact]

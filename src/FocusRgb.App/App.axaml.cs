@@ -25,6 +25,8 @@ namespace FocusRgb.App
         private bool _quitPending;
         private bool _quitWithoutSaving;
         private bool _shutdownApproved;
+        private int _pluginRestartPending;
+        private int _pluginRestartAttempts;
 
         public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -64,8 +66,17 @@ namespace FocusRgb.App
                 AppLog.Configure(directory, startup.Snapshot!.Settings.Application!.VerboseLogging == true);
                 AppLog.Write($"Started; settings source={startup.Snapshot.SettingsSource}.");
                 var pluginGateway = new PluginRuntimeGateway([]);
+                var packagesDirectory = Path.Combine(directory, "plugins");
+                var enabledPluginIds = startup.Snapshot.Settings.Plugins!.Enabled!.ToArray();
                 var outputCoordinator = new OutputCoordinator(pluginGateway, startup.Snapshot.NativeSetup);
                 _outputCoordinator = outputCoordinator;
+                var initialOutput = await outputCoordinator.ApplyAsync(
+                    startup.Snapshot.Settings,
+                    startup.Snapshot.State,
+                    startup.Snapshot.Desired.Reason);
+                ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
+                var viewModel = MainWindowViewModel.CreatePersistent(
+                    startup.Snapshot, _store, trayAvailable, outputCoordinator, initialOutput);
                 pluginGateway.AvailabilityChanged += async (_, change) =>
                 {
                     try
@@ -75,19 +86,17 @@ namespace FocusRgb.App
                             change.IsAvailable,
                             change.ReasonCode,
                             change.Message);
+                        if (change.ReasonCode == "plugin-exited")
+                        {
+                            AppLog.Write($"Plugin {change.PluginId} exited: {change.Message}");
+                            _ = RestartPluginsAsync(packagesDirectory, enabledPluginIds, pluginGateway, viewModel, outputCoordinator);
+                        }
                     }
                     catch (Exception exception)
                     {
                         AppLog.Write($"Plugin availability update failed: {exception.Message}");
                     }
                 };
-                var initialOutput = await outputCoordinator.ApplyAsync(
-                    startup.Snapshot.Settings,
-                    startup.Snapshot.State,
-                    startup.Snapshot.Desired.Reason);
-                ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
-                var viewModel = MainWindowViewModel.CreatePersistent(
-                    startup.Snapshot, _store, trayAvailable, outputCoordinator, initialOutput);
                 var mainWindow = new MainWindow(viewModel, directory);
                 outputCoordinator.StatusChanged += (_, status) =>
                     Dispatcher.UIThread.Post(() => mainWindow.ApplyOutputStatus(status));
@@ -95,7 +104,11 @@ namespace FocusRgb.App
                 var icon = CreateIcon();
                 mainWindow.Icon = icon;
                 desktop.MainWindow = mainWindow;
-                if (trayAvailable) _trayIcon = CreateTrayIcon(mainWindow, icon);
+                if (trayAvailable)
+                {
+                    _trayIcon = CreateTrayIcon(mainWindow, icon);
+                    TrayIcon.SetIcons(this, new TrayIcons { _trayIcon });
+                }
                 mainWindow.ExitRequested += (_, _) => RequestQuit();
                 mainWindow.HiddenToTray += (_, _) =>
                 {
@@ -109,9 +122,7 @@ namespace FocusRgb.App
                 }
                 else
                     mainWindow.Show();
-                var pluginStartup = StartPluginsAsync(
-                    Path.Combine(directory, "plugins"),
-                    startup.Snapshot.Settings.Plugins!.Enabled!);
+                var pluginStartup = StartPluginsAsync(packagesDirectory, enabledPluginIds);
                 _pluginStartupTask = pluginStartup;
                 try
                 {
@@ -119,6 +130,9 @@ namespace FocusRgb.App
                     if (_plugins is not null)
                     {
                         pluginGateway.Attach(_plugins.Entries);
+                        viewModel.SetIntegrationStatuses(_plugins.Entries.Select(entry => entry.IsRunning
+                            ? $"{entry.PluginId}: running"
+                            : $"{entry.PluginId}: {entry.ErrorCode} — {entry.ErrorMessage}"));
                         await viewModel.ReapplyOutputAsync();
                     }
                 }
@@ -143,7 +157,7 @@ namespace FocusRgb.App
                 Content = new TextBlock { Text = message, Margin = new Thickness(24), TextWrapping = Avalonia.Media.TextWrapping.Wrap }
             };
             desktop.MainWindow = errorWindow;
-            desktop.ShutdownMode = ShutdownMode.OnLastWindowClose;
+            errorWindow.Closed += (_, _) => desktop.Shutdown(1);
             errorWindow.Show();
         }
 
@@ -153,6 +167,8 @@ namespace FocusRgb.App
             "Dark" or "dark" => ThemeVariant.Dark,
             _ => ThemeVariant.Default
         };
+
+        public void ShowMainWindow() => _mainWindow?.ShowFromTray();
 
         private TrayIcon CreateTrayIcon(
             MainWindow mainWindow,
@@ -238,13 +254,7 @@ namespace FocusRgb.App
                     return;
                 }
                 _plugins = runtime;
-                foreach (var plugin in runtime.Entries)
-                {
-                    if (plugin.Client is { } client)
-                        client.LogReceived += (_, message) => AppLog.Write($"Plugin {plugin.PluginId}: {message}");
-                    else
-                        AppLog.Write($"Plugin {plugin.PluginId} did not start: {plugin.ErrorCode}: {plugin.ErrorMessage}");
-                }
+                ConfigurePluginLogging(runtime.Entries);
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {
@@ -262,6 +272,56 @@ namespace FocusRgb.App
             }
         }
 
+        private async Task RestartPluginsAsync(
+            string packagesDirectory,
+            IReadOnlyList<string> enabledPluginIds,
+            PluginRuntimeGateway gateway,
+            MainWindowViewModel viewModel,
+            OutputCoordinator coordinator)
+        {
+            if (Interlocked.Exchange(ref _pluginRestartPending, 1) != 0 || _shutdownApproved) return;
+            try
+            {
+                var attempt = Interlocked.Increment(ref _pluginRestartAttempts);
+                if (attempt > 3)
+                {
+                    AppLog.Write("Plugin restart limit reached; restart FocusRGB to try again.");
+                    return;
+                }
+                await Task.Delay(attempt switch { 1 => 1000, 2 => 5000, _ => 30000 });
+                if (_shutdownApproved) return;
+                if (_plugins is not null) await _plugins.DisposeAsync();
+                _plugins = await PluginRuntime.StartAsync(packagesDirectory, enabledPluginIds);
+                ConfigurePluginLogging(_plugins.Entries);
+                gateway.Attach(_plugins.Entries);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    viewModel.SetIntegrationStatuses(_plugins.Entries.Select(entry => entry.IsRunning
+                        ? $"{entry.PluginId}: running"
+                        : $"{entry.PluginId}: {entry.ErrorCode} — {entry.ErrorMessage}")));
+                foreach (var entry in _plugins.Entries.Where(entry => entry.IsRunning))
+                    await coordinator.ReportAvailabilityAsync(entry.PluginId, true);
+            }
+            catch (Exception exception)
+            {
+                AppLog.Write($"Plugin restart failed: {exception.Message}");
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _pluginRestartPending, 0);
+            }
+        }
+
+        private static void ConfigurePluginLogging(IEnumerable<PluginRuntimeEntry> entries)
+        {
+            foreach (var plugin in entries)
+            {
+                if (plugin.Client is { } client)
+                    client.LogReceived += (_, message) => AppLog.Write($"Plugin {plugin.PluginId}: {message}");
+                else
+                    AppLog.Write($"Plugin {plugin.PluginId} did not start: {plugin.ErrorCode}: {plugin.ErrorMessage}");
+            }
+        }
+
         private async void RequestQuit()
         {
             try
@@ -275,18 +335,18 @@ namespace FocusRgb.App
             }
         }
 
-        private async void Desktop_OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
+        private void Desktop_OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
         {
             if (_shutdownApproved || _mainWindow is null) return;
-            e.Cancel = true;
+            _shutdownApproved = true;
             try
             {
-                await QuitAsync();
+                _mainWindow.PrepareQuitAsync().WaitAsync(TimeSpan.FromSeconds(1)).GetAwaiter().GetResult();
+                StopPluginsAsync().WaitAsync(TimeSpan.FromSeconds(1)).GetAwaiter().GetResult();
             }
             catch (Exception exception)
             {
-                _quitPending = false;
-                _mainWindow?.ReportUnexpectedError($"Could not save during shutdown: {exception.Message}");
+                AppLog.Write($"Best-effort session-end cleanup failed: {exception.Message}");
             }
         }
 

@@ -5,7 +5,7 @@ namespace FocusRgb.App.Diagnostics
     /// <summary>Writes the small local troubleshooting log enabled by the saved diagnostic setting.</summary>
     internal static class AppLog
     {
-        // shortcut: synchronous unbounded writes suit the current three lifecycle events; use rolling async logs if event volume grows.
+        private const long MaxLogBytes = 1024 * 1024;
         private static string? _path;
 
         public static void Configure(string dataDirectory, bool enabled)
@@ -19,6 +19,8 @@ namespace FocusRgb.App.Diagnostics
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+                if (File.Exists(_path) && new FileInfo(_path).Length >= MaxLogBytes)
+                    File.Move(_path, _path + ".1", overwrite: true);
                 File.AppendAllText(
                     _path,
                     $"{DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture)} {message}{Environment.NewLine}");
