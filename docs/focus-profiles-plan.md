@@ -1,10 +1,10 @@
 # Focus-based RGB controller: delivery plan
 
-Active delivery plan. Updated 2026-10-15. Replaces v2's exclusive `signalrgb` / `native` profile
-types with composable plugin actions. End goal: replace SignalRGB, retain other app integrations.
+Active delivery plan. Updated 2026-10-16. Replaces the earlier exclusive `signalrgb` / `native`
+profile types with composable plugin actions. End goal: replace SignalRGB, retain other app
+integrations.
 
 Read `app-brief.md`, `plugin-architecture.md`, and `integration-evidence.md` first.
-`focus-profiles-plan-v2.md` is historical, not current guidance.
 
 Use [implementation-slices.md](implementation-slices.md) for the ordered status index and links
 to each detailed task, plus session handoff prompts. This document remains the product-level
@@ -78,6 +78,32 @@ read/export support. Confirm SignalRGB has released the target device before nat
 Before hardware work, establish standalone override transport and WLED ownership. Black
 SignalRGB output does not release devices. `enabled` writes are unresolved. Avoid competing
 streams while investigating ownership.
+
+## Retained findings from the earlier plan
+
+The earlier v2 plan mixed delivery direction with machine-specific experiments. Its useful
+findings are retained here at planning level; [integration-evidence.md](integration-evidence.md)
+holds the dated details, versions, addresses, device IDs, commands, and confidence limits.
+
+- Windows foreground lookup was demonstrated, while Steam `RunningAppID` indicates a running
+  game rather than foreground ownership. Detection remains passive: no injection, hooks,
+  overlays, memory reads, or promises of universal anti-cheat compatibility.
+- SignalRGB's URL launcher switched installed free effects in the recorded tests. Paid/custom
+  effects did not switch, and the tested MCP/REST lighting paths were Pro-rejected. The plugin
+  must discover capabilities, verify outcomes, and never launch SignalRGB implicitly.
+- Only one writer may control a physical device. Forced colour, black output, or provider
+  disconnection does not prove release; the proposed `enabled` handover was never verified.
+  Direct WLED output therefore starts only after ownership is established.
+- Static named-key overrides were visually confirmed on the keyboard, but their tool transport
+  is not an application API. The BlackWidow appeared through LampArray; the Basilisk did not.
+  Native control, animation performance, cleanup after failure, and preservation of macros and
+  special keys still require their dedicated slices.
+- Recorded executable names, installed games, LED maps, and hardware inventory are discovery
+  leads, not configuration defaults. Rescan and confirm them before implementation.
+
+The removed v2-only profile schema, direct SignalRGB runner, scheduled-task design, and phase
+numbers are intentionally not retained: they conflict with the provider-neutral contracts and
+the numbered slice roadmap that now govern implementation.
 
 Open game style/API, capture display, interim game effect, ownership fallback, plugin
 distribution, and native-peripheral order are in `../.ai/STATUS.md`. About two seconds debounce
