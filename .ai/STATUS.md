@@ -4,6 +4,16 @@ Updated: 2026-10-16.
 
 ## Completed
 
+- Slice 12 adds a Windows-only observer for running executable names and the foreground-window
+  owner without moving process APIs into Core. Process exits and access denial degrade to partial
+  observations; names are normalized and deduplicated case-insensitively. Deterministic fixtures
+  cover app close, Stremio shell/helper identity, ignored windows, and failures. A local check
+  observed `Code.exe`, `PotPlayerMini64.exe`, and modern Media Player's
+  `Microsoft.Media.Player.exe`, and confirmed PotPlayer's foreground owner. Review hardening
+  preserves the prior external focus while FocusRGB or desktop/taskbar shell windows are active,
+  and resolves hosted UWP CoreWindow processes behind `ApplicationFrameHost.exe`. Release build
+  passes with 0 warnings/errors and all 272 tests pass.
+
 - Slice 11 connects persisted selection commands to provider-neutral output coordination.
   Runtime status separates desired, effective, applied, pending, and recovery-notification
   state; resource/capability checks and confirmed writer release precede output. Failure keeps
@@ -178,33 +188,27 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 11 — Command coordination and fallback state
-- State: complete
+- Slice: 12 — Windows application observations
+- State: implementation complete; pull request open
 - Branch, latest relevant code commits, and pull request target:
-  `slice/11-command-coordination-and-fallback-state`; Core coordination is `c787b90` and desktop
-  wiring is `b48e5b1`. Its future pull request targets
-  `slice/10-minimal-plugin-runtime-and-fake-output` while stacked.
-- Scope and dependencies verified: follows selection, persistence, and the minimal plugin runtime.
-  It adds only runtime command/output state, fallback, ownership checks, and reconnect consent;
-  no detector or native renderer/output is included.
-- Implemented files and entry points: `src/FocusRgb.Core/Coordination/OutputCoordinator.cs`,
-  `SelectionCommandService`, `PluginRuntimeGateway`, desktop startup/view-model recovery wiring,
-  coordinator unit tests, and the real fake-process coordination test.
-- Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passes with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release --no-build --no-restore` passes 207/207;
-  `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-plugin-sdk-package.ps1`
-  verifies repeatable package contents and builds outside the repository from the local packages.
-- External/live evidence: none required; fake child-process and clean-room fixtures provide acceptance evidence.
-- Remaining acceptance criteria: none.
-- Current blocker or required product input: none.
-- Uncommitted work to preserve: none after the Slice 11 documentation commit.
-- PR review hardening bounds and validates protocol input, drains stderr before initialization,
-  cleans up cancelled starts, starts plugins concurrently after the window is visible, reports
-  exits as availability changes, and gives cooperative shutdown a grace period. The SDK now
-  emits status notifications and synchronized stderr logs, while invalid requests return JSON-RPC
-  errors with `id: null` instead of terminating the server.
-- Next action: begin Slice 12 — Windows application observations.
-- Next slice: 12 — Windows application observations, only after Slice 11 acceptance passes.
+  `slice/12-windows-application-observations`; observer `a7ba99c`, platform tests `d76fa5f`,
+  final acceptance evidence `f413549`, review hardening `3f93105`; PR #69 targets `develop`.
+- Scope and dependencies verified: uses the Slice 05 `ApplicationObservation` boundary. Windows
+  process and foreground-window APIs remain isolated in `FocusRgb.Platform.Windows`; no detector
+  loop, selection wiring, plugin call, saved-state change, or lighting output is included.
+- Implemented files and entry points: `WindowsApplicationObserver.Observe`,
+  `WindowsProcessSource`, the `FocusRgb.Platform.Windows.Tests` project, and deterministic fixtures.
+- Verification: `dotnet build FocusRGB.slnx -c Release` passes with 0 warnings/errors;
+  `dotnet test --solution FocusRGB.slnx -c Release --no-build --no-restore` passes 272/272.
+- External/live evidence: on 2026-10-16 a read-only observer run reported running `Code.exe`,
+  `PotPlayerMini64.exe`, and the modern Media Player's `Microsoft.Media.Player.exe`. PotPlayer was
+  also confirmed as the foreground-window owner. Stremio was not installed and remains
+  fixture-covered. No settings or lighting changed.
+- Remaining acceptance criteria: none for installed/runnable configured applications on this machine.
+- Current blocker or required product input: none; PR #69 is ready for final checks and merge.
+- Uncommitted work to preserve: review-hardening evidence updates only.
+- Next action: push the review fixes, resolve their threads, pass CI, and merge PR #69.
+- Next slice: 13 — Application mappings and persistence, only after Slice 12 merges.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -248,14 +252,13 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slices 12–29 are pending. Continue with Windows application observations at Slice 12. Profile
-persistence, the tray runtime, application settings, plugin hosting, and coordination are complete.
+Slice 12 is implemented and awaits review/merge. Continue with Slice 13 only after it lands.
+Profile persistence, the tray runtime, application settings, plugin hosting, and coordination are complete.
 
 Windows observations start at 12 and application mappings at 13. SignalRGB investigation starts
 at 14, its external plugin at 15, and its acceptance gate at 16.
 The public SDK is stabilized at 17, MCP is 18, and game discovery starts at 19. Standalone native
-rendering, layout, and hardware work is isolated in folder 7 at slices 21–29. Inventory the preserved
-observation branch before integrating it into Slice 12.
+rendering, layout, and hardware work is isolated in folder 7 at slices 21–29.
 Claude tool availability does not itself establish an app API.
 
 ## Open choices

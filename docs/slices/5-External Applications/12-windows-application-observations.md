@@ -2,8 +2,7 @@
 
 [← All implementation slices](../../implementation-slices.md)
 
-**Status:** Prepared for `slice/12-windows-application-observations`. Fixture work is preserved on
-`slice/07-windows-observations`; inventory and merge it when implementation starts.
+**Status:** Implemented on `slice/12-windows-application-observations`; review and merge are pending.
 
 The preserved branch is the implementation starting point, not optional historical material;
 inventory its tests and reconcile it with the current platform boundary before writing replacements.
@@ -14,4 +13,14 @@ Depends on: 05. Scope: foreground and running-process observations behind the de
 boundary. Handle disappearing processes/access denial; identify actual Stremio window owner.
 Acceptance: observation fixtures cover app close/helpers/ignored windows; a read-only local
 run reports the configured Programming, Movie, and Music app identities where installed. No lights change.
+
+Acceptance evidence (2026-10-16): the observer reported `Code.exe` for Programming,
+`PotPlayerMini64.exe` for Movie, and the modern Media Player's `Microsoft.Media.Player.exe` for
+Music. It identified PotPlayer's foreground-window owner as `PotPlayerMini64.exe`. Stremio was not
+installed, so its shell/helper distinction remains covered by a deterministic fixture. The check
+changed no settings or lighting state.
+
+Review hardening preserves the last external foreground identity while FocusRGB, the taskbar,
+or the desktop has focus, and resolves hosted `Windows.UI.Core.CoreWindow` processes when
+`ApplicationFrameHost.exe` owns the top-level foreground window.
 

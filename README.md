@@ -12,7 +12,8 @@ behavior, start-minimized, theme, and diagnostic-logging preferences, with versi
 last-known-good recovery, and a
 privacy-limited diagnostics export. The app hosts explicitly enabled local process plugins
 through the packaged 0.1 SDK and coordinates desired, applied, fallback, pending, ownership, and
-consent-gated recovery state. Application-group persistence and OS observations are still pending. See
+consent-gated recovery state. Windows process/focus observation now exists behind the platform
+boundary; application-group persistence and runtime detector wiring are still pending. See
 [Core configuration](src/FocusRgb.Core/README.md).
 
 The app will select lighting profiles manually or from named application groups using a
