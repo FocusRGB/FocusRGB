@@ -509,8 +509,12 @@ namespace FocusRgb.App.Tests
                 configuration, "FocusRgb.FakePlugin.dll");
         }
 
-        private static string RepositoryRoot(
-            [System.Runtime.CompilerServices.CallerFilePath] string sourceFile = "") =>
-            Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourceFile)!, "..", ".."));
+        private static string RepositoryRoot()
+        {
+            var directory = new DirectoryInfo(Directory.GetCurrentDirectory());
+            while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "global.json")))
+                directory = directory.Parent;
+            return directory?.FullName ?? throw new InvalidOperationException("Repository root not found from the test working directory.");
+        }
     }
 }

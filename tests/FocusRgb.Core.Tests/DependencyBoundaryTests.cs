@@ -90,8 +90,12 @@ namespace FocusRgb.Core.Tests
         private static XDocument ReadProject(string project) =>
             XDocument.Load(Path.Combine(RepositoryRoot(), "src", project, project + ".csproj"));
 
-        private static string RepositoryRoot(
-            [System.Runtime.CompilerServices.CallerFilePath] string sourceFile = "") =>
-            Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourceFile)!, "..", ".."));
+        private static string RepositoryRoot()
+        {
+            var directory = new DirectoryInfo(Directory.GetCurrentDirectory());
+            while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "global.json")))
+                directory = directory.Parent;
+            return directory?.FullName ?? throw new InvalidOperationException("Repository root not found from the test working directory.");
+        }
     }
 }
