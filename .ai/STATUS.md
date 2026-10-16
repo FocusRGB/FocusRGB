@@ -8,8 +8,9 @@ Updated: 2026-10-16.
   owner without moving process APIs into Core. Process exits and access denial degrade to partial
   observations; names are normalized and deduplicated case-insensitively. Deterministic fixtures
   cover app close, Stremio shell/helper identity, ignored windows, and failures. A local check
-  observed `Code.exe` and confirmed `PotPlayerMini64.exe` as PotPlayer's foreground owner. Release
-  build passes with 0 warnings/errors and all 264 tests pass.
+  observed `Code.exe`, `PotPlayerMini64.exe`, and modern Media Player's
+  `Microsoft.Media.Player.exe`, and confirmed PotPlayer's foreground owner. Release build passes
+  with 0 warnings/errors and all 265 tests pass.
 
 - Slice 11 connects persisted selection commands to provider-neutral output coordination.
   Runtime status separates desired, effective, applied, pending, and recovery-notification
@@ -196,11 +197,11 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Implemented files and entry points: `WindowsApplicationObserver.Observe`,
   `WindowsProcessSource`, the `FocusRgb.Platform.Windows.Tests` project, and deterministic fixtures.
 - Verification: `dotnet build FocusRGB.slnx -c Release` passes with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release --no-restore` passes 264/264.
-- External/live evidence: on 2026-10-16 a read-only observer run reported running `Code.exe` and,
-  after launching the installed PotPlayer, reported `PotPlayerMini64.exe` as both running and the
-  foreground-window owner. No runnable configured Music app or Stremio installation was present;
-  their identities are fixture-covered. No settings or lighting changed.
+  `dotnet test --solution FocusRGB.slnx -c Release --no-build --no-restore` passes 265/265.
+- External/live evidence: on 2026-10-16 a read-only observer run reported running `Code.exe`,
+  `PotPlayerMini64.exe`, and the modern Media Player's `Microsoft.Media.Player.exe`. PotPlayer was
+  also confirmed as the foreground-window owner. Stremio was not installed and remains
+  fixture-covered. No settings or lighting changed.
 - Remaining acceptance criteria: none for installed/runnable configured applications on this machine.
 - Current blocker or required product input: GitHub CLI authentication is expired; pushing and
   opening the pull request require reauthentication.

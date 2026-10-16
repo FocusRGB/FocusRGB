@@ -79,6 +79,7 @@ namespace FocusRgb.Platform.Windows.Tests
 
         [Theory]
         [InlineData("Code", "Code.exe")]
+        [InlineData("Microsoft.Media.Player", "Microsoft.Media.Player.exe")]
         [InlineData("Spotify.exe", "Spotify.exe")]
         public void ToExecutableName_AddsExtensionOnce(string processName, string expected) =>
             Assert.Equal(expected, WindowsProcessSource.ToExecutableName(processName));

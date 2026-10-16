@@ -14,8 +14,9 @@ boundary. Handle disappearing processes/access denial; identify actual Stremio w
 Acceptance: observation fixtures cover app close/helpers/ignored windows; a read-only local
 run reports the configured Programming, Movie, and Music app identities where installed. No lights change.
 
-Acceptance evidence (2026-10-16): the observer reported the running `Code.exe` Programming
-identity and the installed PotPlayer window owner as `PotPlayerMini64.exe`. No runnable configured
-Music app or Stremio installation was present; their identities remain covered by deterministic
-fixtures. The check changed no settings or lighting state.
+Acceptance evidence (2026-10-16): the observer reported `Code.exe` for Programming,
+`PotPlayerMini64.exe` for Movie, and the modern Media Player's `Microsoft.Media.Player.exe` for
+Music. It identified PotPlayer's foreground-window owner as `PotPlayerMini64.exe`. Stremio was not
+installed, so its shell/helper distinction remains covered by a deterministic fixture. The check
+changed no settings or lighting state.
 
