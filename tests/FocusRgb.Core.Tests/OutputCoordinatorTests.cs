@@ -275,7 +275,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public async Task ExplicitSelectionOverridesDeadOwnerButAutomaticFallbackDoesNot()
+        public async Task DeadOwnerDoesNotBlockAutomaticSwitching()
         {
             var gateway = new FakeGateway("plugin-a", "plugin-b") { ReleaseErrorCode = "plugin-exited" };
             using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
@@ -296,7 +296,8 @@ namespace FocusRgb.Core.Tests
 
             Assert.Equal("unavailable", Assert.Single(unavailable!.Applied!.Bindings).Outcome);
             Assert.Equal("plugin-exited", Assert.Single(unavailable.Applied.Bindings).ReasonCode);
-            Assert.Equal("device-owned-elsewhere", Assert.Single(automatic.Effective.Skipped).ReasonCode);
+            Assert.Equal("movie", automatic.Applied!.ProfileId);
+            Assert.Equal("applied", Assert.Single(automatic.Applied.Bindings).Outcome);
             Assert.Equal("movie", selected.Applied!.ProfileId);
             Assert.Equal("applied", Assert.Single(selected.Applied.Bindings).Outcome);
             Assert.Contains(gateway.Applied, item => item.Profile == "movie");

@@ -160,6 +160,74 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public async Task QueuedModeChangeUsesLatestOwnedState()
+        {
+            var store = new BlockingStateStore();
+            var service = new SelectionCommandService(store);
+            var oldState = State();
+            var select = service.SelectProfileAsync(
+                Settings(), oldState, "movie", Now, TestContext.Current.CancellationToken);
+            await store.SaveStarted.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+            var setMode = service.SetModeAsync(
+                Settings(), oldState, "automatic", Now.AddSeconds(1), TestContext.Current.CancellationToken);
+            store.AllowSave.SetResult();
+
+            await select;
+            var result = await setMode;
+            Assert.Equal("movie", result.State!.ManualProfile);
+            Assert.Equal("movie", result.State.LastSelectedProfile);
+        }
+
+        [Fact]
+        public async Task QueuedSelectionsApplyOnlyNewestIntent()
+        {
+            var store = new BlockingStateStore();
+            var gateway = new OrderingGateway([]);
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var service = new SelectionCommandService(store, coordinator);
+            var current = State();
+            var first = service.SelectProfileAsync(
+                Settings(), current, "default", Now, TestContext.Current.CancellationToken);
+            await store.SaveStarted.Task.WaitAsync(TestContext.Current.CancellationToken);
+            var latest = service.SelectProfileAsync(
+                Settings(), current, "movie", Now.AddSeconds(1), TestContext.Current.CancellationToken);
+
+            store.AllowSave.SetResult();
+            await Task.WhenAll(first, latest);
+
+            Assert.Equal(["movie"], gateway.AppliedProfiles);
+        }
+
+        [Fact]
+        public async Task CommandAfterCoordinatorDisposeDoesNotPersist()
+        {
+            var store = new RecordingStateStore();
+            var coordinator = new OutputCoordinator(new OrderingGateway([]), NativeSetupJson.CreateDefault());
+            coordinator.Dispose();
+
+            var result = await new SelectionCommandService(store, coordinator).SelectProfileAsync(
+                Settings(), State(), "movie", Now, TestContext.Current.CancellationToken);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("output-not-connected", result.ErrorCode);
+            Assert.Null(store.SavedState);
+        }
+
+        [Fact]
+        public async Task PersistedTimestampIsUtc()
+        {
+            var store = new RecordingStateStore();
+            var local = new DateTimeOffset(2026, 10, 16, 12, 0, 0, TimeSpan.FromHours(2));
+
+            await new SelectionCommandService(store).SaveCurrentAsync(
+                Settings(), State(), local, TestContext.Current.CancellationToken);
+
+            Assert.Equal(TimeSpan.Zero, store.SavedState!.UpdatedAt!.Value.Offset);
+            Assert.Equal(local.UtcDateTime, store.SavedState.UpdatedAt.Value.UtcDateTime);
+        }
+
+        [Fact]
         public async Task ReapplyAsync_UsesPersistedSelection_WhenItsFirstApplyThrowsAndClockMovesBackward()
         {
             var gateway = new OrderingGateway([]) { ThrowOnApply = true };
@@ -217,6 +285,7 @@ namespace FocusRgb.Core.Tests
         private sealed class OrderingGateway(List<string> events) : IPluginOutputGateway
         {
             public bool ThrowOnApply { get; set; }
+            public List<string> AppliedProfiles { get; } = [];
 
             public IReadOnlyList<PluginCapability>? GetCapabilities(string pluginId) =>
             [
@@ -248,6 +317,7 @@ namespace FocusRgb.Core.Tests
                 CancellationToken cancellationToken = default)
             {
                 events.Add("apply");
+                AppliedProfiles.Add(parameters.Profile);
                 if (ThrowOnApply) throw new InvalidOperationException("Apply failed.");
                 return Task.FromResult(new PluginGatewayResult<BindingApplyResult>(new BindingApplyResult
                 {
@@ -277,7 +347,7 @@ namespace FocusRgb.Core.Tests
                 SettingsDocument settings,
                 CancellationToken cancellationToken = default)
             {
-                SaveStarted.SetResult();
+                SaveStarted.TrySetResult();
                 await AllowSave.Task.WaitAsync(cancellationToken);
                 return SaveResult.Ok();
             }

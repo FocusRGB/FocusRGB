@@ -411,6 +411,36 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public async Task InitializeAsync_CleansStaleTemporaryFiles()
+        {
+            var store = Store();
+            Assert.True((await store.InitializeAsync(Start, TestContext.Current.CancellationToken)).IsSuccess);
+            var stale = Path.Combine(_directory, ".state.json.abandoned.tmp");
+            await File.WriteAllTextAsync(stale, "partial", TestContext.Current.CancellationToken);
+
+            var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess, restarted.Error?.Message);
+            Assert.False(File.Exists(stale));
+        }
+
+        [Fact]
+        public async Task InitializeAsync_RetriesBrieflyLockedSettingsFile()
+        {
+            var store = Store();
+            Assert.True((await store.InitializeAsync(Start, TestContext.Current.CancellationToken)).IsSuccess);
+            var path = PathFor(LocalStateStore.SettingsFileName);
+            await using var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+
+            var restart = store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+            await Task.Delay(100, TestContext.Current.CancellationToken);
+            await locked.DisposeAsync();
+            var result = await restart;
+
+            Assert.True(result.IsSuccess, result.Error?.Message);
+        }
+
+        [Fact]
         public async Task SaveSettingsAndStateAsync_DoNotOverwriteNativeFallbackSnapshot()
         {
             var store = Store();

@@ -10,14 +10,15 @@ namespace FocusRgb.Core.Selection
         private static readonly StringComparer ExecutableComparer = StringComparer.OrdinalIgnoreCase;
 
         private readonly SettingsDocument _settings;
+        private readonly TimeProvider _timeProvider;
         private string? _stableForeground;
         private string? _pendingForeground;
-        private DateTimeOffset _pendingSince;
+        private long _pendingSince;
         private bool _hasPendingForeground;
         private bool _hasStableObservation;
         private SelectionMode? _lastMode;
 
-        public SelectionEngine(SettingsDocument settings)
+        public SelectionEngine(SettingsDocument settings, TimeProvider? timeProvider = null)
         {
             var errors = SettingsValidator.Validate(settings);
             if (errors.Count > 0)
@@ -26,6 +27,7 @@ namespace FocusRgb.Core.Selection
             }
 
             _settings = SettingsJson.Load(SettingsJson.Serialize(settings)).Settings!;
+            _timeProvider = timeProvider ?? TimeProvider.System;
         }
 
         /// <summary>Evaluates one observation at the supplied time and returns only desired profile state.</summary>
@@ -54,7 +56,7 @@ namespace FocusRgb.Core.Selection
             }
             _lastMode = SelectionMode.Automatic;
 
-            UpdateStableForeground(observation.ForegroundExecutable, observedAt);
+            UpdateStableForeground(observation.ForegroundExecutable);
 
             var running = new HashSet<string>(
                 observation.RunningExecutables.Where(name => !string.IsNullOrWhiteSpace(name)),
@@ -115,7 +117,7 @@ namespace FocusRgb.Core.Selection
                 && executables.Contains(_stableForeground, ExecutableComparer);
         }
 
-        private void UpdateStableForeground(string? foreground, DateTimeOffset observedAt)
+        private void UpdateStableForeground(string? foreground)
         {
             var selection = _settings.Selection!;
             if (foreground is not null
@@ -133,15 +135,11 @@ namespace FocusRgb.Core.Selection
             if (!_hasPendingForeground || !ExecutableComparer.Equals(foreground, _pendingForeground))
             {
                 _pendingForeground = foreground;
-                _pendingSince = observedAt;
+                _pendingSince = _timeProvider.GetTimestamp();
                 _hasPendingForeground = true;
             }
-            else if (observedAt < _pendingSince)
-            {
-                _pendingSince = observedAt;
-            }
 
-            if (observedAt - _pendingSince < TimeSpan.FromMilliseconds(selection.DebounceMs!.Value))
+            if (_timeProvider.GetElapsedTime(_pendingSince) < TimeSpan.FromMilliseconds(selection.DebounceMs!.Value))
             {
                 return;
             }

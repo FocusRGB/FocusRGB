@@ -29,7 +29,7 @@ namespace FocusRgb.Core.Persistence
         public LocalStateStore(string directory)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(directory);
-            _directory = Path.GetFullPath(directory);
+            _directory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
             _gate = Gates.GetOrAdd(_directory, static _ => new SemaphoreSlim(1, 1));
         }
 
@@ -39,9 +39,11 @@ namespace FocusRgb.Core.Persistence
             CancellationToken cancellationToken = default)
         {
             await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            var currentFile = SettingsFileName;
             try
             {
                 Directory.CreateDirectory(_directory);
+                CleanupTemporaryFiles();
                 var recoveries = new List<RecoveryNotice>();
 
                 var settingsResult = await LoadSettingsAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
@@ -51,12 +53,14 @@ namespace FocusRgb.Core.Persistence
                 }
 
                 var settings = settingsResult.Settings!;
+                currentFile = StateFileName;
                 var stateResult = await LoadStateAsync(settings, now, recoveries, cancellationToken).ConfigureAwait(false);
                 if (!stateResult.IsSuccess)
                 {
                     return StartupResult.Fail(stateResult.Error!);
                 }
 
+                currentFile = NativeSetupFileName;
                 var nativeResult = await LoadNativeSetupAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
                 if (!nativeResult.IsSuccess)
                 {
@@ -80,7 +84,7 @@ namespace FocusRgb.Core.Persistence
             }
             catch (Exception exception) when (IsPersistenceException(exception))
             {
-                return StartupResult.Fail(Error("startup", exception));
+                return StartupResult.Fail(Error(currentFile, exception));
             }
             finally
             {
@@ -215,7 +219,7 @@ namespace FocusRgb.Core.Persistence
                     : SettingsStartupResult.Fail(save.Error!);
             }
 
-            var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+            var json = await ReadAllTextAsync(SettingsFileName, cancellationToken).ConfigureAwait(false);
             var loaded = SettingsJson.Load(json);
             if (loaded.IsSuccess)
             {
@@ -271,7 +275,7 @@ namespace FocusRgb.Core.Persistence
                 return await SaveFirstRunStateAsync(settings, now, SelectionReason.FirstRun(), cancellationToken).ConfigureAwait(false);
             }
 
-            var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+            var json = await ReadAllTextAsync(StateFileName, cancellationToken).ConfigureAwait(false);
             var loaded = StateJson.Load(json);
             if (!loaded.IsSuccess)
             {
@@ -281,7 +285,7 @@ namespace FocusRgb.Core.Persistence
                 }
 
                 recoveries.Add(ArchiveInvalid(StateFileName, "corrupt", now, loaded.Errors));
-                return await SaveFirstRunStateAsync(settings, now, SelectionReason.FirstRun(), cancellationToken).ConfigureAwait(false);
+                return await SaveFirstRunStateAsync(settings, now, SelectionReason.InvalidStateReset(), cancellationToken).ConfigureAwait(false);
             }
 
             var referenceErrors = StateJson.ValidateProfileReferences(loaded.State!, settings);
@@ -326,7 +330,7 @@ namespace FocusRgb.Core.Persistence
                     : NativeStartupResult.Fail(save.Error!);
             }
 
-            var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+            var json = await ReadAllTextAsync(NativeSetupFileName, cancellationToken).ConfigureAwait(false);
             var loaded = NativeSetupJson.Load(json);
             if (loaded.IsSuccess)
             {
@@ -370,7 +374,9 @@ namespace FocusRgb.Core.Persistence
                     stream.Flush(flushToDisk: true);
                 }
 
-                File.Move(tempPath, PathFor(fileName), overwrite: true);
+                await RetryPersistenceAsync(
+                    () => File.Move(tempPath, PathFor(fileName), overwrite: true),
+                    cancellationToken).ConfigureAwait(false);
                 return SaveResult.Ok();
             }
             catch (OperationCanceledException)
@@ -435,7 +441,7 @@ namespace FocusRgb.Core.Persistence
         {
             var path = PathFor(SettingsRecoveryFileName);
             if (!File.Exists(path)) return null;
-            var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+            var json = await ReadAllTextAsync(SettingsRecoveryFileName, cancellationToken).ConfigureAwait(false);
             var loaded = SettingsJson.Load(json);
             if (loaded.IsSuccess)
             {
@@ -450,6 +456,53 @@ namespace FocusRgb.Core.Persistence
 
             recoveries.Add(ArchiveInvalid(SettingsRecoveryFileName, "corrupt", now, loaded.Errors));
             return null;
+        }
+
+        private async Task<string> ReadAllTextAsync(string fileName, CancellationToken cancellationToken) =>
+            await RetryPersistenceAsync(
+                () => File.ReadAllTextAsync(PathFor(fileName), cancellationToken),
+                cancellationToken).ConfigureAwait(false);
+
+        private static async Task<T> RetryPersistenceAsync<T>(
+            Func<Task<T>> action,
+            CancellationToken cancellationToken)
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    return await action().ConfigureAwait(false);
+                }
+                catch (Exception exception) when (attempt < 4
+                    && exception is IOException or UnauthorizedAccessException)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(25 << attempt), cancellationToken).ConfigureAwait(false);
+                }
+            }
+        }
+
+        private static async Task RetryPersistenceAsync(Action action, CancellationToken cancellationToken) =>
+            await RetryPersistenceAsync(() =>
+            {
+                action();
+                return Task.FromResult(true);
+            }, cancellationToken).ConfigureAwait(false);
+
+        private void CleanupTemporaryFiles()
+        {
+            foreach (var fileName in new[] { SettingsFileName, SettingsRecoveryFileName, StateFileName, NativeSetupFileName })
+            {
+                foreach (var path in Directory.EnumerateFiles(_directory, $".{fileName}.*.tmp"))
+                {
+                    try
+                    {
+                        File.Delete(path);
+                    }
+                    catch (Exception exception) when (IsPersistenceException(exception))
+                    {
+                    }
+                }
+            }
         }
 
         private static int? ReadSchemaVersion(string json)
