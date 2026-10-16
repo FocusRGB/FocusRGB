@@ -25,7 +25,7 @@ namespace FocusRgb.App.Plugins
             ArgumentNullException.ThrowIfNull(entries);
             foreach (var entry in entries)
             {
-                _entries.Add(entry.PluginId, entry);
+                _entries[entry.PluginId] = entry;
                 if (entry.Client is not null)
                     entry.Client.StatusChanged += (_, _) => _ = RefreshAvailabilityAsync(entry);
             }
@@ -78,24 +78,31 @@ namespace FocusRgb.App.Plugins
         }
 
         private PluginProcessClient? Client(string pluginId) =>
-            _entries.TryGetValue(pluginId, out var entry) ? entry.Client : null;
+            _entries.TryGetValue(pluginId, out var entry) && entry.IsRunning ? entry.Client : null;
 
         private static PluginGatewayResult<T> Missing<T>(string pluginId) =>
             new("plugin-absent", $"Plugin '{pluginId}' is not running.");
 
         private async Task RefreshAvailabilityAsync(PluginRuntimeEntry entry)
         {
+            if (!_entries.TryGetValue(entry.PluginId, out var current) || !ReferenceEquals(current, entry)) return;
             try
             {
                 var status = await entry.Client!.GetStatusAsync().ConfigureAwait(false);
                 if (status.IsSuccess)
                 {
-                    var available = status.Value!.Availability is "available" or "degraded";
+                    var value = status.Value!;
+                    var available = entry.Client.Health == "healthy"
+                        && value.Availability is "available" or "degraded";
                     AvailabilityChanged?.Invoke(this, new PluginAvailabilityChangedEventArgs(
                         entry.PluginId,
                         available,
-                        available ? null : status.Value.Reason?.Code ?? "provider-not-running",
-                        available ? null : status.Value.Reason?.Message ?? "The plugin is unavailable."));
+                        available ? null : entry.Client.Health == "unhealthy"
+                            ? "timeout"
+                            : value.Reason?.Code ?? "provider-not-running",
+                        available ? null : entry.Client.Health == "unhealthy"
+                            ? "The plugin stopped responding."
+                            : value.Reason?.Message ?? "The plugin is unavailable."));
                 }
                 else if (status.ErrorCode is "plugin-absent" or "plugin-exited")
                 {

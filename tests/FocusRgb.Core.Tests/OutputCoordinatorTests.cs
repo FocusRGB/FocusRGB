@@ -233,6 +233,24 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public async Task ApplyAsync_DoesNotRetryTimedOutPluginThroughFallbacks()
+        {
+            var gateway = new FakeGateway("fake-output") { ApplyErrorCode = "timeout" };
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var settings = Settings(
+                ("default", "fake-output", "provider-managed", null),
+                ("movie", "fake-output", "provider-managed", null),
+                ("music", "fake-output", "provider-managed", null));
+            SetFallback(settings, "default", "movie", "music");
+
+            var status = await coordinator.ApplyAsync(
+                settings, State("default"), SelectionReason.Manual(), TestContext.Current.CancellationToken);
+
+            Assert.Equal(1, gateway.ApplyCalls);
+            Assert.Equal("Transient request failure.", status.AppliedDetail);
+        }
+
+        [Fact]
         public async Task Recovery_DeclineCanBeOverriddenByExplicitSelection()
         {
             var gateway = new FakeGateway();
@@ -275,7 +293,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public async Task ExplicitSelectionOverridesDeadOwnerButAutomaticFallbackDoesNot()
+        public async Task DeadOwnerDoesNotBlockAutomaticSwitching()
         {
             var gateway = new FakeGateway("plugin-a", "plugin-b") { ReleaseErrorCode = "plugin-exited" };
             using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
@@ -296,7 +314,8 @@ namespace FocusRgb.Core.Tests
 
             Assert.Equal("unavailable", Assert.Single(unavailable!.Applied!.Bindings).Outcome);
             Assert.Equal("plugin-exited", Assert.Single(unavailable.Applied.Bindings).ReasonCode);
-            Assert.Equal("device-owned-elsewhere", Assert.Single(automatic.Effective.Skipped).ReasonCode);
+            Assert.Equal("movie", automatic.Applied!.ProfileId);
+            Assert.Equal("applied", Assert.Single(automatic.Applied.Bindings).Outcome);
             Assert.Equal("movie", selected.Applied!.ProfileId);
             Assert.Equal("applied", Assert.Single(selected.Applied.Bindings).Outcome);
             Assert.Contains(gateway.Applied, item => item.Profile == "movie");
@@ -477,6 +496,7 @@ namespace FocusRgb.Core.Tests
             public string ReleaseOutcome { get; init; } = "released";
             public string? ReleaseErrorCode { get; init; }
             public string? ApplyErrorCode { get; set; }
+            public int ApplyCalls { get; private set; }
             public string ApplyOutcome { get; init; } = "applied";
             public PluginReason? ApplyReason { get; init; }
             public IReadOnlyList<PluginCatalogItem> CatalogItems { get; set; } =
@@ -513,6 +533,7 @@ namespace FocusRgb.Core.Tests
                 BindingApplyParameters parameters,
                 CancellationToken cancellationToken = default)
             {
+                ApplyCalls++;
                 if (ApplyErrorCode is not null)
                     return Task.FromResult(new PluginGatewayResult<BindingApplyResult>(
                         ApplyErrorCode, "Transient request failure."));

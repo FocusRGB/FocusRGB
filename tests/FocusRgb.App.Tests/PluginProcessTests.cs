@@ -66,12 +66,12 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public async Task StartAsync_ReturnsMalformedResponse_WhenStdoutIsNotJson()
+        public async Task StartAsync_ReturnsPluginExited_WhenOnlyStdoutIsNotJson()
         {
             var started = await StartAsync("--malformed");
 
             Assert.False(started.IsSuccess);
-            Assert.Equal("malformed-response", started.ErrorCode);
+            Assert.Equal("plugin-exited", started.ErrorCode);
         }
 
         [Fact]
@@ -191,6 +191,35 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task MalformedResponseRaisesStatusChangedForSupervision()
+        {
+            var started = await StartAsync("--invalid-response", "array");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+            var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            client.StatusChanged += (_, _) => changed.TrySetResult();
+
+            var status = await client.GetStatusAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal("malformed-response", status.ErrorCode);
+            await changed.Task.WaitAsync(TestContext.Current.CancellationToken);
+            Assert.Equal("unhealthy", client.Health);
+        }
+
+        [Fact]
+        public async Task StrayStdoutLine_DoesNotFailPendingRequest()
+        {
+            var started = await StartAsync("--invalid-response", "stray");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+
+            var status = await client.GetStatusAsync(TestContext.Current.CancellationToken);
+
+            Assert.True(status.IsSuccess, status.ErrorMessage);
+            Assert.Equal("healthy", client.Health);
+        }
+
+        [Fact]
         public async Task StartAsync_DrainsAndBuffersUtf8StderrBeforeHandshake()
         {
             var started = await StartAsync("--stderr-bytes", "200000");
@@ -209,9 +238,55 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task BufferedPluginLogsAreBounded()
+        {
+            var started = await StartAsync("--stderr-bytes", (600 * 1024).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+            var messages = new List<string>();
+
+            client.LogReceived += (_, value) => messages.Add(value);
+
+            Assert.Equal(501, messages.Count);
+            Assert.StartsWith("Dropped ", messages[0], StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task ConcurrentDisposeIsIdempotent()
+        {
+            var started = await StartAsync();
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+
+            await Task.WhenAll(
+                started.Client!.DisposeAsync().AsTask(),
+                started.Client.DisposeAsync().AsTask());
+        }
+
+        [Fact]
+        public async Task DisposeTerminatesPluginGrandchildren()
+        {
+            var pidFile = Path.Combine(Path.GetTempPath(), $"FocusRGB-grandchild-{Guid.NewGuid():N}.pid");
+            var started = await StartAsync("--spawn-grandchild", pidFile);
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            for (var attempt = 0; attempt < 50 && !File.Exists(pidFile); attempt++)
+                await Task.Delay(100, TestContext.Current.CancellationToken);
+            Assert.True(File.Exists(pidFile));
+            var process = Process.GetProcessById(int.Parse(
+                await File.ReadAllTextAsync(pidFile, TestContext.Current.CancellationToken),
+                System.Globalization.CultureInfo.InvariantCulture));
+
+            await started.Client!.DisposeAsync();
+
+            await process.WaitForExitAsync(TestContext.Current.CancellationToken).WaitAsync(
+                TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+            Assert.True(process.HasExited);
+            File.Delete(pidFile);
+        }
+
+        [Fact]
         public async Task OversizedStderrLine_PublishesTruncationMarker()
         {
-            var started = await StartAsync("--stderr-line-bytes", "70000");
+            var started = await StartAsync("--stderr-line-bytes", "1100000");
             Assert.True(started.IsSuccess, started.ErrorMessage);
             await using var client = started.Client!;
             var received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -219,7 +294,7 @@ namespace FocusRgb.App.Tests
 
             var message = await received.Task.WaitAsync(TestContext.Current.CancellationToken);
 
-            Assert.Contains("exceeded the 64 KiB limit", message, StringComparison.Ordinal);
+            Assert.Contains("exceeded the 1 MiB limit", message, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -442,21 +517,20 @@ namespace FocusRgb.App.Tests
 
         private static string FakePluginPath()
         {
+            var local = Path.Combine(AppContext.BaseDirectory, "FocusRgb.FakePlugin.dll");
+            if (File.Exists(local)) return local;
             var configuration = new DirectoryInfo(AppContext.BaseDirectory.TrimEnd(
                 Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)).Name;
-            return Path.Combine(
-                RepositoryRoot(), "build", "artifacts", "bin", "FocusRgb.FakePlugin",
+            return Path.Combine(RepositoryRoot(), "build", "artifacts", "bin", "FocusRgb.FakePlugin",
                 configuration, "FocusRgb.FakePlugin.dll");
         }
 
         private static string RepositoryRoot()
         {
-            var directory = new DirectoryInfo(AppContext.BaseDirectory);
+            var directory = new DirectoryInfo(Directory.GetCurrentDirectory());
             while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "global.json")))
-            {
                 directory = directory.Parent;
-            }
-            return directory?.FullName ?? throw new InvalidOperationException("Repository root not found.");
+            return directory?.FullName ?? throw new InvalidOperationException("Repository root not found from the test working directory.");
         }
     }
 }

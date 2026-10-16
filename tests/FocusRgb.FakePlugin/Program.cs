@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using FocusRgb.Contracts;
@@ -5,6 +6,32 @@ using FocusRgb.PluginSdk;
 
 Console.InputEncoding = new UTF8Encoding(false);
 Console.OutputEncoding = new UTF8Encoding(false);
+
+if (Environment.GetEnvironmentVariable("FOCUSRGB_FAKE_PLUGIN_ARGS") is { Length: > 0 } environmentArguments)
+    args = [.. args, .. environmentArguments.Split(' ', StringSplitOptions.RemoveEmptyEntries)];
+
+if (ReadStringOption(args, "--grandchild") is { } grandchildPidFile)
+{
+    await File.WriteAllTextAsync(
+        grandchildPidFile,
+        Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    await Task.Delay(Timeout.InfiniteTimeSpan);
+    return;
+}
+
+if (ReadStringOption(args, "--spawn-grandchild") is { } childPidFile)
+{
+    _ = Task.Run(async () =>
+    {
+        await Task.Delay(250);
+        Process.Start(new ProcessStartInfo("dotnet")
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            ArgumentList = { System.Reflection.Assembly.GetExecutingAssembly().Location, "--grandchild", childPidFile }
+        });
+    });
+}
 
 var pidFile = ReadStringOption(args, "--pid-file");
 if (pidFile is not null)
@@ -140,7 +167,8 @@ static async Task RunRawProbeAsync(string invalidResponse)
                 "null-id" => "{\"jsonrpc\":\"2.0\",\"id\":null,\"result\":{}}",
                 "array" => "[]",
                 "error-string" => $$"""{"jsonrpc":"2.0","id":{{id}},"error":"bad"}""",
-                "oversize" => new string('x', 64 * 1024 + 1),
+                "oversize" => new string('x', 1024 * 1024 + 1),
+                "stray" => "plugin diagnostic output",
                 "method-not-found" => JsonSerializer.Serialize(new
                 {
                     jsonrpc = "2.0",

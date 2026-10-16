@@ -34,7 +34,8 @@ namespace FocusRgb.App.ViewModels
         private bool _loadingProfileDraft;
         private string _applicationGroupName = "";
         private string? _selectedDraftExecutable;
-        private string _profileEditorStatus = "Select a profile to edit it.";
+        private string _profileEditorStatus = "Edit the selected profile below.";
+        private string _startupStatusMessage = "";
         private string _applicationGroupEditorStatus = "Select an application group to edit it.";
         private string _closeButtonBehavior = "Minimize to system tray";
         private bool _startMinimized;
@@ -81,6 +82,7 @@ namespace FocusRgb.App.ViewModels
         public MappingEditorViewModel MappingEditor { get; }
         public ObservableCollection<ApplicationGroupViewModel> ApplicationGroups => MappingEditor.ApplicationGroups;
         public ObservableCollection<string> DraftExecutables { get; } = [];
+        public ObservableCollection<string> IntegrationStatuses { get; } = ["No plugins configured."];
         public IReadOnlyList<string> CloseButtonBehaviors => CanMinimizeToTray
             ? ["Minimize to system tray", "Exit application"]
             : ["Exit application"];
@@ -155,7 +157,7 @@ namespace FocusRgb.App.ViewModels
                 if (!Set(ref _profileLivePreview, value) || !value || !IsProfileDirty) return;
                 ProfilePreviewRevision++;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ProfilePreviewRevision)));
-                ProfileEditorStatus = "Live preview updated from the profile draft.";
+                ProfileEditorStatus = "Draft preview updated in the editor; output is sent after Save.";
             }
         }
         public bool IsProfileDirty { get => _isProfileDirty; private set => Set(ref _isProfileDirty, value); }
@@ -165,6 +167,8 @@ namespace FocusRgb.App.ViewModels
         public string ProfileEditorStatus { get => _profileEditorStatus; private set => Set(ref _profileEditorStatus, value); }
         public string ApplicationGroupEditorStatus { get => _applicationGroupEditorStatus; private set => Set(ref _applicationGroupEditorStatus, value); }
         public string RuntimeStatusMessage { get => _runtimeStatusMessage; private set => Set(ref _runtimeStatusMessage, value); }
+        public string StartupStatusMessage { get => _startupStatusMessage; private set => Set(ref _startupStatusMessage, value); }
+        public bool HasStartupStatus => !string.IsNullOrWhiteSpace(StartupStatusMessage);
         public bool IsRuntimeCommandPending { get => _isRuntimeCommandPending; private set => Set(ref _isRuntimeCommandPending, value); }
         public bool IsSettingsSavePending => Volatile.Read(ref _settingsSavePending) != 0;
         public bool HasEditingProfile => EditingProfile is not null;
@@ -409,6 +413,13 @@ namespace FocusRgb.App.ViewModels
 
         public void ReportUnexpectedError(string message) => RuntimeStatusMessage = message;
 
+        public void SetIntegrationStatuses(IEnumerable<string> statuses)
+        {
+            IntegrationStatuses.Clear();
+            foreach (var status in statuses) IntegrationStatuses.Add(status);
+            if (IntegrationStatuses.Count == 0) IntegrationStatuses.Add("No plugins configured.");
+        }
+
         public async Task SaveProfileAsync(CancellationToken cancellationToken = default)
         {
             if (EditingProfile is null) return;
@@ -639,13 +650,14 @@ namespace FocusRgb.App.ViewModels
                 ? snapshot.State.ManualProfile
                 : snapshot.State.LastSelectedProfile;
             viewModel.SelectedProfile = viewModel.Profiles.Single(profile => profile.Id == selectedId);
-            viewModel.RuntimeStatusMessage += $" Settings loaded from {snapshot.SettingsSource}.";
+            viewModel.StartupStatusMessage = $"Settings loaded from {snapshot.SettingsSource}.";
             foreach (var recovery in snapshot.Recoveries)
             {
-                viewModel.RuntimeStatusMessage += recovery.ArchivedPath is null
+                viewModel.StartupStatusMessage += recovery.ArchivedPath is null
                     ? $" {recovery.FileName}: {recovery.Message}"
                     : $" Recovered {recovery.FileName}; the invalid file was kept as {Path.GetFileName(recovery.ArchivedPath)}.";
             }
+            viewModel.PropertyChanged?.Invoke(viewModel, new PropertyChangedEventArgs(nameof(HasStartupStatus)));
             return viewModel;
         }
 
@@ -713,7 +725,7 @@ namespace FocusRgb.App.ViewModels
                 }
 
                 ApplyRuntimeResult(result);
-                RuntimeStatusMessage = successMessage;
+                RuntimeStatusMessage = result.Status!.AppliedDetail;
             }
             finally
             {
@@ -1002,7 +1014,7 @@ namespace FocusRgb.App.ViewModels
             {
                 ProfilePreviewRevision++;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ProfilePreviewRevision)));
-                ProfileEditorStatus = "Live preview updated from the profile draft.";
+                ProfileEditorStatus = "Draft preview updated in the editor; output is sent after Save.";
             }
             else
             {

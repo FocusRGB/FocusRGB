@@ -195,10 +195,10 @@ authority or output. Accept revalidates capabilities, ownership, and the current
 selection before resuming; dismissing or declining keeps the native fallback active. Do not
 restore a stale selection that a newer user command superseded. Coalesce repeated availability
 events into one pending notification per plugin. Falling back from SignalRGB
-to WLED still requires verified physical-device release. Plugin disconnection alone is not
-proof that SignalRGB stopped writing. Automatic fallback therefore keeps the ownership claim;
-an explicit profile selection may discard a dead process's stale claim as a user-approved
-override. Partial output failure follows the transition rules.
+to WLED still requires verified physical-device release. A live provider that reports unavailable
+keeps its ownership claim. A confirmed local process exit or absent plugin clears that dead host
+claim so automatic fallback may try another provider; physical-device arbitration remains the
+incoming provider's responsibility. Partial output failure follows the transition rules.
 
 ## Layout editing and preview
 

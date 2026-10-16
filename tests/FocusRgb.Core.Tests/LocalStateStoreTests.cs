@@ -32,6 +32,17 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public async Task InitializeAsync_NormalizesFirstRunTimestampToUtc()
+        {
+            var local = new DateTimeOffset(2026, 10, 16, 12, 0, 0, TimeSpan.FromHours(2));
+
+            var result = await Store().InitializeAsync(local, TestContext.Current.CancellationToken);
+
+            Assert.Equal(TimeSpan.Zero, result.Snapshot!.State.UpdatedAt!.Value.Offset);
+            Assert.Equal(local.UtcDateTime, result.Snapshot.State.UpdatedAt.Value.UtcDateTime);
+        }
+
+        [Fact]
         public async Task InitializeAsync_MigratesSchemaOneSettingsAndPersistsCurrentVersion()
         {
             var firstRun = await Store().InitializeAsync(Start, TestContext.Current.CancellationToken);
@@ -408,6 +419,51 @@ namespace FocusRgb.Core.Tests
             Assert.False(result.IsSuccess);
             Assert.Equal(previous, await File.ReadAllTextAsync(PathFor(LocalStateStore.SettingsFileName), TestContext.Current.CancellationToken));
             Assert.Empty(Directory.GetFiles(_directory, ".settings.json.*.tmp"));
+        }
+
+        [Fact]
+        public async Task InitializeAsync_CleansStaleTemporaryFiles()
+        {
+            var store = Store();
+            Assert.True((await store.InitializeAsync(Start, TestContext.Current.CancellationToken)).IsSuccess);
+            var stale = Path.Combine(_directory, ".state.json.abandoned.tmp");
+            await File.WriteAllTextAsync(stale, "partial", TestContext.Current.CancellationToken);
+            File.SetLastWriteTimeUtc(stale, DateTime.UtcNow.AddMinutes(-1));
+
+            var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess, restarted.Error?.Message);
+            Assert.False(File.Exists(stale));
+        }
+
+        [Fact]
+        public async Task InitializeAsync_DoesNotDeleteFreshTemporaryFiles()
+        {
+            var store = Store();
+            Assert.True((await store.InitializeAsync(Start, TestContext.Current.CancellationToken)).IsSuccess);
+            var active = Path.Combine(_directory, ".state.json.active.tmp");
+            await File.WriteAllTextAsync(active, "partial", TestContext.Current.CancellationToken);
+
+            var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess, restarted.Error?.Message);
+            Assert.True(File.Exists(active));
+        }
+
+        [Fact]
+        public async Task InitializeAsync_RetriesBrieflyLockedSettingsFile()
+        {
+            var store = Store();
+            Assert.True((await store.InitializeAsync(Start, TestContext.Current.CancellationToken)).IsSuccess);
+            var path = PathFor(LocalStateStore.SettingsFileName);
+            await using var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+
+            var restart = store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+            await Task.Delay(100, TestContext.Current.CancellationToken);
+            await locked.DisposeAsync();
+            var result = await restart;
+
+            Assert.True(result.IsSuccess, result.Error?.Message);
         }
 
         [Fact]

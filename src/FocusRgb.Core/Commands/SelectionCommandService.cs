@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
@@ -16,6 +17,8 @@ namespace FocusRgb.Core.Commands
         private readonly SemaphoreSlim _commandGate = new(1, 1);
         private SelectionStateDocument? _latestState;
         private SelectionReason? _latestReason;
+        private long _latestApplyRequest;
+        private readonly ConcurrentDictionary<long, CancellationToken> _applyRequests = new();
 
         public SelectionCommandService(ISelectionStateStore store, OutputCoordinator? outputCoordinator = null)
         {
@@ -34,10 +37,12 @@ namespace FocusRgb.Core.Commands
             if (settings.Profiles?.Any(profile => profile.Id == profileId) != true)
                 return Task.FromResult(SelectionCommandResult.Fail("invalid-profile", $"Unknown profile '{profileId}'."));
 
-            var next = Copy(current, "manual", profileId, profileId, now);
+            var request = Interlocked.Increment(ref _latestApplyRequest);
+            _applyRequests[request] = cancellationToken;
             return SaveAsync(
-                settings, next, SelectionReason.Manual(), applyOutput: true,
-                approveRecovery: true, cancellationToken);
+                settings, current, state => Copy(state, "manual", profileId, profileId, now),
+                SelectionReason.Manual(), applyOutput: true,
+                approveRecovery: true, request, cancellationToken);
         }
 
         /// <summary>Changes selection mode while retaining the last desired profile until observations exist.</summary>
@@ -51,12 +56,16 @@ namespace FocusRgb.Core.Commands
             if (mode is not ("manual" or "automatic"))
                 return Task.FromResult(SelectionCommandResult.Fail("invalid-mode", $"Unknown mode '{mode}'."));
 
-            var manualProfile = current.ManualProfile!;
-            var desired = mode == "manual" ? manualProfile : current.LastSelectedProfile!;
-            var next = Copy(current, mode, manualProfile, desired, now);
+            var request = Interlocked.Increment(ref _latestApplyRequest);
+            _applyRequests[request] = cancellationToken;
             var reason = mode == "manual" ? SelectionReason.Manual() : SelectionReason.ObservationPending();
-            return SaveAsync(settings, next, reason, applyOutput: true,
-                approveRecovery: false, cancellationToken);
+            return SaveAsync(settings, current, state =>
+            {
+                var manualProfile = state.ManualProfile!;
+                var desired = mode == "manual" ? manualProfile : state.LastSelectedProfile!;
+                return Copy(state, mode, manualProfile, desired, now);
+            }, reason, applyOutput: true,
+                approveRecovery: false, request, cancellationToken);
         }
 
         /// <summary>Flushes the current valid state before an explicit application shutdown.</summary>
@@ -66,17 +75,13 @@ namespace FocusRgb.Core.Commands
             DateTimeOffset now,
             CancellationToken cancellationToken = default)
         {
-            var next = Copy(
-                current,
-                current.Mode!,
-                current.ManualProfile!,
-                current.LastSelectedProfile!,
-                now);
             var reason = current.Mode == "manual"
                 ? SelectionReason.Manual()
                 : SelectionReason.ObservationPending();
-            return SaveAsync(settings, next, reason, applyOutput: false,
-                approveRecovery: false, cancellationToken);
+            return SaveAsync(settings, current, state => Copy(
+                state, state.Mode!, state.ManualProfile!, state.LastSelectedProfile!, now),
+                reason, applyOutput: false,
+                approveRecovery: false, 0, cancellationToken);
         }
 
         /// <summary>Projects desired state and explicitly reports that no output integration is connected.</summary>
@@ -110,6 +115,8 @@ namespace FocusRgb.Core.Commands
         {
             if (_outputCoordinator is null)
                 return SelectionCommandResult.Fail("output-not-connected", "No output coordinator is connected.");
+            if (_outputCoordinator.IsDisposed)
+                return SelectionCommandResult.Fail("output-not-connected", "The output coordinator has stopped.");
             if (response is not ("accept" or "decline"))
                 return SelectionCommandResult.Fail("invalid-response", "Response must be accept or decline.");
 
@@ -127,14 +134,28 @@ namespace FocusRgb.Core.Commands
             SelectionReason reason,
             CancellationToken cancellationToken = default)
         {
-            await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            var request = Interlocked.Increment(ref _latestApplyRequest);
+            _applyRequests[request] = cancellationToken;
             try
             {
+                await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                _applyRequests.TryRemove(request, out _);
+                throw;
+            }
+            try
+            {
+                if (_outputCoordinator?.IsDisposed == true)
+                    return SelectionCommandResult.Fail("output-not-connected", "The output coordinator has stopped.");
                 var useLatest = _latestState is not null;
                 var state = useLatest ? _latestState! : current;
                 var effectiveReason = useLatest ? _latestReason! : reason;
                 var status = _outputCoordinator is null
                     ? GetStatus(state, effectiveReason)
+                    : !IsLatestActiveRequest(request)
+                        ? GetStatus(state, effectiveReason)
                     : await _outputCoordinator.ApplyAsync(
                         settings, state, effectiveReason, cancellationToken: cancellationToken).ConfigureAwait(false);
                 _latestState = state;
@@ -143,24 +164,53 @@ namespace FocusRgb.Core.Commands
             }
             finally
             {
+                _applyRequests.TryRemove(request, out _);
                 _commandGate.Release();
             }
         }
 
         private async Task<SelectionCommandResult> SaveAsync(
             SettingsDocument settings,
-            SelectionStateDocument next,
+            SelectionStateDocument current,
+            Func<SelectionStateDocument, SelectionStateDocument> createNext,
             SelectionReason reason,
             bool applyOutput,
             bool approveRecovery,
+            long request,
             CancellationToken cancellationToken)
         {
-            await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                var save = await _store.SaveStateAsync(next, settings, cancellationToken).ConfigureAwait(false);
+                await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                _applyRequests.TryRemove(request, out _);
+                throw;
+            }
+            try
+            {
+                if (applyOutput && _outputCoordinator?.IsDisposed == true)
+                    return SelectionCommandResult.Fail("output-not-connected", "The output coordinator has stopped.");
+                var next = createNext(_latestState ?? current);
+                SaveResult save;
+                try
+                {
+                    save = await _store.SaveStateAsync(next, settings, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    await RestoreLatestOutputAsync(settings).ConfigureAwait(false);
+                    throw;
+                }
                 if (!save.IsSuccess)
                 {
+                    if (applyOutput && IsLatestActiveRequest(request)
+                        && _latestState is not null && _latestReason is not null
+                        && _outputCoordinator is { IsDisposed: false })
+                    {
+                        await RestoreLatestOutputAsync(settings).ConfigureAwait(false);
+                    }
                     return SelectionCommandResult.Fail(
                         "persistence-failed",
                         $"{save.Error!.FileName}: {save.Error.Message}");
@@ -169,6 +219,7 @@ namespace FocusRgb.Core.Commands
                 _latestState = next;
                 _latestReason = reason;
                 var status = applyOutput && _outputCoordinator is not null
+                    && IsLatestActiveRequest(request)
                     ? await _outputCoordinator.ApplyAsync(
                         settings, next, reason, approveRecovery, cancellationToken).ConfigureAwait(false)
                     : _outputCoordinator?.CurrentStatus ?? GetStatus(next, reason);
@@ -176,7 +227,22 @@ namespace FocusRgb.Core.Commands
             }
             finally
             {
+                _applyRequests.TryRemove(request, out _);
                 _commandGate.Release();
+            }
+        }
+
+        private bool IsLatestActiveRequest(long request) => !_applyRequests.Any(candidate =>
+            candidate.Key > request && !candidate.Value.IsCancellationRequested);
+
+        private async Task RestoreLatestOutputAsync(SettingsDocument settings)
+        {
+            if (_latestState is not null && _latestReason is not null
+                && _outputCoordinator is { IsDisposed: false })
+            {
+                await _outputCoordinator.ApplyAsync(
+                    settings, _latestState, _latestReason, cancellationToken: CancellationToken.None)
+                    .ConfigureAwait(false);
             }
         }
 
@@ -191,7 +257,7 @@ namespace FocusRgb.Core.Commands
                 Mode = mode,
                 ManualProfile = manualProfile,
                 LastSelectedProfile = lastSelectedProfile,
-                UpdatedAt = updatedAt,
+                UpdatedAt = updatedAt.ToUniversalTime(),
                 AdditionalProperties = source.AdditionalProperties
             };
 

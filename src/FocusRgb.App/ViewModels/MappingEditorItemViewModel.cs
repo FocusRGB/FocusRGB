@@ -34,31 +34,66 @@ namespace FocusRgb.App.ViewModels
         public int Position
         {
             get => _position;
-            private set => Set(ref _position, value, false);
+            private set
+            {
+                Set(ref _position, value, false);
+                NotifyAccessibility();
+            }
         }
 
         public ApplicationGroupViewModel SelectedApplicationGroup
         {
             get => _selectedApplicationGroup;
-            set => Set(ref _selectedApplicationGroup, value);
+            set
+            {
+                Set(ref _selectedApplicationGroup, value);
+                NotifyAccessibility();
+            }
         }
 
         public ProfileOptionViewModel SelectedProfile
         {
             get => _selectedProfile;
-            set => Set(ref _selectedProfile, value);
+            set
+            {
+                Set(ref _selectedProfile, value);
+                NotifyAccessibility();
+            }
         }
 
         public string Eligibility
         {
             get => _eligibility;
-            set => Set(ref _eligibility, value);
+            set
+            {
+                Set(ref _eligibility, value);
+                NotifyAccessibility();
+            }
         }
+
+        public string AccessibleName =>
+            $"{SelectedApplicationGroup.DisplayName} maps to {SelectedProfile.DisplayName}, {Eligibility}";
+        public string MoveUpAccessibleName => $"Move {SelectedApplicationGroup.DisplayName} mapping up";
+        public string MoveDownAccessibleName => $"Move {SelectedApplicationGroup.DisplayName} mapping down";
+        public string EditAccessibleName => $"Edit {SelectedApplicationGroup.DisplayName} mapping";
+        public string RemoveAccessibleName => $"Remove {SelectedApplicationGroup.DisplayName} mapping";
+
+        public override string ToString() => AccessibleName;
 
         internal MappingSnapshot CreateSnapshot() =>
             new(Id, SelectedApplicationGroup.Id, SelectedProfile.Id, Eligibility);
 
         internal void SetPosition(int position) => Position = position;
+
+        private void NotifyAccessibility()
+        {
+            foreach (var property in new[]
+            {
+                nameof(AccessibleName), nameof(MoveUpAccessibleName), nameof(MoveDownAccessibleName),
+                nameof(EditAccessibleName), nameof(RemoveAccessibleName)
+            })
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+        }
 
         private void Set<T>(ref T field, T value, bool notifyEditor = true,
             [CallerMemberName] string? propertyName = null)

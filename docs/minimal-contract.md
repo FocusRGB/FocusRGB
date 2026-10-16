@@ -296,9 +296,9 @@ The core exposes this snapshot to the UI and later the MCP adapter. It is not pe
   `{ "id": "n-1", "kind": "plugin-recovered", "plugin": "signalrgb", "actions": ["accept", "decline"] }`.
   Availability alone never restores output. Accept revalidates the current desired selection,
   capabilities, and ownership; decline or dismiss keeps the fallback active.
-  A disconnected plugin is not automatic proof of device release. Automatic fallback keeps its
-  ownership claim, while an explicit profile selection is user consent to discard a dead owner's
-  stale claim and attempt the selected provider.
+  A provider that reports unavailable keeps its ownership claim because it may still be writing.
+  A confirmed local process exit or absent plugin clears the dead host claim, allowing automatic
+  fallback or selection to try another provider without waiting for impossible cleanup.
 
 ## Commands — frozen
 

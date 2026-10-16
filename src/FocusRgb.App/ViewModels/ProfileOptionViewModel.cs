@@ -9,6 +9,8 @@ namespace FocusRgb.App.ViewModels
 
         public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 
+        public override string ToString() => DisplayName;
+
         public required string Id { get; init; }
         public required string DisplayName { get => _displayName; set => Set(ref _displayName, value, nameof(DisplayName)); }
         public required string EffectName { get => _effectName; set => Set(ref _effectName, value, nameof(EffectName)); }

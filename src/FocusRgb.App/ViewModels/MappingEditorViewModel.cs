@@ -48,7 +48,7 @@ namespace FocusRgb.App.ViewModels
             set
             {
                 if (!Set(ref _livePreview, value) || !IsDirty) return;
-                if (value) UpdatePreview("Live preview updated from the current draft.");
+                if (value) UpdatePreview("Draft preview updated in the editor; output is sent after Save.");
                 else PreviewStatus = "Draft changes are waiting for Apply.";
             }
         }
@@ -164,7 +164,7 @@ namespace FocusRgb.App.ViewModels
         {
             IsDirty = !Mappings.Select(mapping => mapping.CreateSnapshot()).SequenceEqual(_appliedMappings);
             PreviewStatus = IsDirty
-                ? LivePreview ? "Live preview updated from the current draft." : "Draft changes are waiting for Apply."
+                ? LivePreview ? "Draft preview updated in the editor; output is sent after Save." : "Draft changes are waiting for Apply."
                 : "Draft matches the last applied mappings.";
             if (LivePreview) { PreviewRevision++; OnPropertyChanged(nameof(PreviewRevision)); }
         }

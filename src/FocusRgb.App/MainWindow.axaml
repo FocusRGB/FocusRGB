@@ -13,7 +13,7 @@
           <TextBlock Text="Lighting profiles that follow what you do" Opacity="0.65" />
         </StackPanel>
         <Border Grid.Column="1" Padding="10,5" CornerRadius="12" Background="#253B82F6">
-          <TextBlock Text="Local runtime · coordinated plugin output" Foreground="#93C5FD" />
+          <TextBlock Text="Local runtime · coordinated plugin output" Foreground="{DynamicResource ThemeForegroundBrush}" />
         </Border>
       </Grid>
     </Border>
@@ -42,6 +42,7 @@
                   <TextBlock Text="Profile" FontSize="18" FontWeight="SemiBold" />
                   <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile, Mode=OneWay}"
                             IsEnabled="{Binding !IsRuntimeCommandPending}"
+                            AutomationProperties.Name="Selected lighting profile"
                             SelectionChanged="SelectedProfile_OnSelectionChanged"
                             PlaceholderText="No profiles available">
                     <ComboBox.ItemTemplate>
@@ -58,6 +59,8 @@
                   <TextBlock Grid.Row="3" Text="Runtime" Opacity="0.65" /><TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding RuntimeStatusMessage}" TextWrapping="Wrap" />
                 </Grid>
               </Border>
+              <TextBlock Text="{Binding StartupStatusMessage}" IsVisible="{Binding HasStartupStatus}"
+                         Opacity="0.7" TextWrapping="Wrap" />
               <Border IsVisible="{Binding HasRecoveryNotification}" Padding="16" CornerRadius="8"
                       BorderBrush="#F59E0B" BorderThickness="1">
                 <StackPanel Spacing="10">
@@ -85,6 +88,7 @@
                   <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:MappingEditorItemViewModel">
                         <Grid Margin="4" MinHeight="30" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
+                              AutomationProperties.Name="{Binding AccessibleName}"
                               PointerPressed="MappingDrag_OnPointerPressed" ToolTip.Tip="Drag this row to reorder"
                               DragDrop.AllowDrop="True" DragDrop.DragOver="MappingRow_OnDragOver"
                               DragDrop.Drop="MappingRow_OnDrop">
@@ -94,10 +98,14 @@
                             <TextBlock Text="{Binding SelectedProfile.DisplayName}" FontSize="12" Opacity="0.65" />
                           </StackPanel>
                           <StackPanel Grid.Column="2" Classes="row-actions" Orientation="Horizontal" Spacing="3">
-                            <Button Content="↑" Padding="7,3" CommandParameter="{Binding}" Click="MoveMappingUp_OnClick" ToolTip.Tip="Move up" />
-                            <Button Content="↓" Padding="7,3" CommandParameter="{Binding}" Click="MoveMappingDown_OnClick" ToolTip.Tip="Move down" />
-                            <Button Content="Edit" Padding="7,3" CommandParameter="{Binding}" Click="EditMapping_OnClick" />
-                            <Button Content="Remove" Padding="7,3" CommandParameter="{Binding}" Click="RemoveMapping_OnClick" />
+                            <Button Content="↑" Padding="7,3" CommandParameter="{Binding}" Click="MoveMappingUp_OnClick" ToolTip.Tip="Move up"
+                                    AutomationProperties.Name="{Binding MoveUpAccessibleName}" />
+                            <Button Content="↓" Padding="7,3" CommandParameter="{Binding}" Click="MoveMappingDown_OnClick" ToolTip.Tip="Move down"
+                                    AutomationProperties.Name="{Binding MoveDownAccessibleName}" />
+                            <Button Content="Edit" Padding="7,3" CommandParameter="{Binding}" Click="EditMapping_OnClick"
+                                    AutomationProperties.Name="{Binding EditAccessibleName}" />
+                            <Button Content="Remove" Padding="7,3" CommandParameter="{Binding}" Click="RemoveMapping_OnClick"
+                                    AutomationProperties.Name="{Binding RemoveAccessibleName}" />
                           </StackPanel>
                         </Grid>
                     </DataTemplate>
@@ -106,10 +114,12 @@
                 <StackPanel Grid.Row="1" Spacing="6">
                   <TextBlock Text="Create mapping" FontWeight="SemiBold" />
                   <ComboBox ItemsSource="{Binding ApplicationGroups}" SelectedItem="{Binding MappingEditor.NewApplicationGroup}"
+                            AutomationProperties.Name="New mapping application group"
                             PlaceholderText="No application groups available">
                     <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ApplicationGroupViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                   </ComboBox>
                   <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding MappingEditor.NewProfile}"
+                            AutomationProperties.Name="New mapping profile"
                             PlaceholderText="No profiles available">
                     <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                   </ComboBox>
@@ -123,15 +133,18 @@
                       <StackPanel Spacing="10">
                         <TextBlock Text="Mapping details" FontSize="18" FontWeight="SemiBold" />
                         <TextBlock Text="Application group" FontWeight="SemiBold" />
-                        <ComboBox ItemsSource="{Binding ApplicationGroups}" SelectedItem="{Binding SelectedApplicationGroup}">
+                        <ComboBox ItemsSource="{Binding ApplicationGroups}" SelectedItem="{Binding SelectedApplicationGroup}"
+                                  AutomationProperties.Name="Mapping application group">
                           <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ApplicationGroupViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
                         <TextBlock Text="Profile" FontWeight="SemiBold" />
-                        <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}">
+                        <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"
+                                  AutomationProperties.Name="Mapping profile">
                           <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
                         <TextBlock Text="Eligibility" FontWeight="SemiBold" />
-                        <ComboBox ItemsSource="{Binding EligibilityOptions}" SelectedItem="{Binding Eligibility}" />
+                        <ComboBox ItemsSource="{Binding EligibilityOptions}" SelectedItem="{Binding Eligibility}"
+                                  AutomationProperties.Name="Mapping eligibility" />
                       </StackPanel>
                     </DataTemplate>
                   </ContentControl.ContentTemplate>
@@ -161,6 +174,7 @@
             </Grid>
             <TextBlock Text="Each profile contains exactly one effect and one layout." Opacity="0.7" />
             <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding EditingProfile}"
+                      AutomationProperties.Name="Profile to edit"
                       IsEnabled="{Binding !IsSettingsSavePending}" PlaceholderText="No profiles available">
               <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
             </ComboBox>
@@ -173,10 +187,12 @@
                 </Grid>
                 <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                   <TextBlock Text="Fallback" VerticalAlignment="Center" />
-                  <ComboBox Grid.Column="1" ItemsSource="{Binding ProfileFallbackKinds}" SelectedItem="{Binding ProfileFallbackKind}" />
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding ProfileFallbackKinds}" SelectedItem="{Binding ProfileFallbackKind}"
+                            AutomationProperties.Name="Fallback kind" />
                   <TextBlock Grid.Row="1" Text="Fallback profile" VerticalAlignment="Center" IsVisible="{Binding IsProfileFallback}" />
                   <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Profiles}"
                             SelectedItem="{Binding ProfileFallbackProfile}" IsVisible="{Binding IsProfileFallback}"
+                            AutomationProperties.Name="Fallback profile"
                             PlaceholderText="Select a fallback profile">
                     <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                   </ComboBox>
@@ -200,6 +216,7 @@
             <TextBlock Text="Application Groups" FontSize="26" FontWeight="SemiBold" />
             <TextBlock Text="Name a group and add one or more Windows executables." Opacity="0.7" />
             <ComboBox ItemsSource="{Binding ApplicationGroups}" SelectedItem="{Binding EditingApplicationGroup}"
+                      AutomationProperties.Name="Application group to edit"
                       PlaceholderText="No application groups available">
               <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ApplicationGroupViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
             </ComboBox>
@@ -230,7 +247,7 @@
       <TabItem Header="Integrations">
         <StackPanel Margin="28,16" Spacing="10">
           <TextBlock Text="Integrations" FontSize="26" FontWeight="SemiBold" />
-          <TextBlock Text="No plugins connected. Integrations run as separate processes." />
+          <ItemsControl ItemsSource="{Binding IntegrationStatuses}" />
         </StackPanel>
       </TabItem>
       <TabItem Header="Devices" IsEnabled="False" />
@@ -244,6 +261,7 @@
                 <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto" RowSpacing="10" ColumnSpacing="12">
                   <TextBlock Text="Close button" VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1" ItemsSource="{Binding CloseButtonBehaviors}"
+                            AutomationProperties.Name="Close button behavior"
                             SelectedItem="{Binding CloseButtonBehavior}" />
                   <TextBlock Grid.Row="1" Text="Start minimized" VerticalAlignment="Center" />
                   <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding StartMinimized}"
@@ -259,7 +277,9 @@
                 <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
                   <TextBlock Text="Theme" VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1" ItemsSource="{Binding ApplicationThemes}"
-                            SelectedItem="{Binding ApplicationTheme}" />
+                            AutomationProperties.Name="Application theme"
+                            SelectedItem="{Binding ApplicationTheme}"
+                            SelectionChanged="ApplicationTheme_OnSelectionChanged" />
                 </Grid>
               </StackPanel>
             </Border>

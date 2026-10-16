@@ -59,6 +59,7 @@ namespace FocusRgb.Core.Coordination
         private SelectionStateDocument? _state;
         private SelectionReason? _reason;
         private long _statusSequence;
+        private int _disposed;
 
         public OutputCoordinator(IPluginOutputGateway gateway, NativeSetupDocument nativeSetup)
         {
@@ -71,6 +72,7 @@ namespace FocusRgb.Core.Coordination
         public event EventHandler<SelectionRuntimeStatus>? StatusChanged;
 
         public SelectionRuntimeStatus? CurrentStatus { get; private set; }
+        public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
 
         /// <summary>Applies the current desired profile or its first usable fallback.</summary>
         public Task<SelectionRuntimeStatus> ApplyAsync(
@@ -91,6 +93,7 @@ namespace FocusRgb.Core.Coordination
             ArgumentNullException.ThrowIfNull(settings);
             ArgumentNullException.ThrowIfNull(state);
             ArgumentNullException.ThrowIfNull(reason);
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             SelectionRuntimeStatus status;
             try
@@ -125,6 +128,7 @@ namespace FocusRgb.Core.Coordination
             CancellationToken cancellationToken = default)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             SelectionRuntimeStatus? status;
             try
@@ -136,7 +140,9 @@ namespace FocusRgb.Core.Coordination
                         message ?? "The plugin is unavailable.");
                     _recoveryBlockedPlugins.Remove(pluginId);
                     _notifications.Remove(NotificationId(pluginId));
-                    if (_ownedBinding?.PluginId == pluginId && _settings is not null && _state is not null && _reason is not null)
+                    var ownedBindingLost = _ownedBinding?.PluginId == pluginId;
+                    if (ownedBindingLost && reasonCode is "plugin-exited" or "plugin-absent") _ownedBinding = null;
+                    if (ownedBindingLost && _settings is not null && _state is not null && _reason is not null)
                     {
                         CurrentStatus = await ApplyCoreAsync(
                             _settings, _state, _reason, false, cancellationToken).ConfigureAwait(false);
@@ -173,6 +179,7 @@ namespace FocusRgb.Core.Coordination
         {
             if (response is not ("accept" or "decline"))
                 throw new ArgumentException("Response must be accept or decline.", nameof(response));
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
 
             await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             SelectionRuntimeStatus? status;
@@ -212,8 +219,9 @@ namespace FocusRgb.Core.Coordination
         {
             var desiredId = state.Mode == "manual" ? state.ManualProfile! : state.LastSelectedProfile!;
             var desired = settings.Profiles!.Single(profile => profile.Id == desiredId);
+            var failedPlugins = new Dictionary<string, (string ReasonCode, string Message)>(StringComparer.Ordinal);
             var desiredAttempt = await TryApplyProfileAsync(
-                desired, approveRecovery, cancellationToken).ConfigureAwait(false);
+                desired, approveRecovery, failedPlugins, cancellationToken).ConfigureAwait(false);
             if (desiredAttempt.IsApplied)
             {
                 return Status(state, reason, desiredId, "desired", desiredAttempt, [], []);
@@ -260,7 +268,7 @@ namespace FocusRgb.Core.Coordination
                         continue;
                     }
                     var attempt = await TryApplyProfileAsync(
-                        fallback, approveRecovery: false, cancellationToken).ConfigureAwait(false);
+                        fallback, approveRecovery: false, failedPlugins, cancellationToken).ConfigureAwait(false);
                     if (attempt.IsApplied)
                     {
                         return Status(
@@ -296,6 +304,7 @@ namespace FocusRgb.Core.Coordination
         private async Task<ProfileAttempt> TryApplyProfileAsync(
             ProfileSettings profile,
             bool approveRecovery,
+            Dictionary<string, (string ReasonCode, string Message)> failedPlugins,
             CancellationToken cancellationToken)
         {
             var binding = profile.Bindings![0];
@@ -304,6 +313,8 @@ namespace FocusRgb.Core.Coordination
             if (_unavailablePlugins.TryGetValue(binding.Plugin!, out var unavailable))
                 return ProfileAttempt.Fail(
                     profile.Id!, binding, unavailable.ReasonCode, unavailable.Message);
+            if (failedPlugins.TryGetValue(binding.Plugin!, out var failed))
+                return ProfileAttempt.Fail(profile.Id!, binding, failed.ReasonCode, failed.Message);
             if (_recoveryBlockedPlugins.Contains(binding.Plugin!))
             {
                 if (!approveRecovery)
@@ -322,13 +333,19 @@ namespace FocusRgb.Core.Coordination
 
             var effect = await ResolveAsync(binding.Plugin!, "effect", binding.Effect!, cancellationToken).ConfigureAwait(false);
             if (!effect.IsSuccess)
+            {
+                RememberUnavailablePlugin(binding.Plugin!, effect.ErrorCode!, effect.ErrorMessage!, failedPlugins);
                 return ProfileAttempt.Fail(profile.Id!, binding, effect.ErrorCode!, effect.ErrorMessage!);
+            }
             ResolvedResource? layout = null;
             if (binding.Layout is not null)
             {
                 layout = await ResolveAsync(binding.Plugin!, "layout", binding.Layout, cancellationToken).ConfigureAwait(false);
                 if (!layout.IsSuccess)
+                {
+                    RememberUnavailablePlugin(binding.Plugin!, layout.ErrorCode!, layout.ErrorMessage!, failedPlugins);
                     return ProfileAttempt.Fail(profile.Id!, binding, layout.ErrorCode!, layout.ErrorMessage!);
+                }
             }
 
             var ownershipFailure = await ReleaseCompetingOwnerAsync(
@@ -350,7 +367,10 @@ namespace FocusRgb.Core.Coordination
                 Layout = layout?.Value
             }, cancellationToken).ConfigureAwait(false);
             if (!apply.IsSuccess)
+            {
+                RememberUnavailablePlugin(binding.Plugin!, apply.ErrorCode!, apply.ErrorMessage!, failedPlugins);
                 return ProfileAttempt.Fail(profile.Id!, binding, apply.ErrorCode!, apply.ErrorMessage!);
+            }
 
             var result = apply.Value!;
             if (result.Outcome is not ("applied" or "unverified"))
@@ -364,6 +384,16 @@ namespace FocusRgb.Core.Coordination
             _ownedBinding = new AppliedBinding(
                 profile.Id!, binding.Plugin!, binding.Id!, ScopeKeys(binding), applied.BindingResult);
             return applied;
+        }
+
+        private static void RememberUnavailablePlugin(
+            string pluginId,
+            string reasonCode,
+            string message,
+            Dictionary<string, (string ReasonCode, string Message)> failedPlugins)
+        {
+            if (reasonCode is "timeout" or "plugin-exited")
+                failedPlugins[pluginId] = (reasonCode, message);
         }
 
         private async Task<string?> ReleaseCompetingOwnerAsync(
@@ -510,11 +540,12 @@ namespace FocusRgb.Core.Coordination
                 Pending = pending,
                 Notifications = _notifications.Values.ToList(),
                 AppliedDetail = attempt.IsApplied
-                    ? $"{attempt.ProfileId} output {attempt.BindingResult.Outcome}."
-                    : pending.Count > 0
-                        ? pending[0].Message
-                        : attempt.Message!
+                    ? $"{ProfileName(attempt.ProfileId)} output {attempt.BindingResult.Outcome}."
+                    : attempt.Message!
             };
+
+        private string ProfileName(string profileId) =>
+            _settings?.Profiles?.FirstOrDefault(profile => profile.Id == profileId)?.DisplayName ?? profileId;
 
         private SelectionRuntimeStatus? CopyWithNotifications(SelectionRuntimeStatus? status) => status is null ? null : new()
         {
@@ -545,8 +576,7 @@ namespace FocusRgb.Core.Coordination
 
         public void Dispose()
         {
-            _gate.Wait();
-            _gate.Dispose();
+            Interlocked.Exchange(ref _disposed, 1);
         }
 
         private sealed record AppliedBinding(

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using FocusRgb.Contracts;
@@ -9,7 +10,8 @@ namespace FocusRgb.App.Plugins
     /// <summary>Owns one plugin process and correlates bounded JSON-RPC requests over standard IO.</summary>
     public sealed class PluginProcessClient : IAsyncDisposable
     {
-        private const int MaxLineLength = 64 * 1024;
+        private const int MaxLineLength = 1024 * 1024;
+        private const int MaxBufferedLogs = 500;
         private const int HealthStarting = 0;
         private const int HealthHealthy = 1;
         private const int HealthUnhealthy = 2;
@@ -29,16 +31,21 @@ namespace FocusRgb.App.Plugins
         private readonly Task _reader;
         private readonly Task _errorReader;
         private readonly Task _exitObserver;
+        private IntPtr _job;
         private EventHandler<string>? _logReceived;
+        private int _droppedLogs;
         private long _nextId;
         private int _statusChangePending;
         private int _health;
         private int _writeFailed;
+        private int _disposeStarted;
         private bool _disposed;
+        private readonly TaskCompletionSource _disposeCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         private PluginProcessClient(Process process)
         {
             _process = process;
+            _job = CreateKillOnCloseJob(process);
             _input = process.StandardInput;
             _input.AutoFlush = true;
             _reader = ReadResponsesAsync();
@@ -65,8 +72,13 @@ namespace FocusRgb.App.Plugins
                     _logReceived += value;
                     buffered = [.. _bufferedLogs];
                     _bufferedLogs.Clear();
+                    if (_droppedLogs > 0)
+                    {
+                        buffered.Insert(0, $"Dropped {_droppedLogs} earlier plugin log lines.");
+                        _droppedLogs = 0;
+                    }
+                    foreach (var message in buffered) value?.Invoke(this, message);
                 }
-                foreach (var message in buffered) value?.Invoke(this, message);
             }
             remove
             {
@@ -172,46 +184,58 @@ namespace FocusRgb.App.Plugins
 
         public async ValueTask DisposeAsync()
         {
-            if (_disposed) return;
-            if (!_process.HasExited)
+            if (Interlocked.Exchange(ref _disposeStarted, 1) != 0)
             {
-                using var shutdown = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                await _disposeCompleted.Task.ConfigureAwait(false);
+                return;
+            }
+            try
+            {
+                if (!_process.HasExited)
+                {
+                    using var shutdown = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    try
+                    {
+                        await CallAsync<JsonElement>(PluginMethods.Shutdown, new { }, DefaultTimeout, shutdown.Token)
+                            .ConfigureAwait(false);
+                        await _process.WaitForExitAsync().WaitAsync(ExitGrace).ConfigureAwait(false);
+                    }
+                    catch (Exception exception) when (exception is OperationCanceledException
+                        or TimeoutException or IOException or InvalidOperationException or ObjectDisposedException)
+                    {
+                    }
+                }
+
+                _disposed = true;
+                _lifetime.Cancel();
                 try
                 {
-                    await CallAsync<JsonElement>(PluginMethods.Shutdown, new { }, DefaultTimeout, shutdown.Token)
-                        .ConfigureAwait(false);
-                    await _process.WaitForExitAsync().WaitAsync(ExitGrace).ConfigureAwait(false);
+                    if (!_process.HasExited) _process.Kill(entireProcessTree: true);
                 }
-                catch (Exception exception) when (exception is OperationCanceledException
-                    or TimeoutException or IOException or InvalidOperationException or ObjectDisposedException)
+                catch (InvalidOperationException)
                 {
                 }
-            }
 
-            _disposed = true;
-            _lifetime.Cancel();
-            try
-            {
-                if (!_process.HasExited) _process.Kill(entireProcessTree: true);
+                await ObserveWithoutThrowingAsync(_reader).ConfigureAwait(false);
+                await ObserveWithoutThrowingAsync(_errorReader).ConfigureAwait(false);
+                await ObserveWithoutThrowingAsync(_exitObserver).ConfigureAwait(false);
+                FailPending("plugin-exited", "The plugin process exited.");
+                try
+                {
+                    _input.Dispose();
+                }
+                catch (IOException)
+                {
+                }
+                _process.Dispose();
+                CloseJob();
+                _writeGate.Dispose();
+                _lifetime.Dispose();
             }
-            catch (InvalidOperationException)
+            finally
             {
+                _disposeCompleted.TrySetResult();
             }
-
-            await ObserveWithoutThrowingAsync(_reader).ConfigureAwait(false);
-            await ObserveWithoutThrowingAsync(_errorReader).ConfigureAwait(false);
-            await ObserveWithoutThrowingAsync(_exitObserver).ConfigureAwait(false);
-            FailPending("plugin-exited", "The plugin process exited.");
-            try
-            {
-                _input.Dispose();
-            }
-            catch (IOException)
-            {
-            }
-            _process.Dispose();
-            _writeGate.Dispose();
-            _lifetime.Dispose();
         }
 
         private async Task<PluginCallResult<T>> CallAsync<T>(
@@ -243,6 +267,8 @@ namespace FocusRgb.App.Plugins
                 catch (TimeoutException)
                 {
                     await CancelRequestAsync(id).ConfigureAwait(false);
+                    SetRecoverableHealth(HealthUnhealthy);
+                    RaiseStatusChanged();
                     return new PluginCallResult<T>("timeout", $"Plugin request '{method}' timed out.");
                 }
 
@@ -348,8 +374,8 @@ namespace FocusRgb.App.Plugins
                     if (line.EndOfStream) break;
                     if (line.WasTooLong)
                     {
-                        SetRecoverableHealth(HealthUnhealthy);
-                        FailOnlyPendingMalformed("The plugin response exceeded the 64 KiB limit.");
+                        MarkUnhealthy();
+                        FailOnlyPendingMalformed("The plugin response exceeded the 1 MiB limit.");
                         continue;
                     }
                     ProcessResponse(line.Value!);
@@ -364,7 +390,7 @@ namespace FocusRgb.App.Plugins
             }
             catch (Exception exception) when (exception is JsonException or InvalidOperationException)
             {
-                SetRecoverableHealth(HealthUnhealthy);
+                MarkUnhealthy();
                 FailPending("malformed-response", exception.Message);
             }
         }
@@ -378,8 +404,7 @@ namespace FocusRgb.App.Plugins
             }
             catch (JsonException)
             {
-                SetRecoverableHealth(HealthUnhealthy);
-                FailOnlyPendingMalformed("The plugin response was not valid JSON.");
+                PublishLog($"Ignored non-JSON plugin stdout: {line}");
                 return;
             }
 
@@ -388,7 +413,7 @@ namespace FocusRgb.App.Plugins
                 var root = document.RootElement;
                 if (root.ValueKind != JsonValueKind.Object)
                 {
-                    SetRecoverableHealth(HealthUnhealthy);
+                    MarkUnhealthy();
                     FailOnlyPendingMalformed("The plugin response was not a JSON object.");
                     return;
                 }
@@ -407,7 +432,7 @@ namespace FocusRgb.App.Plugins
                     || idValue.ValueKind != JsonValueKind.Number
                     || !idValue.TryGetInt64(out var id))
                 {
-                    SetRecoverableHealth(HealthUnhealthy);
+                    MarkUnhealthy();
                     FailOnlyPendingMalformed("The plugin response had no valid request id.");
                     return;
                 }
@@ -438,7 +463,6 @@ namespace FocusRgb.App.Plugins
                 }
                 else if (root.TryGetProperty("result", out var result))
                 {
-                    SetRecoverableHealth(HealthHealthy);
                     completion.TrySetResult(new RpcResponse { Result = result.Clone() });
                 }
                 else
@@ -450,7 +474,7 @@ namespace FocusRgb.App.Plugins
 
         private void CompleteMalformed(TaskCompletionSource<RpcResponse> completion, string message)
         {
-            SetRecoverableHealth(HealthUnhealthy);
+            MarkUnhealthy();
             completion.TrySetResult(new RpcResponse
             {
                 ErrorCode = "malformed-response",
@@ -476,7 +500,7 @@ namespace FocusRgb.App.Plugins
                         _process.StandardError, MaxLineLength, _lifetime.Token).ConfigureAwait(false);
                     if (line.EndOfStream) break;
                     if (line.WasTooLong)
-                        PublishLog("Plugin stderr line exceeded the 64 KiB limit and was truncated.");
+                        PublishLog("Plugin stderr line exceeded the 1 MiB limit and was truncated.");
                     else if (!string.IsNullOrWhiteSpace(line.Value))
                         PublishLog(line.Value);
                 }
@@ -495,6 +519,11 @@ namespace FocusRgb.App.Plugins
                 handler = _logReceived;
                 if (handler is null)
                 {
+                    if (_bufferedLogs.Count == MaxBufferedLogs)
+                    {
+                        _bufferedLogs.Dequeue();
+                        _droppedLogs++;
+                    }
                     _bufferedLogs.Enqueue(message);
                     return;
                 }
@@ -514,6 +543,7 @@ namespace FocusRgb.App.Plugins
             {
                 await _process.WaitForExitAsync().ConfigureAwait(false);
                 Interlocked.Exchange(ref _health, HealthExited);
+                CloseJob();
                 FailPending("plugin-exited", "The plugin process exited.");
                 RaiseStatusChanged();
             }
@@ -547,6 +577,13 @@ namespace FocusRgb.App.Plugins
                 if (current >= HealthWriteFailed) return;
                 if (Interlocked.CompareExchange(ref _health, health, current) == current) return;
             }
+        }
+
+        private void MarkUnhealthy()
+        {
+            var wasHealthy = Health == "healthy";
+            SetRecoverableHealth(HealthUnhealthy);
+            if (wasHealthy && Health == "unhealthy") RaiseStatusChanged();
         }
 
         private void SetWriteFailedHealth()
@@ -599,6 +636,89 @@ namespace FocusRgb.App.Plugins
             catch (Exception)
             {
             }
+        }
+
+        private static IntPtr CreateKillOnCloseJob(Process process)
+        {
+            if (!OperatingSystem.IsWindows()) return IntPtr.Zero;
+            var job = CreateJobObject(IntPtr.Zero, null);
+            if (job == IntPtr.Zero) return IntPtr.Zero;
+            var information = new JobObjectExtendedLimitInformation
+            {
+                BasicLimitInformation = new JobObjectBasicLimitInformation { LimitFlags = 0x2000 }
+            };
+            var size = Marshal.SizeOf<JobObjectExtendedLimitInformation>();
+            var pointer = Marshal.AllocHGlobal(size);
+            try
+            {
+                Marshal.StructureToPtr(information, pointer, false);
+                if (SetInformationJobObject(job, 9, pointer, (uint)size)
+                    && AssignProcessToJobObject(job, process.Handle))
+                    return job;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(pointer);
+            }
+            CloseHandle(job);
+            return IntPtr.Zero;
+        }
+
+        private void CloseJob()
+        {
+            var job = Interlocked.Exchange(ref _job, IntPtr.Zero);
+            if (job != IntPtr.Zero) CloseHandle(job);
+        }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr CreateJobObject(IntPtr securityAttributes, string? name);
+
+        [DllImport("kernel32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetInformationJobObject(IntPtr job, int informationClass, IntPtr information, uint length);
+
+        [DllImport("kernel32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+
+        [DllImport("kernel32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool CloseHandle(IntPtr handle);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct JobObjectBasicLimitInformation
+        {
+            public long PerProcessUserTimeLimit;
+            public long PerJobUserTimeLimit;
+            public uint LimitFlags;
+            public nuint MinimumWorkingSetSize;
+            public nuint MaximumWorkingSetSize;
+            public uint ActiveProcessLimit;
+            public nuint Affinity;
+            public uint PriorityClass;
+            public uint SchedulingClass;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct IoCounters
+        {
+            public ulong ReadOperationCount;
+            public ulong WriteOperationCount;
+            public ulong OtherOperationCount;
+            public ulong ReadTransferCount;
+            public ulong WriteTransferCount;
+            public ulong OtherTransferCount;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct JobObjectExtendedLimitInformation
+        {
+            public JobObjectBasicLimitInformation BasicLimitInformation;
+            public IoCounters IoInfo;
+            public nuint ProcessMemoryLimit;
+            public nuint JobMemoryLimit;
+            public nuint PeakProcessMemoryUsed;
+            public nuint PeakJobMemoryUsed;
         }
 
         private readonly record struct BoundedLine(string? Value, bool WasTooLong, bool EndOfStream);

@@ -49,6 +49,7 @@ namespace FocusRgb.App
 
         public void ShowFromTray()
         {
+            ShowInTaskbar = true;
             Show();
             WindowState = WindowState.Normal;
             Activate();
@@ -76,6 +77,7 @@ namespace FocusRgb.App
             e.Cancel = true;
             if (ViewModel.ShouldMinimizeOnClose)
             {
+                ShowInTaskbar = false;
                 Hide();
                 ViewModel.NotifyWindowHidden();
                 HiddenToTray?.Invoke(this, EventArgs.Empty);
@@ -128,8 +130,17 @@ namespace FocusRgb.App
             }
         }
 
-        private void CancelApplicationSettings_OnClick(object? sender, RoutedEventArgs e) =>
+        private void ApplicationTheme_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox { SelectedItem: string theme })
+                (Application.Current as App)?.ApplyTheme(theme);
+        }
+
+        private void CancelApplicationSettings_OnClick(object? sender, RoutedEventArgs e)
+        {
             ViewModel.CancelApplicationSettings();
+            (Application.Current as App)?.ApplyTheme(ViewModel.SavedApplicationTheme);
+        }
 
         private void OpenSettingsFolder_OnClick(object? sender, RoutedEventArgs e) =>
             OpenFolder(_dataDirectory, "Opened the settings folder.");
@@ -144,7 +155,7 @@ namespace FocusRgb.App
                 var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
                 {
                     Title = "Export FocusRGB diagnostics",
-                    SuggestedFileName = $"FocusRGB-diagnostics-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip",
+                    SuggestedFileName = $"FocusRGB-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.zip",
                     FileTypeChoices = [new FilePickerFileType("ZIP archive") { Patterns = ["*.zip"] }]
                 });
                 if (file is null) return;
@@ -160,8 +171,10 @@ namespace FocusRgb.App
                 {
                     var logEntry = archive.CreateEntry("focusrgb.log", CompressionLevel.Optimal);
                     await using var logOutput = logEntry.Open();
-                    await using var logInput = File.OpenRead(logPath);
-                    await logInput.CopyToAsync(logOutput);
+                    await using var writer = new StreamWriter(logOutput, new UTF8Encoding(false));
+                    var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                    foreach (var line in await File.ReadAllLinesAsync(logPath))
+                        await writer.WriteLineAsync(RedactUserProfile(line, userProfile));
                 }
                 ViewModel.ReportSettingsAction("Exported diagnostics without profiles, mappings, paths, or secrets.");
             }
@@ -169,6 +182,18 @@ namespace FocusRgb.App
             {
                 ViewModel.ReportSettingsAction($"Could not export diagnostics: {exception.Message}");
             }
+        }
+
+        private static string RedactUserProfile(string line, string userProfile)
+        {
+            if (string.IsNullOrEmpty(userProfile)) return line;
+            var parts = userProfile.Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries);
+            var variants = new List<string> { parts[0] };
+            foreach (var part in parts.Skip(1))
+                variants = variants.SelectMany(path => new[] { path + "\\" + part, path + "/" + part, path + "\\\\" + part }).ToList();
+            foreach (var path in variants.OrderByDescending(path => path.Length))
+                line = line.Replace(path, "%USERPROFILE%", StringComparison.OrdinalIgnoreCase);
+            return line;
         }
 
         private void OpenFolder(string path, string successMessage)
