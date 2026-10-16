@@ -187,10 +187,10 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 ## Active implementation slice
 
 - Slice: 12 — Windows application observations
-- State: implementation complete; pull request pending
+- State: implementation complete; pull request open
 - Branch, latest relevant code commits, and pull request target:
   `slice/12-windows-application-observations`; observer `a7ba99c`, platform tests `d76fa5f`,
-  final test/documentation commit pending; target `develop`.
+  final acceptance evidence `f413549`; PR #69 targets `develop`.
 - Scope and dependencies verified: uses the Slice 05 `ApplicationObservation` boundary. Windows
   process and foreground-window APIs remain isolated in `FocusRgb.Platform.Windows`; no detector
   loop, selection wiring, plugin call, saved-state change, or lighting output is included.
@@ -203,11 +203,9 @@ not respond. No live settings, presets, layouts, registry values, services, or t
   also confirmed as the foreground-window owner. Stremio was not installed and remains
   fixture-covered. No settings or lighting changed.
 - Remaining acceptance criteria: none for installed/runnable configured applications on this machine.
-- Current blocker or required product input: GitHub CLI authentication is expired; pushing and
-  opening the pull request require reauthentication.
-- Uncommitted work to preserve: app-close fixture and Slice 12 status/evidence updates.
-- Next action: commit the focused fixture and documentation changes, authenticate GitHub CLI,
-  push the branch, and open the Slice 12 pull request into `develop`.
+- Current blocker or required product input: none for implementation; PR #69 awaits review.
+- Uncommitted work to preserve: roadmap and handoff update recording PR #69.
+- Next action: address any PR #69 review findings, then merge it before starting Slice 13.
 - Next slice: 13 — Application mappings and persistence, only after Slice 12 merges.
 
 
