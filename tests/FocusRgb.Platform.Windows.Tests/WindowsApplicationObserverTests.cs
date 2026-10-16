@@ -37,6 +37,17 @@ namespace FocusRgb.Platform.Windows.Tests
         }
 
         [Fact]
+        public void Observe_ReturnsEmptyObservation_WhenApplicationCloses()
+        {
+            var observer = new WindowsApplicationObserver(new FakeProcessSource());
+
+            var observation = observer.Observe();
+
+            Assert.Null(observation.ForegroundExecutable);
+            Assert.Empty(observation.RunningExecutables);
+        }
+
+        [Fact]
         public void Observe_KeepsForeground_WhenProcessListIsDenied()
         {
             var observer = new WindowsApplicationObserver(new FakeProcessSource
