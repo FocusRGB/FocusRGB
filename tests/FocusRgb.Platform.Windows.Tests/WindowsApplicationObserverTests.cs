@@ -77,6 +77,61 @@ namespace FocusRgb.Platform.Windows.Tests
             Assert.Contains("Code.exe", observation.RunningExecutables);
         }
 
+        [Fact]
+        public void Observe_PreservesPreviousForeground_WhenHostOrShellHasFocus()
+        {
+            var processSource = new FakeProcessSource
+            {
+                Running = ["Code.exe"],
+                Foreground = "Code.exe"
+            };
+            var observer = new WindowsApplicationObserver(processSource);
+            _ = observer.Observe();
+            processSource.PreservePrevious = true;
+            processSource.Foreground = null;
+
+            var observation = observer.Observe();
+
+            Assert.Equal("Code.exe", observation.ForegroundExecutable);
+            Assert.Equal(["Code.exe"], observation.RunningExecutables);
+        }
+
+        [Fact]
+        public void SelectForegroundProcessId_UsesHostedCoreWindowProcess()
+        {
+            var processId = WindowsProcessSource.SelectForegroundProcessId(
+                "ApplicationFrameHost.exe",
+                10,
+                [("OtherWindow", 11), ("Windows.UI.Core.CoreWindow", 12)]);
+
+            Assert.Equal(12U, processId);
+        }
+
+        [Fact]
+        public void SelectForegroundProcessId_KeepsDesktopProcess()
+        {
+            var processId = WindowsProcessSource.SelectForegroundProcessId(
+                "Code.exe",
+                10,
+                [("Windows.UI.Core.CoreWindow", 12)]);
+
+            Assert.Equal(10U, processId);
+        }
+
+        [Theory]
+        [InlineData("Shell_TrayWnd", 10, 20, true)]
+        [InlineData("Progman", 10, 20, true)]
+        [InlineData("ApplicationFrameWindow", 20, 20, true)]
+        [InlineData("ApplicationFrameWindow", 10, 20, false)]
+        public void ShouldPreserveForeground_ReturnsExpectedResult(
+            string windowClass,
+            uint processId,
+            uint currentProcessId,
+            bool expected) =>
+            Assert.Equal(
+                expected,
+                WindowsProcessSource.ShouldPreserveForeground(windowClass, processId, currentProcessId));
+
         [Theory]
         [InlineData("Code", "Code.exe")]
         [InlineData("Microsoft.Media.Player", "Microsoft.Media.Player.exe")]
@@ -86,16 +141,19 @@ namespace FocusRgb.Platform.Windows.Tests
 
         private sealed class FakeProcessSource : IWindowsProcessSource
         {
-            public IReadOnlyCollection<string> Running { get; init; } = [];
-            public string? Foreground { get; init; }
+            public IReadOnlyCollection<string> Running { get; set; } = [];
+            public string? Foreground { get; set; }
+            public bool PreservePrevious { get; set; }
             public Exception? RunningError { get; init; }
             public Exception? ForegroundError { get; init; }
 
             public IReadOnlyCollection<string> GetRunningExecutables() =>
                 RunningError is null ? Running : throw RunningError;
 
-            public string? GetForegroundExecutable() =>
-                ForegroundError is null ? Foreground : throw ForegroundError;
+            public ForegroundProcess GetForegroundProcess() =>
+                ForegroundError is null
+                    ? new ForegroundProcess(Foreground, PreservePrevious)
+                    : throw ForegroundError;
         }
     }
 }

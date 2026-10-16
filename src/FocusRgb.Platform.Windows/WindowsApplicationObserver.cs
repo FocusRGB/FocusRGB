@@ -9,6 +9,7 @@ namespace FocusRgb.Platform.Windows
         private static readonly StringComparer ExecutableComparer = StringComparer.OrdinalIgnoreCase;
 
         private readonly IWindowsProcessSource _processSource;
+        private string? _lastForegroundExecutable;
 
         public WindowsApplicationObserver()
             : this(new WindowsProcessSource())
@@ -44,14 +45,20 @@ namespace FocusRgb.Platform.Windows
             string? foreground = null;
             try
             {
-                foreground = _processSource.GetForegroundExecutable();
-                if (!string.IsNullOrWhiteSpace(foreground))
+                var foregroundProcess = _processSource.GetForegroundProcess();
+                if (foregroundProcess.PreservePrevious)
                 {
+                    foreground = _lastForegroundExecutable;
+                }
+                else if (!string.IsNullOrWhiteSpace(foregroundProcess.Executable))
+                {
+                    foreground = foregroundProcess.Executable;
+                    _lastForegroundExecutable = foreground;
                     running.Add(foreground);
                 }
                 else
                 {
-                    foreground = null;
+                    _lastForegroundExecutable = null;
                 }
             }
             catch (Exception exception) when (IsExpectedProcessFailure(exception))
