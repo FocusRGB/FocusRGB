@@ -81,6 +81,10 @@ use DDP; do not equate the packet timeout with WLED's 2500 ms DDP timeout.
   libraries rather than hard-coding that dated list.
 - App executable names in the brief are candidates to confirm on the actual foreground
   process. Stremio's runtime helper should not be the primary match.
+- Slice 12 check on 2026-10-16: the Windows observer reported running `Code.exe` and reported
+  `PotPlayerMini64.exe` as both running and the actual PotPlayer foreground-window owner. No
+  runnable configured Music app or Stremio installation was present. Deterministic fixtures cover
+  Spotify and the Stremio shell/helper distinction. No lighting or saved settings changed.
 
 ## Comparable application settings
 
