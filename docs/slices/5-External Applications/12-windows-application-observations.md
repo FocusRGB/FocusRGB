@@ -20,3 +20,7 @@ Music. It identified PotPlayer's foreground-window owner as `PotPlayerMini64.exe
 installed, so its shell/helper distinction remains covered by a deterministic fixture. The check
 changed no settings or lighting state.
 
+Review hardening preserves the last external foreground identity while FocusRGB, the taskbar,
+or the desktop has focus, and resolves hosted `Windows.UI.Core.CoreWindow` processes when
+`ApplicationFrameHost.exe` owns the top-level foreground window.
+

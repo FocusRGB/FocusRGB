@@ -9,8 +9,10 @@ Updated: 2026-10-16.
   observations; names are normalized and deduplicated case-insensitively. Deterministic fixtures
   cover app close, Stremio shell/helper identity, ignored windows, and failures. A local check
   observed `Code.exe`, `PotPlayerMini64.exe`, and modern Media Player's
-  `Microsoft.Media.Player.exe`, and confirmed PotPlayer's foreground owner. Release build passes
-  with 0 warnings/errors and all 265 tests pass.
+  `Microsoft.Media.Player.exe`, and confirmed PotPlayer's foreground owner. Review hardening
+  preserves the prior external focus while FocusRGB or desktop/taskbar shell windows are active,
+  and resolves hosted UWP CoreWindow processes behind `ApplicationFrameHost.exe`. Release build
+  passes with 0 warnings/errors and all 272 tests pass.
 
 - Slice 11 connects persisted selection commands to provider-neutral output coordination.
   Runtime status separates desired, effective, applied, pending, and recovery-notification
@@ -190,22 +192,22 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - State: implementation complete; pull request open
 - Branch, latest relevant code commits, and pull request target:
   `slice/12-windows-application-observations`; observer `a7ba99c`, platform tests `d76fa5f`,
-  final acceptance evidence `f413549`; PR #69 targets `develop`.
+  final acceptance evidence `f413549`, review hardening `3f93105`; PR #69 targets `develop`.
 - Scope and dependencies verified: uses the Slice 05 `ApplicationObservation` boundary. Windows
   process and foreground-window APIs remain isolated in `FocusRgb.Platform.Windows`; no detector
   loop, selection wiring, plugin call, saved-state change, or lighting output is included.
 - Implemented files and entry points: `WindowsApplicationObserver.Observe`,
   `WindowsProcessSource`, the `FocusRgb.Platform.Windows.Tests` project, and deterministic fixtures.
 - Verification: `dotnet build FocusRGB.slnx -c Release` passes with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release --no-build --no-restore` passes 265/265.
+  `dotnet test --solution FocusRGB.slnx -c Release --no-build --no-restore` passes 272/272.
 - External/live evidence: on 2026-10-16 a read-only observer run reported running `Code.exe`,
   `PotPlayerMini64.exe`, and the modern Media Player's `Microsoft.Media.Player.exe`. PotPlayer was
   also confirmed as the foreground-window owner. Stremio was not installed and remains
   fixture-covered. No settings or lighting changed.
 - Remaining acceptance criteria: none for installed/runnable configured applications on this machine.
-- Current blocker or required product input: none for implementation; PR #69 awaits review.
-- Uncommitted work to preserve: roadmap and handoff update recording PR #69.
-- Next action: address any PR #69 review findings, then merge it before starting Slice 13.
+- Current blocker or required product input: none; PR #69 is ready for final checks and merge.
+- Uncommitted work to preserve: review-hardening evidence updates only.
+- Next action: push the review fixes, resolve their threads, pass CI, and merge PR #69.
 - Next slice: 13 — Application mappings and persistence, only after Slice 12 merges.
 
 
