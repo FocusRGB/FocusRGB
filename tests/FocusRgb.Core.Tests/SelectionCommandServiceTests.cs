@@ -222,6 +222,29 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public async Task NewestSelectionCancelledDuringSaveRestoresEarlierPersistedIntent()
+        {
+            var store = new CancelSecondSaveStore();
+            var gateway = new OrderingGateway([]);
+            using var coordinator = new OutputCoordinator(gateway, NativeSetupJson.CreateDefault());
+            var service = new SelectionCommandService(store, coordinator);
+            var first = service.SelectProfileAsync(
+                Settings(), State(), "movie", Now, TestContext.Current.CancellationToken);
+            await store.FirstSaveStarted.Task.WaitAsync(TestContext.Current.CancellationToken);
+            using var cancellation = new CancellationTokenSource();
+            var cancelled = service.SelectProfileAsync(
+                Settings(), State(), "music", Now.AddSeconds(1), cancellation.Token);
+            store.AllowFirstSave.SetResult();
+            await store.SecondSaveStarted.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+            cancellation.Cancel();
+
+            await first;
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled);
+            Assert.Equal(["movie"], gateway.AppliedProfiles);
+        }
+
+        [Fact]
         public async Task CommandAfterCoordinatorDisposeDoesNotPersist()
         {
             var store = new RecordingStateStore();
@@ -387,6 +410,31 @@ namespace FocusRgb.Core.Tests
             {
                 SaveStarted.TrySetResult();
                 await AllowSave.Task.WaitAsync(cancellationToken);
+                return SaveResult.Ok();
+            }
+        }
+
+        private sealed class CancelSecondSaveStore : ISelectionStateStore
+        {
+            private int _calls;
+            public TaskCompletionSource FirstSaveStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            public TaskCompletionSource AllowFirstSave { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            public TaskCompletionSource SecondSaveStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public async Task<SaveResult> SaveStateAsync(
+                SelectionStateDocument state,
+                SettingsDocument settings,
+                CancellationToken cancellationToken = default)
+            {
+                if (Interlocked.Increment(ref _calls) == 1)
+                {
+                    FirstSaveStarted.TrySetResult();
+                    await AllowFirstSave.Task.WaitAsync(cancellationToken);
+                    return SaveResult.Ok();
+                }
+
+                SecondSaveStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 return SaveResult.Ok();
             }
         }

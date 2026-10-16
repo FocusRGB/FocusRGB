@@ -193,16 +193,23 @@ namespace FocusRgb.Core.Commands
                 if (applyOutput && _outputCoordinator?.IsDisposed == true)
                     return SelectionCommandResult.Fail("output-not-connected", "The output coordinator has stopped.");
                 var next = createNext(_latestState ?? current);
-                var save = await _store.SaveStateAsync(next, settings, cancellationToken).ConfigureAwait(false);
+                SaveResult save;
+                try
+                {
+                    save = await _store.SaveStateAsync(next, settings, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    await RestoreLatestOutputAsync(settings).ConfigureAwait(false);
+                    throw;
+                }
                 if (!save.IsSuccess)
                 {
                     if (applyOutput && IsLatestActiveRequest(request)
                         && _latestState is not null && _latestReason is not null
                         && _outputCoordinator is { IsDisposed: false })
                     {
-                        await _outputCoordinator.ApplyAsync(
-                            settings, _latestState, _latestReason, cancellationToken: cancellationToken)
-                            .ConfigureAwait(false);
+                        await RestoreLatestOutputAsync(settings).ConfigureAwait(false);
                     }
                     return SelectionCommandResult.Fail(
                         "persistence-failed",
@@ -227,6 +234,17 @@ namespace FocusRgb.Core.Commands
 
         private bool IsLatestActiveRequest(long request) => !_applyRequests.Any(candidate =>
             candidate.Key > request && !candidate.Value.IsCancellationRequested);
+
+        private async Task RestoreLatestOutputAsync(SettingsDocument settings)
+        {
+            if (_latestState is not null && _latestReason is not null
+                && _outputCoordinator is { IsDisposed: false })
+            {
+                await _outputCoordinator.ApplyAsync(
+                    settings, _latestState, _latestReason, cancellationToken: CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+        }
 
         private static SelectionStateDocument Copy(
             SelectionStateDocument source,

@@ -77,8 +77,8 @@ namespace FocusRgb.App.Plugins
                         buffered.Insert(0, $"Dropped {_droppedLogs} earlier plugin log lines.");
                         _droppedLogs = 0;
                     }
+                    foreach (var message in buffered) value?.Invoke(this, message);
                 }
-                foreach (var message in buffered) value?.Invoke(this, message);
             }
             remove
             {
@@ -374,7 +374,7 @@ namespace FocusRgb.App.Plugins
                     if (line.EndOfStream) break;
                     if (line.WasTooLong)
                     {
-                        SetRecoverableHealth(HealthUnhealthy);
+                        MarkUnhealthy();
                         FailOnlyPendingMalformed("The plugin response exceeded the 1 MiB limit.");
                         continue;
                     }
@@ -390,7 +390,7 @@ namespace FocusRgb.App.Plugins
             }
             catch (Exception exception) when (exception is JsonException or InvalidOperationException)
             {
-                SetRecoverableHealth(HealthUnhealthy);
+                MarkUnhealthy();
                 FailPending("malformed-response", exception.Message);
             }
         }
@@ -413,7 +413,7 @@ namespace FocusRgb.App.Plugins
                 var root = document.RootElement;
                 if (root.ValueKind != JsonValueKind.Object)
                 {
-                    SetRecoverableHealth(HealthUnhealthy);
+                    MarkUnhealthy();
                     FailOnlyPendingMalformed("The plugin response was not a JSON object.");
                     return;
                 }
@@ -432,7 +432,7 @@ namespace FocusRgb.App.Plugins
                     || idValue.ValueKind != JsonValueKind.Number
                     || !idValue.TryGetInt64(out var id))
                 {
-                    SetRecoverableHealth(HealthUnhealthy);
+                    MarkUnhealthy();
                     FailOnlyPendingMalformed("The plugin response had no valid request id.");
                     return;
                 }
@@ -474,7 +474,7 @@ namespace FocusRgb.App.Plugins
 
         private void CompleteMalformed(TaskCompletionSource<RpcResponse> completion, string message)
         {
-            SetRecoverableHealth(HealthUnhealthy);
+            MarkUnhealthy();
             completion.TrySetResult(new RpcResponse
             {
                 ErrorCode = "malformed-response",
@@ -577,6 +577,13 @@ namespace FocusRgb.App.Plugins
                 if (current >= HealthWriteFailed) return;
                 if (Interlocked.CompareExchange(ref _health, health, current) == current) return;
             }
+        }
+
+        private void MarkUnhealthy()
+        {
+            var wasHealthy = Health == "healthy";
+            SetRecoverableHealth(HealthUnhealthy);
+            if (wasHealthy && Health == "unhealthy") RaiseStatusChanged();
         }
 
         private void SetWriteFailedHealth()

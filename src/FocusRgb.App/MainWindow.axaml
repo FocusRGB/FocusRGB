@@ -88,6 +88,7 @@
                   <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:MappingEditorItemViewModel">
                         <Grid Margin="4" MinHeight="30" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
+                              AutomationProperties.Name="{Binding AccessibleName}"
                               PointerPressed="MappingDrag_OnPointerPressed" ToolTip.Tip="Drag this row to reorder"
                               DragDrop.AllowDrop="True" DragDrop.DragOver="MappingRow_OnDragOver"
                               DragDrop.Drop="MappingRow_OnDrop">
@@ -97,10 +98,14 @@
                             <TextBlock Text="{Binding SelectedProfile.DisplayName}" FontSize="12" Opacity="0.65" />
                           </StackPanel>
                           <StackPanel Grid.Column="2" Classes="row-actions" Orientation="Horizontal" Spacing="3">
-                            <Button Content="↑" Padding="7,3" CommandParameter="{Binding}" Click="MoveMappingUp_OnClick" ToolTip.Tip="Move up" />
-                            <Button Content="↓" Padding="7,3" CommandParameter="{Binding}" Click="MoveMappingDown_OnClick" ToolTip.Tip="Move down" />
-                            <Button Content="Edit" Padding="7,3" CommandParameter="{Binding}" Click="EditMapping_OnClick" />
-                            <Button Content="Remove" Padding="7,3" CommandParameter="{Binding}" Click="RemoveMapping_OnClick" />
+                            <Button Content="↑" Padding="7,3" CommandParameter="{Binding}" Click="MoveMappingUp_OnClick" ToolTip.Tip="Move up"
+                                    AutomationProperties.Name="{Binding MoveUpAccessibleName}" />
+                            <Button Content="↓" Padding="7,3" CommandParameter="{Binding}" Click="MoveMappingDown_OnClick" ToolTip.Tip="Move down"
+                                    AutomationProperties.Name="{Binding MoveDownAccessibleName}" />
+                            <Button Content="Edit" Padding="7,3" CommandParameter="{Binding}" Click="EditMapping_OnClick"
+                                    AutomationProperties.Name="{Binding EditAccessibleName}" />
+                            <Button Content="Remove" Padding="7,3" CommandParameter="{Binding}" Click="RemoveMapping_OnClick"
+                                    AutomationProperties.Name="{Binding RemoveAccessibleName}" />
                           </StackPanel>
                         </Grid>
                     </DataTemplate>

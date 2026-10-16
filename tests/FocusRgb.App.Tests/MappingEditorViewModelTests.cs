@@ -17,6 +17,16 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public void MappingRowsExposeUsefulAccessibleNames()
+        {
+            var mapping = MainWindowViewModel.CreatePreview().MappingEditor.Mappings[0];
+
+            Assert.Equal("Programming maps to Programming, while-focused", mapping.AccessibleName);
+            Assert.Equal(mapping.AccessibleName, mapping.ToString());
+            Assert.Equal("Remove Programming mapping", mapping.RemoveAccessibleName);
+        }
+
+        [Fact]
         public void ApplicationGroup_AddsUniqueExecutableNamesAndRemovesSelection()
         {
             var group = MainWindowViewModel.CreatePreview().ApplicationGroups[0];

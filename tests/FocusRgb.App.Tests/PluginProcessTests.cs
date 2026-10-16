@@ -191,6 +191,22 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task MalformedResponseRaisesStatusChangedForSupervision()
+        {
+            var started = await StartAsync("--invalid-response", "array");
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+            var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            client.StatusChanged += (_, _) => changed.TrySetResult();
+
+            var status = await client.GetStatusAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal("malformed-response", status.ErrorCode);
+            await changed.Task.WaitAsync(TestContext.Current.CancellationToken);
+            Assert.Equal("unhealthy", client.Health);
+        }
+
+        [Fact]
         public async Task StrayStdoutLine_DoesNotFailPendingRequest()
         {
             var started = await StartAsync("--invalid-response", "stray");

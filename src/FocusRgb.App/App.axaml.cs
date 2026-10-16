@@ -28,6 +28,7 @@ namespace FocusRgb.App
         private bool _shutdownApproved;
         private int _pluginRestartPending;
         private int _pluginRestartAttempts;
+        private bool _pluginRestartLimitReached;
 
         public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -80,6 +81,7 @@ namespace FocusRgb.App
                     startup.Snapshot, _store, trayAvailable, outputCoordinator, initialOutput);
                 pluginGateway.AvailabilityChanged += async (_, change) =>
                 {
+                    if (_shutdownApproved) return;
                     try
                     {
                         await outputCoordinator.ReportAvailabilityAsync(
@@ -180,7 +182,11 @@ namespace FocusRgb.App
             if (_mainWindow is not null)
                 _mainWindow.ShowFromTray();
             else
-                _startupErrorWindow?.Activate();
+            {
+                if (_startupErrorWindow is null) return;
+                _startupErrorWindow.WindowState = WindowState.Normal;
+                _startupErrorWindow.Activate();
+            }
         }
 
         private TrayIcon CreateTrayIcon(
@@ -296,26 +302,40 @@ namespace FocusRgb.App
         {
             if (Interlocked.Exchange(ref _pluginRestartPending, 1) != 0 || _shutdownApproved) return;
             var retry = false;
+            var attempt = 0;
             try
             {
-                var attempt = Interlocked.Increment(ref _pluginRestartAttempts);
+                attempt = Interlocked.Increment(ref _pluginRestartAttempts);
                 if (attempt > 3)
                 {
-                    AppLog.Write("Plugin restart limit reached; restart FocusRGB to try again.");
+                    await ShowRestartLimitAsync(viewModel);
                     return;
                 }
                 await Task.Delay(attempt switch { 1 => 1000, 2 => 5000, _ => 30000 });
                 if (_shutdownApproved) return;
                 if (_plugins is not null) await _plugins.DisposeAsync();
-                _plugins = await PluginRuntime.StartAsync(packagesDirectory, enabledPluginIds);
+                var runtime = await PluginRuntime.StartAsync(packagesDirectory, enabledPluginIds);
+                _plugins = runtime;
+                if (_shutdownApproved)
+                {
+                    await runtime.DisposeAsync();
+                    if (ReferenceEquals(_plugins, runtime)) _plugins = null;
+                    return;
+                }
+                _pluginRestartLimitReached = false;
                 ConfigurePluginLogging(_plugins.Entries);
                 gateway.Attach(_plugins.Entries);
                 await Dispatcher.UIThread.InvokeAsync(() => UpdateIntegrationStatuses(viewModel));
                 foreach (var entry in _plugins.Entries.Where(entry => entry.IsRunning))
                     await coordinator.ReportAvailabilityAsync(entry.PluginId, true);
                 retry = _plugins.Entries.Any(entry => !entry.IsRunning);
-                if (retry) AppLog.Write("One or more plugins failed to restart; another attempt will be made.");
-                else _ = ResetRestartAttemptsAfterStableRunAsync(_plugins);
+                if (retry)
+                {
+                    if (attempt < 3)
+                        AppLog.Write("One or more plugins failed to restart; another attempt will be made.");
+                }
+                else
+                    _ = ResetRestartAttemptsAfterStableRunAsync(_plugins);
             }
             catch (Exception exception)
             {
@@ -327,7 +347,19 @@ namespace FocusRgb.App
                 Interlocked.Exchange(ref _pluginRestartPending, 0);
             }
             if (retry && !_shutdownApproved)
-                _ = RestartPluginsAsync(packagesDirectory, enabledPluginIds, gateway, viewModel, coordinator);
+            {
+                if (attempt < 3)
+                    _ = RestartPluginsAsync(packagesDirectory, enabledPluginIds, gateway, viewModel, coordinator);
+                else
+                    await ShowRestartLimitAsync(viewModel);
+            }
+        }
+
+        private async Task ShowRestartLimitAsync(MainWindowViewModel viewModel)
+        {
+            _pluginRestartLimitReached = true;
+            AppLog.Write("Plugin restart limit reached; restart FocusRGB to try again.");
+            await Dispatcher.UIThread.InvokeAsync(() => UpdateIntegrationStatuses(viewModel));
         }
 
         private async Task ResetRestartAttemptsAfterStableRunAsync(PluginRuntime runtime)
@@ -343,7 +375,8 @@ namespace FocusRgb.App
             viewModel.SetIntegrationStatuses(entries.Select(entry => entry.IsRunning
                 ? $"{entry.PluginId}: running"
                 : $"{entry.PluginId}: {entry.ErrorCode ?? entry.Client?.Health ?? "unavailable"} — "
-                    + (entry.ErrorMessage ?? "The plugin is not available.")));
+                    + (entry.ErrorMessage ?? "The plugin is not available.")
+                    + (_pluginRestartLimitReached ? " Automatic restart stopped." : string.Empty)));
         }
 
         private static void ConfigurePluginLogging(IEnumerable<PluginRuntimeEntry> entries)

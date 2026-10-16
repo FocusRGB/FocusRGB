@@ -173,12 +173,8 @@ namespace FocusRgb.App
                     await using var logOutput = logEntry.Open();
                     await using var writer = new StreamWriter(logOutput, new UTF8Encoding(false));
                     var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                    var forwardSlashProfile = userProfile.Replace('\\', '/');
                     foreach (var line in await File.ReadAllLinesAsync(logPath))
-                        await writer.WriteLineAsync(string.IsNullOrEmpty(userProfile)
-                            ? line
-                            : line.Replace(userProfile, "%USERPROFILE%", StringComparison.OrdinalIgnoreCase)
-                                .Replace(forwardSlashProfile, "%USERPROFILE%", StringComparison.OrdinalIgnoreCase));
+                        await writer.WriteLineAsync(RedactUserProfile(line, userProfile));
                 }
                 ViewModel.ReportSettingsAction("Exported diagnostics without profiles, mappings, paths, or secrets.");
             }
@@ -186,6 +182,18 @@ namespace FocusRgb.App
             {
                 ViewModel.ReportSettingsAction($"Could not export diagnostics: {exception.Message}");
             }
+        }
+
+        private static string RedactUserProfile(string line, string userProfile)
+        {
+            if (string.IsNullOrEmpty(userProfile)) return line;
+            var parts = userProfile.Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries);
+            var variants = new List<string> { parts[0] };
+            foreach (var part in parts.Skip(1))
+                variants = variants.SelectMany(path => new[] { path + "\\" + part, path + "/" + part, path + "\\\\" + part }).ToList();
+            foreach (var path in variants.OrderByDescending(path => path.Length))
+                line = line.Replace(path, "%USERPROFILE%", StringComparison.OrdinalIgnoreCase);
+            return line;
         }
 
         private void OpenFolder(string path, string successMessage)
