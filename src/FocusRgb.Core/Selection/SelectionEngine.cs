@@ -102,7 +102,9 @@ namespace FocusRgb.Core.Selection
 
         private bool IsEligible(RuleSettings rule, HashSet<string> running)
         {
-            if (rule.Enabled != true || rule.Match?.Executables is not { Count: > 0 } executables)
+            var executables = _settings.ApplicationGroups!
+                .FirstOrDefault(group => group.Id == rule.ApplicationGroup)?.Executables;
+            if (rule.Enabled != true || executables is not { Count: > 0 })
             {
                 return false;
             }

@@ -242,7 +242,22 @@ namespace FocusRgb.Core.Tests
         {
             var settings = SettingsJson.LoadDefaults().Settings!;
             settings.Rules!.Clear();
-            settings.Rules.AddRange(rules);
+            settings.ApplicationGroups!.Clear();
+            settings.ApplicationGroups.AddRange(rules.Select(rule => new ApplicationGroupSettings
+            {
+                Id = rule.Id,
+                DisplayName = rule.Id,
+                Executables = rule.Match!.Executables
+            }));
+            settings.Rules.AddRange(rules.Select(rule => new RuleSettings
+            {
+                Id = rule.Id,
+                ApplicationGroup = rule.Id,
+                Profile = rule.Profile,
+                Eligibility = rule.Eligibility,
+                Priority = rule.Priority,
+                Enabled = rule.Enabled
+            }));
             return settings;
         }
 

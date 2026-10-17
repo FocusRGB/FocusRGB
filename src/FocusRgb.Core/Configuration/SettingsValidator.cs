@@ -196,6 +196,42 @@ namespace FocusRgb.Core.Configuration
                 }
                 ValidateNames(document.Selection.IgnoredExecutables, "selection.ignoredExecutables", false, Error);
             }
+            var applicationGroups = new HashSet<string>(StringComparer.Ordinal);
+            if (document.ApplicationGroups is null)
+            {
+                Error("applicationGroups", "required array (may be empty)");
+            }
+            else
+            {
+                for (var i = 0; i < document.ApplicationGroups.Count; i++)
+                {
+                    var group = document.ApplicationGroups[i];
+                    var path = $"applicationGroups[{i}]";
+                    if (group is null)
+                    {
+                        Error(path, "required application group object");
+                        continue;
+                    }
+                    Id(group.Id, path + ".id");
+                    Required(group.DisplayName, path + ".displayName");
+                    ValidateNames(group.Executables, path + ".executables", false, Error);
+                    if (group.Executables is not null)
+                    {
+                        for (var executableIndex = 0; executableIndex < group.Executables.Count; executableIndex++)
+                        {
+                            if (!string.IsNullOrWhiteSpace(group.Executables[executableIndex])
+                                && !group.Executables[executableIndex].EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                            {
+                                Error($"{path}.executables[{executableIndex}]", "must end in .exe");
+                            }
+                        }
+                    }
+                    if (group.Id is not null && !applicationGroups.Add(group.Id))
+                    {
+                        Error(path + ".id", "duplicate application group ID '" + group.Id + "'");
+                    }
+                }
+            }
             if (document.Rules is null)
             {
                 Error("rules", "required array (may be empty)");
@@ -217,29 +253,32 @@ namespace FocusRgb.Core.Configuration
                     {
                         Error(path + ".id", "duplicate rule ID '" + rule.Id + "'");
                     }
+                    if (rule.ApplicationGroup is not null && !applicationGroups.Contains(rule.ApplicationGroup))
+                    {
+                        Error(path + ".applicationGroup", "unknown application group '" + rule.ApplicationGroup + "'");
+                    }
                     ProfileReference(rule.Profile, path + ".profile");
                     Choice(rule.Eligibility, path + ".eligibility", "while-running", "while-focused");
                     if (rule.Enabled is null)
                     {
                         Error(path + ".enabled", "required boolean");
                     }
-                    if (rule.Match is null)
+                    if (rule.Match?.Executables is not null)
                     {
-                        Error(path + ".match", "required matcher object");
-                        continue;
+                        Error(path + ".match.executables", "use applicationGroup for executable matching");
                     }
-                    if (rule.Match.Executables is not null)
-                    {
-                        ValidateNames(rule.Match.Executables, path + ".match.executables", false, Error);
-                    }
-                    if (rule.Match.Game is not null)
+                    if (rule.Match?.Game is not null)
                     {
                         Required(rule.Match.Game.Launcher, path + ".match.game.launcher");
                         Required(rule.Match.Game.Id, path + ".match.game.id");
                     }
-                    if ((rule.Match.Executables?.Count ?? 0) == 0 && rule.Match.Game is null)
+                    if (rule.ApplicationGroup is null && rule.Match?.Game is null)
                     {
-                        Error(path + ".match", "at least one matcher is required");
+                        Error(path, "applicationGroup or game matcher is required");
+                    }
+                    if (rule.ApplicationGroup is not null && rule.Match?.Game is not null)
+                    {
+                        Error(path, "applicationGroup and game matcher cannot be combined");
                     }
                 }
             }
