@@ -196,8 +196,9 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 ## Active implementation slice
 
 - Slice: 13 — Application mappings and persistence
-- State: implementation complete; awaiting pull-request review
-- Branch and pull request target: `slice/13-application-mappings-and-persistence` targets `develop`.
+- State: implementation complete; pull request open for review
+- Branch and pull request target: `slice/13-application-mappings-and-persistence` targets `develop`;
+  commits `466945e`, `7651d31`, `e05b6f5`, and `0b8cbb0`; PR #70.
 - Scope and dependencies verified: Slice 12 observations flow through the portable selection
   engine and shared command service; mappings remain profile-owned and provider-neutral.
 - Implemented files and entry points: schema-4 settings migration/validation, persisted group and
@@ -207,8 +208,8 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - External/live evidence: not rerun for Slice 13; Slice 12 established installed process names.
 - Remaining acceptance criteria: live UI confirmation of editing and automatic switching.
 - Current blocker or required product input: none.
-- Uncommitted work to preserve: all Slice 13 implementation and documentation changes.
-- Next action: commit, push, open the Slice 13 pull request, and run CI.
+- Uncommitted work to preserve: none.
+- Next action: collect review on PR #70, fix and resolve every finding, then merge after CI.
 - Next slice: 14 — SignalRGB capability investigation, only after Slice 13 review and merge.
 
 
