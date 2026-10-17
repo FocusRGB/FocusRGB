@@ -9,6 +9,7 @@ using FocusRgb.App.Plugins;
 using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
+using FocusRgb.Platform.Windows;
 
 namespace FocusRgb.App
 {
@@ -23,6 +24,8 @@ namespace FocusRgb.App
         private OutputCoordinator? _outputCoordinator;
         private CancellationTokenSource? _pluginStartupCancellation;
         private Task? _pluginStartupTask;
+        private CancellationTokenSource? _observationCancellation;
+        private Task? _observationTask;
         private bool _quitPending;
         private bool _quitWithoutSaving;
         private bool _shutdownApproved;
@@ -126,6 +129,7 @@ namespace FocusRgb.App
                 }
                 else
                     mainWindow.Show();
+                StartApplicationObservation(viewModel);
                 var pluginStartup = StartPluginsAsync(packagesDirectory, enabledPluginIds);
                 _pluginStartupTask = pluginStartup;
                 try
@@ -240,6 +244,20 @@ namespace FocusRgb.App
 
         private async Task StopPluginsAsync()
         {
+            _observationCancellation?.Cancel();
+            if (_observationTask is { } observationTask)
+            {
+                try
+                {
+                    await observationTask;
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                _observationTask = null;
+            }
+            _observationCancellation?.Dispose();
+            _observationCancellation = null;
             _pluginStartupCancellation?.Cancel();
             var startup = _pluginStartupTask;
             if (startup is not null)
@@ -259,6 +277,31 @@ namespace FocusRgb.App
             }
             _outputCoordinator?.Dispose();
             _outputCoordinator = null;
+        }
+
+        private void StartApplicationObservation(MainWindowViewModel viewModel)
+        {
+            var cancellation = new CancellationTokenSource();
+            _observationCancellation = cancellation;
+            _observationTask = Task.Run(async () =>
+            {
+                var observer = new WindowsApplicationObserver();
+                while (true)
+                {
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    try
+                    {
+                        var observation = observer.Observe();
+                        await await Dispatcher.UIThread.InvokeAsync<Task>(() =>
+                            viewModel.ObserveApplicationsAsync(observation, cancellation.Token));
+                    }
+                    catch (Exception exception) when (exception is not OperationCanceledException)
+                    {
+                        AppLog.Write($"Application observation failed: {exception.Message}");
+                    }
+                    await Task.Delay(TimeSpan.FromSeconds(1), cancellation.Token);
+                }
+            }, cancellation.Token);
         }
 
         private async Task StartPluginsAsync(string packagesDirectory, IEnumerable<string> enabledPluginIds)
