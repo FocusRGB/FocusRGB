@@ -50,9 +50,9 @@ Status: **00–12 implemented. 12 is awaiting review and merge; 13 is next after
 ## 5 — External Applications
 
 - ✅ [12 — Windows application observations](<slices/5-External Applications/12-windows-application-observations.md>):
-  detect foreground and running applications behind the platform boundary. **Awaiting merge.**
-- ▶️ [13 — Application mappings](<slices/5-External Applications/13-application-mappings-and-persistence.md>):
-  add detected/manual applications, persist automation rules, and wire automatic profile selection. **Next after 12 merges.**
+  detect foreground and running applications behind the platform boundary.
+- ✅ [13 — Application mappings](<slices/5-External Applications/13-application-mappings-and-persistence.md>):
+  add detected/manual applications, persist automation rules, and wire automatic profile selection. **Awaiting review.**
 - ⏳ [14 — SignalRGB investigation](<slices/5-External Applications/14-signalrgb-capability-investigation.md>):
   verify supported APIs, catalogs, selection, layouts, and limitations.
 - ⏳ [15 — External SignalRGB plugin](<slices/5-External Applications/15-separate-signalrgb-plugin.md>):

@@ -46,7 +46,7 @@ of `settings.json`.
 | `state.json` | Selection intent | After every validated mode or profile change |
 | `native-setup.json` | Native fallback snapshot | Only when the user applies a native setup (never by previews or provider changes) |
 
-### `settings.json` — frozen at schema version 3
+### `settings.json` — frozen at schema version 4
 
 Seeded on first run with four acceptance profiles. The `default` profile identity is protected:
 it must exist, cannot be removed, and remains `selection.defaultProfile`. Other profile values
@@ -54,7 +54,7 @@ and all automatic mappings are user-editable.
 
 ```json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "application": {
     "closeButtonBehavior": "minimize-to-tray",
     "startMinimized": false,
@@ -132,25 +132,30 @@ and all automatic mappings are user-editable.
       "fallback": [{ "kind": "native-setup" }]
     }
   ],
+  "applicationGroups": [
+    { "id": "programming", "displayName": "Programming", "executables": ["Code.exe", "devenv.exe"] },
+    { "id": "movie", "displayName": "Movie", "executables": ["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"] },
+    { "id": "music", "displayName": "Music", "executables": ["Microsoft.Media.Player.exe", "wmplayer.exe", "Spotify.exe"] }
+  ],
   "rules": [
     {
       "id": "programming",
       "profile": "programming",
-      "match": { "executables": ["Code.exe", "devenv.exe"] },
+      "applicationGroup": "programming",
       "eligibility": "while-focused",
       "enabled": true
     },
     {
       "id": "movie",
       "profile": "movie",
-      "match": { "executables": ["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"] },
+      "applicationGroup": "movie",
       "eligibility": "while-focused",
       "enabled": true
     },
     {
       "id": "music",
       "profile": "music",
-      "match": { "executables": ["Microsoft.Media.Player.exe", "wmplayer.exe", "Spotify.exe"] },
+      "applicationGroup": "music",
       "eligibility": "while-focused",
       "enabled": true
     }
@@ -193,17 +198,17 @@ Profiles:
 
 Rules:
 
-- The UI calls each reusable named executable set an **Application Group**. In the current
-  settings schema 2 preview, each rule projects one group from its `id` and `match.executables`; slice 13
-  adds persisted group identity/name so several mappings can reference the same group.
+- Each reusable named executable set is an **Application Group**. Rules reference its stable
+  `applicationGroup` ID, so several mappings can share one group without duplicating executables.
+  Schemas 1–3 migrate inline `match.executables` into groups.
 - The array order is the saved priority list. The first eligible rule wins. The legacy numeric
   `priority` property is accepted when reading schema version 1 but ignored and omitted by new
   defaults; a later schema migration may remove it.
 - `eligibility` is `while-running` or `while-focused`. Process exit removes eligibility for
   both. `enabled: false` keeps the rule but never makes it eligible.
-- `match.executables` compares file names case-insensitively. **Reserved:** `match.game` with
-  `{ "launcher": "steam", "id": "570" }` for slice 19. A rule must have at least one matcher.
-- Executable names are candidates until slice 12 confirms the real foreground owners.
+- Application-group executable names compare case-insensitively. **Reserved:** `match.game` with
+  `{ "launcher": "steam", "id": "570" }` for slice 19. A rule references either an application
+  group or a game matcher, not both.
 
 Selection:
 
