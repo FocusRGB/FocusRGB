@@ -11,7 +11,9 @@ eligibility with Save/Cancel and optional Live preview. Use `Save As` for new gr
 `Save` for the current item, and `Remove` for deletion. Mappings select profiles only; effects, layouts,
 providers, and fallbacks remain profile-owned.
 Wire Slice 12 observations through `SelectionEngine` and the shared commands so automatic mode
-selects and persists the winning profile here; applying that profile to an output remains later work.
+selects and persists the winning profile here. When a provider-neutral output coordinator is
+already available, the same command applies that selected profile; provider-specific output and
+hardware integration remain later work.
 
 Acceptance: application groups and mappings survive restart; preview does not save; Cancel restores the prior draft;
 unchecked preview sends nothing before Save. Users can select an observed executable or enter

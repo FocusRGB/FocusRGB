@@ -211,9 +211,12 @@ namespace FocusRgb.App
             }
         }
 
-        private void SaveApplicationGroup_OnClick(object? sender, RoutedEventArgs e) => ViewModel.SaveApplicationGroup();
-        private void SaveApplicationGroupAs_OnClick(object? sender, RoutedEventArgs e) => ViewModel.SaveApplicationGroupAs();
-        private void RemoveApplicationGroup_OnClick(object? sender, RoutedEventArgs e) => ViewModel.RemoveApplicationGroup();
+        private async void SaveApplicationGroup_OnClick(object? sender, RoutedEventArgs e) =>
+            await RunUiActionAsync(() => ViewModel.SaveApplicationGroupAsync());
+        private async void SaveApplicationGroupAs_OnClick(object? sender, RoutedEventArgs e) =>
+            await RunUiActionAsync(() => ViewModel.SaveApplicationGroupAsAsync());
+        private async void RemoveApplicationGroup_OnClick(object? sender, RoutedEventArgs e) =>
+            await RunUiActionAsync(() => ViewModel.RemoveApplicationGroupAsync());
 
         private void SaveMappingAs_OnClick(object? sender, RoutedEventArgs e) =>
             ViewModel.MappingEditor.SaveMappingAs();
@@ -278,6 +281,12 @@ namespace FocusRgb.App
             ViewModel.RemoveDraftExecutable();
         }
 
+        private void AddDetectedExecutable_OnClick(object? sender, RoutedEventArgs e) =>
+            ViewModel.AddDetectedExecutable();
+
+        private void AddManualExecutable_OnClick(object? sender, RoutedEventArgs e) =>
+            ViewModel.AddManualExecutable();
+
         private void EditMapping_OnClick(object? sender, RoutedEventArgs e)
         {
             if (sender is Button { CommandParameter: MappingEditorItemViewModel item })
@@ -290,7 +299,8 @@ namespace FocusRgb.App
                 ViewModel.MappingEditor.Remove(item);
         }
 
-        private void ApplyMappings_OnClick(object? sender, RoutedEventArgs e) => ViewModel.MappingEditor.Apply();
+        private async void ApplyMappings_OnClick(object? sender, RoutedEventArgs e) =>
+            await RunUiActionAsync(() => ViewModel.SaveMappingsAsync());
         private void CancelMappings_OnClick(object? sender, RoutedEventArgs e) => ViewModel.MappingEditor.Cancel();
 
         private async Task RunUiActionAsync(Func<Task> action)

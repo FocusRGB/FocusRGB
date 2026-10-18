@@ -260,6 +260,7 @@ namespace FocusRgb.Core.Tests
                 Plugins = current.Plugins,
                 Selection = current.Selection,
                 Profiles = current.Profiles,
+                ApplicationGroups = current.ApplicationGroups,
                 Rules = current.Rules,
                 AdditionalProperties = current.AdditionalProperties
             };
@@ -407,6 +408,7 @@ namespace FocusRgb.Core.Tests
                 Plugins = current.Plugins,
                 Selection = current.Selection,
                 Profiles = current.Profiles,
+                ApplicationGroups = current.ApplicationGroups,
                 Rules = current.Rules,
                 AdditionalProperties = new Dictionary<string, JsonElement>
                 {
@@ -537,6 +539,7 @@ namespace FocusRgb.Core.Tests
             Plugins = settings.Plugins,
             Selection = settings.Selection,
             Profiles = settings.Profiles,
+            ApplicationGroups = settings.ApplicationGroups,
             Rules = settings.Rules,
             AdditionalProperties = settings.AdditionalProperties
         };

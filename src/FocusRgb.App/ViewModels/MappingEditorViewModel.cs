@@ -9,6 +9,7 @@ namespace FocusRgb.App.ViewModels
     public sealed class MappingEditorViewModel : INotifyPropertyChanged
     {
         private IReadOnlyList<MappingSnapshot> _appliedMappings;
+        private readonly IReadOnlyList<RuleSettings> _sourceRules;
         private bool _isDirty;
         private bool _livePreview;
         private MappingEditorItemViewModel? _selectedMapping;
@@ -19,11 +20,13 @@ namespace FocusRgb.App.ViewModels
         private MappingEditorViewModel(
             IReadOnlyList<ProfileOptionViewModel> profiles,
             ObservableCollection<ApplicationGroupViewModel> applicationGroups,
-            IReadOnlyList<MappingSnapshot> mappings)
+            IReadOnlyList<MappingSnapshot> mappings,
+            IReadOnlyList<RuleSettings> sourceRules)
         {
             Profiles = profiles;
             ApplicationGroups = applicationGroups;
             _appliedMappings = mappings;
+            _sourceRules = sourceRules;
             Mappings = [];
             NewApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
             NewProfile = Profiles.Count > 0 ? Profiles[0] : null;
@@ -49,7 +52,7 @@ namespace FocusRgb.App.ViewModels
             {
                 if (!Set(ref _livePreview, value) || !IsDirty) return;
                 if (value) UpdatePreview("Draft preview updated in the editor; output is sent after Save.");
-                else PreviewStatus = "Draft changes are waiting for Apply.";
+                else PreviewStatus = "Draft changes are waiting for Save.";
             }
         }
 
@@ -59,14 +62,14 @@ namespace FocusRgb.App.ViewModels
         public static MappingEditorViewModel Create(SettingsDocument settings, IReadOnlyList<ProfileOptionViewModel> profiles)
         {
             ArgumentNullException.ThrowIfNull(settings);
-            var groups = new ObservableCollection<ApplicationGroupViewModel>();
-            var snapshots = settings.Rules!.Select(rule =>
+            var groups = new ObservableCollection<ApplicationGroupViewModel>(settings.ApplicationGroups!.Select(group =>
+                new ApplicationGroupViewModel(group.Id!, group.DisplayName!, group.Executables!)));
+            var snapshots = settings.Rules!.Where(rule => rule.ApplicationGroup is not null).Select(rule =>
             {
                 var profile = profiles.Single(item => item.Id == rule.Profile);
-                groups.Add(new ApplicationGroupViewModel(rule.Id!, profile.DisplayName, rule.Match!.Executables!));
-                return new MappingSnapshot(rule.Id!, rule.Id!, profile.Id, rule.Eligibility!);
+                return new MappingSnapshot(rule.Id!, rule.ApplicationGroup!, profile.Id, rule.Eligibility!);
             }).ToList();
-            return new MappingEditorViewModel(profiles, groups, snapshots);
+            return new MappingEditorViewModel(profiles, groups, snapshots, settings.Rules!);
         }
 
         public ApplicationGroupViewModel AddApplicationGroup()
@@ -86,7 +89,8 @@ namespace FocusRgb.App.ViewModels
             var baseId = $"{NewApplicationGroup.Id}-{NewProfile.Id}";
             var id = baseId;
             var suffix = 2;
-            while (Mappings.Any(mapping => mapping.Id == id)) id = $"{baseId}-{suffix++}";
+            while (_sourceRules.Any(rule => rule.Id == id) || Mappings.Any(mapping => mapping.Id == id))
+                id = $"{baseId}-{suffix++}";
             var item = new MappingEditorItemViewModel(this,
                 new MappingSnapshot(id, NewApplicationGroup.Id, NewProfile.Id, "while-focused"));
             Mappings.Add(item);
@@ -112,7 +116,51 @@ namespace FocusRgb.App.ViewModels
             OnPropertyChanged(nameof(AppliedMappings));
             OnPropertyChanged(nameof(AppliedRevision));
             IsDirty = false;
-            UpdatePreview($"Applied {_appliedMappings.Count} mappings to preview state.");
+            UpdatePreview($"Saved {_appliedMappings.Count} mappings.");
+        }
+
+        public List<RuleSettings> CreateRuleSettings()
+        {
+            var edited = Mappings.Select(mapping =>
+            {
+                var source = _sourceRules.FirstOrDefault(rule => rule.Id == mapping.Id);
+                return new RuleSettings
+                {
+                    Id = mapping.Id,
+                    ApplicationGroup = mapping.SelectedApplicationGroup.Id,
+                    Profile = mapping.SelectedProfile.Id,
+                    Eligibility = mapping.Eligibility,
+                    Enabled = source?.Enabled ?? true,
+                    Match = source?.Match,
+                    AdditionalProperties = source?.AdditionalProperties
+                };
+            }).ToList();
+            var editedIds = edited.Select(rule => rule.Id!).ToHashSet(StringComparer.Ordinal);
+            var hiddenBefore = new Dictionary<string, List<RuleSettings>>(StringComparer.Ordinal);
+            var trailing = new List<RuleSettings>();
+            for (var index = 0; index < _sourceRules.Count; index++)
+            {
+                var source = _sourceRules[index];
+                if (source.ApplicationGroup is not null) continue;
+                var anchor = _sourceRules.Skip(index + 1)
+                    .FirstOrDefault(rule => rule.ApplicationGroup is not null && editedIds.Contains(rule.Id!));
+                if (anchor is null)
+                {
+                    trailing.Add(source);
+                    continue;
+                }
+                if (!hiddenBefore.TryGetValue(anchor.Id!, out var hidden))
+                    hiddenBefore[anchor.Id!] = hidden = [];
+                hidden.Add(source);
+            }
+            var result = new List<RuleSettings>(_sourceRules.Count + edited.Count);
+            foreach (var rule in edited)
+            {
+                if (hiddenBefore.TryGetValue(rule.Id!, out var hidden)) result.AddRange(hidden);
+                result.Add(rule);
+            }
+            result.AddRange(trailing);
+            return result;
         }
 
         public void Cancel()
@@ -121,8 +169,10 @@ namespace FocusRgb.App.ViewModels
             RestoreDraft(_appliedMappings);
             SelectedMapping = Mappings.FirstOrDefault(mapping => mapping.Id == selectedId) ?? Mappings.FirstOrDefault();
             IsDirty = false;
-            UpdatePreview("Preview restored to the last applied mappings.");
+            UpdatePreview("Draft restored to the last saved mappings.");
         }
+
+        public void ReportSaveFailure(string message) => PreviewStatus = message;
 
         public void Move(MappingEditorItemViewModel item, int offset)
         {
@@ -164,8 +214,8 @@ namespace FocusRgb.App.ViewModels
         {
             IsDirty = !Mappings.Select(mapping => mapping.CreateSnapshot()).SequenceEqual(_appliedMappings);
             PreviewStatus = IsDirty
-                ? LivePreview ? "Draft preview updated in the editor; output is sent after Save." : "Draft changes are waiting for Apply."
-                : "Draft matches the last applied mappings.";
+                ? LivePreview ? "Draft preview updated in the editor; output is sent after Save." : "Draft changes are waiting for Save."
+                : "Draft matches the last saved mappings.";
             if (LivePreview) { PreviewRevision++; OnPropertyChanged(nameof(PreviewRevision)); }
         }
 

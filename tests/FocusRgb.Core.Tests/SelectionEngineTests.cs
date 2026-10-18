@@ -109,16 +109,18 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("programming", decision.ProfileId);
         }
 
-        [Fact]
-        public void Select_PreservesStableFocus_WhenIgnoredWindowIsForeground()
+        [Theory]
+        [InlineData("SearchHost.exe")]
+        [InlineData("StartMenuExperienceHost.exe")]
+        public void Select_PreservesStableFocus_WhenIgnoredWindowIsForeground(string ignoredExecutable)
         {
             var clock = new TestTimeProvider();
             var engine = new SelectionEngine(Settings(
                 Rule("programming", "programming", "while-focused", 100, "Code.exe")), clock);
-            Stabilize(engine, clock, "Code.exe", "Code.exe", "SearchHost.exe");
+            Stabilize(engine, clock, "Code.exe", "Code.exe", ignoredExecutable);
 
             var decision = engine.Select(SelectionMode.Automatic, "default",
-                Observation("searchhost.EXE", "Code.exe", "SearchHost.exe"), Start.AddSeconds(3));
+                Observation(ignoredExecutable.ToUpperInvariant(), "Code.exe", ignoredExecutable), Start.AddSeconds(3));
 
             Assert.Equal("programming", decision.ProfileId);
         }
@@ -242,7 +244,22 @@ namespace FocusRgb.Core.Tests
         {
             var settings = SettingsJson.LoadDefaults().Settings!;
             settings.Rules!.Clear();
-            settings.Rules.AddRange(rules);
+            settings.ApplicationGroups!.Clear();
+            settings.ApplicationGroups.AddRange(rules.Select(rule => new ApplicationGroupSettings
+            {
+                Id = rule.Id,
+                DisplayName = rule.Id,
+                Executables = rule.Match!.Executables
+            }));
+            settings.Rules.AddRange(rules.Select(rule => new RuleSettings
+            {
+                Id = rule.Id,
+                ApplicationGroup = rule.Id,
+                Profile = rule.Profile,
+                Eligibility = rule.Eligibility,
+                Priority = rule.Priority,
+                Enabled = rule.Enabled
+            }));
             return settings;
         }
 

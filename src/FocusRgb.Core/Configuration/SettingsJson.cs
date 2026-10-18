@@ -5,7 +5,7 @@ namespace FocusRgb.Core.Configuration
     /// <summary>Reads and validates settings in memory before LocalStateStore persists them.</summary>
     public static class SettingsJson
     {
-        public const int CurrentSchemaVersion = 3;
+        public const int CurrentSchemaVersion = 4;
 
         public static SettingsLoadResult Load(string json)
         {
@@ -13,18 +13,36 @@ namespace FocusRgb.Core.Configuration
             try
             {
                 var document = JsonSerializer.Deserialize<SettingsDocument>(json, ConfigurationJson.Options);
-                if (document?.SchemaVersion is 1 or 2)
+                if (document?.SchemaVersion is 1 or 2 or 3)
                 {
+                    var groups = document.ApplicationGroups?.Select(group => new ApplicationGroupSettings
+                    {
+                        Id = group.Id,
+                        DisplayName = group.DisplayName,
+                        Executables = NormalizeExecutables(group.Executables),
+                        AdditionalProperties = group.AdditionalProperties
+                    }).ToList() ?? document.Rules?.Where(rule => rule.Match?.Executables is { Count: > 0 }).Select(rule =>
+                        new ApplicationGroupSettings
+                        {
+                            Id = rule.Id,
+                            DisplayName = document.Profiles?.FirstOrDefault(profile => profile.Id == rule.Profile)?.DisplayName
+                                ?? rule.Id,
+                            Executables = NormalizeExecutables(rule.Match!.Executables),
+                            AdditionalProperties = rule.Match.AdditionalProperties
+                        }).ToList();
                     document = new SettingsDocument
                     {
                         SchemaVersion = CurrentSchemaVersion,
                         Application = document.SchemaVersion == 1
                             ? CreateDefaultApplicationSettings()
                             : document.Application,
-                        Plugins = CreateDefaultPluginSettings(),
-                        Selection = document.Selection,
+                        Plugins = document.SchemaVersion is 1 or 2
+                            ? CreateDefaultPluginSettings()
+                            : document.Plugins,
+                        Selection = MigrateSelection(document.Selection),
                         Profiles = document.Profiles,
-                        Rules = document.Rules,
+                        ApplicationGroups = groups,
+                        Rules = MigrateRules(document.Rules),
                         AdditionalProperties = document.AdditionalProperties
                     };
                 }
@@ -67,5 +85,81 @@ namespace FocusRgb.Core.Configuration
         };
 
         public static PluginSettings CreateDefaultPluginSettings() => new() { Enabled = [] };
+
+        private static List<string>? NormalizeExecutables(List<string>? executables) => executables?
+            .Select(executable => executable.Trim())
+            .Select(executable => Path.GetFileNameWithoutExtension(executable) + ".exe")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        private static SelectionSettings? MigrateSelection(SelectionSettings? selection)
+        {
+            if (selection is null) return null;
+            var ignored = selection.IgnoredExecutables?.ToList();
+            if (ignored is not null
+                && !ignored.Contains("StartMenuExperienceHost.exe", StringComparer.OrdinalIgnoreCase))
+                ignored.Add("StartMenuExperienceHost.exe");
+            return new SelectionSettings
+            {
+                DefaultProfile = selection.DefaultProfile,
+                Unmatched = selection.Unmatched,
+                DebounceMs = selection.DebounceMs,
+                IgnoredExecutables = ignored,
+                AdditionalProperties = selection.AdditionalProperties
+            };
+        }
+
+        private static List<RuleSettings>? MigrateRules(List<RuleSettings>? rules)
+        {
+            if (rules is null) return null;
+            var usedIds = new HashSet<string>(rules.Select(rule => rule.Id!).Where(id => id is not null), StringComparer.Ordinal);
+            var migrated = new List<RuleSettings>(rules.Count);
+            foreach (var rule in rules)
+            {
+                var hasExecutableMatcher = rule.Match?.Executables is not null;
+                var hasExecutables = rule.Match?.Executables is { Count: > 0 };
+                var hasGame = rule.Match?.Game is not null;
+                if (hasExecutables)
+                    migrated.Add(CopyRule(rule, rule.ApplicationGroup ?? rule.Id, match: null));
+                if (hasGame)
+                {
+                    var id = hasExecutables ? UniqueRuleId(rule.Id + "-game", usedIds) : rule.Id;
+                    migrated.Add(CopyRule(rule, applicationGroup: null, new ApplicationMatch
+                    {
+                        Game = rule.Match!.Game,
+                        AdditionalProperties = rule.Match.AdditionalProperties
+                    }, id));
+                }
+                if (!hasExecutables && !hasGame
+                    && (!hasExecutableMatcher || rule.ApplicationGroup is not null))
+                    migrated.Add(CopyRule(rule, rule.ApplicationGroup, match: null));
+            }
+            return migrated;
+        }
+
+        private static RuleSettings CopyRule(
+            RuleSettings source,
+            string? applicationGroup,
+            ApplicationMatch? match,
+            string? id = null) => new()
+            {
+                Id = id ?? source.Id,
+                ApplicationGroup = applicationGroup,
+                Profile = source.Profile,
+                Match = match,
+                Eligibility = source.Eligibility,
+                Enabled = source.Enabled,
+                AdditionalProperties = source.AdditionalProperties
+            };
+
+        private static string UniqueRuleId(string candidate, HashSet<string> usedIds)
+        {
+            for (var suffix = 1; ; suffix++)
+            {
+                var ending = suffix == 1 ? "" : $"-{suffix}";
+                var id = candidate[..Math.Min(candidate.Length, 64 - ending.Length)] + ending;
+                if (usedIds.Add(id)) return id;
+            }
+        }
     }
 }

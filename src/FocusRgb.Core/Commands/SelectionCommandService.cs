@@ -68,6 +68,55 @@ namespace FocusRgb.Core.Commands
                 approveRecovery: false, request, cancellationToken);
         }
 
+        /// <summary>Evaluates a platform observation and persists a changed automatic selection.</summary>
+        public async Task<SelectionCommandResult> ObserveAsync(
+            SettingsDocument settings,
+            SelectionStateDocument current,
+            SelectionEngine engine,
+            ApplicationObservation observation,
+            DateTimeOffset observedAt,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(engine);
+            ArgumentNullException.ThrowIfNull(observation);
+            await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var state = _latestState ?? current;
+                if (state.Mode != "automatic")
+                    return SelectionCommandResult.Ok(state, GetStatus(state, SelectionReason.Manual()));
+
+                var decision = engine.Select(
+                    SelectionMode.Automatic, state.LastSelectedProfile!, observation, observedAt);
+                if (decision.ProfileId == state.LastSelectedProfile)
+                {
+                    _latestReason = decision.Reason;
+                    return SelectionCommandResult.Ok(
+                        state, ProjectStatus(state, decision.Reason, _outputCoordinator?.CurrentStatus));
+                }
+
+                var next = Copy(
+                    state, state.Mode!, state.ManualProfile!, decision.ProfileId, observedAt);
+                var save = await _store.SaveStateAsync(next, settings, cancellationToken).ConfigureAwait(false);
+                if (!save.IsSuccess)
+                    return SelectionCommandResult.Fail(
+                        "persistence-failed", $"{save.Error!.FileName}: {save.Error.Message}");
+
+                _latestState = next;
+                _latestReason = decision.Reason;
+                var status = _outputCoordinator is null
+                    ? GetStatus(next, decision.Reason)
+                    : await _outputCoordinator.ApplyAsync(
+                        settings, next, decision.Reason, cancellationToken: cancellationToken)
+                        .ConfigureAwait(false);
+                return SelectionCommandResult.Ok(next, status);
+            }
+            finally
+            {
+                _commandGate.Release();
+            }
+        }
+
         /// <summary>Flushes the current valid state before an explicit application shutdown.</summary>
         public Task<SelectionCommandResult> SaveCurrentAsync(
             SettingsDocument settings,
@@ -234,6 +283,25 @@ namespace FocusRgb.Core.Commands
 
         private bool IsLatestActiveRequest(long request) => !_applyRequests.Any(candidate =>
             candidate.Key > request && !candidate.Value.IsCancellationRequested);
+
+        private static SelectionRuntimeStatus ProjectStatus(
+            SelectionStateDocument state,
+            SelectionReason reason,
+            SelectionRuntimeStatus? current)
+        {
+            if (current is null) return GetStatus(state, reason);
+            return new SelectionRuntimeStatus
+            {
+                Sequence = current.Sequence,
+                Mode = state.Mode!,
+                Desired = new SelectionDecision { ProfileId = state.LastSelectedProfile!, Reason = reason },
+                Effective = current.Effective,
+                Applied = current.Applied,
+                Pending = current.Pending,
+                Notifications = current.Notifications,
+                AppliedDetail = current.AppliedDetail
+            };
+        }
 
         private async Task RestoreLatestOutputAsync(SettingsDocument settings)
         {

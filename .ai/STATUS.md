@@ -1,8 +1,19 @@
 # Current status
 
-Updated: 2026-10-16.
+Updated: 2026-10-18.
 
 ## Completed
+
+- Slice 13 persists reusable named Application Groups and ordered mappings in settings schema 4.
+  The editor accepts observed processes, manually entered `.exe` names, and picked files;
+  Save/Cancel protects drafts. A bounded Windows observation loop feeds the selection engine,
+  and automatic mode persists only changed profile intent. Schemas 1–3 migrate legacy inline
+  executable matches without losing schema-3 plugin configuration. Review hardening preserves
+  detected-app selection, disabled rules and unknown fields, tolerates game-only rules, migrates
+  combined v3 matchers, reduces idle polling/status churn, and covers accessibility and Start-menu
+  focus. Follow-up hardening drops empty legacy rules, canonicalizes and deduplicates migrated
+  executable names, preserves hidden game-rule anchors, and completes group accessibility.
+  Release build passes with 0 warnings/errors and all 284 tests pass.
 
 - Slice 12 adds a Windows-only observer for running executable names and the foreground-window
   owner without moving process APIs into Core. Process exits and access denial degrade to partial
@@ -159,12 +170,12 @@ Default, restores later starts from the local state store, and labels desired/ap
 unapplied until an output exists. Manual profile/mode commands persist asynchronously; closing
 hides the window while the local runtime continues, and tray Quit saves before shutdown.
 Profiles are persistently editable with protected references and validated fallback
-choices. The remaining in-memory editor provides named executable groups with a Windows `.exe`
+choices. The persisted editor provides named executable groups with a Windows `.exe`
 picker, mapping selection of one
 group plus one profile, top-to-bottom priority, hover arrows, midpoint-based whole-row insertion
 drag/drop, row Edit/Remove, Save/Save As/Remove item actions, eligibility, Save/Cancel, and optional
 Live preview. Group selectors align with their editor bodies, and executable actions sit beside
-the list. Persistent application groups remain part of slice 13.
+the list. Detected and manual executable names are supported.
 The portable selection engine now evaluates supplied observations with manual override,
 while-running/while-focused eligibility, deterministic priority, focus debounce, ignored
 windows, process-exit handling, protected Default fallback, and explicit reasons. The portable
@@ -174,9 +185,9 @@ malformed or invalid-reference documents with explicit recovery details. The des
 explicitly enabled local process plugins through the 0.1 SDK and isolates package/protocol failures.
 Selection commands feed a portable coordinator that reports desired/effective/applied/pending
 state, prevents an unconfirmed competing writer, activates validated fallback, and requires
-consent before recovered output resumes. No detector wiring, native hardware output, or startup
-task exists yet.
-The Settings page persists application preferences in schema-version-3 `settings.json`, applies
+consent before recovered output resumes. Application detection is wired to automatic selection;
+native hardware output and OS startup registration do not exist yet.
+The Settings page persists application preferences in schema-version-4 `settings.json`, applies
 System/Light/Dark only to the Avalonia UI, supports saved close-to-tray or clean-exit behavior,
 and can start with the window hidden without registering OS startup. It can open local settings
 and log folders and export a diagnostic ZIP that excludes profiles, mappings, paths, and secrets.
@@ -188,27 +199,23 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 
 ## Active implementation slice
 
-- Slice: 12 — Windows application observations
-- State: implementation complete; pull request open
-- Branch, latest relevant code commits, and pull request target:
-  `slice/12-windows-application-observations`; observer `a7ba99c`, platform tests `d76fa5f`,
-  final acceptance evidence `f413549`, review hardening `3f93105`; PR #69 targets `develop`.
-- Scope and dependencies verified: uses the Slice 05 `ApplicationObservation` boundary. Windows
-  process and foreground-window APIs remain isolated in `FocusRgb.Platform.Windows`; no detector
-  loop, selection wiring, plugin call, saved-state change, or lighting output is included.
-- Implemented files and entry points: `WindowsApplicationObserver.Observe`,
-  `WindowsProcessSource`, the `FocusRgb.Platform.Windows.Tests` project, and deterministic fixtures.
-- Verification: `dotnet build FocusRGB.slnx -c Release` passes with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release --no-build --no-restore` passes 272/272.
-- External/live evidence: on 2026-10-16 a read-only observer run reported running `Code.exe`,
-  `PotPlayerMini64.exe`, and the modern Media Player's `Microsoft.Media.Player.exe`. PotPlayer was
-  also confirmed as the foreground-window owner. Stremio was not installed and remains
-  fixture-covered. No settings or lighting changed.
-- Remaining acceptance criteria: none for installed/runnable configured applications on this machine.
-- Current blocker or required product input: none; PR #69 is ready for final checks and merge.
-- Uncommitted work to preserve: review-hardening evidence updates only.
-- Next action: push the review fixes, resolve their threads, pass CI, and merge PR #69.
-- Next slice: 13 — Application mappings and persistence, only after Slice 12 merges.
+- Slice: 13 — Application mappings and persistence
+- State: implementation complete; pull request open for review
+- Branch and pull request target: `slice/13-application-mappings-and-persistence` targets `develop`;
+  review fixes `b3df120` and `1848e12`; PR #70.
+- Scope and dependencies verified: Slice 12 observations flow through the portable selection
+  engine and shared command service; mappings remain profile-owned and provider-neutral.
+- Implemented files and entry points: schema-4 settings migration/validation, persisted group and
+  mapping editors, `SelectionCommandService.ObserveAsync`, and the bounded App observation loop.
+- Verification: `dotnet build FocusRgb.slnx -c Release --no-restore` passes with 0 warnings/errors;
+  `dotnet test FocusRgb.slnx -c Release --no-build` passes 284/284.
+- External/live evidence: the 2026-10-18 review exercised a real store, injected automatic
+  observations, and UI Automation against the live app; user data was restored afterward.
+- Remaining acceptance criteria: none; the live follow-up review passed the delayed selection path.
+- Current blocker or required product input: none.
+- Uncommitted work to preserve: none.
+- Next action: push the final review fixes, resolve the new threads, and merge PR #70 after CI.
+- Next slice: 14 — SignalRGB capability investigation, only after Slice 13 review and merge.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -240,7 +247,7 @@ assistant contributions are recorded only with the matching `Assisted-by:` trail
 
 Issue planning (2026-10-15): every Slice 00–29 has one owner-assigned GitHub issue with linked
 dependencies, `slice` and `enhancement` labels, and a release milestone. Issues for completed
-Slices 00–11 are closed as completed; Slice 12 is next and Slices 12–29 remain open. The durable
+Slices 00–12 are closed as completed; Slice 13 awaits review and Slices 13–29 remain open. The durable
 issue and milestone map is `../docs/github-roadmap.md`.
 
 Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
@@ -252,7 +259,7 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slice 12 is implemented and awaits review/merge. Continue with Slice 13 only after it lands.
+Slice 13 is implemented and awaits review/merge. Continue with Slice 14 only after it lands.
 Profile persistence, the tray runtime, application settings, plugin hosting, and coordination are complete.
 
 Windows observations start at 12 and application mappings at 13. SignalRGB investigation starts
@@ -274,4 +281,4 @@ Each choice names the first slice that needs it.
 - Slice 27: native keyboard first or mouse first, and keyboard calibration approach.
 - After slice 17: plugin signing, distribution, and installation UX beyond local packages.
 
-These remain pending and do not block Slice 12.
+These remain pending and do not block Slice 13.

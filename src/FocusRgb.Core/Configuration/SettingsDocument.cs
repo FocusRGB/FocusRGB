@@ -18,6 +18,7 @@ namespace FocusRgb.Core.Configuration
         public PluginSettings? Plugins { get; init; }
         public SelectionSettings? Selection { get; init; }
         public List<ProfileSettings>? Profiles { get; init; }
+        public List<ApplicationGroupSettings>? ApplicationGroups { get; init; }
         public List<RuleSettings>? Rules { get; init; }
     }
 
@@ -86,10 +87,19 @@ namespace FocusRgb.Core.Configuration
         public string? Profile { get; init; }
     }
 
+    /// <summary>Stores a reusable named set of executable identities for application mappings.</summary>
+    public sealed class ApplicationGroupSettings : ExtensibleConfiguration
+    {
+        public string? Id { get; init; }
+        public string? DisplayName { get; init; }
+        public List<string>? Executables { get; init; }
+    }
+
     /// <summary>Maps an application group to a profile; array order is the sole priority.</summary>
     public sealed class RuleSettings : ExtensibleConfiguration
     {
         public string? Id { get; init; }
+        public string? ApplicationGroup { get; init; }
         public string? Profile { get; init; }
         public ApplicationMatch? Match { get; init; }
         public string? Eligibility { get; init; }

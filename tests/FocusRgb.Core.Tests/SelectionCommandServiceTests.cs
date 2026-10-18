@@ -68,6 +68,67 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public async Task ObserveAsync_PersistsChangedAutomaticSelectionOnlyOnce()
+        {
+            var store = new RecordingStateStore();
+            var settings = Settings();
+            var musicRuleIndex = settings.Rules!.FindIndex(rule => rule.Id == "music");
+            var musicRule = settings.Rules[musicRuleIndex];
+            settings.Rules[musicRuleIndex] = new RuleSettings
+            {
+                Id = musicRule.Id,
+                ApplicationGroup = musicRule.ApplicationGroup,
+                Profile = musicRule.Profile,
+                Eligibility = "while-running",
+                Enabled = musicRule.Enabled,
+                AdditionalProperties = musicRule.AdditionalProperties
+            };
+            var state = new SelectionStateDocument
+            {
+                SchemaVersion = 1,
+                Mode = "automatic",
+                ManualProfile = "default",
+                LastSelectedProfile = "default",
+                UpdatedAt = Now.AddMinutes(-1)
+            };
+            var service = new SelectionCommandService(store);
+            var engine = new SelectionEngine(settings);
+            var observation = new ApplicationObservation
+            {
+                ForegroundExecutable = "Spotify.exe",
+                RunningExecutables = ["Spotify.exe"]
+            };
+
+            var changed = await service.ObserveAsync(
+                settings, state, engine, observation, Now, TestContext.Current.CancellationToken);
+            var unchanged = await service.ObserveAsync(
+                settings, state, engine, observation, Now.AddSeconds(1), TestContext.Current.CancellationToken);
+
+            Assert.Equal("music", changed.State!.LastSelectedProfile);
+            Assert.Equal("rule", changed.Status!.Desired.Reason.Kind);
+            Assert.Equal("music", unchanged.State!.LastSelectedProfile);
+            Assert.Equal(1, store.SaveCount);
+        }
+
+        [Fact]
+        public async Task ObserveAsync_DoesNotChangeManualSelection()
+        {
+            var store = new RecordingStateStore();
+            var settings = Settings();
+
+            var result = await new SelectionCommandService(store).ObserveAsync(
+                settings,
+                State("movie"),
+                new SelectionEngine(settings),
+                new ApplicationObservation { RunningExecutables = ["Spotify.exe"] },
+                Now,
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("movie", result.State!.LastSelectedProfile);
+            Assert.Equal(0, store.SaveCount);
+        }
+
+        [Fact]
         public async Task SelectProfileAsync_ReturnsFailureWithoutNewState_WhenStorageFails()
         {
             var service = new SelectionCommandService(new RecordingStateStore(fail: true));
@@ -322,12 +383,14 @@ namespace FocusRgb.Core.Tests
         private sealed class RecordingStateStore(bool fail = false, List<string>? events = null) : ISelectionStateStore
         {
             public SelectionStateDocument? SavedState { get; private set; }
+            public int SaveCount { get; private set; }
 
             public Task<SaveResult> SaveStateAsync(
                 SelectionStateDocument state,
                 SettingsDocument settings,
                 CancellationToken cancellationToken = default)
             {
+                SaveCount++;
                 events?.Add("save");
                 if (fail)
                 {
