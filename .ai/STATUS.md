@@ -203,7 +203,8 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 
 - Slice: 14 — SignalRGB capability investigation
 - State: implementation complete; awaiting pull-request review
-- Branch and pull request target: `slice/14-signalrgb-capability-investigation` targets `develop`.
+- Branch and pull request target: `slice/14-signalrgb-capability-investigation` targets `develop`;
+  PR #71.
 - Scope and dependencies verified: investigation remained read-only and provider-neutral; no
   SignalRGB implementation was added to the application.
 - Implemented files and entry points: dated capability matrix, reproducible probes, official API
@@ -215,7 +216,7 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
   unavailable with evidence.
 - Current blocker or required product input: none.
 - Uncommitted work to preserve: none.
-- Next action: verify, commit, push, and open the Slice 14 pull request.
+- Next action: address PR #71 review, then merge it before Slice 15.
 - Next slice: 15 — external SignalRGB plugin repository, after Slice 14 review and merge.
 
 
