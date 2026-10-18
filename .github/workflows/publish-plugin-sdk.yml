@@ -28,7 +28,10 @@ jobs:
       - name: Publish packages
         shell: pwsh
         run: |
-          dotnet nuget push "build/packages/*.nupkg" `
-            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
-            --api-key "${{ secrets.GITHUB_TOKEN }}" `
-            --skip-duplicate
+          Get-ChildItem build/packages -Filter *.nupkg | ForEach-Object {
+            dotnet nuget push $_.FullName `
+              --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
+              --api-key "${{ secrets.GITHUB_TOKEN }}" `
+              --skip-duplicate
+            if ($LASTEXITCODE -ne 0) { throw "Package publication failed for $($_.Name)." }
+          }
