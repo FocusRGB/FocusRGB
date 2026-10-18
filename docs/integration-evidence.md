@@ -1,9 +1,13 @@
 # Integration evidence
 
-Reviewed 2026-10-08. Most observations are historical; the explicitly dated current-state
+Reviewed 2026-10-18. Most observations are historical; the explicitly dated current-state
 checks below were repeated on this machine. Verify versions and official docs before coding.
 
 ## SignalRGB
+
+The Slice 14 read-only capability matrix and reproducible probes are recorded in
+[the 2026-10-18 investigation](../modules/signalrgb/docs/capability-investigation-2026-10-18.md).
+It supersedes older assumptions where the results differ.
 
 | Surface | Recorded outcome | Limit |
 |---|---|---|
@@ -41,6 +45,11 @@ Current check on 2026-10-08: SignalRGB 2.5.74 answered `/api/v1/app` on port 160
 `authorized: false`. The user `Effects`, `Plugins`, and `Components` folders existed under
 OneDrive Documents and contained no files. The workspace MCP config and launcher are at
 `../../.mcp.json`; it points to `../modules/signalrgb/tools/signalrgb-mcp.cmd`.
+
+Current check on 2026-10-18: SignalRGB 2.5.80 was installed but stopped. Neither control port
+was listening, no shell URL handler was registered, and this version contained no
+`SignalRgbMcp.exe`. The bundled/downloaded files confirm `Aurora`, `Screen Ambience`, and
+`Logarithmic Visualizer`; the seeded Movie fixture was corrected from `Screen Ambient`.
 
 ## WLED/layout/calibration
 

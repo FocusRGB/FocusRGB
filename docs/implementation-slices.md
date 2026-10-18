@@ -9,7 +9,7 @@ Requirements live in [`app-brief.md`](app-brief.md), contracts and behavior in
 [`plugin-architecture.md`](plugin-architecture.md), and verified external facts in
 [`integration-evidence.md`](integration-evidence.md).
 
-Status: **00–12 implemented. 12 is awaiting review and merge; 13 is next afterward.**
+Status: **00–13 implemented and merged. 14 is implemented and awaiting review.**
 
 ## 1 — Foundation
 
@@ -52,9 +52,9 @@ Status: **00–12 implemented. 12 is awaiting review and merge; 13 is next after
 - ✅ [12 — Windows application observations](<slices/5-External Applications/12-windows-application-observations.md>):
   detect foreground and running applications behind the platform boundary.
 - ✅ [13 — Application mappings](<slices/5-External Applications/13-application-mappings-and-persistence.md>):
-  add detected/manual applications, persist automation rules, and wire automatic profile selection. **Awaiting review.**
-- ⏳ [14 — SignalRGB investigation](<slices/5-External Applications/14-signalrgb-capability-investigation.md>):
-  verify supported APIs, catalogs, selection, layouts, and limitations.
+  add detected/manual applications, persist automation rules, and wire automatic profile selection.
+- ✅ [14 — SignalRGB investigation](<slices/5-External Applications/14-signalrgb-capability-investigation.md>):
+  verify supported APIs, catalogs, selection, layouts, and limitations. **Awaiting review.**
 - ⏳ [15 — External SignalRGB plugin](<slices/5-External Applications/15-separate-signalrgb-plugin.md>):
   create its repository and implement provider status, catalogs, and effect/layout application.
 - ⏳ [16 — SignalRGB acceptance gate](<slices/5-External Applications/16-signalrgb-acceptance-gate.md>):

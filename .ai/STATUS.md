@@ -193,29 +193,30 @@ and can start with the window hidden without registering OS startup. It can open
 and log folders and export a diagnostic ZIP that excludes profiles, mappings, paths, and secrets.
 OS startup registration remains deferred to Slice 28.
 
-Read-only checks on 2026-10-08 confirmed SignalRGB 2.5.74, WLED Desk 16.0.1 with its 215/85
-split, Dynamic Lighting disabled, and the Synapse delayed task still present. WLED Wall did
-not respond. No live settings, presets, layouts, registry values, services, or tasks changed.
+Read-only checks on 2026-10-18 confirmed SignalRGB 2.5.80 is installed but stopped. Its bundled
+and downloaded files resolve the profile fixtures to Aurora, Screen Ambience, and Logarithmic
+Visualizer. The Local and Canvas API ports were not listening, no URL handler was registered,
+and no MCP executable ships in either installed version. No application URL was submitted and
+no live settings, effects, layouts, devices, registry values, services, or tasks changed.
 
 ## Active implementation slice
 
-- Slice: 13 — Application mappings and persistence
-- State: implementation complete; pull request open for review
-- Branch and pull request target: `slice/13-application-mappings-and-persistence` targets `develop`;
-  review fixes `b3df120` and `1848e12`; PR #70.
-- Scope and dependencies verified: Slice 12 observations flow through the portable selection
-  engine and shared command service; mappings remain profile-owned and provider-neutral.
-- Implemented files and entry points: schema-4 settings migration/validation, persisted group and
-  mapping editors, `SelectionCommandService.ObserveAsync`, and the bounded App observation loop.
-- Verification: `dotnet build FocusRgb.slnx -c Release --no-restore` passes with 0 warnings/errors;
-  `dotnet test FocusRgb.slnx -c Release --no-build` passes 284/284.
-- External/live evidence: the 2026-10-18 review exercised a real store, injected automatic
-  observations, and UI Automation against the live app; user data was restored afterward.
-- Remaining acceptance criteria: none; the live follow-up review passed the delayed selection path.
+- Slice: 14 — SignalRGB capability investigation
+- State: implementation complete; awaiting pull-request review
+- Branch and pull request target: `slice/14-signalrgb-capability-investigation` targets `develop`.
+- Scope and dependencies verified: investigation remained read-only and provider-neutral; no
+  SignalRGB implementation was added to the application.
+- Implemented files and entry points: dated capability matrix, reproducible probes, official API
+  references, Slice 15 constraints, and corrected `Screen Ambience` seed/contract/tests.
+- Verification: Release build passes with 0 warnings/errors; 284/284 tests pass.
+- External/live evidence: SignalRGB 2.5.80 executable/catalog/cache inspection plus official
+  Local API, layout, application-URL, Canvas, and Pro documentation.
+- Remaining acceptance criteria: none; every requested capability is classified verified or
+  unavailable with evidence.
 - Current blocker or required product input: none.
 - Uncommitted work to preserve: none.
-- Next action: push the final review fixes, resolve the new threads, and merge PR #70 after CI.
-- Next slice: 14 — SignalRGB capability investigation, only after Slice 13 review and merge.
+- Next action: verify, commit, push, and open the Slice 14 pull request.
+- Next slice: 15 — external SignalRGB plugin repository, after Slice 14 review and merge.
 
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -247,7 +248,7 @@ assistant contributions are recorded only with the matching `Assisted-by:` trail
 
 Issue planning (2026-10-15): every Slice 00–29 has one owner-assigned GitHub issue with linked
 dependencies, `slice` and `enhancement` labels, and a release milestone. Issues for completed
-Slices 00–12 are closed as completed; Slice 13 awaits review and Slices 13–29 remain open. The durable
+Slices 00–13 are closed as completed; Slice 14 awaits review and Slices 14–29 remain open. The durable
 issue and milestone map is `../docs/github-roadmap.md`.
 
 Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
@@ -259,7 +260,7 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slice 13 is implemented and awaits review/merge. Continue with Slice 14 only after it lands.
+Slice 14 is implemented and awaits review/merge. Continue with Slice 15 only after it lands.
 Profile persistence, the tray runtime, application settings, plugin hosting, and coordination are complete.
 
 Windows observations start at 12 and application mappings at 13. SignalRGB investigation starts
@@ -281,4 +282,4 @@ Each choice names the first slice that needs it.
 - Slice 27: native keyboard first or mouse first, and keyboard calibration approach.
 - After slice 17: plugin signing, distribution, and installation UX beyond local packages.
 
-These remain pending and do not block Slice 13.
+These remain pending and do not block Slice 14.
