@@ -19,7 +19,7 @@ rules, layouts, or game integrations.
 | First start | Enter manual mode with the Default profile |
 | Default profile | Protected and always present; use when no automatic application mapping matches; test with SignalRGB Aurora |
 | Programming | VS Code or Visual Studio; test with SignalRGB Aurora |
-| Movie | PotPlayer or Stremio; test with SignalRGB Screen Ambient |
+| Movie | PotPlayer or Stremio; test with SignalRGB Screen Ambience |
 | Music | Media Player or Spotify; test with SignalRGB Logarithmic Visualizer |
 | Recognized game | Generic or per-game profile with custom keyboard/mouse maps and strip zones |
 | Brief focus change or ignored system window | Avoid disruptive switches |
@@ -134,7 +134,7 @@ repository keeps the minimal SDK and fake integration; the public SDK is stabili
 fake and SignalRGB plugins prove the boundary.
 
 The later SignalRGB acceptance profiles are Default → Aurora; Programming → Aurora for VS Code and
-Visual Studio; Movie → Screen Ambient for PotPlayer and Stremio; and Music → Logarithmic
+Visual Studio; Movie → Screen Ambience for PotPlayer and Stremio; and Music → Logarithmic
 Visualizer for Media Player and Spotify. These tests leave the layout unset and use SignalRGB's
 existing LED placements. Default is application-independent, protected from removal, and chosen
 when automatic mode has no eligible mapped application. On first run it is selected in manual

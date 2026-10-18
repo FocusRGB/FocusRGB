@@ -104,6 +104,7 @@ strips were not colour-corrected, so full RGB white appeared blue.
 
 ## References
 
+- [Slice 14 capability investigation](docs/capability-investigation-2026-10-18.md)
 - [Developer cheat sheet](docs/developer-cheatsheet.md)
 - [Security findings](docs/security-findings.md) and [security report](docs/security-report.md)
 - [SignalRGB developer hub](https://docs.signalrgb.com/developer/)

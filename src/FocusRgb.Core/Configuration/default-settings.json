@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "application": {
     "closeButtonBehavior": "minimize-to-tray",
     "startMinimized": false,
@@ -55,7 +55,7 @@
           "plugin": "signalrgb",
           "renderingAuthority": "provider",
           "deviceScope": { "kind": "provider-managed" },
-          "effect": { "resourceId": null, "displayName": "Screen Ambient" },
+          "effect": { "resourceId": null, "displayName": "Screen Ambience" },
           "layout": null
         }
       ],

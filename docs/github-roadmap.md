@@ -21,7 +21,7 @@ and acceptance criteria. GitHub issues track execution and milestones group cohe
 | Milestone | Slices | State |
 |---|---:|---|
 | [v0.1.0-alpha.1 — Application foundation](https://github.com/MAJ224/FocusRGB/milestone/2) | 00–09 | Closed |
-| [v0.2.0-alpha.1 — Plugin runtime and coordination](https://github.com/MAJ224/FocusRGB/milestone/1) | 10–11 | Open until PRs #24 and #25 land |
+| [v0.2.0-alpha.1 — Plugin runtime and coordination](https://github.com/MAJ224/FocusRGB/milestone/1) | 10–11 | Closed |
 | [v0.3.0-alpha.1 — External applications](https://github.com/MAJ224/FocusRGB/milestone/3) | 12–16 | Open |
 | [v0.4.0-alpha.1 — Games and external control](https://github.com/MAJ224/FocusRGB/milestone/4) | 17–20 | Open |
 | [v0.5.0-alpha.1 — Native RGB system](https://github.com/MAJ224/FocusRGB/milestone/5) | 21–29 | Open |
@@ -42,9 +42,9 @@ and acceptance criteria. GitHub issues track execution and milestones group cohe
 | 09 | [#35 — Application settings and lifecycle preferences](https://github.com/MAJ224/FocusRGB/issues/35) | v0.1.0-alpha.1 | Completed |
 | 10 | [#36 — Minimal plugin runtime, SDK, and fake output](https://github.com/MAJ224/FocusRGB/issues/36) | v0.2.0-alpha.1 | Completed |
 | 11 | [#37 — Command coordination and fallback state](https://github.com/MAJ224/FocusRGB/issues/37) | v0.2.0-alpha.1 | Completed |
-| 12 | [#40 — Windows application observations](https://github.com/MAJ224/FocusRGB/issues/40) | v0.3.0-alpha.1 | In review ([#69](https://github.com/MAJ224/FocusRGB/pull/69)) |
-| 13 | [#39 — Application mappings and persistence](https://github.com/MAJ224/FocusRGB/issues/39) | v0.3.0-alpha.1 | Planned |
-| 14 | [#38 — SignalRGB capability investigation](https://github.com/MAJ224/FocusRGB/issues/38) | v0.3.0-alpha.1 | Planned |
+| 12 | [#40 — Windows application observations](https://github.com/MAJ224/FocusRGB/issues/40) | v0.3.0-alpha.1 | Completed |
+| 13 | [#39 — Application mappings and persistence](https://github.com/MAJ224/FocusRGB/issues/39) | v0.3.0-alpha.1 | Completed |
+| 14 | [#38 — SignalRGB capability investigation](https://github.com/MAJ224/FocusRGB/issues/38) | v0.3.0-alpha.1 | In review ([#71](https://github.com/MAJ224/FocusRGB/pull/71)) |
 | 15 | [#43 — External SignalRGB plugin repository](https://github.com/MAJ224/FocusRGB/issues/43) | v0.3.0-alpha.1 | Planned |
 | 16 | [#41 — SignalRGB acceptance gate](https://github.com/MAJ224/FocusRGB/issues/41) | v0.3.0-alpha.1 | Planned |
 | 17 | [#42 — Stabilize the public SDK and contributor example](https://github.com/MAJ224/FocusRGB/issues/42) | v0.4.0-alpha.1 | Planned |

@@ -502,7 +502,7 @@ namespace FocusRgb.Core.Tests
             public IReadOnlyList<PluginCatalogItem> CatalogItems { get; set; } =
             [
                 Item("Aurora", "fake-aurora"),
-                Item("Screen Ambient", "fake-screen"),
+                Item("Screen Ambience", "fake-screen"),
                 Item("Logarithmic Visualizer", "fake-music")
             ];
 

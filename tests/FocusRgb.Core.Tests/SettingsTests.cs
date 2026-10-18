@@ -7,7 +7,7 @@ namespace FocusRgb.Core.Tests
     public sealed class SettingsTests
     {
         private static readonly string[] ProfileIds = ["default", "programming", "movie", "music"];
-        private static readonly string[] EffectNames = ["Aurora", "Aurora", "Screen Ambient", "Logarithmic Visualizer"];
+        private static readonly string[] EffectNames = ["Aurora", "Aurora", "Screen Ambience", "Logarithmic Visualizer"];
         private static readonly string[] RuleOrder = ["programming", "movie", "music"];
 
         [Fact]
@@ -145,7 +145,7 @@ namespace FocusRgb.Core.Tests
 
         [Theory]
         [InlineData(0)]
-        [InlineData(5)]
+        [InlineData(6)]
         public void Load_RejectsUnsupportedVersion_WithoutMigrationOrPersistence(int version)
         {
             var root = Defaults();
@@ -222,6 +222,36 @@ namespace FocusRgb.Core.Tests
             Assert.NotEqual("programming", game.Id);
             Assert.DoesNotContain(result.Settings.Rules, rule => rule.Id == "empty-legacy");
             Assert.Equal(["fake-output"], result.Settings.Plugins!.Enabled);
+        }
+
+        [Fact]
+        public void Load_MigratesSchemaFourUnresolvedSeededMovieEffectName()
+        {
+            var root = Defaults();
+            root["schemaVersion"] = 4;
+            var effect = root["profiles"]![2]!["bindings"]![0]!["effect"]!;
+            effect["displayName"] = "Screen Ambient";
+
+            var result = SettingsJson.Load(root.ToJsonString());
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(SettingsJson.CurrentSchemaVersion, result.Settings!.SchemaVersion);
+            Assert.Equal("Screen Ambience", result.Settings.Profiles![2].Bindings![0].Effect!.DisplayName);
+        }
+
+        [Fact]
+        public void Load_PreservesResolvedSchemaFourMovieEffectName()
+        {
+            var root = Defaults();
+            root["schemaVersion"] = 4;
+            var effect = root["profiles"]![2]!["bindings"]![0]!["effect"]!;
+            effect["resourceId"] = "custom-screen-ambient";
+            effect["displayName"] = "Screen Ambient";
+
+            var result = SettingsJson.Load(root.ToJsonString());
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal("Screen Ambient", result.Settings!.Profiles![2].Bindings![0].Effect!.DisplayName);
         }
 
         [Fact]
