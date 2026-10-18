@@ -4,6 +4,11 @@ Updated: 2026-10-18.
 
 ## Completed
 
+- Slice 14 established the verified SignalRGB capability boundary and corrected the seeded Movie
+  effect to `Screen Ambience`. The URL handler and launcher are usable for effect submission,
+  current selection and layout geometry remain unobservable, and the MCP executable is absent
+  from SignalRGB 2.5.80. Release build passed with 0 warnings/errors and all 286 tests passed.
+
 - Slice 13 persists reusable named Application Groups and ordered mappings in settings schema 4.
   The editor accepts observed processes, manually entered `.exe` names, and picked files;
   Save/Cancel protects drafts. A bounded Windows observation loop feeds the selection engine,
@@ -102,8 +107,8 @@ Updated: 2026-10-18.
 - Keyboard visual confirmation distinguished from mouse API acceptance and unresolved handover.
 - SignalRGB-only starters, examples, and the Pro-blocked experiment separated from the empty
   active `effects/` and `plugins/` install folders; tools now have explicit names.
-- SignalRGB-specific content, tools, MCP launcher, reference notes, and security research are
-  grouped under `modules/signalrgb/`; module ownership is documented for future integrations.
+- SignalRGB implementation and maintained public research now live in the independent
+  `MAJ224/FocusRGB-Plugin-SignalRGB` repository; `modules/signalrgb/` is a migration link only.
 - Generated builds and tool artifacts are consolidated under the ignored `build/` directory;
   repository Graphify output is stored in `build/graphify-out/`.
 - Runtime selected: .NET 10 with an Avalonia tray/settings UI and UI-independent background
@@ -130,7 +135,7 @@ Updated: 2026-10-18.
   defaults to provider authority, so its selected effect/layout suppresses the app renderer on
   overlapping devices.
 - Initial SignalRGB effect fixtures: Default → Aurora, Programming → Aurora, Movie → Screen
-  Ambient, and Music → Logarithmic Visualizer. Initial SignalRGB tests omit the layout and
+  Ambience, and Music → Logarithmic Visualizer. Initial SignalRGB tests omit the layout and
   retain its existing LED placements; explicit provider layout selection remains optional.
 - Layout means LED placement configuration. Native tests can import an available SignalRGB
   layout where read/export support is verified. A separate WLED plugin is required for native
@@ -157,8 +162,8 @@ only after user acceptance. Decline/dismiss keeps the fallback active; acceptanc
 the current desired selection, capabilities, and ownership. Native fallback can remain pending
 until native rendering/output exists or the target hardware is released.
 
-The SignalRGB staging module contains templates, a Canvas API example, and an archived
-Pro-blocked effect; maintained content moves to its external plugin repository in slice 15.
+The SignalRGB peer repository contains the plugin, templates, a Canvas API example, and an
+archived Pro-blocked effect; the main repository retains only a migration link.
 The shared screen colour test remains under `tools/`; the Arduino sketch moved to
 `../modules/arduino/sketches/`. `../src/` contains the app scaffold and portable configuration
 code. No custom
@@ -202,25 +207,27 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 
 ## Active implementation slice
 
-- Slice: 14 — SignalRGB capability investigation
-- State: implementation complete; awaiting pull-request review
-- Branch and pull request target: `slice/14-signalrgb-capability-investigation` targets `develop`;
-  PR #71.
-- Scope and dependencies verified: investigation remained read-only and provider-neutral; no
-  SignalRGB implementation was added to the application.
-- Implemented files and entry points: dated capability matrix, reproducible probes, official API
-  references, Slice 15 constraints, and corrected `Screen Ambience` seed/contract/tests.
-- Verification: Release build passes with 0 warnings/errors; 286/286 tests pass. PR #71 review
-  corrections include schema-4 seeded-effect migration coverage.
-- External/live evidence: SignalRGB 2.5.80 executable/catalog/cache inspection plus official
-  Local API, layout, application-URL, Canvas, and Pro documentation.
-- Remaining acceptance criteria: none; every requested capability is classified verified or
-  unavailable with evidence.
+- Slice: 15 — external SignalRGB plugin repository
+- State: implementation complete; external and main-repository pull requests are in review
+- Repositories: `MAJ224/FocusRGB-Plugin-SignalRGB` owns the provider implementation;
+  `MAJ224/FocusRGB` retains provider-neutral contracts, hosting, and a migration link.
+- External branch and pull request: `slice/15-separate-signalrgb-plugin` targets `develop`;
+  external PR #1.
+- Main branch: `slice/15-external-signalrgb-plugin` targets `develop`.
+- Implemented behavior: status/process discovery, bundled and downloaded effect catalog,
+  provider-authority and provider-managed-scope validation, encoded application-URL submission
+  only while SignalRGB is already running, honest unverified selection, and unsupported layouts.
+- Package boundary: standalone CI restores public `FocusRgb.PluginSdk` 0.1.0 from GitHub
+  Packages; there is no source checkout, submodule, or provider project reference.
+- Verification: standalone Release build passes with 0 warnings/errors; 10/10 mock tests and a
+  JSON-RPC initialize/status/shutdown smoke check pass. Live effect application remains Slice 16.
+- Remaining acceptance criteria: external PR review/merge, release-package install/remove check,
+  and corresponding main-repository migration PR review/merge.
 - Current blocker or required product input: none.
-- Uncommitted work to preserve: none.
-- Next action: address PR #71 review, then merge it before Slice 15.
-- Next slice: 15 — external SignalRGB plugin repository, after Slice 14 review and merge.
-
+- Uncommitted work to preserve: none after both Slice 15 branches are pushed.
+- Next action: resolve reviews on both Slice 15 PRs, merge them, package the plugin, then run
+  Slice 16's live end-to-end acceptance gate.
+- Next slice: 16 — SignalRGB acceptance gate, only after Slice 15 is merged.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
 `global.json`; use `dotnet test --solution …`, not the VSTest form. The App and Windows
@@ -251,7 +258,7 @@ assistant contributions are recorded only with the matching `Assisted-by:` trail
 
 Issue planning (2026-10-15): every Slice 00–29 has one owner-assigned GitHub issue with linked
 dependencies, `slice` and `enhancement` labels, and a release milestone. Issues for completed
-Slices 00–13 are closed as completed; Slice 14 awaits review and Slices 14–29 remain open. The durable
+Slices 00–14 are closed as completed; Slice 15 is in review and Slices 15–29 remain open. The durable
 issue and milestone map is `../docs/github-roadmap.md`.
 
 Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
@@ -263,13 +270,15 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slice 14 is implemented and awaits review/merge. Continue with Slice 15 only after it lands.
-Profile persistence, the tray runtime, application settings, plugin hosting, and coordination are complete.
+Slice 15 is implemented in the independent SignalRGB plugin repository and the main-repository
+migration branch. Resolve both PRs before Slice 16. Slice 16 performs the live install,
+profile-switching, visible-output, failure, and removal gate; no live effect application belongs
+in Slice 15.
 
-Windows observations start at 12 and application mappings at 13. SignalRGB investigation starts
-at 14, its external plugin at 15, and its acceptance gate at 16.
+Profile persistence, tray lifecycle, application settings, plugin hosting, coordination, Windows
+observations, application mappings, and the SignalRGB capability investigation are complete.
 The public SDK is stabilized at 17, MCP is 18, and game discovery starts at 19. Standalone native
-rendering, layout, and hardware work is isolated in folder 7 at slices 21–29.
+rendering, layout, and hardware work remains isolated in folder 7 at slices 21–29.
 Claude tool availability does not itself establish an app API.
 
 ## Open choices
