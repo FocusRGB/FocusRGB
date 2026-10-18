@@ -110,7 +110,7 @@ and all automatic mappings are user-editable.
           "plugin": "signalrgb",
           "renderingAuthority": "provider",
           "deviceScope": { "kind": "provider-managed" },
-          "effect": { "resourceId": null, "displayName": "Screen Ambient" },
+          "effect": { "resourceId": null, "displayName": "Screen Ambience" },
           "layout": null
         }
       ],
@@ -180,9 +180,9 @@ Profiles:
   exact, case-sensitive `displayName` match against a fresh catalog and saves the ID only after
   the user applies. No match, or a catalog that is unsupported, makes the binding unavailable
   with reason `resource-not-found` or `capability-unsupported`; the core never picks a
-  different resource. Fixture names are data: slice 14 investigates the real catalog, slice 15
-  exposes it through the plugin, and slice 16 reconciles/saves the selected ID (for example
-  Screen Ambient versus the historical Screen Ambience).
+  different resource. Fixture names are data: slice 14 verified `Screen Ambience` as the exact
+  installed Movie effect name, slice 15 exposes the catalog through the plugin, and slice 16
+  reconciles and saves the selected ID.
 - `plugins.enabled` contains validated package IDs. It is empty by default; only listed packages
   under the per-user `plugins` folder are launched. Schema versions 1 and 2 migrate to this
   disabled-by-default value.

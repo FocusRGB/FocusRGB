@@ -297,7 +297,7 @@ Proposed IDs/action names, not executable config or a finalized schema:
       { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Aurora" }
     ] },
     "movie": { "actions": [
-      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Screen Ambient" }
+      { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Screen Ambience" }
     ] },
     "music": { "actions": [
       { "plugin": "signalrgb", "action": "select-provider-scene", "renderingAuthority": "provider", "effect": "Logarithmic Visualizer" }

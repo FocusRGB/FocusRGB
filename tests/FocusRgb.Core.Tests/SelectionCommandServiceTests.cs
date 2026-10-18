@@ -429,7 +429,7 @@ namespace FocusRgb.Core.Tests
                             new PluginCatalogItem
                             {
                                 ResourceId = "resolved",
-                                DisplayName = kind == "effect" ? "Screen Ambient" : "Current provider layout",
+                                DisplayName = kind == "effect" ? "Screen Ambience" : "Current provider layout",
                                 Available = true
                             }
                         ]

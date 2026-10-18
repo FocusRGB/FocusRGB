@@ -7,7 +7,7 @@ namespace FocusRgb.Core.Tests
     public sealed class SettingsTests
     {
         private static readonly string[] ProfileIds = ["default", "programming", "movie", "music"];
-        private static readonly string[] EffectNames = ["Aurora", "Aurora", "Screen Ambient", "Logarithmic Visualizer"];
+        private static readonly string[] EffectNames = ["Aurora", "Aurora", "Screen Ambience", "Logarithmic Visualizer"];
         private static readonly string[] RuleOrder = ["programming", "movie", "music"];
 
         [Fact]
