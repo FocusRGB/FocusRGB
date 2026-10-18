@@ -200,18 +200,19 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Slice: 13 — Application mappings and persistence
 - State: implementation complete; pull request open for review
 - Branch and pull request target: `slice/13-application-mappings-and-persistence` targets `develop`;
-  commits `466945e`, `7651d31`, `e05b6f5`, and `0b8cbb0`; PR #70.
+  review fixes `b3df120` and `1848e12`; PR #70.
 - Scope and dependencies verified: Slice 12 observations flow through the portable selection
   engine and shared command service; mappings remain profile-owned and provider-neutral.
 - Implemented files and entry points: schema-4 settings migration/validation, persisted group and
   mapping editors, `SelectionCommandService.ObserveAsync`, and the bounded App observation loop.
 - Verification: `dotnet build FocusRgb.slnx -c Release --no-restore` passes with 0 warnings/errors;
   `dotnet test FocusRgb.slnx -c Release --no-build` passes 282/282.
-- External/live evidence: not rerun for Slice 13; Slice 12 established installed process names.
-- Remaining acceptance criteria: live UI confirmation of editing and automatic switching.
+- External/live evidence: the 2026-10-18 review exercised a real store, injected automatic
+  observations, and UI Automation against the live app; user data was restored afterward.
+- Remaining acceptance criteria: re-review the fixed delayed detected-app selection path.
 - Current blocker or required product input: none.
 - Uncommitted work to preserve: none.
-- Next action: push the review fixes, resolve every PR #70 thread, and merge after CI and approval.
+- Next action: await re-review, then merge PR #70 after approval.
 - Next slice: 14 — SignalRGB capability investigation, only after Slice 13 review and merge.
 
 
