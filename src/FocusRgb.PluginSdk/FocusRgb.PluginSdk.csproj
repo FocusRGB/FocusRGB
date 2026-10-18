@@ -3,6 +3,8 @@
     <PackageId>FocusRgb.PluginSdk</PackageId>
     <Description>Minimal process-plugin SDK for the FocusRGB 0.x JSON-RPC protocol.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/MAJ224/FocusRGB</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\FocusRgb.Contracts\FocusRgb.Contracts.csproj" />
