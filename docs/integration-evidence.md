@@ -6,7 +6,7 @@ checks below were repeated on this machine. Verify versions and official docs be
 ## SignalRGB
 
 The Slice 14 read-only capability matrix and reproducible probes are recorded in
-[the 2026-10-18 investigation](../modules/signalrgb/docs/capability-investigation-2026-10-18.md).
+[the 2026-10-18 investigation](https://github.com/MAJ224/FocusRGB-Plugin-SignalRGB/blob/develop/research/docs/capability-investigation-2026-10-18.md).
 It supersedes older assumptions where the results differ.
 
 | Surface | Recorded outcome | Limit |
@@ -36,15 +36,15 @@ guess as the API contract.
 
 **Transport gap:** `device_ledoverrides`/`device_writesetting` are tool names, not established
 wire APIs for the controller. Discover supported transport, connection setup, prerequisites,
-and error behavior before implementing them. The module launcher at
-`../modules/signalrgb/tools/signalrgb-mcp.cmd` is a
+and error behavior before implementing them. The historical launcher in the external plugin's
+[`research/tools`](https://github.com/MAJ224/FocusRGB-Plugin-SignalRGB/tree/develop/research/tools) is a
 lead, not a guaranteed app dependency. Calls took roughly half a second historically;
 animation performance and persistent-connection benefits were not measured.
 
 Current check on 2026-10-08: SignalRGB 2.5.74 answered `/api/v1/app` on port 16038 with
 `authorized: false`. The user `Effects`, `Plugins`, and `Components` folders existed under
-OneDrive Documents and contained no files. The workspace MCP config and launcher are at
-`../../.mcp.json`; it points to `../modules/signalrgb/tools/signalrgb-mcp.cmd`.
+OneDrive Documents and contained no files. The old MCP launcher is retained only as research
+because newer SignalRGB versions removed the executable it targets.
 
 Current check on 2026-10-18: SignalRGB 2.5.80 was installed but stopped. Neither control port
 was listening. The reviewer's live check found the shell URL handler registered in HKCU and
@@ -126,8 +126,8 @@ and should not be copied into the application settings page without their owning
 
 - RGB Claude session `ca5cee85-477f-4450-81d7-3fbecb25b67f`.
 - Former v2 delivery plan, consolidated into `focus-profiles-plan.md` on 2026-10-16.
-- `../modules/signalrgb/docs/security-findings.md` for later API observations. Its security-testing
-  scope is separate from this app, not a development roadmap.
+- Historical local SignalRGB security-testing notes remain in repository history and are not a
+  development roadmap or part of the public plugin package.
 - `../../WLED/profiles/README.md` and preferred snapshot above.
 
 Future records should include date/version/account/device context and distinguish proposed,

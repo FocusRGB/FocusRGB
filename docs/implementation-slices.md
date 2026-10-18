@@ -54,9 +54,10 @@ Status: **00–13 implemented and merged. 14 is implemented and awaiting review.
 - ✅ [13 — Application mappings](<slices/5-External Applications/13-application-mappings-and-persistence.md>):
   add detected/manual applications, persist automation rules, and wire automatic profile selection.
 - ✅ [14 — SignalRGB investigation](<slices/5-External Applications/14-signalrgb-capability-investigation.md>):
-  verify supported APIs, catalogs, selection, layouts, and limitations. **Awaiting review.**
+  verify supported APIs, catalogs, selection, layouts, and limitations.
 - ⏳ [15 — External SignalRGB plugin](<slices/5-External Applications/15-separate-signalrgb-plugin.md>):
-  create its repository and implement provider status, catalogs, and effect/layout application.
+  implement provider status, catalogs, and guarded effect application in its peer repository.
+  **In review:** [external plugin PR #1](https://github.com/MAJ224/FocusRGB-Plugin-SignalRGB/pull/1).
 - ⏳ [16 — SignalRGB acceptance gate](<slices/5-External Applications/16-signalrgb-acceptance-gate.md>):
   connect the already-selected profile to SignalRGB and verify the complete switching path with the user.
 
@@ -113,7 +114,7 @@ Status: **00–13 implemented and merged. 14 is implemented and awaiting review.
 - `src/FocusRgb.App/`: Avalonia tray/settings UI and generic plugin-host wiring.
 - `tests/`: core, contract, integration, platform, UI, and fake-plugin conformance checks.
 - `FocusRGB-Plugin-<Name>` repositories: production integration executables and releases.
-- `modules/signalrgb/`: temporary research/tool staging until slice 15 migration.
+- `modules/signalrgb/`: migration link to the external SignalRGB plugin repository.
 - `build/`: ignored generated output, reports, packages, and tool artifacts.
 
 Core may reference shared contracts; neither Core nor App references provider projects. Portable

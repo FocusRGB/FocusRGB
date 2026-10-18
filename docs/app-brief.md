@@ -148,9 +148,9 @@ profiles or native output unusable.
 
 Plugin package signing/distribution and installation UX remain undecided. Startup automation
 is off by default, remains user-controlled, and follows reliable cleanup/recovery. The Arduino
-tester is independent. Existing
-`modules/signalrgb/plugins/` contains SignalRGB device plugins, not this controller's
-extension system.
+tester is independent. SignalRGB-specific implementation and research live in the independent
+`MAJ224/FocusRGB-Plugin-SignalRGB` repository, not this controller's source tree or extension
+system.
 
 Repository implementation is authorized when requested. Live device or machine reconfiguration still requires an explicit request.
 Open product/implementation choices are tracked in `../.ai/STATUS.md`.

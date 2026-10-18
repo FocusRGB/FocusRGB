@@ -101,10 +101,9 @@ local FocusRGB clone. The app installs or discovers the plugin's packaged releas
 the manifest's plugin and contract versions before launch.
 
 Create each repository when its implementation slice starts, not as an empty placeholder.
-The current `modules/signalrgb/` directory is temporary staging for existing research and
-tools. Slice 15 moves maintained SignalRGB-specific material into
-`FocusRGB-Plugin-SignalRGB` and leaves only a short migration link if historical references
-require it. Slice 22 creates `FocusRGB-Plugin-WLED`. A selected game integration follows the
+Slice 15 moved maintained SignalRGB-specific material into
+[`FocusRGB-Plugin-SignalRGB`](https://github.com/MAJ224/FocusRGB-Plugin-SignalRGB); the main
+repository retains only a migration link. Slice 22 creates `FocusRGB-Plugin-WLED`. A selected game integration follows the
 same convention in slice 20 and consumes the public SDK established in slice 17. Shared rules,
 layouts, native effects, and hardware-independent
 tools remain in the main repository.

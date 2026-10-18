@@ -10,11 +10,11 @@ a documentation request does not authorize implementing the app or changing live
 Final goal: replace SignalRGB with our own controller and effects, while retaining
 integrations with other applications through plugins. SignalRGB is an interim backend.
 
-Keep all SignalRGB-specific code, content, tools, and research in `../modules/signalrgb/`.
-Its `plugins/` directory is for SignalRGB USB device plugins. The proposed controller's
-plugin contracts are separate; controller plugins are separate processes over versioned
-JSON-RPC, with a minimal host implemented before the complete public SDK. Other external
-systems should receive their own `modules/<integration>/` boundary when implemented.
+Keep SignalRGB-specific implementation, maintained content, tools, and research in the peer
+`MAJ224/FocusRGB-Plugin-SignalRGB` repository. `../modules/signalrgb/` is only a migration link;
+do not restore provider code to the main repository. Controller plugins are separate processes
+over versioned JSON-RPC and consume a published `FocusRgb.PluginSdk` package. Other production
+integrations receive their own peer repositories when their implementation slice starts.
 
 Preserve unrelated edits and untracked files. Follow `../.gitattributes` and native Windows
 CRLF working-tree endings (`core.autocrlf=true`). Put generated builds, reports, caches, and

@@ -12,9 +12,11 @@ if (Environment.GetEnvironmentVariable("FOCUSRGB_FAKE_PLUGIN_ARGS") is { Length:
 
 if (ReadStringOption(args, "--grandchild") is { } grandchildPidFile)
 {
+    var pendingGrandchildPidFile = grandchildPidFile + ".pending";
     await File.WriteAllTextAsync(
-        grandchildPidFile,
+        pendingGrandchildPidFile,
         Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    File.Move(pendingGrandchildPidFile, grandchildPidFile, overwrite: true);
     await Task.Delay(Timeout.InfiniteTimeSpan);
     return;
 }
