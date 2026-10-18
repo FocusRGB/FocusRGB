@@ -1,3 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Portable, provider-neutral contracts. No Windows APIs and no project or package references. -->
+  <PropertyGroup>
+    <PackageId>FocusRgb.Contracts</PackageId>
+    <Description>Provider-neutral contracts for FocusRGB process plugins.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/MAJ224/FocusRGB</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
 </Project>
