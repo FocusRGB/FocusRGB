@@ -220,9 +220,10 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 - Package boundary: standalone CI restores public `FocusRgb.PluginSdk` 0.1.0 from GitHub
   Packages; there is no source checkout, submodule, or provider project reference.
 - Verification: standalone Release build passes with 0 warnings/errors; 10/10 mock tests and a
-  JSON-RPC initialize/status/shutdown smoke check pass. Live effect application remains Slice 16.
-- Remaining acceptance criteria: external PR review/merge, release-package install/remove check,
-  and corresponding main-repository migration PR review/merge.
+  JSON-RPC initialize/status/shutdown smoke check pass. The assembled release package loads and
+  starts through FocusRGB's real host, then clean removal reports `plugin-absent`. Live effect
+  application remains Slice 16.
+- Remaining acceptance criteria: review and merge external PR #1 and main PR #74.
 - Current blocker or required product input: none.
 - Uncommitted work to preserve: none after both Slice 15 branches are pushed.
 - Next action: resolve reviews on both Slice 15 PRs, merge them, package the plugin, then run
