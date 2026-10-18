@@ -299,7 +299,9 @@ namespace FocusRgb.App
                     {
                         AppLog.Write($"Application observation failed: {exception.Message}");
                     }
-                    await Task.Delay(TimeSpan.FromSeconds(1), cancellation.Token);
+                    var interval = await Dispatcher.UIThread.InvokeAsync(() =>
+                        viewModel.ApplicationObservationInterval);
+                    await Task.Delay(interval, cancellation.Token);
                 }
             }, cancellation.Token);
         }

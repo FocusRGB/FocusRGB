@@ -1,4 +1,6 @@
+using System.Text.Json.Nodes;
 using FocusRgb.App.ViewModels;
+using FocusRgb.Core.Configuration;
 
 namespace FocusRgb.App.Tests
 {
@@ -123,6 +125,25 @@ namespace FocusRgb.App.Tests
 
             Assert.Equal("New effect", profile.EffectName);
             Assert.Equal("Monitor layout", profile.LayoutName);
+        }
+
+        [Fact]
+        public void GameOnlyRule_IsPreservedWithoutProjectingAnApplicationMapping()
+        {
+            var root = JsonNode.Parse(SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!))!;
+            root["rules"]!.AsArray().Add(JsonNode.Parse("""
+                {"id":"steam-game","profile":"movie","match":{"game":{"launcher":"steam","id":"570"}},"eligibility":"while-running","enabled":false,"future":1}
+                """));
+            var settings = SettingsJson.Load(root.ToJsonString()).Settings!;
+
+            var editor = MainWindowViewModel.CreatePreview(settings).MappingEditor;
+            var saved = editor.CreateRuleSettings();
+
+            Assert.Equal(3, editor.Mappings.Count);
+            var game = Assert.Single(saved, rule => rule.Id == "steam-game");
+            Assert.Equal("570", game.Match!.Game!.Id);
+            Assert.False(game.Enabled);
+            Assert.Equal(1, game.AdditionalProperties!["future"].GetInt32());
         }
     }
 }

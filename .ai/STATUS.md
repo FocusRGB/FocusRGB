@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-17.
+Updated: 2026-10-18.
 
 ## Completed
 
@@ -8,8 +8,10 @@ Updated: 2026-10-17.
   The editor accepts observed processes, manually entered `.exe` names, and picked files;
   Save/Cancel protects drafts. A bounded Windows observation loop feeds the selection engine,
   and automatic mode persists only changed profile intent. Schemas 1–3 migrate legacy inline
-  executable matches without losing schema-3 plugin configuration. Release build passes with
-  0 warnings/errors and all 280 tests pass.
+  executable matches without losing schema-3 plugin configuration. Review hardening preserves
+  detected-app selection, disabled rules and unknown fields, tolerates game-only rules, migrates
+  combined v3 matchers, reduces idle polling/status churn, and covers accessibility and Start-menu
+  focus. Release build passes with 0 warnings/errors and all 282 tests pass.
 
 - Slice 12 adds a Windows-only observer for running executable names and the foreground-window
   owner without moving process APIs into Core. Process exits and access denial degrade to partial
@@ -204,12 +206,12 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Implemented files and entry points: schema-4 settings migration/validation, persisted group and
   mapping editors, `SelectionCommandService.ObserveAsync`, and the bounded App observation loop.
 - Verification: `dotnet build FocusRgb.slnx -c Release --no-restore` passes with 0 warnings/errors;
-  `dotnet test FocusRgb.slnx -c Release --no-build` passes 280/280.
+  `dotnet test FocusRgb.slnx -c Release --no-build` passes 282/282.
 - External/live evidence: not rerun for Slice 13; Slice 12 established installed process names.
 - Remaining acceptance criteria: live UI confirmation of editing and automatic switching.
 - Current blocker or required product input: none.
 - Uncommitted work to preserve: none.
-- Next action: collect review on PR #70, fix and resolve every finding, then merge after CI.
+- Next action: push the review fixes, resolve every PR #70 thread, and merge after CI and approval.
 - Next slice: 14 — SignalRGB capability investigation, only after Slice 13 review and merge.
 
 

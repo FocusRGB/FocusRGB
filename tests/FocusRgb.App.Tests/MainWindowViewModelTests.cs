@@ -117,11 +117,16 @@ namespace FocusRgb.App.Tests
                 RunningExecutables = ["Rider.exe", "Code.exe", "rider.EXE"]
             }, TestContext.Current.CancellationToken);
             viewModel.SelectedDetectedExecutable = "Rider.exe";
+            await viewModel.ObserveApplicationsAsync(new ApplicationObservation
+            {
+                RunningExecutables = ["Code.exe", "Rider.exe", "Spotify.exe"]
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal("Rider.exe", viewModel.SelectedDetectedExecutable);
             viewModel.AddDetectedExecutable();
             viewModel.ManualExecutable = "tool.exe";
             viewModel.AddManualExecutable();
 
-            Assert.Equal(["Code.exe", "Rider.exe"], viewModel.DetectedExecutables);
+            Assert.Equal(["Code.exe", "Rider.exe", "Spotify.exe"], viewModel.DetectedExecutables);
             Assert.Contains("Rider.exe", viewModel.DraftExecutables);
             Assert.Contains("tool.exe", viewModel.DraftExecutables);
             Assert.False(viewModel.AddDraftExecutable("not-an-executable"));
@@ -136,6 +141,15 @@ namespace FocusRgb.App.Tests
                 var store = new LocalStateStore(directory);
                 var startup = await store.InitializeAsync(DateTimeOffset.UtcNow, TestContext.Current.CancellationToken);
                 Assert.True(startup.IsSuccess);
+                var customJson = System.Text.Json.Nodes.JsonNode.Parse(
+                    SettingsJson.Serialize(startup.Snapshot!.Settings))!;
+                customJson["applicationGroups"]![0]!["futureGroup"] = 42;
+                customJson["rules"]![0]!["futureRule"] = true;
+                customJson["rules"]![0]!["enabled"] = false;
+                var custom = SettingsJson.Load(customJson.ToJsonString()).Settings!;
+                Assert.True((await store.SaveSettingsAsync(custom, TestContext.Current.CancellationToken)).IsSuccess);
+                startup = await new LocalStateStore(directory).InitializeAsync(
+                    DateTimeOffset.UtcNow.AddMilliseconds(1), TestContext.Current.CancellationToken);
                 var viewModel = MainWindowViewModel.CreatePersistent(startup.Snapshot!, store);
                 viewModel.EditingApplicationGroup = viewModel.ApplicationGroups[0];
                 viewModel.ApplicationGroupName = "Development tools";
@@ -152,6 +166,18 @@ namespace FocusRgb.App.Tests
                 Assert.Equal("Development tools", group.DisplayName);
                 Assert.Contains("Rider.exe", group.Executables!);
                 Assert.Equal("while-running", restarted.Snapshot.Settings.Rules![0].Eligibility);
+                Assert.False(restarted.Snapshot.Settings.Rules[0].Enabled);
+                Assert.Equal(42, group.AdditionalProperties!["futureGroup"].GetInt32());
+                Assert.True(restarted.Snapshot.Settings.Rules[0].AdditionalProperties!["futureRule"].GetBoolean());
+
+                Assert.Equal(TimeSpan.FromSeconds(5), viewModel.ApplicationObservationInterval);
+                await viewModel.SetModeAsync(manual: false, TestContext.Current.CancellationToken);
+                Assert.Equal(TimeSpan.FromSeconds(1), viewModel.ApplicationObservationInterval);
+                var observation = new ApplicationObservation { RunningExecutables = ["Code.exe"] };
+                await viewModel.ObserveApplicationsAsync(observation, TestContext.Current.CancellationToken);
+                viewModel.ReportUnexpectedError("Keep this status");
+                await viewModel.ObserveApplicationsAsync(observation, TestContext.Current.CancellationToken);
+                Assert.Equal("Keep this status", viewModel.RuntimeStatusMessage);
             }
             finally
             {

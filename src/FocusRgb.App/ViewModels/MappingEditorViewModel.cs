@@ -9,6 +9,7 @@ namespace FocusRgb.App.ViewModels
     public sealed class MappingEditorViewModel : INotifyPropertyChanged
     {
         private IReadOnlyList<MappingSnapshot> _appliedMappings;
+        private readonly IReadOnlyList<RuleSettings> _sourceRules;
         private bool _isDirty;
         private bool _livePreview;
         private MappingEditorItemViewModel? _selectedMapping;
@@ -19,11 +20,13 @@ namespace FocusRgb.App.ViewModels
         private MappingEditorViewModel(
             IReadOnlyList<ProfileOptionViewModel> profiles,
             ObservableCollection<ApplicationGroupViewModel> applicationGroups,
-            IReadOnlyList<MappingSnapshot> mappings)
+            IReadOnlyList<MappingSnapshot> mappings,
+            IReadOnlyList<RuleSettings> sourceRules)
         {
             Profiles = profiles;
             ApplicationGroups = applicationGroups;
             _appliedMappings = mappings;
+            _sourceRules = sourceRules;
             Mappings = [];
             NewApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
             NewProfile = Profiles.Count > 0 ? Profiles[0] : null;
@@ -61,12 +64,12 @@ namespace FocusRgb.App.ViewModels
             ArgumentNullException.ThrowIfNull(settings);
             var groups = new ObservableCollection<ApplicationGroupViewModel>(settings.ApplicationGroups!.Select(group =>
                 new ApplicationGroupViewModel(group.Id!, group.DisplayName!, group.Executables!)));
-            var snapshots = settings.Rules!.Select(rule =>
+            var snapshots = settings.Rules!.Where(rule => rule.ApplicationGroup is not null).Select(rule =>
             {
                 var profile = profiles.Single(item => item.Id == rule.Profile);
                 return new MappingSnapshot(rule.Id!, rule.ApplicationGroup!, profile.Id, rule.Eligibility!);
             }).ToList();
-            return new MappingEditorViewModel(profiles, groups, snapshots);
+            return new MappingEditorViewModel(profiles, groups, snapshots, settings.Rules!);
         }
 
         public ApplicationGroupViewModel AddApplicationGroup()
@@ -86,7 +89,8 @@ namespace FocusRgb.App.ViewModels
             var baseId = $"{NewApplicationGroup.Id}-{NewProfile.Id}";
             var id = baseId;
             var suffix = 2;
-            while (Mappings.Any(mapping => mapping.Id == id)) id = $"{baseId}-{suffix++}";
+            while (_sourceRules.Any(rule => rule.Id == id) || Mappings.Any(mapping => mapping.Id == id))
+                id = $"{baseId}-{suffix++}";
             var item = new MappingEditorItemViewModel(this,
                 new MappingSnapshot(id, NewApplicationGroup.Id, NewProfile.Id, "while-focused"));
             Mappings.Add(item);
@@ -115,15 +119,31 @@ namespace FocusRgb.App.ViewModels
             UpdatePreview($"Saved {_appliedMappings.Count} mappings.");
         }
 
-        public List<RuleSettings> CreateRuleSettings() => Mappings.Select(mapping =>
-            new RuleSettings
+        public List<RuleSettings> CreateRuleSettings()
+        {
+            var edited = new Queue<RuleSettings>(Mappings.Select(mapping =>
             {
-                Id = mapping.Id,
-                ApplicationGroup = mapping.SelectedApplicationGroup.Id,
-                Profile = mapping.SelectedProfile.Id,
-                Eligibility = mapping.Eligibility,
-                Enabled = true
-            }).ToList();
+                var source = _sourceRules.FirstOrDefault(rule => rule.Id == mapping.Id);
+                return new RuleSettings
+                {
+                    Id = mapping.Id,
+                    ApplicationGroup = mapping.SelectedApplicationGroup.Id,
+                    Profile = mapping.SelectedProfile.Id,
+                    Eligibility = mapping.Eligibility,
+                    Enabled = source?.Enabled ?? true,
+                    Match = source?.Match,
+                    AdditionalProperties = source?.AdditionalProperties
+                };
+            }));
+            var result = new List<RuleSettings>(_sourceRules.Count + edited.Count);
+            foreach (var source in _sourceRules)
+            {
+                if (source.ApplicationGroup is null) result.Add(source);
+                else if (edited.TryDequeue(out var replacement)) result.Add(replacement);
+            }
+            result.AddRange(edited);
+            return result;
+        }
 
         public void Cancel()
         {

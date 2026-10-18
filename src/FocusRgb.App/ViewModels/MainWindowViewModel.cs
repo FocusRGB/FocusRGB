@@ -47,6 +47,7 @@ namespace FocusRgb.App.ViewModels
         private bool _isApplicationSettingsDirty;
         private int _settingsSavePending;
         private string? _settingsSaveWarning;
+        private DateTimeOffset _observationRetryAfter;
         private bool _loadingApplicationSettings;
         private string _applicationSettingsStatus = "Application preferences match the saved values.";
 
@@ -218,6 +219,9 @@ namespace FocusRgb.App.ViewModels
         public string SavedCloseButtonBehavior => _settings.Application!.CloseButtonBehavior!;
         public bool SavedStartMinimized => _settings.Application!.StartMinimized!.Value;
         public bool SavedVerboseLogging => _settings.Application!.VerboseLogging!.Value;
+        public TimeSpan ApplicationObservationInterval => IsAutomatic
+            ? TimeSpan.FromSeconds(1)
+            : TimeSpan.FromSeconds(5);
 
         public bool IsManual
         {
@@ -604,20 +608,39 @@ namespace FocusRgb.App.ViewModels
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Order(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
-            DetectedExecutables.Clear();
-            foreach (var executable in detected) DetectedExecutables.Add(executable);
+            foreach (var executable in DetectedExecutables.Where(existing =>
+                !detected.Contains(existing, StringComparer.OrdinalIgnoreCase)).ToArray())
+                DetectedExecutables.Remove(executable);
+            foreach (var executable in detected.Where(candidate =>
+                !DetectedExecutables.Contains(candidate, StringComparer.OrdinalIgnoreCase)))
+                DetectedExecutables.Add(executable);
+            for (var index = 0; index < detected.Length; index++)
+            {
+                var currentIndex = DetectedExecutables.IndexOf(detected[index]);
+                if (currentIndex >= 0 && currentIndex != index) DetectedExecutables.Move(currentIndex, index);
+            }
             if (SelectedDetectedExecutable is not null
                 && !DetectedExecutables.Contains(SelectedDetectedExecutable, StringComparer.OrdinalIgnoreCase))
                 SelectedDetectedExecutable = null;
 
             if (_selectionCommands is null || _selectionState is null || _selectionState.Mode != "automatic") return;
+            var now = DateTimeOffset.UtcNow;
+            if (now < _observationRetryAfter) return;
+            var previousState = _selectionState;
+            var previousReason = _selectionReason;
             var result = await _selectionCommands.ObserveAsync(
-                _settings, _selectionState, _selectionEngine, observation, DateTimeOffset.UtcNow, cancellationToken);
+                _settings, _selectionState, _selectionEngine, observation, now, cancellationToken);
             if (!result.IsSuccess)
             {
                 RuntimeStatusMessage = result.ErrorMessage!;
+                _observationRetryAfter = now.AddSeconds(10);
                 return;
             }
+            var changed = previousState.UpdatedAt != result.State!.UpdatedAt
+                || previousReason.Kind != result.Status!.Desired.Reason.Kind
+                || previousReason.RuleId != result.Status.Desired.Reason.RuleId;
+            if (!changed) return;
+            _observationRetryAfter = default;
             ApplyRuntimeResult(result);
             RuntimeStatusMessage = result.Status!.AppliedDetail;
         }
@@ -636,7 +659,9 @@ namespace FocusRgb.App.ViewModels
             try
             {
                 var name = RequiredName(ApplicationGroupName, "Application Group");
-                var replacement = CreateApplicationGroupSettings(EditingApplicationGroup.Id, name, DraftExecutables);
+                var saved = _settings.ApplicationGroups!.Single(group => group.Id == EditingApplicationGroup.Id);
+                var replacement = CreateApplicationGroupSettings(
+                    EditingApplicationGroup.Id, name, DraftExecutables, saved.AdditionalProperties);
                 var candidate = WithMappings(
                     _settings.ApplicationGroups!.Select(group =>
                         group.Id == EditingApplicationGroup.Id ? replacement : group).ToList(),
@@ -696,28 +721,28 @@ namespace FocusRgb.App.ViewModels
             if (!BeginSettingsSave()) return;
             try
             {
-            if (MappingEditor.AppliedMappings.Any(mapping => mapping.ApplicationGroupId == EditingApplicationGroup.Id)
-                || MappingEditor.Mappings.Any(mapping => mapping.SelectedApplicationGroup.Id == EditingApplicationGroup.Id))
-            {
-                ApplicationGroupEditorStatus = "Remove mappings that use this application group first.";
-                return;
-            }
-            var removed = EditingApplicationGroup.DisplayName;
-            var candidate = WithMappings(
-                _settings.ApplicationGroups!.Where(group => group.Id != EditingApplicationGroup.Id).ToList(),
-                _settings.Rules!);
-            var error = await SaveCandidateAsync(candidate, cancellationToken);
-            if (error is not null)
-            {
-                ApplicationGroupEditorStatus = error;
-                return;
-            }
-            _settings = candidate;
-            _selectionEngine = new SelectionEngine(candidate);
-            ApplicationGroups.Remove(EditingApplicationGroup);
-            EditingApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
-            MappingEditor.NewApplicationGroup = EditingApplicationGroup;
-            ApplicationGroupEditorStatus = SavedStatus($"Removed {removed}.");
+                if (MappingEditor.AppliedMappings.Any(mapping => mapping.ApplicationGroupId == EditingApplicationGroup.Id)
+                    || MappingEditor.Mappings.Any(mapping => mapping.SelectedApplicationGroup.Id == EditingApplicationGroup.Id))
+                {
+                    ApplicationGroupEditorStatus = "Remove mappings that use this application group first.";
+                    return;
+                }
+                var removed = EditingApplicationGroup.DisplayName;
+                var candidate = WithMappings(
+                    _settings.ApplicationGroups!.Where(group => group.Id != EditingApplicationGroup.Id).ToList(),
+                    _settings.Rules!);
+                var error = await SaveCandidateAsync(candidate, cancellationToken);
+                if (error is not null)
+                {
+                    ApplicationGroupEditorStatus = error;
+                    return;
+                }
+                _settings = candidate;
+                _selectionEngine = new SelectionEngine(candidate);
+                ApplicationGroups.Remove(EditingApplicationGroup);
+                EditingApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
+                MappingEditor.NewApplicationGroup = EditingApplicationGroup;
+                ApplicationGroupEditorStatus = SavedStatus($"Removed {removed}.");
             }
             finally
             {
@@ -1044,29 +1069,34 @@ namespace FocusRgb.App.ViewModels
         private SettingsDocument WithMappings(
             List<ApplicationGroupSettings> applicationGroups,
             List<RuleSettings> rules) => new()
-        {
-            SchemaVersion = _settings.SchemaVersion,
-            Application = _settings.Application,
-            Plugins = _settings.Plugins,
-            Selection = _settings.Selection,
-            Profiles = _settings.Profiles,
-            ApplicationGroups = applicationGroups,
-            Rules = rules,
-            AdditionalProperties = _settings.AdditionalProperties
-        };
+            {
+                SchemaVersion = _settings.SchemaVersion,
+                Application = _settings.Application,
+                Plugins = _settings.Plugins,
+                Selection = _settings.Selection,
+                Profiles = _settings.Profiles,
+                ApplicationGroups = applicationGroups,
+                Rules = rules,
+                AdditionalProperties = _settings.AdditionalProperties
+            };
 
         private List<ApplicationGroupSettings> CreateApplicationGroupSettings() =>
             ApplicationGroups.Select(group => CreateApplicationGroupSettings(
-                group.Id, group.DisplayName, group.Executables)).ToList();
+                group.Id,
+                group.DisplayName,
+                group.Executables,
+                _settings.ApplicationGroups!.FirstOrDefault(saved => saved.Id == group.Id)?.AdditionalProperties)).ToList();
 
         private static ApplicationGroupSettings CreateApplicationGroupSettings(
             string id,
             string displayName,
-            IEnumerable<string> executables) => new()
+            IEnumerable<string> executables,
+            Dictionary<string, System.Text.Json.JsonElement>? additionalProperties = null) => new()
             {
                 Id = id,
                 DisplayName = displayName,
-                Executables = executables.ToList()
+                Executables = executables.ToList(),
+                AdditionalProperties = additionalProperties
             };
 
         private void LoadApplicationSettings()

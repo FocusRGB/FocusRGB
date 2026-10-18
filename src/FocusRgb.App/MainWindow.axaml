@@ -28,9 +28,9 @@
               <StackPanel Orientation="Horizontal" Spacing="14">
                 <TextBlock Text="Mode" FontWeight="SemiBold" VerticalAlignment="Center" />
                 <RadioButton Content="Manual" GroupName="SelectionMode"
-                             IsChecked="{Binding IsManual, Mode=OneWay}" Click="ManualMode_OnClick" />
+                             IsChecked="{Binding IsManual, Mode=OneWay}" IsCheckedChanged="ManualMode_OnClick" />
                 <RadioButton Content="Automatic" GroupName="SelectionMode"
-                             IsChecked="{Binding IsAutomatic, Mode=OneWay}" Click="AutomaticMode_OnClick" />
+                             IsChecked="{Binding IsAutomatic, Mode=OneWay}" IsCheckedChanged="AutomaticMode_OnClick" />
               </StackPanel>
             </Border>
           </Grid>
@@ -235,11 +235,14 @@
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <ComboBox ItemsSource="{Binding DetectedExecutables}"
                             SelectedItem="{Binding SelectedDetectedExecutable}"
+                            AutomationProperties.Name="Detected running application"
                             PlaceholderText="Choose a running application" />
                   <Button Grid.Column="1" Content="Add detected" Click="AddDetectedExecutable_OnClick" />
                 </Grid>
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                  <TextBox Text="{Binding ManualExecutable}" PlaceholderText="Enter executable name, for example app.exe" />
+                  <TextBox Text="{Binding ManualExecutable}"
+                           AutomationProperties.Name="Manual executable name"
+                           PlaceholderText="Enter executable name, for example app.exe" />
                   <Button Grid.Column="1" Content="Add name" Click="AddManualExecutable_OnClick" />
                 </Grid>
                 <StackPanel Orientation="Horizontal" Spacing="8">
