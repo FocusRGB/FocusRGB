@@ -214,7 +214,7 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 - Remaining acceptance criteria: run Slice 16's live install, profile-switching, visible-output,
   failure, and removal gate.
 - Current blocker or required product input: none.
-- Uncommitted work to preserve: this issue-order and bug-audit documentation branch.
+- Uncommitted work to preserve: none.
 - Next action: package the merged plugin and run Slice 16's live end-to-end acceptance gate.
 - Next slice: 16 — SignalRGB acceptance gate.
 
