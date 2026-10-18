@@ -217,12 +217,17 @@ namespace FocusRgb.Core.Configuration
                     ValidateNames(group.Executables, path + ".executables", true, Error);
                     if (group.Executables is not null)
                     {
+                        var executableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                         for (var executableIndex = 0; executableIndex < group.Executables.Count; executableIndex++)
                         {
                             if (!string.IsNullOrWhiteSpace(group.Executables[executableIndex])
                                 && !group.Executables[executableIndex].EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                             {
                                 Error($"{path}.executables[{executableIndex}]", "must end in .exe");
+                            }
+                            else if (!executableNames.Add(group.Executables[executableIndex]))
+                            {
+                                Error($"{path}.executables[{executableIndex}]", "duplicate executable name");
                             }
                         }
                     }

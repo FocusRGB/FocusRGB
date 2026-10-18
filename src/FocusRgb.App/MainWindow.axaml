@@ -224,7 +224,9 @@
                     Click="SaveApplicationGroupAs_OnClick" HorizontalAlignment="Left" />
             <Border IsVisible="{Binding HasEditingApplicationGroup}" Padding="16" CornerRadius="8" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
               <StackPanel Spacing="10">
-                <TextBox Text="{Binding ApplicationGroupName}" PlaceholderText="Application group name" />
+                <TextBox Text="{Binding ApplicationGroupName}"
+                         AutomationProperties.Name="Application group name"
+                         PlaceholderText="Application group name" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                   <ListBox ItemsSource="{Binding DraftExecutables}" SelectedItem="{Binding SelectedDraftExecutable}" MinHeight="70" MaxHeight="180" />
                   <StackPanel Grid.Column="1" Spacing="8">

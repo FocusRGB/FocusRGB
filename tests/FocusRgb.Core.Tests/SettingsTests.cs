@@ -203,18 +203,24 @@ namespace FocusRgb.Core.Tests
                 rule["match"] = new JsonObject { ["executables"] = executablesById[id] };
             }
             root["rules"]![0]!["match"]!["executables"]![0] = "Code";
+            root["rules"]![0]!["match"]!["executables"]!.AsArray().Add("code.EXE");
+            root["rules"]![0]!["match"]!["executables"]!.AsArray().Add(" tool.bat ");
             root["rules"]![0]!["match"]!["game"] = JsonNode.Parse("""{"launcher":"steam","id":"570"}""");
+            root["rules"]!.AsArray().Add(JsonNode.Parse("""
+                {"id":"empty-legacy","profile":"default","match":{"executables":[]},"eligibility":"while-running","enabled":false}
+                """));
 
             var result = SettingsJson.Load(root.ToJsonString());
 
             Assert.True(result.IsSuccess);
             var group = Assert.Single(result.Settings!.ApplicationGroups!, item => item.Id == "programming");
-            Assert.Equal(["Code.exe", "devenv.exe"], group.Executables);
+            Assert.Equal(["Code.exe", "devenv.exe", "tool.exe"], group.Executables);
             Assert.Equal("programming", result.Settings.Rules![0].ApplicationGroup);
             Assert.Null(result.Settings.Rules[0].Match);
             var game = Assert.Single(result.Settings.Rules, rule => rule.Match?.Game is not null);
             Assert.Equal("570", game.Match!.Game!.Id);
             Assert.NotEqual("programming", game.Id);
+            Assert.DoesNotContain(result.Settings.Rules, rule => rule.Id == "empty-legacy");
             Assert.Equal(["fake-output"], result.Settings.Plugins!.Enabled);
         }
 
@@ -255,6 +261,15 @@ namespace FocusRgb.Core.Tests
             Set(root, "applicationGroups.0.executables.0", JsonValue.Create("Code"));
 
             AssertError(root, "applicationGroups[0].executables[0]");
+        }
+
+        [Fact]
+        public void Load_RejectsDuplicateApplicationGroupExecutableIgnoringCase()
+        {
+            var root = Defaults();
+            root["applicationGroups"]![0]!["executables"]!.AsArray().Add("code.EXE");
+
+            AssertError(root, "applicationGroups[0].executables[2]");
         }
 
         [Fact]

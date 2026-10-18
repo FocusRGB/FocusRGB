@@ -11,7 +11,9 @@ Updated: 2026-10-18.
   executable matches without losing schema-3 plugin configuration. Review hardening preserves
   detected-app selection, disabled rules and unknown fields, tolerates game-only rules, migrates
   combined v3 matchers, reduces idle polling/status churn, and covers accessibility and Start-menu
-  focus. Release build passes with 0 warnings/errors and all 282 tests pass.
+  focus. Follow-up hardening drops empty legacy rules, canonicalizes and deduplicates migrated
+  executable names, preserves hidden game-rule anchors, and completes group accessibility.
+  Release build passes with 0 warnings/errors and all 284 tests pass.
 
 - Slice 12 adds a Windows-only observer for running executable names and the foreground-window
   owner without moving process APIs into Core. Process exits and access denial degrade to partial
@@ -206,13 +208,13 @@ not respond. No live settings, presets, layouts, registry values, services, or t
 - Implemented files and entry points: schema-4 settings migration/validation, persisted group and
   mapping editors, `SelectionCommandService.ObserveAsync`, and the bounded App observation loop.
 - Verification: `dotnet build FocusRgb.slnx -c Release --no-restore` passes with 0 warnings/errors;
-  `dotnet test FocusRgb.slnx -c Release --no-build` passes 282/282.
+  `dotnet test FocusRgb.slnx -c Release --no-build` passes 284/284.
 - External/live evidence: the 2026-10-18 review exercised a real store, injected automatic
   observations, and UI Automation against the live app; user data was restored afterward.
-- Remaining acceptance criteria: re-review the fixed delayed detected-app selection path.
+- Remaining acceptance criteria: none; the live follow-up review passed the delayed selection path.
 - Current blocker or required product input: none.
 - Uncommitted work to preserve: none.
-- Next action: await re-review, then merge PR #70 after approval.
+- Next action: push the final review fixes, resolve the new threads, and merge PR #70 after CI.
 - Next slice: 14 — SignalRGB capability investigation, only after Slice 13 review and merge.
 
 

@@ -121,7 +121,7 @@ namespace FocusRgb.App.ViewModels
 
         public List<RuleSettings> CreateRuleSettings()
         {
-            var edited = new Queue<RuleSettings>(Mappings.Select(mapping =>
+            var edited = Mappings.Select(mapping =>
             {
                 var source = _sourceRules.FirstOrDefault(rule => rule.Id == mapping.Id);
                 return new RuleSettings
@@ -134,14 +134,32 @@ namespace FocusRgb.App.ViewModels
                     Match = source?.Match,
                     AdditionalProperties = source?.AdditionalProperties
                 };
-            }));
-            var result = new List<RuleSettings>(_sourceRules.Count + edited.Count);
-            foreach (var source in _sourceRules)
+            }).ToList();
+            var editedIds = edited.Select(rule => rule.Id!).ToHashSet(StringComparer.Ordinal);
+            var hiddenBefore = new Dictionary<string, List<RuleSettings>>(StringComparer.Ordinal);
+            var trailing = new List<RuleSettings>();
+            for (var index = 0; index < _sourceRules.Count; index++)
             {
-                if (source.ApplicationGroup is null) result.Add(source);
-                else if (edited.TryDequeue(out var replacement)) result.Add(replacement);
+                var source = _sourceRules[index];
+                if (source.ApplicationGroup is not null) continue;
+                var anchor = _sourceRules.Skip(index + 1)
+                    .FirstOrDefault(rule => rule.ApplicationGroup is not null && editedIds.Contains(rule.Id!));
+                if (anchor is null)
+                {
+                    trailing.Add(source);
+                    continue;
+                }
+                if (!hiddenBefore.TryGetValue(anchor.Id!, out var hidden))
+                    hiddenBefore[anchor.Id!] = hidden = [];
+                hidden.Add(source);
             }
-            result.AddRange(edited);
+            var result = new List<RuleSettings>(_sourceRules.Count + edited.Count);
+            foreach (var rule in edited)
+            {
+                if (hiddenBefore.TryGetValue(rule.Id!, out var hidden)) result.AddRange(hidden);
+                result.Add(rule);
+            }
+            result.AddRange(trailing);
             return result;
         }
 

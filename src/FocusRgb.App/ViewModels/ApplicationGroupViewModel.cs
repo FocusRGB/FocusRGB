@@ -58,6 +58,8 @@ namespace FocusRgb.App.ViewModels
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Executables)));
         }
 
+        public override string ToString() => DisplayName;
+
         private void Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
         {
             if (EqualityComparer<T>.Default.Equals(field, value))

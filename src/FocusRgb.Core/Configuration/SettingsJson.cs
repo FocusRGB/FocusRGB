@@ -86,10 +86,11 @@ namespace FocusRgb.Core.Configuration
 
         public static PluginSettings CreateDefaultPluginSettings() => new() { Enabled = [] };
 
-        private static List<string>? NormalizeExecutables(List<string>? executables) => executables?.Select(
-            executable => executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-                ? executable
-                : executable + ".exe").ToList();
+        private static List<string>? NormalizeExecutables(List<string>? executables) => executables?
+            .Select(executable => executable.Trim())
+            .Select(executable => Path.GetFileNameWithoutExtension(executable) + ".exe")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         private static SelectionSettings? MigrateSelection(SelectionSettings? selection)
         {
@@ -115,6 +116,7 @@ namespace FocusRgb.Core.Configuration
             var migrated = new List<RuleSettings>(rules.Count);
             foreach (var rule in rules)
             {
+                var hasExecutableMatcher = rule.Match?.Executables is not null;
                 var hasExecutables = rule.Match?.Executables is { Count: > 0 };
                 var hasGame = rule.Match?.Game is not null;
                 if (hasExecutables)
@@ -128,7 +130,8 @@ namespace FocusRgb.Core.Configuration
                         AdditionalProperties = rule.Match.AdditionalProperties
                     }, id));
                 }
-                if (!hasExecutables && !hasGame)
+                if (!hasExecutables && !hasGame
+                    && (!hasExecutableMatcher || rule.ApplicationGroup is not null))
                     migrated.Add(CopyRule(rule, rule.ApplicationGroup, match: null));
             }
             return migrated;

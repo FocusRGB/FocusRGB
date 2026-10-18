@@ -26,6 +26,7 @@ namespace FocusRgb.App.Tests
             Assert.Equal("Programming maps to Programming, while-focused", mapping.AccessibleName);
             Assert.Equal(mapping.AccessibleName, mapping.ToString());
             Assert.Equal("Remove Programming mapping", mapping.RemoveAccessibleName);
+            Assert.Equal("Programming", mapping.SelectedApplicationGroup.ToString());
         }
 
         [Fact]
@@ -144,6 +145,22 @@ namespace FocusRgb.App.Tests
             Assert.Equal("570", game.Match!.Game!.Id);
             Assert.False(game.Enabled);
             Assert.Equal(1, game.AdditionalProperties!["future"].GetInt32());
+        }
+
+        [Fact]
+        public void RemovingMapping_DoesNotMoveFollowingApplicationAheadOfGameRule()
+        {
+            var root = JsonNode.Parse(SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!))!;
+            root["rules"]!.AsArray().Insert(1, JsonNode.Parse("""
+                {"id":"steam-game","profile":"movie","match":{"game":{"launcher":"steam","id":"570"}},"eligibility":"while-running","enabled":true}
+                """));
+            var editor = MainWindowViewModel.CreatePreview(
+                SettingsJson.Load(root.ToJsonString()).Settings!).MappingEditor;
+
+            editor.Remove(editor.Mappings.Single(mapping => mapping.Id == "programming"));
+            var saved = editor.CreateRuleSettings();
+
+            Assert.Equal(["steam-game", "movie", "music"], saved.Select(rule => rule.Id));
         }
     }
 }
