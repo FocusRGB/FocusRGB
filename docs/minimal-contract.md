@@ -46,7 +46,7 @@ of `settings.json`.
 | `state.json` | Selection intent | After every validated mode or profile change |
 | `native-setup.json` | Native fallback snapshot | Only when the user applies a native setup (never by previews or provider changes) |
 
-### `settings.json` — frozen at schema version 4
+### `settings.json` — frozen at schema version 5
 
 Seeded on first run with four acceptance profiles. The `default` profile identity is protected:
 it must exist, cannot be removed, and remains `selection.defaultProfile`. Other profile values
@@ -54,7 +54,7 @@ and all automatic mappings are user-editable.
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "application": {
     "closeButtonBehavior": "minimize-to-tray",
     "startMinimized": false,

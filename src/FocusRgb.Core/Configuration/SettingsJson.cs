@@ -5,7 +5,7 @@ namespace FocusRgb.Core.Configuration
     /// <summary>Reads and validates settings in memory before LocalStateStore persists them.</summary>
     public static class SettingsJson
     {
-        public const int CurrentSchemaVersion = 4;
+        public const int CurrentSchemaVersion = 5;
 
         public static SettingsLoadResult Load(string json)
         {
@@ -13,23 +13,25 @@ namespace FocusRgb.Core.Configuration
             try
             {
                 var document = JsonSerializer.Deserialize<SettingsDocument>(json, ConfigurationJson.Options);
-                if (document?.SchemaVersion is 1 or 2 or 3)
+                if (document?.SchemaVersion is 1 or 2 or 3 or 4)
                 {
-                    var groups = document.ApplicationGroups?.Select(group => new ApplicationGroupSettings
-                    {
-                        Id = group.Id,
-                        DisplayName = group.DisplayName,
-                        Executables = NormalizeExecutables(group.Executables),
-                        AdditionalProperties = group.AdditionalProperties
-                    }).ToList() ?? document.Rules?.Where(rule => rule.Match?.Executables is { Count: > 0 }).Select(rule =>
-                        new ApplicationGroupSettings
+                    var groups = document.SchemaVersion < 4
+                        ? document.ApplicationGroups?.Select(group => new ApplicationGroupSettings
                         {
-                            Id = rule.Id,
-                            DisplayName = document.Profiles?.FirstOrDefault(profile => profile.Id == rule.Profile)?.DisplayName
-                                ?? rule.Id,
-                            Executables = NormalizeExecutables(rule.Match!.Executables),
-                            AdditionalProperties = rule.Match.AdditionalProperties
-                        }).ToList();
+                            Id = group.Id,
+                            DisplayName = group.DisplayName,
+                            Executables = NormalizeExecutables(group.Executables),
+                            AdditionalProperties = group.AdditionalProperties
+                        }).ToList() ?? document.Rules?.Where(rule => rule.Match?.Executables is { Count: > 0 }).Select(rule =>
+                            new ApplicationGroupSettings
+                            {
+                                Id = rule.Id,
+                                DisplayName = document.Profiles?.FirstOrDefault(profile => profile.Id == rule.Profile)?.DisplayName
+                                    ?? rule.Id,
+                                Executables = NormalizeExecutables(rule.Match!.Executables),
+                                AdditionalProperties = rule.Match.AdditionalProperties
+                            }).ToList()
+                        : document.ApplicationGroups;
                     document = new SettingsDocument
                     {
                         SchemaVersion = CurrentSchemaVersion,
@@ -40,9 +42,9 @@ namespace FocusRgb.Core.Configuration
                             ? CreateDefaultPluginSettings()
                             : document.Plugins,
                         Selection = MigrateSelection(document.Selection),
-                        Profiles = document.Profiles,
+                        Profiles = MigrateProfiles(document.Profiles),
                         ApplicationGroups = groups,
-                        Rules = MigrateRules(document.Rules),
+                        Rules = document.SchemaVersion < 4 ? MigrateRules(document.Rules) : document.Rules,
                         AdditionalProperties = document.AdditionalProperties
                     };
                 }
@@ -85,6 +87,43 @@ namespace FocusRgb.Core.Configuration
         };
 
         public static PluginSettings CreateDefaultPluginSettings() => new() { Enabled = [] };
+
+        private static List<ProfileSettings>? MigrateProfiles(List<ProfileSettings>? profiles) => profiles?
+            .Select(profile => profile.Id == "movie"
+                ? new ProfileSettings
+                {
+                    Id = profile.Id,
+                    DisplayName = profile.DisplayName,
+                    Bindings = profile.Bindings?.Select(MigrateMovieBinding).ToList(),
+                    Fallback = profile.Fallback,
+                    AdditionalProperties = profile.AdditionalProperties
+                }
+                : profile)
+            .ToList();
+
+        private static BindingSettings MigrateMovieBinding(BindingSettings binding)
+        {
+            if (binding.Id != "main"
+                || binding.Plugin != "signalrgb"
+                || binding.Effect is not { ResourceId: null, DisplayName: "Screen Ambient" })
+                return binding;
+
+            return new BindingSettings
+            {
+                Id = binding.Id,
+                Plugin = binding.Plugin,
+                RenderingAuthority = binding.RenderingAuthority,
+                DeviceScope = binding.DeviceScope,
+                Effect = new ResourceReference
+                {
+                    ResourceId = null,
+                    DisplayName = "Screen Ambience",
+                    AdditionalProperties = binding.Effect.AdditionalProperties
+                },
+                Layout = binding.Layout,
+                AdditionalProperties = binding.AdditionalProperties
+            };
+        }
 
         private static List<string>? NormalizeExecutables(List<string>? executables) => executables?
             .Select(executable => executable.Trim())

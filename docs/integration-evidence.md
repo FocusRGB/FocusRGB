@@ -47,8 +47,9 @@ OneDrive Documents and contained no files. The workspace MCP config and launcher
 `../../.mcp.json`; it points to `../modules/signalrgb/tools/signalrgb-mcp.cmd`.
 
 Current check on 2026-10-18: SignalRGB 2.5.80 was installed but stopped. Neither control port
-was listening, no shell URL handler was registered, and this version contained no
-`SignalRgbMcp.exe`. The bundled/downloaded files confirm `Aurora`, `Screen Ambience`, and
+was listening. The reviewer's live check found the shell URL handler registered in HKCU and
+HKCR. `SignalRgbMcp.exe` exists in 2.5.74 but was removed from 2.5.80, so the newest-version
+launcher cannot start it. The bundled/downloaded files confirm `Aurora`, `Screen Ambience`, and
 `Logarithmic Visualizer`; the seeded Movie fixture was corrected from `Screen Ambient`.
 
 ## WLED/layout/calibration

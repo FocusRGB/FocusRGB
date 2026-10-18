@@ -9,7 +9,7 @@ changed. Results are specific to SignalRGB 2.5.80 and the account/cache state on
 | Capability | Result | Evidence and consequence for Slice 15 |
 |---|---|---|
 | Process discovery | Verified | `SignalRgb.exe` is the process name and the latest executable is `%LOCALAPPDATA%\VortxEngine\app-2.5.80\Signal-x64\SignalRgb.exe` (file version `2.5.80.0`). No process was running during this check. Discover the newest semantic `app-*` directory; do not pin a version. |
-| Launcher discovery | Verified | `%LOCALAPPDATA%\VortxEngine\SignalRgbLauncher.exe` exists (file version `1.0.0.1`). SignalRGB documents direct launcher use with `--url`; no `signalrgb:` handler was registered in HKCU or HKCR on this machine, so the plugin must use the launcher path rather than assume shell registration. |
+| Launcher discovery | Verified | `%LOCALAPPDATA%\VortxEngine\SignalRgbLauncher.exe` exists (file version `1.0.0.1`). The reviewer's live check found the `signalrgb:` protocol registered in both HKCU and HKCR and pointing to this launcher. SignalRGB also documents direct launcher use with `--url`; use the launcher path because shell registration cannot be assumed on every machine. |
 | Effect catalog | Verified with limits | Five bundled effects and two downloaded cached effects were readable without starting SignalRGB. The cache is evidence for this installation, not a stable API. Prefer the documented Local API when authorized; use file discovery only as an explicitly degraded catalog with honest availability. |
 | Current effect | Unavailable in this session | The documented read-only endpoint is `GET http://127.0.0.1:16038/api/v1/lighting`. SignalRGB was stopped and port 16038 was not listening. A prior 2.5.74 check found the lighting API Pro-gated on this account. Do not infer the current effect from cache files. |
 | Effect selection | Verified historically; not repeated | The documented `signalrgb://effect/apply/<encoded-name>` route previously selected installed/free effects through `SignalRgbLauncher.exe`. It provides no trustworthy confirmation of visible output. The Local API apply route was Pro-gated on this account. Slice 15 may expose launcher selection, but must report submission separately from confirmed application. |
@@ -17,7 +17,7 @@ changed. Results are specific to SignalRGB 2.5.80 and the account/cache state on
 | Layout export/geometry | Unavailable | The documented Local API lists layout names and the selected layout only. It exposes no read/export endpoint for device positions, rotation, scale, inversion, or layout brightness. Do not advertise layout export from this interface. |
 | Account restrictions | Verified | Official API documentation says most Local API endpoints require Pro and return HTTP 403 when the running user is unsigned or not Pro. The earlier 2.5.74 live check received this result for lighting reads and writes. URL submission is not an entitlement bypass. |
 | External application endpoints | Verified | Officially documented surfaces are application URLs for effect/page navigation and Canvas events at `http://localhost:16034/canvas/event`. Canvas events target a selected custom lightscript; they do not select that effect. No request was sent during this read-only slice. |
-| MCP transport | Unavailable | Neither installed `app-*` directory contains `SignalRgbMcp.exe`; therefore the repository's MCP launcher cannot work with 2.5.80. MCP tool names recorded in old research are not a supported wire contract for the plugin. |
+| MCP transport | Unavailable in 2.5.80 | `app-2.5.74\Signal-x64\SignalRgbMcp.exe` exists (file version `1.0.0.1`), but the executable was removed from `app-2.5.80`. The repository launcher selects the newest `app-*` directory and therefore fails with 2.5.80. MCP tool names recorded in old research are not a supported wire contract for the plugin. |
 
 ## Resolved fixture names
 
@@ -96,6 +96,8 @@ it, and never treat a marketplace entry as installed merely because it appears i
 - Never claim an effect was applied from launcher exit alone; expose a pending/unconfirmed result
   unless a read-back surface verifies it.
 - Do not implement layout export or MCP transport against this client version.
+- Schema 4 settings migrate the unresolved seeded Movie effect from `Screen Ambient` to
+  `Screen Ambience`; resolved or custom resource references are preserved.
 - Preserve provider authority: the plugin selects provider resources but does not control devices
   directly.
 

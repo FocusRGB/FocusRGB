@@ -195,8 +195,9 @@ OS startup registration remains deferred to Slice 28.
 
 Read-only checks on 2026-10-18 confirmed SignalRGB 2.5.80 is installed but stopped. Its bundled
 and downloaded files resolve the profile fixtures to Aurora, Screen Ambience, and Logarithmic
-Visualizer. The Local and Canvas API ports were not listening, no URL handler was registered,
-and no MCP executable ships in either installed version. No application URL was submitted and
+Visualizer. The Local and Canvas API ports were not listening. The reviewer's live check found
+the URL handler registered; the MCP executable exists in 2.5.74 but was removed from 2.5.80.
+No application URL was submitted and
 no live settings, effects, layouts, devices, registry values, services, or tasks changed.
 
 ## Active implementation slice
@@ -209,7 +210,8 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
   SignalRGB implementation was added to the application.
 - Implemented files and entry points: dated capability matrix, reproducible probes, official API
   references, Slice 15 constraints, and corrected `Screen Ambience` seed/contract/tests.
-- Verification: Release build passes with 0 warnings/errors; 284/284 tests pass.
+- Verification: Release build passes with 0 warnings/errors; 286/286 tests pass. PR #71 review
+  corrections include schema-4 seeded-effect migration coverage.
 - External/live evidence: SignalRGB 2.5.80 executable/catalog/cache inspection plus official
   Local API, layout, application-URL, Canvas, and Pro documentation.
 - Remaining acceptance criteria: none; every requested capability is classified verified or
