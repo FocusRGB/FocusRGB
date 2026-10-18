@@ -13,6 +13,9 @@ and acceptance criteria. GitHub issues track execution and milestones group cohe
   Reopen it if accepted work is later found incomplete.
 - Update this table, the slice document, and the GitHub issue together when scope, dependency,
   status, or milestone changes.
+- GitHub issue numbers are immutable and therefore do not express slice order. This table and the
+  manual order in the `FocusRGB Roadmap` project are canonical; place follow-up bugs with their
+  owning slice and milestone.
 - Close a milestone only when its slice issues are complete and its integration pull requests
   have landed. Do not invent due dates.
 
@@ -45,7 +48,7 @@ and acceptance criteria. GitHub issues track execution and milestones group cohe
 | 12 | [#40 — Windows application observations](https://github.com/MAJ224/FocusRGB/issues/40) | v0.3.0-alpha.1 | Completed |
 | 13 | [#39 — Application mappings and persistence](https://github.com/MAJ224/FocusRGB/issues/39) | v0.3.0-alpha.1 | Completed |
 | 14 | [#38 — SignalRGB capability investigation](https://github.com/MAJ224/FocusRGB/issues/38) | v0.3.0-alpha.1 | Completed |
-| 15 | [#43 — External SignalRGB plugin repository](https://github.com/MAJ224/FocusRGB/issues/43) | v0.3.0-alpha.1 | In review ([main #74](https://github.com/MAJ224/FocusRGB/pull/74), [external #1](https://github.com/MAJ224/FocusRGB-Plugin-SignalRGB/pull/1)) |
+| 15 | [#43 — External SignalRGB plugin repository](https://github.com/MAJ224/FocusRGB/issues/43) | v0.3.0-alpha.1 | Completed |
 | 16 | [#41 — SignalRGB acceptance gate](https://github.com/MAJ224/FocusRGB/issues/41) | v0.3.0-alpha.1 | Planned |
 | 17 | [#42 — Stabilize the public SDK and contributor example](https://github.com/MAJ224/FocusRGB/issues/42) | v0.4.0-alpha.1 | Planned |
 | 18 | [#45 — Local MCP commands](https://github.com/MAJ224/FocusRGB/issues/45) | v0.4.0-alpha.1 | Planned |
@@ -60,5 +63,12 @@ and acceptance criteria. GitHub issues track execution and milestones group cohe
 | 27 | [#53 — One native peripheral backend](https://github.com/MAJ224/FocusRGB/issues/53) | v0.5.0-alpha.1 | Planned |
 | 28 | [#51 — Startup, packaging, and recovery gate](https://github.com/MAJ224/FocusRGB/issues/51) | v0.5.0-alpha.1 | Planned |
 | 29 | [#55 — SignalRGB independence gate](https://github.com/MAJ224/FocusRGB/issues/55) | v0.5.0-alpha.1 | Planned |
+
+## Open bug follow-ups
+
+| Owning slice | Issue | Milestone |
+|---:|---|---|
+| Slice 17 | [#75 — Restart only the affected plugin](https://github.com/MAJ224/FocusRGB/issues/75) | v0.4.0-alpha.1 |
+| Slice 28 | [#76 — Preserve runtime when Windows session end is cancelled](https://github.com/MAJ224/FocusRGB/issues/76) | v0.5.0-alpha.1 |
 
 Assisted-by: OpenAI Codex
