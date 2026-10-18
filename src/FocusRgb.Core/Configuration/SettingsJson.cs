@@ -15,13 +15,19 @@ namespace FocusRgb.Core.Configuration
                 var document = JsonSerializer.Deserialize<SettingsDocument>(json, ConfigurationJson.Options);
                 if (document?.SchemaVersion is 1 or 2 or 3)
                 {
-                    var groups = document.ApplicationGroups ?? document.Rules?.Where(rule => rule.Match?.Executables is not null).Select(rule =>
+                    var groups = document.ApplicationGroups?.Select(group => new ApplicationGroupSettings
+                    {
+                        Id = group.Id,
+                        DisplayName = group.DisplayName,
+                        Executables = NormalizeExecutables(group.Executables),
+                        AdditionalProperties = group.AdditionalProperties
+                    }).ToList() ?? document.Rules?.Where(rule => rule.Match?.Executables is { Count: > 0 }).Select(rule =>
                         new ApplicationGroupSettings
                         {
                             Id = rule.Id,
                             DisplayName = document.Profiles?.FirstOrDefault(profile => profile.Id == rule.Profile)?.DisplayName
                                 ?? rule.Id,
-                            Executables = rule.Match!.Executables,
+                            Executables = NormalizeExecutables(rule.Match!.Executables),
                             AdditionalProperties = rule.Match.AdditionalProperties
                         }).ToList();
                     document = new SettingsDocument
@@ -33,23 +39,10 @@ namespace FocusRgb.Core.Configuration
                         Plugins = document.SchemaVersion is 1 or 2
                             ? CreateDefaultPluginSettings()
                             : document.Plugins,
-                        Selection = document.Selection,
+                        Selection = MigrateSelection(document.Selection),
                         Profiles = document.Profiles,
                         ApplicationGroups = groups,
-                        Rules = document.Rules?.Select(rule => new RuleSettings
-                        {
-                            Id = rule.Id,
-                            ApplicationGroup = rule.ApplicationGroup ?? (rule.Match?.Executables is null ? null : rule.Id),
-                            Profile = rule.Profile,
-                            Match = rule.Match?.Game is null ? null : new ApplicationMatch
-                            {
-                                Game = rule.Match.Game,
-                                AdditionalProperties = rule.Match.AdditionalProperties
-                            },
-                            Eligibility = rule.Eligibility,
-                            Enabled = rule.Enabled,
-                            AdditionalProperties = rule.AdditionalProperties
-                        }).ToList(),
+                        Rules = MigrateRules(document.Rules),
                         AdditionalProperties = document.AdditionalProperties
                     };
                 }
@@ -92,5 +85,78 @@ namespace FocusRgb.Core.Configuration
         };
 
         public static PluginSettings CreateDefaultPluginSettings() => new() { Enabled = [] };
+
+        private static List<string>? NormalizeExecutables(List<string>? executables) => executables?.Select(
+            executable => executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                ? executable
+                : executable + ".exe").ToList();
+
+        private static SelectionSettings? MigrateSelection(SelectionSettings? selection)
+        {
+            if (selection is null) return null;
+            var ignored = selection.IgnoredExecutables?.ToList();
+            if (ignored is not null
+                && !ignored.Contains("StartMenuExperienceHost.exe", StringComparer.OrdinalIgnoreCase))
+                ignored.Add("StartMenuExperienceHost.exe");
+            return new SelectionSettings
+            {
+                DefaultProfile = selection.DefaultProfile,
+                Unmatched = selection.Unmatched,
+                DebounceMs = selection.DebounceMs,
+                IgnoredExecutables = ignored,
+                AdditionalProperties = selection.AdditionalProperties
+            };
+        }
+
+        private static List<RuleSettings>? MigrateRules(List<RuleSettings>? rules)
+        {
+            if (rules is null) return null;
+            var usedIds = new HashSet<string>(rules.Select(rule => rule.Id!).Where(id => id is not null), StringComparer.Ordinal);
+            var migrated = new List<RuleSettings>(rules.Count);
+            foreach (var rule in rules)
+            {
+                var hasExecutables = rule.Match?.Executables is { Count: > 0 };
+                var hasGame = rule.Match?.Game is not null;
+                if (hasExecutables)
+                    migrated.Add(CopyRule(rule, rule.ApplicationGroup ?? rule.Id, match: null));
+                if (hasGame)
+                {
+                    var id = hasExecutables ? UniqueRuleId(rule.Id + "-game", usedIds) : rule.Id;
+                    migrated.Add(CopyRule(rule, applicationGroup: null, new ApplicationMatch
+                    {
+                        Game = rule.Match!.Game,
+                        AdditionalProperties = rule.Match.AdditionalProperties
+                    }, id));
+                }
+                if (!hasExecutables && !hasGame)
+                    migrated.Add(CopyRule(rule, rule.ApplicationGroup, match: null));
+            }
+            return migrated;
+        }
+
+        private static RuleSettings CopyRule(
+            RuleSettings source,
+            string? applicationGroup,
+            ApplicationMatch? match,
+            string? id = null) => new()
+            {
+                Id = id ?? source.Id,
+                ApplicationGroup = applicationGroup,
+                Profile = source.Profile,
+                Match = match,
+                Eligibility = source.Eligibility,
+                Enabled = source.Enabled,
+                AdditionalProperties = source.AdditionalProperties
+            };
+
+        private static string UniqueRuleId(string candidate, HashSet<string> usedIds)
+        {
+            for (var suffix = 1; ; suffix++)
+            {
+                var ending = suffix == 1 ? "" : $"-{suffix}";
+                var id = candidate[..Math.Min(candidate.Length, 64 - ending.Length)] + ending;
+                if (usedIds.Add(id)) return id;
+            }
+        }
     }
 }

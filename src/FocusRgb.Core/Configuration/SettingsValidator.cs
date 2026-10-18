@@ -214,7 +214,7 @@ namespace FocusRgb.Core.Configuration
                     }
                     Id(group.Id, path + ".id");
                     Required(group.DisplayName, path + ".displayName");
-                    ValidateNames(group.Executables, path + ".executables", false, Error);
+                    ValidateNames(group.Executables, path + ".executables", true, Error);
                     if (group.Executables is not null)
                     {
                         for (var executableIndex = 0; executableIndex < group.Executables.Count; executableIndex++)

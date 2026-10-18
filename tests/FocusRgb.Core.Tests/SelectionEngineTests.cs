@@ -109,16 +109,18 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("programming", decision.ProfileId);
         }
 
-        [Fact]
-        public void Select_PreservesStableFocus_WhenIgnoredWindowIsForeground()
+        [Theory]
+        [InlineData("SearchHost.exe")]
+        [InlineData("StartMenuExperienceHost.exe")]
+        public void Select_PreservesStableFocus_WhenIgnoredWindowIsForeground(string ignoredExecutable)
         {
             var clock = new TestTimeProvider();
             var engine = new SelectionEngine(Settings(
                 Rule("programming", "programming", "while-focused", 100, "Code.exe")), clock);
-            Stabilize(engine, clock, "Code.exe", "Code.exe", "SearchHost.exe");
+            Stabilize(engine, clock, "Code.exe", "Code.exe", ignoredExecutable);
 
             var decision = engine.Select(SelectionMode.Automatic, "default",
-                Observation("searchhost.EXE", "Code.exe", "SearchHost.exe"), Start.AddSeconds(3));
+                Observation(ignoredExecutable.ToUpperInvariant(), "Code.exe", ignoredExecutable), Start.AddSeconds(3));
 
             Assert.Equal("programming", decision.ProfileId);
         }

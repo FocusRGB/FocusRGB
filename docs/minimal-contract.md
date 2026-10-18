@@ -68,7 +68,7 @@ and all automatic mappings are user-editable.
     "defaultProfile": "default",
     "unmatched": "default-profile",
     "debounceMs": 2000,
-    "ignoredExecutables": ["ShellExperienceHost.exe", "SearchHost.exe", "LockApp.exe"]
+    "ignoredExecutables": ["ShellExperienceHost.exe", "StartMenuExperienceHost.exe", "SearchHost.exe", "LockApp.exe"]
   },
   "profiles": [
     {

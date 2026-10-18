@@ -202,6 +202,8 @@ namespace FocusRgb.Core.Tests
                 rule.Remove("applicationGroup");
                 rule["match"] = new JsonObject { ["executables"] = executablesById[id] };
             }
+            root["rules"]![0]!["match"]!["executables"]![0] = "Code";
+            root["rules"]![0]!["match"]!["game"] = JsonNode.Parse("""{"launcher":"steam","id":"570"}""");
 
             var result = SettingsJson.Load(root.ToJsonString());
 
@@ -210,6 +212,9 @@ namespace FocusRgb.Core.Tests
             Assert.Equal(["Code.exe", "devenv.exe"], group.Executables);
             Assert.Equal("programming", result.Settings.Rules![0].ApplicationGroup);
             Assert.Null(result.Settings.Rules[0].Match);
+            var game = Assert.Single(result.Settings.Rules, rule => rule.Match?.Game is not null);
+            Assert.Equal("570", game.Match!.Game!.Id);
+            Assert.NotEqual("programming", game.Id);
             Assert.Equal(["fake-output"], result.Settings.Plugins!.Enabled);
         }
 
@@ -232,7 +237,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public void Load_RejectsNegativeDebounce_ButAcceptsEmptyApplicationGroup()
+        public void Load_RejectsNegativeDebounce_AndEmptyApplicationGroup()
         {
             var root = Defaults();
             Set(root, "selection.debounceMs", JsonValue.Create(-1));
@@ -240,7 +245,7 @@ namespace FocusRgb.Core.Tests
 
             Set(root, "selection.debounceMs", JsonValue.Create(2000));
             Set(root, "applicationGroups.0.executables", new JsonArray());
-            Assert.True(SettingsJson.Load(root.ToJsonString()).IsSuccess);
+            AssertError(root, "applicationGroups[0].executables");
         }
 
         [Fact]
