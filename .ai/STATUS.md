@@ -213,7 +213,7 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
   `MAJ224/FocusRGB` retains provider-neutral contracts, hosting, and a migration link.
 - External branch and pull request: `slice/15-separate-signalrgb-plugin` targets `develop`;
   external PR #1.
-- Main branch: `slice/15-external-signalrgb-plugin` targets `develop`.
+- Main branch and pull request: `slice/15-external-signalrgb-plugin` targets `develop`; PR #74.
 - Implemented behavior: status/process discovery, bundled and downloaded effect catalog,
   provider-authority and provider-managed-scope validation, encoded application-URL submission
   only while SignalRGB is already running, honest unverified selection, and unsupported layouts.
