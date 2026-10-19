@@ -206,12 +206,8 @@ namespace FocusRgb.PluginSdk
             var result = await plugin.InitializeAsync(parameters, cancellationToken).ConfigureAwait(false);
             var version = typeof(PluginServer).Assembly.GetName().Version
                 ?? throw new InvalidOperationException("The SDK assembly version is unavailable.");
-            return new InitializeResult
+            return result with
             {
-                PluginId = result.PluginId,
-                PluginVersion = result.PluginVersion,
-                ContractVersion = result.ContractVersion,
-                Capabilities = result.Capabilities,
                 Sdk = new PluginSdkInfo
                 {
                     Name = "FocusRgb.PluginSdk",

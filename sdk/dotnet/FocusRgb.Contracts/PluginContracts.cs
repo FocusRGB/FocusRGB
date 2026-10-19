@@ -47,7 +47,7 @@ namespace FocusRgb.Contracts
     }
 
     /// <summary>Reports plugin identity, negotiated contract version, and declared capabilities.</summary>
-    public sealed class InitializeResult
+    public sealed record InitializeResult
     {
         public required string PluginId { get; init; }
         public required string PluginVersion { get; init; }
