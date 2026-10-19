@@ -159,17 +159,21 @@ namespace FocusRgb.App.Tests
             return package;
         }
 
-        private static ManifestData Manifest() => new(
-            1,
-            "fake-output",
-            "1.0.0",
-            ContractVersion.Current,
-            "fake.dll",
-            [OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "macos" : "linux"],
-            [System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()],
-            ["output"],
-            [],
-            "MIT");
+        private static ManifestData Manifest()
+        {
+            var manifest = FakePluginPackage.Manifest("fake.dll");
+            return new ManifestData(
+                manifest.SchemaVersion,
+                manifest.Id!,
+                manifest.Version!,
+                manifest.ContractVersion!,
+                manifest.EntryPoint!,
+                manifest.OperatingSystems!,
+                manifest.Architectures!,
+                manifest.Roles!,
+                manifest.Resources!,
+                manifest.License!);
+        }
 
         private sealed record ManifestData(
             int SchemaVersion,
