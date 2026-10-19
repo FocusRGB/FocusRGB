@@ -9,7 +9,7 @@ Requirements live in [`app-brief.md`](app-brief.md), contracts and behavior in
 [`plugin-architecture.md`](plugin-architecture.md), and verified external facts in
 [`integration-evidence.md`](integration-evidence.md).
 
-Status: **00–13 implemented and merged. 14 is implemented and awaiting review.**
+Status: **00–15 implemented and merged. 16 is in progress.**
 
 ## 1 — Foundation
 
@@ -55,9 +55,8 @@ Status: **00–13 implemented and merged. 14 is implemented and awaiting review.
   add detected/manual applications, persist automation rules, and wire automatic profile selection.
 - ✅ [14 — SignalRGB investigation](<slices/5-External Applications/14-signalrgb-capability-investigation.md>):
   verify supported APIs, catalogs, selection, layouts, and limitations.
-- ⏳ [15 — External SignalRGB plugin](<slices/5-External Applications/15-separate-signalrgb-plugin.md>):
+- ✅ [15 — External SignalRGB plugin](<slices/5-External Applications/15-separate-signalrgb-plugin.md>):
   implement provider status, catalogs, and guarded effect application in its peer repository.
-  **In review:** [external plugin PR #1](https://github.com/FocusRGB/FocusRGB-Plugin-SignalRGB/pull/1).
 - ⏳ [16 — SignalRGB acceptance gate](<slices/5-External Applications/16-signalrgb-acceptance-gate.md>):
   connect the already-selected profile to SignalRGB and verify the complete switching path with the user.
 

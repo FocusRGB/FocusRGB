@@ -52,6 +52,14 @@ HKCR. `SignalRgbMcp.exe` exists in 2.5.74 but was removed from 2.5.80, so the ne
 launcher cannot start it. The bundled/downloaded files confirm `Aurora`, `Screen Ambience`, and
 `Logarithmic Visualizer`; the seeded Movie fixture was corrected from `Screen Ambient`.
 
+Slice 16 read-only package check on 2026-10-19: the merged peer plugin passed 10/10 tests and
+produced a dry-run ZIP containing its manifest at the root with the `FocusRGB` organization
+source URL. The packaged executable completed JSON-RPC initialize, status, effect/layout catalog,
+and shutdown calls. SignalRGB was stopped; Aurora, Screen Ambience, and Logarithmic Visualizer
+were available in the effect catalog, while layout catalog/selection remained explicitly
+unsupported. No `binding/apply` request or application URL was sent, so this is package/API
+evidence only, not visible-output acceptance.
+
 ## WLED/layout/calibration
 
 Desk and Wall are known at `10.0.0.36` and `10.0.0.37`. On 2026-10-08, Desk answered with

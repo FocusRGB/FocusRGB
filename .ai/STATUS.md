@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-18.
+Updated: 2026-10-19.
 
 ## Completed
 
@@ -208,15 +208,34 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 ## Active implementation slice
 
 - Slice: 16 — SignalRGB acceptance gate
-- State: planned; Slice 15 is merged in both repositories
-- Repositories: `FocusRGB/FocusRGB` owns the acceptance gate and
-  `FocusRGB/FocusRGB-Plugin-SignalRGB` owns the provider package under test.
-- Remaining acceptance criteria: run Slice 16's live install, profile-switching, visible-output,
-  failure, and removal gate.
-- Current blocker or required product input: none.
-- Uncommitted work to preserve: none.
-- Next action: package the merged plugin and run Slice 16's live end-to-end acceptance gate.
-- Next slice: 16 — SignalRGB acceptance gate.
+- State: in progress; Slice 15 is merged in both repositories
+- Branch, latest relevant implementation commit, and pull request:
+  `slice/16-signalrgb-acceptance-gate`; `ea30750`; PR pending.
+- Scope and dependencies verified: the existing coordinator owns catalog resolution, timeout,
+  fallback, ownership, and recovery consent; the app supplies lifecycle/status wiring; the peer
+  SignalRGB plugin supplies its honest effect and unsupported-layout capabilities.
+- Implemented files and entry points: `MainWindowViewModel.RefreshProfileResourcesAsync` loads
+  capability-aware provider choices without blocking the UI; the Profiles page uses catalog
+  options, retains unavailable saved/draft choices, preserves the current provider layout, and
+  saves an exact catalog resource ID. App startup, provider loss, and restart refresh the editor.
+- Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passed with 0 warnings/errors;
+  `dotnet test --solution FocusRGB.slnx -c Release --no-restore` passed 293/293. The merged peer
+  plugin passed 10/10 tests and produced a validated dry-run ZIP with SHA-256
+  `247572801EFC862C903106ACB0A4344A1F9CE497619ED2863B0FF3FB91AB6E48`.
+- External/live evidence: a read-only probe of the packaged executable completed initialize,
+  status, effect/layout catalog, and shutdown. SignalRGB was stopped; Aurora, Logarithmic
+  Visualizer, and Screen Ambience were available, and layouts reported unsupported as designed.
+  No `binding/apply` call or SignalRGB URL was submitted, and no visible lighting, provider files,
+  or user settings were changed.
+- Remaining acceptance criteria: install the merged plugin, verify first start/restart,
+  manual and automatic four-profile switching, absent-provider/failure/recovery approval, visible
+  output, and removal. Record application-URL requests as unverified until the user confirms light.
+- Current blocker or required product input: explicit approval is required before the live
+  SignalRGB session changes visible lighting.
+- Uncommitted work to preserve: none after the package/probe evidence commit.
+- Next action: after explicit live-test approval, back up the real FocusRGB data folder, install
+  and enable the package, and run the four-profile acceptance matrix with visible confirmation.
+- Next slice: 17 only after all Slice 16 acceptance criteria pass.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
 `global.json`; use `dotnet test --solution …`, not the VSTest form. The App and Windows
@@ -260,9 +279,8 @@ exact catalog match; SignalRGB bindings use a
 ## Next step
 
 Slice 15 is merged in the independent SignalRGB plugin repository and the main repository.
-Slice 16 performs the live install,
-profile-switching, visible-output, failure, and removal gate; no live effect application belongs
-in Slice 15.
+Slice 16 is in progress: provider catalogs and stable resource IDs are connected to the profile
+editor, while the live install, switching, visible-output, failure, and removal gate remains.
 
 Profile persistence, tray lifecycle, application settings, plugin hosting, coordination, Windows
 observations, application mappings, and the SignalRGB capability investigation are complete.

@@ -84,7 +84,7 @@ namespace FocusRgb.App
                     startup.Snapshot.Desired.Reason);
                 ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
                 var viewModel = MainWindowViewModel.CreatePersistent(
-                    startup.Snapshot, _store, trayAvailable, outputCoordinator, initialOutput);
+                    startup.Snapshot, _store, trayAvailable, outputCoordinator, initialOutput, pluginGateway);
                 pluginGateway.AvailabilityChanged += async (_, change) =>
                 {
                     if (_shutdownApproved) return;
@@ -101,6 +101,8 @@ namespace FocusRgb.App
                             AppLog.Write($"Plugin {change.PluginId} became unavailable: {change.Message}");
                             _ = RestartPluginAsync(packagesDirectory, change.PluginId, pluginGateway, viewModel, outputCoordinator);
                         }
+                        await await Dispatcher.UIThread.InvokeAsync<Task>(
+                            () => viewModel.RefreshProfileResourcesAsync());
                     }
                     catch (Exception exception)
                     {
@@ -145,6 +147,7 @@ namespace FocusRgb.App
                         pluginGateway.Attach(_plugins.Entries);
                         UpdateIntegrationStatuses(viewModel);
                         await viewModel.ReapplyOutputAsync();
+                        await viewModel.RefreshProfileResourcesAsync();
                         foreach (var entry in _plugins.Entries.Where(entry => !entry.IsRunning))
                             _ = RestartPluginAsync(packagesDirectory, entry.PluginId, pluginGateway, viewModel, outputCoordinator);
                     }
@@ -379,6 +382,8 @@ namespace FocusRgb.App
                     AppLog.Write($"Plugin {pluginId} failed to restart; another attempt will be made.");
                 else if (!retry)
                     _ = ResetRestartAttemptsAfterStableRunAsync(runtime, entry);
+                await await Dispatcher.UIThread.InvokeAsync<Task>(
+                    () => viewModel.RefreshProfileResourcesAsync());
             }
             catch (ObjectDisposedException) when (_shutdownApproved)
             {
