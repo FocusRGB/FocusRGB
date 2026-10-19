@@ -68,7 +68,7 @@ and acceptance criteria. GitHub issues track execution and milestones group cohe
 
 | Owning slice | Issue | Milestone | Status |
 |---:|---|---|---|
-| Slice 17 | [#75 — Restart only the affected plugin](https://github.com/MAJ224/FocusRGB/issues/75) | v0.4.0-alpha.1 | Fix in review: [#78](https://github.com/MAJ224/FocusRGB/pull/78); Release build clean and all 290 tests pass |
+| Slice 17 | [#75 — Restart only the affected plugin](https://github.com/MAJ224/FocusRGB/issues/75) | v0.4.0-alpha.1 | Fix in review: [#78](https://github.com/MAJ224/FocusRGB/pull/78); Release build clean and all 291 tests pass |
 | Slice 28 | [#76 — Preserve runtime when Windows session end is cancelled](https://github.com/MAJ224/FocusRGB/issues/76) | v0.5.0-alpha.1 | Fix in review: [#78](https://github.com/MAJ224/FocusRGB/pull/78); query, cancellation, and committed-end regressions pass |
 
 Assisted-by: OpenAI Codex

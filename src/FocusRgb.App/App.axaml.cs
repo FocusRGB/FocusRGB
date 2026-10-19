@@ -43,7 +43,8 @@ namespace FocusRgb.App
             {
                 _desktop = desktop;
                 desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-                desktop.ShutdownRequested += Desktop_OnShutdownRequested;
+                if (!OperatingSystem.IsWindows())
+                    desktop.ShutdownRequested += Desktop_OnShutdownRequested;
                 desktop.Exit += (_, _) =>
                 {
                     _trayIcon?.Dispose();
@@ -128,6 +129,7 @@ namespace FocusRgb.App
                 if (trayAvailable && startup.Snapshot.Settings.Application.StartMinimized == true)
                 {
                     _trayIcon!.ToolTipText = "FocusRGB is running in the system tray.";
+                    mainWindow.CreateHiddenPlatformWindow();
                     mainWindow.NotifyStartedMinimized();
                 }
                 else
@@ -349,9 +351,9 @@ namespace FocusRgb.App
             MainWindowViewModel viewModel,
             OutputCoordinator coordinator)
         {
-            if (!_pluginRestartsPending.TryAdd(pluginId, 0)
-                || _shutdownApproved
-                || _plugins is not { } runtime) return;
+            if (_shutdownApproved
+                || _plugins is not { } runtime
+                || !_pluginRestartsPending.TryAdd(pluginId, 0)) return;
             var retry = false;
             var attempt = 0;
             try
