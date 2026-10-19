@@ -41,9 +41,9 @@ Controller plugins are external processes, not SignalRGB-style JavaScript files 
 the application. Each package contains a versioned manifest, one or more platform entry
 points, configuration schema, resources, and a license. The app launches explicitly enabled
 plugins and communicates through a versioned JSON-RPC protocol over standard input/output.
-The main FocusRGB repository owns the official .NET SDK, contracts, schemas, host, conformance
-tests, template, and a fake/reference plugin. The SDK implements the plugin side of the
-protocol, while published JSON schemas leave room for plugins written in other languages.
+The main FocusRGB repository owns the multi-language `sdk/` area, contracts, schemas, host,
+conformance tests, templates, and a fake/reference plugin. SDK libraries implement the plugin
+side of the protocol, while the published JSON schemas remain language-neutral.
 The host launches and supervises plugins; it never loads third-party assemblies into the app
 process.
 
@@ -112,13 +112,13 @@ The main repository retains a fake/reference plugin so host and SDK compatibilit
 tested in one checkout. A lightweight catalog may later point to approved plugin releases;
 plugins are never included through Git submodules. GitHub repositories are peers rather than
 literal child repositories, so the naming convention and catalog express their relationship.
-The `templates/dotnet-plugin` template generates an independent repository that restores the
+The `sdk/templates/dotnet-plugin` template generates an independent repository that restores the
 public SDK package, builds without an app checkout, and starts from the same conformance-tested
 provider lifecycle as the fake plugin.
 
 ## Contract sketch
 
-[`plugin-protocol.md`](plugin-protocol.md) is the normative transport, lifecycle, message, and
+[`plugin-protocol.md`](../sdk/spec/plugin-protocol.md) is the normative transport, lifecycle, message, and
 versioning contract. The JSON schemas are normative machine-readable constraints. This section
 explains architectural intent and does not redefine their wire shapes.
 

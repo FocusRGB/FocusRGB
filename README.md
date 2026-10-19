@@ -54,7 +54,7 @@ A local MCP interface is planned for controlling the same commands used by the U
   diagnostics, ownership boundaries, and defaults.
 - [Minimal contract](docs/minimal-contract.md): frozen settings, state, status, command,
   and plugin protocol shapes for the first implementation goal.
-- [Plugin protocol](docs/plugin-protocol.md): normative language-neutral process-plugin 1.0
+- [Plugin protocol](sdk/spec/plugin-protocol.md): normative language-neutral process-plugin 1.0
   transport, lifecycle, messages, and compatibility policy.
 - [Plugin architecture](docs/plugin-architecture.md): integration contracts, selection,
   rendering authority, fallback, and layouts.
@@ -81,9 +81,13 @@ owns the SignalRGB provider implementation and maintained research. Application 
 
 ```text
 FocusRGB.slnx
+sdk/
+  spec/                        normative protocol and manifest schemas
+  dotnet/                      FocusRgb.Contracts and FocusRgb.PluginSdk
+  conformance/                 language-neutral protocol runner
+  templates/dotnet-plugin/     standalone `dotnet new` repository starter
+  examples/python-plugin/      no-SDK language-neutral example
 src/
-  FocusRgb.Contracts/          net10.0, provider-neutral plugin protocol types
-  FocusRgb.PluginSdk/          net10.0, packaged plugin-side JSON-RPC runtime
   FocusRgb.Core/               net10.0, profiles, selection, and local persistence
   FocusRgb.Platform.Windows/   net10.0-windows, focus/process detection
   FocusRgb.App/                net10.0-windows, Avalonia shell (FocusRGB.exe)
@@ -91,10 +95,7 @@ tests/
   FocusRgb.App.Tests/          xUnit; UI-facing preview-state tests
   FocusRgb.Core.Tests/         xUnit; dependency-boundary and core tests
   FocusRgb.FakePlugin/         executable plugin protocol fixture
-schemas/                       plugin manifest and protocol JSON schemas
 tools/                         SDK package check and screen colour test
-examples/python-plugin/        language-neutral protocol example
-templates/dotnet-plugin/       standalone `dotnet new` plugin repository starter
 docs/                          brief, architecture, contract, slices, workflow
 .ai/                           shared AI instructions, status, handoff
 build/                         generated output (git-ignored)

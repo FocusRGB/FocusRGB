@@ -107,8 +107,8 @@ still open. Slice 17 is in progress.**
 
 ## Source boundaries
 
-- `src/FocusRgb.Contracts/`: provider-neutral plugin messages, capabilities, results, and IDs.
-- `src/FocusRgb.PluginSdk/`: plugin-side protocol helpers, packaged from the main repository.
+- `sdk/spec/`: normative plugin protocol and manifest schemas.
+- `sdk/dotnet/`: provider-neutral contracts and packaged .NET plugin-side helpers.
 - `src/FocusRgb.Core/`: profiles, arbitration, persistence, commands, fallback, and ownership.
 - `src/FocusRgb.Platform.Windows/`: Windows process/focus detection and later screen capture.
 - `src/FocusRgb.App/`: Avalonia tray/settings UI and generic plugin-host wiring.

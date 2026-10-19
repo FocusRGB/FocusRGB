@@ -71,7 +71,7 @@ and acceptance criteria. GitHub issues track execution and milestones group cohe
 | Slice 17 | [#75 — Restart only the affected plugin](https://github.com/FocusRGB/FocusRGB/issues/75) | v0.4.0-alpha.1 | Completed in [#78](https://github.com/FocusRGB/FocusRGB/pull/78) |
 | Slice 17 | [#79 — Document the plugin protocol and publish the SDK to nuget.org](https://github.com/FocusRGB/FocusRGB/issues/79) | v0.4.0-alpha.1 | In progress with Slice 17 |
 | Slice 17 | [#80 — Discover and install official or custom plugins](https://github.com/FocusRGB/FocusRGB/issues/80) | v0.4.0-alpha.1 | Planned after the 1.0 package contract |
-| Slice 17 | [#84 — Move contracts and SDKs to FocusRGB-Plugin-SDK](https://github.com/FocusRGB/FocusRGB/issues/84) | v0.4.0-alpha.1 | Planned after #79 |
+| Slice 17 | [#84 — Add the multi-language SDK area](https://github.com/FocusRGB/FocusRGB/issues/84) | v0.4.0-alpha.1 | In progress with Slice 17 |
 | Slice 28 | [#76 — Preserve runtime when Windows session end is cancelled](https://github.com/FocusRGB/FocusRGB/issues/76) | v0.5.0-alpha.1 | Fix in review: [#78](https://github.com/FocusRGB/FocusRGB/pull/78); query, cancellation, and committed-end regressions pass |
 
 Assisted-by: OpenAI Codex

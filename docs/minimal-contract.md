@@ -28,7 +28,7 @@ Slice 17 promotes the proven shapes to SDK version 1; later surfaces such as nat
 | Item | Field | Rule |
 |---|---|---|
 | Each persisted file | `schemaVersion` (integer, starts at 1) | Older versions migrate forward on load and are saved only after successful validation; settings also refresh their last-known-good recovery copy. A newer version than the app understands is loaded read-only or rejected with a reason; it is never overwritten. |
-| Plugin protocol | `contractVersion` (`"major.minor"`; stable version `"1.0"`) | The host and plugin must share the major version. Minor versions add optional, capability-gated behavior. A mismatch fails the handshake with `contract-incompatible`. The normative protocol is [plugin-protocol.md](plugin-protocol.md). |
+| Plugin protocol | `contractVersion` (`"major.minor"`; stable version `"1.0"`) | The host and plugin must share the major version. Minor versions add optional, capability-gated behavior. A mismatch fails the handshake with `contract-incompatible`. The normative protocol is [plugin-protocol.md](../sdk/spec/plugin-protocol.md). |
 
 While the major version is `0`, breaking changes are allowed between slices but must update
 this document, the fake plugin, and tests in the same commit.
