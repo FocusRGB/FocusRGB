@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace FocusRgb.Contracts
 {
-    /// <summary>Names the JSON-RPC methods in the frozen 0.1 plugin protocol.</summary>
+    /// <summary>Names the JSON-RPC methods in the stable 1.0 plugin protocol.</summary>
     public static class PluginMethods
     {
         public const string Initialize = "initialize";

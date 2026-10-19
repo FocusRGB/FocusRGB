@@ -39,21 +39,21 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public async Task StartAsync_ReturnsContractIncompatible_WhenPluginReportsNewMajor()
+        public async Task StartAsync_ReturnsContractIncompatible_WhenPluginReportsDifferentMajor()
         {
-            var started = await StartAsync("--contract-version", "1.0");
+            var started = await StartAsync("--contract-version", "2.0");
 
             Assert.False(started.IsSuccess);
             Assert.Equal("contract-incompatible", started.ErrorCode);
         }
 
         [Fact]
-        public async Task StartAsync_AcceptsLowerMinorContractVersion()
+        public async Task StartAsync_ReturnsContractIncompatible_WhenPluginReportsPreStableMajor()
         {
-            var started = await StartAsync("--contract-version", "0.0");
+            var started = await StartAsync("--contract-version", "0.1");
 
-            Assert.True(started.IsSuccess, started.ErrorMessage);
-            await started.Client!.DisposeAsync();
+            Assert.False(started.IsSuccess);
+            Assert.Equal("contract-incompatible", started.ErrorCode);
         }
 
         [Fact]
@@ -531,7 +531,7 @@ namespace FocusRgb.App.Tests
         {
             SchemaVersion = 1,
             Id = "fake-output",
-            Version = "0.1.0",
+            Version = "1.0.0",
             ContractVersion = ContractVersion.Current,
             EntryPoint = "FocusRgb.FakePlugin.dll",
             OperatingSystems = ["windows"],

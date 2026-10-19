@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.Versioning;
+using System.Text.Json;
 using System.Xml.Linq;
 using FocusRgb.Contracts;
 
@@ -70,8 +71,42 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public void ContractVersion_MatchesMinimalContract() =>
-            Assert.Equal("0.1", ContractVersion.Current);
+        public void ContractVersion_MatchesStableProtocol() =>
+            Assert.Equal("1.0", ContractVersion.Current);
+
+        [Fact]
+        public void ProtocolSchema_MethodsMatchContractConstants()
+        {
+            using var schema = JsonDocument.Parse(File.ReadAllText(
+                Path.Combine(RepositoryRoot(), "schemas", "plugin-protocol.schema.json")));
+            var definitions = schema.RootElement.GetProperty("$defs");
+            var schemaMethods = definitions.GetProperty("request").GetProperty("properties")
+                .GetProperty("method").GetProperty("enum").EnumerateArray()
+                .Concat(definitions.GetProperty("notification").GetProperty("properties")
+                    .GetProperty("method").GetProperty("enum").EnumerateArray())
+                .Select(value => value.GetString()!)
+                .ToHashSet(StringComparer.Ordinal);
+            var contractMethods = typeof(PluginMethods).GetFields(BindingFlags.Public | BindingFlags.Static)
+                .Select(field => (string)field.GetRawConstantValue()!)
+                .ToHashSet(StringComparer.Ordinal);
+
+            Assert.True(contractMethods.SetEquals(schemaMethods));
+        }
+
+        [Fact]
+        public void ManifestSchema_PropertiesMatchContractType()
+        {
+            using var schema = JsonDocument.Parse(File.ReadAllText(
+                Path.Combine(RepositoryRoot(), "schemas", "plugin-manifest.schema.json")));
+            var schemaProperties = schema.RootElement.GetProperty("properties").EnumerateObject()
+                .Select(property => property.Name)
+                .ToHashSet(StringComparer.Ordinal);
+            var contractProperties = typeof(PluginManifest).GetProperties()
+                .Select(property => JsonNamingPolicy.CamelCase.ConvertName(property.Name))
+                .ToHashSet(StringComparer.Ordinal);
+
+            Assert.True(contractProperties.SetEquals(schemaProperties));
+        }
 
         [Fact]
         public void AppProject_DoesNotReferenceFakePlugin()

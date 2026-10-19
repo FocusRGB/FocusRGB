@@ -26,9 +26,9 @@ try {
     $extractA = Join-Path $run 'package-a'
     $extractB = Join-Path $run 'package-b'
     [System.IO.Compression.ZipFile]::ExtractToDirectory(
-        (Join-Path $feedA 'FocusRgb.PluginSdk.0.1.0.nupkg'), $extractA)
+        (Join-Path $feedA 'FocusRgb.PluginSdk.1.0.0.nupkg'), $extractA)
     [System.IO.Compression.ZipFile]::ExtractToDirectory(
-        (Join-Path $feedB 'FocusRgb.PluginSdk.0.1.0.nupkg'), $extractB)
+        (Join-Path $feedB 'FocusRgb.PluginSdk.1.0.0.nupkg'), $extractB)
     $contentsA = Get-ChildItem $extractA -Recurse -File | Sort-Object FullName | ForEach-Object {
         $_.FullName.Substring($extractA.Length) + ':' + (Get-FileHash $_.FullName -Algorithm SHA256).Hash
     }
@@ -45,7 +45,7 @@ try {
     Invoke-DotNet restore (Join-Path $consumer 'FocusRgb.PluginSdk.ConsumerFixture.csproj') --source $feedA --packages $packages
     Invoke-DotNet build (Join-Path $consumer 'FocusRgb.PluginSdk.ConsumerFixture.csproj') -c Release --no-restore
 
-    Write-Host 'Verified independent reproducible FocusRgb.PluginSdk 0.1.0 builds.'
+    Write-Host 'Verified independent reproducible FocusRgb.PluginSdk 1.0.0 builds.'
 }
 finally {
     $resolvedRun = [System.IO.Path]::GetFullPath($run)

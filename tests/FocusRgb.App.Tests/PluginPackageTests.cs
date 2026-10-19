@@ -46,25 +46,17 @@ namespace FocusRgb.App.Tests
             Assert.Equal("manifest-invalid", result.ErrorCode);
         }
 
-        [Fact]
-        public void Load_RejectsIncompatibleContractBeforeLaunch()
+        [Theory]
+        [InlineData("0.1")]
+        [InlineData("2.0")]
+        public void Load_RejectsIncompatibleContractBeforeLaunch(string contractVersion)
         {
-            WritePackage(Manifest() with { ContractVersion = "1.0" });
+            WritePackage(Manifest() with { ContractVersion = contractVersion });
 
             var result = PluginPackage.Load(_directory, "fake-output");
 
             Assert.False(result.IsSuccess);
             Assert.Equal("manifest-invalid", result.ErrorCode);
-        }
-
-        [Fact]
-        public void Load_AcceptsLowerMinorContractVersion()
-        {
-            WritePackage(Manifest() with { ContractVersion = "0.0" });
-
-            var result = PluginPackage.Load(_directory, "fake-output");
-
-            Assert.True(result.IsSuccess, result.ErrorMessage);
         }
 
         [Theory]
@@ -150,7 +142,7 @@ namespace FocusRgb.App.Tests
         private static ManifestData Manifest() => new(
             1,
             "fake-output",
-            "0.1.0",
+            "1.0.0",
             ContractVersion.Current,
             "fake.dll",
             [OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "macos" : "linux"],

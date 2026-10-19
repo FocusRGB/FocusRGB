@@ -2,10 +2,15 @@
   <!-- Portable, provider-neutral contracts. No Windows APIs and no project or package references. -->
   <PropertyGroup>
     <PackageId>FocusRgb.Contracts</PackageId>
+    <Version>1.0.0</Version>
     <Description>Provider-neutral contracts for FocusRGB process plugins.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/FocusRGB/FocusRGB</RepositoryUrl>
     <PackageProjectUrl>https://github.com/FocusRGB/FocusRGB</PackageProjectUrl>
     <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 </Project>
