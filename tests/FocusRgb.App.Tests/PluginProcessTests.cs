@@ -6,6 +6,7 @@ using FocusRgb.Contracts;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Selection;
+using FocusRgb.TestSupport;
 
 namespace FocusRgb.App.Tests
 {
@@ -443,7 +444,8 @@ namespace FocusRgb.App.Tests
         [Fact]
         public async Task Runtime_ReportsMissingEnabledPackage_WithoutFailingStartup()
         {
-            var directory = Path.Combine(Path.GetTempPath(), "FocusRgb.PluginTests", Guid.NewGuid().ToString("N"));
+            var tempDirectory = new TempDirectory(nameof(PluginProcessTests));
+            var directory = tempDirectory.Path;
             try
             {
                 await using var runtime = await PluginRuntime.StartAsync(
@@ -455,14 +457,15 @@ namespace FocusRgb.App.Tests
             }
             finally
             {
-                if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+                tempDirectory.Dispose();
             }
         }
 
         [Fact]
         public async Task Runtime_RestartsOnlyRequestedPlugin_AndKeepsHealthyPeerRunning()
         {
-            var directory = Path.Combine(Path.GetTempPath(), "FocusRgb.PluginTests", Guid.NewGuid().ToString("N"));
+            var tempDirectory = new TempDirectory(nameof(PluginProcessTests));
+            var directory = tempDirectory.Path;
             try
             {
                 await CreateFakePackageAsync(directory, TestContext.Current.CancellationToken);
@@ -481,7 +484,7 @@ namespace FocusRgb.App.Tests
             }
             finally
             {
-                if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+                tempDirectory.Dispose();
             }
         }
 

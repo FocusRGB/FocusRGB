@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Persistence;
+using FocusRgb.TestSupport;
 
 namespace FocusRgb.Core.Tests
 {
@@ -9,10 +10,8 @@ namespace FocusRgb.Core.Tests
     public sealed class LocalStateStoreTests : IDisposable
     {
         private static readonly DateTimeOffset Start = new(2026, 10, 12, 14, 0, 0, TimeSpan.Zero);
-        private readonly string _directory = Path.Combine(
-            Path.GetTempPath(),
-            "FocusRgb.Core.Tests",
-            Guid.NewGuid().ToString("N"));
+        private readonly TempDirectory _tempDirectory = new(nameof(LocalStateStoreTests));
+        private string _directory => _tempDirectory.Path;
 
         [Fact]
         public async Task InitializeAsync_CreatesManualDefault_WhenFilesAreMissing()
@@ -504,10 +503,7 @@ namespace FocusRgb.Core.Tests
 
         public void Dispose()
         {
-            if (Directory.Exists(_directory))
-            {
-                Directory.Delete(_directory, recursive: true);
-            }
+            _tempDirectory.Dispose();
         }
 
         private LocalStateStore Store() => new(_directory);

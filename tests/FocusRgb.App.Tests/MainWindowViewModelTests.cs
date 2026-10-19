@@ -2,6 +2,7 @@ using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Persistence;
 using FocusRgb.Core.Selection;
+using FocusRgb.TestSupport;
 
 namespace FocusRgb.App.Tests
 {
@@ -135,7 +136,8 @@ namespace FocusRgb.App.Tests
         [Fact]
         public async Task SavedApplicationGroupAndMappingsSurviveRestart()
         {
-            var directory = Path.Combine(Path.GetTempPath(), $"FocusRgb-Slice13-{Guid.NewGuid():N}");
+            var tempDirectory = new TempDirectory(nameof(MainWindowViewModelTests));
+            var directory = tempDirectory.Path;
             try
             {
                 var store = new LocalStateStore(directory);
@@ -181,7 +183,7 @@ namespace FocusRgb.App.Tests
             }
             finally
             {
-                if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+                tempDirectory.Dispose();
             }
         }
     }

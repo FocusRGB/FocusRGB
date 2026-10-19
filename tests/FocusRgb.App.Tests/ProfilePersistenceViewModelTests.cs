@@ -4,14 +4,15 @@ using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
 using FocusRgb.Contracts;
+using FocusRgb.TestSupport;
 
 namespace FocusRgb.App.Tests
 {
     public sealed class ProfilePersistenceViewModelTests : IDisposable
     {
         private static readonly DateTimeOffset Start = new(2026, 10, 14, 12, 0, 0, TimeSpan.Zero);
-        private readonly string _directory = Path.Combine(
-            Path.GetTempPath(), "FocusRgb.App.Tests", Guid.NewGuid().ToString("N"));
+        private readonly TempDirectory _tempDirectory = new(nameof(ProfilePersistenceViewModelTests));
+        private string _directory => _tempDirectory.Path;
 
         [Fact]
         public async Task SaveProfileAsync_RestoresEditedProfileAfterRestart()
@@ -416,7 +417,7 @@ namespace FocusRgb.App.Tests
 
         public void Dispose()
         {
-            if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
+            _tempDirectory.Dispose();
         }
 
         private sealed class CatalogGateway : IPluginOutputGateway

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using FocusRgb.App.Plugins;
 using FocusRgb.Contracts;
+using FocusRgb.TestSupport;
 
 namespace FocusRgb.App.Tests
 {
@@ -8,8 +9,8 @@ namespace FocusRgb.App.Tests
     [Collection("Environment variables")]
     public sealed class PluginPackageTests : IDisposable
     {
-        private readonly string _directory = Path.Combine(
-            Path.GetTempPath(), "FocusRgb.PackageTests", Guid.NewGuid().ToString("N"));
+        private readonly TempDirectory _tempDirectory = new(nameof(PluginPackageTests));
+        private string _directory => _tempDirectory.Path;
 
         [Fact]
         public void Load_ReturnsLaunchSpec_WhenManifestAndEntryPointAreValid()
@@ -145,7 +146,7 @@ namespace FocusRgb.App.Tests
 
         public void Dispose()
         {
-            if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
+            _tempDirectory.Dispose();
         }
 
         private string WritePackage(ManifestData manifest)

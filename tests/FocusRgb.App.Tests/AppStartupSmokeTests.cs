@@ -1,13 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
 using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Persistence;
+using FocusRgb.TestSupport;
 
 namespace FocusRgb.App.Tests
 {
     public sealed class AppStartupSmokeTests : IDisposable
     {
-        private readonly string _directory = Path.Combine(
-            Path.GetTempPath(), "FocusRgb.App.Tests", Guid.NewGuid().ToString("N"));
+        private readonly TempDirectory _tempDirectory = new(nameof(AppStartupSmokeTests));
+        private string _directory => _tempDirectory.Path;
 
         [Fact]
         [SuppressMessage("Usage", "xUnit1031:Do not use blocking task operations", Justification = "This regression reproduces a blocked UI thread.")]
@@ -33,7 +34,7 @@ namespace FocusRgb.App.Tests
 
         public void Dispose()
         {
-            if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
+            _tempDirectory.Dispose();
         }
 
         private sealed class NonPumpingSynchronizationContext : SynchronizationContext
