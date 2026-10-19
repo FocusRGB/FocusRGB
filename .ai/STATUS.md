@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-18.
+Updated: 2026-10-19.
 
 ## Completed
 
@@ -208,15 +208,29 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 ## Active implementation slice
 
 - Slice: 16 — SignalRGB acceptance gate
-- State: planned; Slice 15 is merged in both repositories
-- Repositories: `FocusRGB/FocusRGB` owns the acceptance gate and
-  `FocusRGB/FocusRGB-Plugin-SignalRGB` owns the provider package under test.
-- Remaining acceptance criteria: run Slice 16's live install, profile-switching, visible-output,
-  failure, and removal gate.
-- Current blocker or required product input: none.
-- Uncommitted work to preserve: none.
-- Next action: package the merged plugin and run Slice 16's live end-to-end acceptance gate.
-- Next slice: 16 — SignalRGB acceptance gate.
+- State: in progress; Slice 15 is merged in both repositories
+- Branch, latest relevant commit, and pull request: `slice/16-signalrgb-acceptance-gate`;
+  commits and PR pending.
+- Scope and dependencies verified: the existing coordinator owns catalog resolution, timeout,
+  fallback, ownership, and recovery consent; the app supplies lifecycle/status wiring; the peer
+  SignalRGB plugin supplies its honest effect and unsupported-layout capabilities.
+- Implemented files and entry points: `MainWindowViewModel.RefreshProfileResourcesAsync` loads
+  capability-aware provider choices without blocking the UI; the Profiles page uses catalog
+  options, retains unavailable saved/draft choices, preserves the current provider layout, and
+  saves an exact catalog resource ID. App startup, provider loss, and restart refresh the editor.
+- Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passed with 0 warnings/errors;
+  `dotnet test --solution FocusRGB.slnx -c Release --no-restore` passed 293/293.
+- External/live evidence: not requested; no SignalRGB URL was submitted and no visible lighting,
+  provider files, or user settings were changed.
+- Remaining acceptance criteria: package/install the merged plugin, verify first start/restart,
+  manual and automatic four-profile switching, absent-provider/failure/recovery approval, visible
+  output, and removal. Record application-URL requests as unverified until the user confirms light.
+- Current blocker or required product input: explicit approval is required before the live
+  SignalRGB session changes visible lighting.
+- Uncommitted work to preserve: provider-catalog UI/runtime wiring, tests, and this handoff.
+- Next action: commit the catalog UI/runtime wiring and tests, then package the merged plugin for
+  the non-live portion of the acceptance gate.
+- Next slice: 17 only after all Slice 16 acceptance criteria pass.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
 `global.json`; use `dotnet test --solution …`, not the VSTest form. The App and Windows
@@ -260,9 +274,8 @@ exact catalog match; SignalRGB bindings use a
 ## Next step
 
 Slice 15 is merged in the independent SignalRGB plugin repository and the main repository.
-Slice 16 performs the live install,
-profile-switching, visible-output, failure, and removal gate; no live effect application belongs
-in Slice 15.
+Slice 16 is in progress: provider catalogs and stable resource IDs are connected to the profile
+editor, while the live install, switching, visible-output, failure, and removal gate remains.
 
 Profile persistence, tray lifecycle, application settings, plugin hosting, coordination, Windows
 observations, application mappings, and the SignalRGB capability investigation are complete.
