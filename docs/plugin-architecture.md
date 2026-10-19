@@ -41,9 +41,9 @@ Controller plugins are external processes, not SignalRGB-style JavaScript files 
 the application. Each package contains a versioned manifest, one or more platform entry
 points, configuration schema, resources, and a license. The app launches explicitly enabled
 plugins and communicates through a versioned JSON-RPC protocol over standard input/output.
-The main FocusRGB repository owns the official .NET SDK, contracts, schemas, host, conformance
-tests, template, and a fake/reference plugin. The SDK implements the plugin side of the
-protocol, while published JSON schemas leave room for plugins written in other languages.
+The main FocusRGB repository owns the multi-language `sdk/` area, contracts, schemas, host,
+conformance tests, templates, and a fake/reference plugin. SDK libraries implement the plugin
+side of the protocol, while the published JSON schemas remain language-neutral.
 The host launches and supervises plugins; it never loads third-party assemblies into the app
 process.
 
@@ -52,6 +52,11 @@ sandbox. Manifests declare operating systems, architectures, roles, capabilities
 resources such as network, screen capture, or USB access. The UI must show those declarations
 before enabling an untrusted plugin. Keep frame messages batched; add a measured binary
 transport only if JSON becomes a demonstrated streaming bottleneck.
+
+An initialize result may report `sdk { name, language, version }` for compatibility diagnostics.
+That self-reported value is shown and logged but never establishes trust or causes acceptance or
+rejection. Trust comes from the install source and verified package checksums; SDK runners do not
+sandbox plugin modules, which continue to run with the user's permissions.
 
 Start with the smallest SDK and host surface needed by the fake test integration. Pack it as a
 versioned `0.x` prerelease before the first external plugin repository consumes it. Once the
@@ -112,8 +117,15 @@ The main repository retains a fake/reference plugin so host and SDK compatibilit
 tested in one checkout. A lightweight catalog may later point to approved plugin releases;
 plugins are never included through Git submodules. GitHub repositories are peers rather than
 literal child repositories, so the naming convention and catalog express their relationship.
+The `sdk/templates/dotnet-plugin` template generates an independent repository that restores the
+public SDK package, builds without an app checkout, and starts from the same conformance-tested
+provider lifecycle as the fake plugin.
 
 ## Contract sketch
+
+[`plugin-protocol.md`](../sdk/spec/plugin-protocol.md) is the normative transport, lifecycle, message, and
+versioning contract. The JSON schemas are normative machine-readable constraints. This section
+explains architectural intent and does not redefine their wire shapes.
 
 - Manifest: stable ID, plugin version, contract version, roles, config schema, prerequisites.
 - Packaging: supported OS/architecture, entry point, license, declared resource access, and

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "python-example",
+  "version": "1.0.0",
+  "contractVersion": "1.0",
+  "entryPoint": "plugin.py",
+  "operatingSystems": ["linux", "macos"],
+  "architectures": ["x64", "arm64"],
+  "roles": ["output"],
+  "resources": [],
+  "license": "MIT",
+  "source": "https://github.com/FocusRGB/FocusRGB"
+}

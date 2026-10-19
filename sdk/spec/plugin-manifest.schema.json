@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://focusrgb.dev/schemas/plugin-manifest.schema.json",
+  "$id": "https://raw.githubusercontent.com/FocusRGB/FocusRGB/develop/sdk/spec/plugin-manifest.schema.json",
   "title": "FocusRGB plugin manifest",
   "type": "object",
   "additionalProperties": false,
@@ -40,7 +40,11 @@
       "uniqueItems": true,
       "items": { "enum": ["detector", "discovery", "integration", "output", "effect"] }
     },
-    "resources": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "resources": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["process.read", "process.start", "filesystem.read"] }
+    },
     "license": { "type": "string", "minLength": 1 },
     "source": { "type": "string", "format": "uri" }
   }

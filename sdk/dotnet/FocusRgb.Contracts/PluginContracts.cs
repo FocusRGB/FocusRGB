@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace FocusRgb.Contracts
 {
-    /// <summary>Names the JSON-RPC methods in the frozen 0.1 plugin protocol.</summary>
+    /// <summary>Names the JSON-RPC methods in the stable 1.0 plugin protocol.</summary>
     public static class PluginMethods
     {
         public const string Initialize = "initialize";
@@ -47,12 +47,21 @@ namespace FocusRgb.Contracts
     }
 
     /// <summary>Reports plugin identity, negotiated contract version, and declared capabilities.</summary>
-    public sealed class InitializeResult
+    public sealed record InitializeResult
     {
         public required string PluginId { get; init; }
         public required string PluginVersion { get; init; }
         public required string ContractVersion { get; init; }
         public IReadOnlyList<PluginCapability> Capabilities { get; init; } = [];
+        public PluginSdkInfo? Sdk { get; init; }
+    }
+
+    /// <summary>Identifies the optional SDK implementation for compatibility diagnostics only.</summary>
+    public sealed class PluginSdkInfo
+    {
+        public required string Name { get; init; }
+        public required string Language { get; init; }
+        public required string Version { get; init; }
     }
 
     /// <summary>Reports support for one provider-neutral capability.</summary>

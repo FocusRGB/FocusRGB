@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "fake-output",
-  "version": "0.1.0",
-  "contractVersion": "0.1",
+  "version": "1.0.0",
+  "contractVersion": "1.0",
   "entryPoint": "FocusRgb.FakePlugin.dll",
   "operatingSystems": ["windows", "linux", "macos"],
   "architectures": ["x64", "arm64"],

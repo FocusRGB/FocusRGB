@@ -207,35 +207,42 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 
 ## Active implementation slice
 
-- Slice: 16 — SignalRGB acceptance gate
-- State: in progress; Slice 15 is merged in both repositories
+- Slice: 17 — Stabilize the public SDK and contributor example
+- State: in progress; Slice 16 implementation merged in PR #85 at `e592873`, while its explicitly
+  destructive live SignalRGB matrix remains open in issue #41 at the owner's direction.
 - Branch, latest relevant implementation commit, and pull request:
-  `slice/16-signalrgb-acceptance-gate`; `ea30750`; PR pending.
-- Scope and dependencies verified: the existing coordinator owns catalog resolution, timeout,
-  fallback, ownership, and recovery consent; the app supplies lifecycle/status wiring; the peer
-  SignalRGB plugin supplies its honest effect and unsupported-layout capabilities.
-- Implemented files and entry points: `MainWindowViewModel.RefreshProfileResourcesAsync` loads
-  capability-aware provider choices without blocking the UI; the Profiles page uses catalog
-  options, retains unavailable saved/draft choices, preserves the current provider layout, and
-  saves an exact catalog resource ID. App startup, provider loss, and restart refresh the editor.
-- Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passed with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release --no-restore` passed 293/293. The merged peer
-  plugin passed 10/10 tests and produced a validated dry-run ZIP with SHA-256
-  `247572801EFC862C903106ACB0A4344A1F9CE497619ED2863B0FF3FB91AB6E48`.
-- External/live evidence: a read-only probe of the packaged executable completed initialize,
-  status, effect/layout catalog, and shutdown. SignalRGB was stopped; Aurora, Logarithmic
-  Visualizer, and Screen Ambience were available, and layouts reported unsupported as designed.
-  No `binding/apply` call or SignalRGB URL was submitted, and no visible lighting, provider files,
-  or user settings were changed.
-- Remaining acceptance criteria: install the merged plugin, verify first start/restart,
-  manual and automatic four-profile switching, absent-provider/failure/recovery approval, visible
-  output, and removal. Record application-URL requests as unverified until the user confirms light.
-- Current blocker or required product input: explicit approval is required before the live
-  SignalRGB session changes visible lighting.
-- Uncommitted work to preserve: none after the package/probe evidence commit.
-- Next action: after explicit live-test approval, back up the real FocusRGB data folder, install
-  and enable the package, and run the four-profile acceptance matrix with visible confirmation.
-- Next slice: 17 only after all Slice 16 acceptance criteria pass.
+  `slice/17-public-sdk-and-example`; based on `origin/develop` at `e592873`; draft PR #86.
+- Scope and dependencies verified: Slices 10 and 15 are merged; per-plugin restart isolation #75
+  is complete. Slice 17 owns protocol/nuget.org work #79 and discovery/install work #80. Revised
+  #84 keeps the .NET, Node, and Python SDKs together in this repository under `sdk/`.
+- Implemented files and entry points: `ContractVersion` and both NuGet projects now declare 1.0;
+  the fake process and clean consumer fixture use 1.0; package/handshake tests reject both 0.x
+  and future majors. `sdk/spec/plugin-protocol.md` and its adjacent schemas are normative.
+  Contracts and the .NET SDK live under `sdk/dotnet`, the language-neutral runner under
+  `sdk/conformance`, and the current template/example under `sdk/templates` and `sdk/examples`.
+  The optional 1.0 initialize-result `sdk { name, language, version }` is shape-validated,
+  diagnostic-only, injected automatically by `FocusRgb.PluginSdk`, and shown/logged by the host.
+  Publishing uses the gated `sdk-dotnet-v*` tag family.
+- Verification: `dotnet restore FocusRgb.slnx` passed; `dotnet test FocusRgb.slnx -c Release
+  --no-restore` passed 322/322 with 0 warnings/errors. The independent
+  package script built reproducible `FocusRgb.Contracts` and `FocusRgb.PluginSdk` 1.0.0 packages
+  twice and built a clean external consumer from the local feed. The language-neutral runner
+  passed the full initialize/status/catalog/apply/release/shutdown sequence against the Python
+  example and the .NET fake plugin. The package script also installed the template into an
+  isolated hive, generated `FocusRgb.Plugin.Generated`, restored it only from the local package
+  feed, built with 0 warnings/errors, validated its substituted manifest, and passed conformance.
+- External/live evidence: no package was published, no repository was created, no plugin was
+  installed, and no hardware or visible lighting was changed.
+- Remaining acceptance criteria: review and merge PR #86 after the owner's live #41 decision;
+  publish credential-free packages after owner setup; then complete #82, multi-language SDKs
+  under #84, and official/custom discovery and installation under #80.
+- Current blocker or required product input: the owner must create/configure the nuget.org
+  `FocusRGB` organization, reserve the `FocusRgb.*` prefix, and add the scoped `NUGET_API_KEY`
+  secret before publication can be verified. The live SignalRGB gate remains issue #41.
+- Uncommitted work to preserve: none after the PR #86 SDK-layout checkpoint.
+- Next action: push PR #86, verify CI, then begin narrowed test-infrastructure issue #82 on its
+  own branch from `origin/develop` without merging PR #86.
+- Next slice: 18 only after Slice 17 acceptance criteria pass.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
 `global.json`; use `dotnet test --solution …`, not the VSTest form. The App and Windows
@@ -278,9 +285,9 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slice 15 is merged in the independent SignalRGB plugin repository and the main repository.
-Slice 16 is in progress: provider catalogs and stable resource IDs are connected to the profile
-editor, while the live install, switching, visible-output, failure, and removal gate remains.
+Slice 16 implementation is merged in PR #85. Its live install, switching, visible-output,
+failure, and removal gate remains recorded in issue #41. Slice 17 is active on
+`slice/17-public-sdk-and-example`, starting with the frozen 1.0 protocol and package metadata.
 
 Profile persistence, tray lifecycle, application settings, plugin hosting, coordination, Windows
 observations, application mappings, and the SignalRGB capability investigation are complete.

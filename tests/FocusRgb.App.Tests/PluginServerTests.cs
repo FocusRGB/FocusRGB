@@ -71,9 +71,47 @@ namespace FocusRgb.App.Tests
             Assert.True(response.RootElement.TryGetProperty("result", out _));
         }
 
+        [Fact]
+        public async Task RunAsync_AddsSdkIdentityWithoutChangingPluginResult()
+        {
+            var plugin = new InitializingPlugin();
+            using var input = new StringReader(
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"contractVersion\":\"1.0\",\"host\":{\"name\":\"test\",\"version\":\"1.0.0\"}}}");
+            using var output = new StringWriter();
+
+            await PluginServer.RunAsync(
+                plugin, input, output, TextWriter.Null, TestContext.Current.CancellationToken);
+
+            using var response = JsonDocument.Parse(output.ToString());
+            var actual = response.RootElement.GetProperty("result");
+            var expected = JsonSerializer.SerializeToElement(plugin.Result, PluginJson.Options);
+            var defaults = new InitializeResult
+            {
+                PluginId = null!,
+                PluginVersion = null!,
+                ContractVersion = null!
+            };
+
+            foreach (var property in typeof(InitializeResult).GetProperties()
+                         .Where(property => property.Name != nameof(InitializeResult.Sdk)))
+            {
+                var jsonName = JsonNamingPolicy.CamelCase.ConvertName(property.Name);
+                var expectedValue = expected.GetProperty(jsonName).GetRawText();
+                var defaultValue = JsonSerializer.Serialize(
+                    property.GetValue(defaults), property.PropertyType, PluginJson.Options);
+                Assert.NotEqual(defaultValue, expectedValue);
+                Assert.Equal(expectedValue, actual.GetProperty(jsonName).GetRawText());
+            }
+
+            var sdk = actual.GetProperty("sdk");
+            Assert.Equal("FocusRgb.PluginSdk", sdk.GetProperty("name").GetString());
+            Assert.Equal("dotnet", sdk.GetProperty("language").GetString());
+            Assert.Matches("^[0-9]+\\.[0-9]+\\.[0-9]+$", sdk.GetProperty("version").GetString());
+        }
+
         private class StubPlugin : IFocusRgbPlugin
         {
-            public Task<InitializeResult> InitializeAsync(
+            public virtual Task<InitializeResult> InitializeAsync(
                 InitializeParameters parameters,
                 CancellationToken cancellationToken) => throw new NotSupportedException();
 
@@ -108,6 +146,28 @@ namespace FocusRgb.App.Tests
         {
             public override Task<PluginStatusResult> GetStatusAsync(CancellationToken cancellationToken) =>
                 Task.FromResult(new PluginStatusResult { Availability = "available" });
+        }
+
+        private sealed class InitializingPlugin : StubPlugin
+        {
+            public InitializeResult Result { get; } = new()
+            {
+                PluginId = "example-plugin",
+                PluginVersion = "2.3.4",
+                ContractVersion = "1.0",
+                Capabilities =
+                [
+                    new PluginCapability
+                    {
+                        Id = "example-capability",
+                        Support = "supported"
+                    }
+                ]
+            };
+
+            public override Task<InitializeResult> InitializeAsync(
+                InitializeParameters parameters,
+                CancellationToken cancellationToken) => Task.FromResult(Result);
         }
 
         private sealed class CancelRaceReader(Task cancelAfter, Task finishAfter) : TextReader

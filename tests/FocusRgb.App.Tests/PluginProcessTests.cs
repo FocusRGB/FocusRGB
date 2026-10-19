@@ -39,20 +39,42 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public async Task StartAsync_ReturnsContractIncompatible_WhenPluginReportsNewMajor()
+        public async Task StartAsync_ReturnsContractIncompatible_WhenPluginReportsDifferentMajor()
         {
-            var started = await StartAsync("--contract-version", "1.0");
+            var started = await StartAsync("--contract-version", "2.0");
 
             Assert.False(started.IsSuccess);
             Assert.Equal("contract-incompatible", started.ErrorCode);
         }
 
         [Fact]
-        public async Task StartAsync_AcceptsLowerMinorContractVersion()
+        public async Task StartAsync_AcceptsLegacySignalRgbContractDuringTransition()
         {
-            var started = await StartAsync("--contract-version", "0.0");
+            var started = await StartAsync(Manifest("0.1"), "--contract-version", "0.1");
 
             Assert.True(started.IsSuccess, started.ErrorMessage);
+            await started.Client!.DisposeAsync();
+        }
+
+        [Fact]
+        public async Task StartAsync_ReportsAutomaticSdkIdentity_WhenPluginUsesDotnetSdk()
+        {
+            var started = await StartAsync();
+
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            Assert.Equal("FocusRgb.PluginSdk", started.Handshake!.Sdk!.Name);
+            Assert.Equal("dotnet", started.Handshake.Sdk.Language);
+            Assert.Equal("1.0.0", started.Handshake.Sdk.Version);
+            await started.Client!.DisposeAsync();
+        }
+
+        [Fact]
+        public async Task StartAsync_AcceptsMissingSdkIdentity()
+        {
+            var started = await StartAsync("--invalid-response", "no-sdk");
+
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            Assert.Null(started.Handshake!.Sdk);
             await started.Client!.DisposeAsync();
         }
 
@@ -518,21 +540,32 @@ namespace FocusRgb.App.Tests
         private static Task<PluginStartResult> StartAsync(
             CancellationToken cancellationToken,
             params string[] arguments)
+            => StartAsync(Manifest(), cancellationToken, arguments);
+
+        private static Task<PluginStartResult> StartAsync(
+            PluginManifest manifest,
+            params string[] arguments)
+            => StartAsync(manifest, TestContext.Current.CancellationToken, arguments);
+
+        private static Task<PluginStartResult> StartAsync(
+            PluginManifest manifest,
+            CancellationToken cancellationToken,
+            params string[] arguments)
         {
             var launchArguments = new List<string> { FakePluginPath() };
             launchArguments.AddRange(arguments);
             return PluginProcessClient.StartAsync(
                 new PluginLaunchSpec { FileName = "dotnet", Arguments = launchArguments },
-                Manifest(),
+                manifest,
                 cancellationToken);
         }
 
-        private static PluginManifest Manifest() => new()
+        private static PluginManifest Manifest(string? contractVersion = null) => new()
         {
             SchemaVersion = 1,
             Id = "fake-output",
-            Version = "0.1.0",
-            ContractVersion = ContractVersion.Current,
+            Version = "1.0.0",
+            ContractVersion = contractVersion ?? ContractVersion.Current,
             EntryPoint = "FocusRgb.FakePlugin.dll",
             OperatingSystems = ["windows"],
             Architectures = ["x64"],

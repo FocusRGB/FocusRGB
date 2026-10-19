@@ -2,39 +2,60 @@
 name: Publish plugin SDK
 
 on:
-  workflow_dispatch:
+  push:
+    tags:
+      - sdk-dotnet-v*
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   publish:
-    # TODO(FocusRGB/FocusRGB#79): replace this disabled publisher; the organization token gets
-    # HTTP 403 when writing to the MAJ224-owned feed.
-    if: ${{ false }}
     runs-on: windows-latest
+    environment: nuget
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
+      - name: Verify release tag and package versions
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_name }}" -notmatch '^sdk-dotnet-v([0-9]+\.[0-9]+\.[0-9]+)$') {
+            throw "SDK tags must use sdk-dotnet-vMAJOR.MINOR.PATCH."
+          }
+          $tagVersion = $Matches[1]
+          foreach ($project in @(
+            "sdk/dotnet/FocusRgb.Contracts/FocusRgb.Contracts.csproj",
+            "sdk/dotnet/FocusRgb.PluginSdk/FocusRgb.PluginSdk.csproj")) {
+            [xml]$xml = Get-Content $project
+            if ($xml.Project.PropertyGroup.Version -ne $tagVersion) {
+              throw "$project version must equal tag version $tagVersion."
+            }
+          }
+          git fetch origin develop main --no-tags
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/develop
+          $onDevelop = $LASTEXITCODE -eq 0
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/main
+          $onMain = $LASTEXITCODE -eq 0
+          if (-not ($onDevelop -or $onMain)) { throw "SDK tags must point to develop or main history." }
       - run: dotnet restore FocusRgb.slnx
       - name: Pack contracts and SDK
         shell: pwsh
         run: |
-          dotnet pack src/FocusRgb.Contracts/FocusRgb.Contracts.csproj -c Release --no-restore -o build/packages
-          dotnet pack src/FocusRgb.PluginSdk/FocusRgb.PluginSdk.csproj -c Release --no-restore -o build/packages
+          dotnet pack sdk/dotnet/FocusRgb.Contracts/FocusRgb.Contracts.csproj -c Release --no-restore -o build/packages
+          dotnet pack sdk/dotnet/FocusRgb.PluginSdk/FocusRgb.PluginSdk.csproj -c Release --no-restore -o build/packages
       - name: Publish packages
         shell: pwsh
         run: |
           Get-ChildItem build/packages -Filter *.nupkg | ForEach-Object {
             dotnet nuget push $_.FullName `
-              --source "https://nuget.pkg.github.com/MAJ224/index.json" `
-              --api-key "${{ secrets.GITHUB_TOKEN }}" `
-              --skip-duplicate
+              --source "https://api.nuget.org/v3/index.json" `
+              --api-key "${{ secrets.NUGET_API_KEY }}"
             if ($LASTEXITCODE -ne 0) { throw "Package publication failed for $($_.Name)." }
           }

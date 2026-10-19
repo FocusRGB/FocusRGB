@@ -9,7 +9,8 @@ Requirements live in [`app-brief.md`](app-brief.md), contracts and behavior in
 [`plugin-architecture.md`](plugin-architecture.md), and verified external facts in
 [`integration-evidence.md`](integration-evidence.md).
 
-Status: **00–15 implemented and merged. 16 is in progress.**
+Status: **00–15 implemented and merged. Slice 16 implementation is merged with its live gate
+still open. Slice 17 is in progress.**
 
 ## 1 — Foundation
 
@@ -106,8 +107,8 @@ Status: **00–15 implemented and merged. 16 is in progress.**
 
 ## Source boundaries
 
-- `src/FocusRgb.Contracts/`: provider-neutral plugin messages, capabilities, results, and IDs.
-- `src/FocusRgb.PluginSdk/`: plugin-side protocol helpers, packaged from the main repository.
+- `sdk/spec/`: normative plugin protocol and manifest schemas.
+- `sdk/dotnet/`: provider-neutral contracts and packaged .NET plugin-side helpers.
 - `src/FocusRgb.Core/`: profiles, arbitration, persistence, commands, fallback, and ownership.
 - `src/FocusRgb.Platform.Windows/`: Windows process/focus detection and later screen capture.
 - `src/FocusRgb.App/`: Avalonia tray/settings UI and generic plugin-host wiring.

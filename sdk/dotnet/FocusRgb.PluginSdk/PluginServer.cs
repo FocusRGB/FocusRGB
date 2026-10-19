@@ -156,8 +156,9 @@ namespace FocusRgb.PluginSdk
             {
                 object result = method switch
                 {
-                    PluginMethods.Initialize => await plugin.InitializeAsync(
-                        Deserialize<InitializeParameters>(parameters), requestCancellationToken).ConfigureAwait(false),
+                    PluginMethods.Initialize => await InitializeAsync(
+                        plugin, Deserialize<InitializeParameters>(parameters), requestCancellationToken)
+                        .ConfigureAwait(false),
                     PluginMethods.StatusGet => await plugin.GetStatusAsync(requestCancellationToken).ConfigureAwait(false),
                     PluginMethods.CatalogList => await plugin.ListCatalogAsync(
                         Deserialize<CatalogListParameters>(parameters), requestCancellationToken).ConfigureAwait(false),
@@ -195,6 +196,25 @@ namespace FocusRgb.PluginSdk
                     output, writeGate, id, -32603, "Plugin request failed.", responseCancellationToken)
                     .ConfigureAwait(false);
             }
+        }
+
+        private static async Task<InitializeResult> InitializeAsync(
+            IFocusRgbPlugin plugin,
+            InitializeParameters parameters,
+            CancellationToken cancellationToken)
+        {
+            var result = await plugin.InitializeAsync(parameters, cancellationToken).ConfigureAwait(false);
+            var version = typeof(PluginServer).Assembly.GetName().Version
+                ?? throw new InvalidOperationException("The SDK assembly version is unavailable.");
+            return result with
+            {
+                Sdk = new PluginSdkInfo
+                {
+                    Name = "FocusRgb.PluginSdk",
+                    Language = "dotnet",
+                    Version = $"{version.Major}.{version.Minor}.{version.Build}"
+                }
+            };
         }
 
         private static async Task<object> ShutdownAsync(

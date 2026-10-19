@@ -4,7 +4,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\FocusRgb.PluginSdk\FocusRgb.PluginSdk.csproj" />
+    <ProjectReference Include="..\..\sdk\dotnet\FocusRgb.PluginSdk\FocusRgb.PluginSdk.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="focusrgb-plugin.json" CopyToOutputDirectory="PreserveNewest" />

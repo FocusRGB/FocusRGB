@@ -11,7 +11,7 @@ tray icon, and saves again before tray Quit or OS shutdown. The Settings page pe
 behavior, start-minimized, theme, and diagnostic-logging preferences, with versioned migration,
 last-known-good recovery, and a
 privacy-limited diagnostics export. The app hosts explicitly enabled local process plugins
-through the packaged 0.1 SDK and coordinates desired, applied, fallback, pending, ownership, and
+through the packaged 1.0 SDK and coordinates desired, applied, fallback, pending, ownership, and
 consent-gated recovery state. Windows process/focus observation now exists behind the platform
 boundary; application-group persistence and runtime detector wiring are still pending. See
 [Core configuration](src/FocusRgb.Core/README.md).
@@ -54,6 +54,8 @@ A local MCP interface is planned for controlling the same commands used by the U
   diagnostics, ownership boundaries, and defaults.
 - [Minimal contract](docs/minimal-contract.md): frozen settings, state, status, command,
   and plugin protocol shapes for the first implementation goal.
+- [Plugin protocol](sdk/spec/plugin-protocol.md): normative language-neutral process-plugin 1.0
+  transport, lifecycle, messages, and compatibility policy.
 - [Plugin architecture](docs/plugin-architecture.md): integration contracts, selection,
   rendering authority, fallback, and layouts.
 - [Delivery plan](docs/focus-profiles-plan.md): product goals and acceptance gates.
@@ -79,9 +81,13 @@ owns the SignalRGB provider implementation and maintained research. Application 
 
 ```text
 FocusRGB.slnx
+sdk/
+  spec/                        normative protocol and manifest schemas
+  dotnet/                      FocusRgb.Contracts and FocusRgb.PluginSdk
+  conformance/                 language-neutral protocol runner
+  templates/dotnet-plugin/     standalone `dotnet new` repository starter
+  examples/python-plugin/      no-SDK language-neutral example
 src/
-  FocusRgb.Contracts/          net10.0, provider-neutral plugin protocol types
-  FocusRgb.PluginSdk/          net10.0, packaged plugin-side JSON-RPC runtime
   FocusRgb.Core/               net10.0, profiles, selection, and local persistence
   FocusRgb.Platform.Windows/   net10.0-windows, focus/process detection
   FocusRgb.App/                net10.0-windows, Avalonia shell (FocusRGB.exe)
@@ -89,7 +95,6 @@ tests/
   FocusRgb.App.Tests/          xUnit; UI-facing preview-state tests
   FocusRgb.Core.Tests/         xUnit; dependency-boundary and core tests
   FocusRgb.FakePlugin/         executable plugin protocol fixture
-schemas/                       plugin manifest and protocol JSON schemas
 tools/                         SDK package check and screen colour test
 docs/                          brief, architecture, contract, slices, workflow
 .ai/                           shared AI instructions, status, handoff

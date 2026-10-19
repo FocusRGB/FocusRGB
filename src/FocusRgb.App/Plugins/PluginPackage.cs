@@ -94,7 +94,7 @@ namespace FocusRgb.App.Plugins
             if (manifest is null || manifest.SchemaVersion != 1) return "Only manifest schema version 1 is supported.";
             if (manifest.Id != expectedId || !IsId(manifest.Id)) return "Manifest ID does not match the enabled package ID.";
             if (!TryExactVersion(manifest.Version)) return "Plugin version must contain three numeric parts.";
-            if (!TryContractMajor(manifest.ContractVersion, out var major) || major != ContractVersion.Major)
+            if (!IsContractCompatible(manifest.ContractVersion, ContractVersion.Major, ContractVersion.Minor))
                 return "Plugin contract version is incompatible.";
             if (string.IsNullOrWhiteSpace(manifest.EntryPoint)) return "Entry point is required.";
             if (!ValidList(manifest.OperatingSystems, ["windows", "linux", "macos"]))
@@ -103,8 +103,10 @@ namespace FocusRgb.App.Plugins
                 return "Architectures must be unique supported values.";
             if (!ValidList(manifest.Roles, ["detector", "discovery", "integration", "output", "effect"]))
                 return "Roles must be unique supported values.";
-            if (manifest.Resources is null || manifest.Resources.Count != manifest.Resources.Distinct(StringComparer.Ordinal).Count())
-                return "Resources are required and must be unique.";
+            if (manifest.Resources is null
+                || manifest.Resources.Count != manifest.Resources.Distinct(StringComparer.Ordinal).Count()
+                || manifest.Resources.Any(resource => resource is not ("process.read" or "process.start" or "filesystem.read")))
+                return "Resources must be unique supported values.";
             if (string.IsNullOrWhiteSpace(manifest.License)) return "License is required.";
             if (manifest.Source is not null
                 && (!Uri.TryCreate(manifest.Source, UriKind.Absolute, out var source)
@@ -113,15 +115,18 @@ namespace FocusRgb.App.Plugins
             return null;
         }
 
-        internal static bool TryContractMajor(string? version, out int major)
+        internal static bool IsContractCompatible(string? version, int hostMajor, int hostMinor)
         {
-            major = 0;
             var parts = version?.Split('.');
-            return parts is { Length: 2 }
-                && int.TryParse(parts[0], System.Globalization.NumberStyles.None,
-                    System.Globalization.CultureInfo.InvariantCulture, out major)
-                && int.TryParse(parts[1], System.Globalization.NumberStyles.None,
-                    System.Globalization.CultureInfo.InvariantCulture, out _);
+            if (parts is not { Length: 2 }
+                || !int.TryParse(parts[0], System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out var major)
+                || !int.TryParse(parts[1], System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out var minor))
+                return false;
+            // shortcut: accept the shipped 0.1 SignalRGB wire shape until its 1.0 package is published.
+            return major == hostMajor && minor <= hostMinor
+                || hostMajor == 1 && hostMinor == 0 && major == 0 && minor == 1;
         }
 
         private static bool IsId(string? value) => value is { Length: >= 1 and <= 64 }

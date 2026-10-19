@@ -98,11 +98,19 @@ project references. When a protocol change spans repositories, use separate link
 requests: publish the compatible SDK prerelease first, then update the plugin and the app's
 compatibility fixtures to the exact declared versions.
 
-Publish `FocusRgb.Contracts` and `FocusRgb.PluginSdk` through the main repository's package
-workflow before an external plugin consumes that version. External CI receives only
-`contents: read` and `packages: read`, authenticates the GitHub NuGet source with its
-`GITHUB_TOKEN`, and keeps `nuget.org` mapped to third-party dependencies. Link the main slice
-issue to the plugin repository's own issue and pull request, using the same release milestone.
+Publish `FocusRgb.Contracts` and `FocusRgb.PluginSdk` to nuget.org through the .NET-specific
+`sdk-dotnet-v*` tag before an external plugin consumes that version. The owner supplies a scoped
+`NUGET_API_KEY`; never place it in source, logs, issue text, or package configuration. External
+CI restores the public packages from nuget.org without credentials. The stable spec and all
+language SDKs remain under this repository's `sdk/` area. Link the main slice issue to the plugin
+repository's own issue and pull request, using the same release milestone.
+
+The `nuget` GitHub environment must be protected with MAJ224 as its required reviewer. The
+publication job validates the `sdk-dotnet-vMAJOR.MINOR.PATCH` tag against both package versions and
+requires the tagged commit to belong to `develop` or `main` before using `NUGET_API_KEY`.
+Before creating that tag, change each released schema `$id` from its moving `develop` URL to
+`https://raw.githubusercontent.com/FocusRGB/FocusRGB/sdk-dotnet-vX.Y.Z/sdk/spec/<schema-name>` so
+the published contract resolves to the exact immutable release.
 Move only maintained, publication-safe research: do not republish local security-testing notes,
 credentials, private-network addresses, or machine-specific paths in a public plugin repository.
 

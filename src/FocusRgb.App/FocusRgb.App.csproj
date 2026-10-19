@@ -15,7 +15,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FocusRgb.Contracts\FocusRgb.Contracts.csproj" />
+    <ProjectReference Include="..\..\sdk\dotnet\FocusRgb.Contracts\FocusRgb.Contracts.csproj" />
     <ProjectReference Include="..\FocusRgb.Core\FocusRgb.Core.csproj" />
     <ProjectReference Include="..\FocusRgb.Platform.Windows\FocusRgb.Platform.Windows.csproj" />
   </ItemGroup>

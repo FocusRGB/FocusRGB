@@ -140,8 +140,9 @@ namespace FocusRgb.App.Plugins
                 var handshake = initialized.Value!;
                 if (handshake.PluginId != manifest.Id
                     || handshake.Capabilities is null
-                    || !PluginPackage.TryContractMajor(handshake.ContractVersion, out var major)
-                    || major != ContractVersion.Major)
+                    || handshake.ContractVersion != manifest.ContractVersion
+                    || !PluginPackage.IsContractCompatible(
+                        handshake.ContractVersion, ContractVersion.Major, ContractVersion.Minor))
                 {
                     await client.DisposeAsync().ConfigureAwait(false);
                     return PluginStartResult.Fail("contract-incompatible", "The plugin handshake does not match its manifest.");

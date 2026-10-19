@@ -126,7 +126,7 @@ static async Task RunRawProbeAsync(string invalidResponse)
                     result = new
                     {
                         pluginId = "fake-output",
-                        pluginVersion = "0.1.0",
+                        pluginVersion = "1.0.0",
                         contractVersion = ContractVersion.Current,
                         capabilities = (object?)null
                     }
@@ -141,7 +141,7 @@ static async Task RunRawProbeAsync(string invalidResponse)
                 result = new
                 {
                     pluginId = "fake-output",
-                    pluginVersion = "0.1.0",
+                    pluginVersion = "1.0.0",
                     contractVersion = ContractVersion.Current,
                     capabilities = Array.Empty<object>()
                 }
@@ -244,7 +244,7 @@ internal sealed class FakePlugin(
         return new InitializeResult
         {
             PluginId = "fake-output",
-            PluginVersion = "0.1.0",
+            PluginVersion = "1.0.0",
             ContractVersion = contractVersion,
             Capabilities =
             [

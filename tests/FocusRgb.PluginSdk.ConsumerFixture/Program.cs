@@ -12,7 +12,7 @@ internal sealed class ConsumerPlugin : IFocusRgbPlugin
         Task.FromResult(new InitializeResult
         {
             PluginId = "consumer-fixture",
-            PluginVersion = "0.1.0",
+            PluginVersion = "1.0.0",
             ContractVersion = ContractVersion.Current,
             Capabilities = []
         });

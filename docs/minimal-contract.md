@@ -28,7 +28,7 @@ Slice 17 promotes the proven shapes to SDK version 1; later surfaces such as nat
 | Item | Field | Rule |
 |---|---|---|
 | Each persisted file | `schemaVersion` (integer, starts at 1) | Older versions migrate forward on load and are saved only after successful validation; settings also refresh their last-known-good recovery copy. A newer version than the app understands is loaded read-only or rejected with a reason; it is never overwritten. |
-| Plugin protocol | `contractVersion` (`"major.minor"`, starts at `"0.1"`) | The host and plugin must share the major version. A plugin may report a lower minor; the host then avoids methods added later. A mismatch fails the handshake with `contract-incompatible`. |
+| Plugin protocol | `contractVersion` (`"major.minor"`; stable version `"1.0"`) | The host and plugin must share the major version. Minor versions add optional, capability-gated behavior. A mismatch fails the handshake with `contract-incompatible`. The normative protocol is [plugin-protocol.md](../sdk/spec/plugin-protocol.md). |
 
 While the major version is `0`, breaking changes are allowed between slices but must update
 this document, the fake plugin, and tests in the same commit.
@@ -345,8 +345,8 @@ late response. Examples below are wrapped for readability; on the wire each is o
 ### Handshake
 
 ```json
-{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"contractVersion":"0.1","host":{"name":"FocusRGB","version":"0.1.0"}}}
-{"jsonrpc":"2.0","id":1,"result":{"pluginId":"signalrgb","pluginVersion":"0.1.0","contractVersion":"0.1","capabilities":[
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"contractVersion":"1.0","host":{"name":"FocusRGB","version":"0.1.0"}}}
+{"jsonrpc":"2.0","id":1,"result":{"pluginId":"signalrgb","pluginVersion":"1.0.0","contractVersion":"1.0","capabilities":[
   {"id":"provider.effect.catalog","support":"supported"},
   {"id":"provider.effect.select","support":"supported"},
   {"id":"provider.selection.observe","support":"unverified","reason":{"code":"selection-not-observable","message":"Current effect could not be read back."}},

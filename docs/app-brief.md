@@ -72,9 +72,9 @@ SignalRGB ownership. Both plugins must never write to the same physical WLED dev
   effect, layout, and authority bindings.
 - Publish the plugin contract, schemas, templates, and reference plugins as open-source
   components so third parties can add integrations without modifying the application.
-- Keep contracts, the .NET plugin SDK, host, schemas, conformance tests, template, and fake
-  reference plugin in the main repository. External plugin repositories consume a published
-  SDK version and must build without a local FocusRGB checkout or Git submodule.
+- Keep contracts, the .NET/Node/Python plugin SDKs, host, schemas, conformance tests, templates,
+  and fake reference plugin in the main repository's `sdk/` area. External plugin repositories
+  consume a published SDK version and must build without a local FocusRGB checkout or Git submodule.
 - Keep platform support explicit in each plugin manifest. A plugin may be portable or may
   provide separate Windows, macOS, and Linux entry points behind the same contract.
 - Core owns rule arbitration, debounce, transitions, settings, logging, and device ownership.

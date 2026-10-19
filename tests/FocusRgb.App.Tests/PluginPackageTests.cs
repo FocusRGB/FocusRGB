@@ -46,10 +46,11 @@ namespace FocusRgb.App.Tests
             Assert.Equal("manifest-invalid", result.ErrorCode);
         }
 
-        [Fact]
-        public void Load_RejectsIncompatibleContractBeforeLaunch()
+        [Theory]
+        [InlineData("2.0")]
+        public void Load_RejectsIncompatibleContractBeforeLaunch(string contractVersion)
         {
-            WritePackage(Manifest() with { ContractVersion = "1.0" });
+            WritePackage(Manifest() with { ContractVersion = contractVersion });
 
             var result = PluginPackage.Load(_directory, "fake-output");
 
@@ -58,9 +59,9 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public void Load_AcceptsLowerMinorContractVersion()
+        public void Load_AcceptsLegacySignalRgbContractDuringTransition()
         {
-            WritePackage(Manifest() with { ContractVersion = "0.0" });
+            WritePackage(Manifest() with { ContractVersion = "0.1" });
 
             var result = PluginPackage.Load(_directory, "fake-output");
 
@@ -68,9 +69,18 @@ namespace FocusRgb.App.Tests
         }
 
         [Theory]
+        [InlineData("1.0", true)]
+        [InlineData("1.2", true)]
+        [InlineData("1.3", false)]
+        [InlineData("2.0", false)]
+        public void IsContractCompatible_UsesMajorAndHostMinor(string pluginVersion, bool expected) =>
+            Assert.Equal(expected, PluginPackage.IsContractCompatible(pluginVersion, 1, 2));
+
+        [Theory]
         [InlineData("version")]
         [InlineData("operating-system")]
         [InlineData("duplicate-resource")]
+        [InlineData("unsupported-resource")]
         [InlineData("source")]
         public void Load_RejectsManifestThatDoesNotMatchSchemaRules(string invalid)
         {
@@ -79,6 +89,7 @@ namespace FocusRgb.App.Tests
                 "version" => Manifest() with { Version = "1.0" },
                 "operating-system" => Manifest() with { OperatingSystems = ["plan9"] },
                 "duplicate-resource" => Manifest() with { Resources = ["effect", "effect"] },
+                "unsupported-resource" => Manifest() with { Resources = ["provider-effects"] },
                 _ => Manifest() with { Source = "relative" }
             };
             WritePackage(manifest);
@@ -150,7 +161,7 @@ namespace FocusRgb.App.Tests
         private static ManifestData Manifest() => new(
             1,
             "fake-output",
-            "0.1.0",
+            "1.0.0",
             ContractVersion.Current,
             "fake.dll",
             [OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "macos" : "linux"],

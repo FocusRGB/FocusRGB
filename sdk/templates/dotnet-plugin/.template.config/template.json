@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "FocusRGB",
+  "classifications": ["FocusRGB", "Plugin", "Console"],
+  "identity": "FocusRGB.Plugin.Template",
+  "name": "FocusRGB process plugin",
+  "shortName": "focusrgb-plugin",
+  "sourceName": "FocusRgb.Plugin.Template",
+  "preferNameDirectory": true,
+  "symbols": {
+    "PluginId": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "sample-output",
+      "description": "Lowercase manifest ID for the plugin.",
+      "replaces": "focusrgb-plugin-template"
+    }
+  }
+}
