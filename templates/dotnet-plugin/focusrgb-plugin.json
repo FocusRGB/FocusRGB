@@ -7,6 +7,6 @@
   "operatingSystems": ["windows", "linux", "macos"],
   "architectures": ["x64", "arm64"],
   "roles": ["output"],
-  "resources": ["provider-effects"],
+  "resources": [],
   "license": "MIT"
 }

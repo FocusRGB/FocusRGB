@@ -1,54 +1,101 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://focusrgb.dev/schemas/plugin-protocol.schema.json",
+  "$id": "https://raw.githubusercontent.com/FocusRGB/FocusRGB/develop/schemas/plugin-protocol.schema.json",
   "title": "FocusRGB newline JSON-RPC message",
   "oneOf": [
-    { "$ref": "#/$defs/request" },
-    { "$ref": "#/$defs/notification" },
+    { "$ref": "#/$defs/requests" },
+    { "$ref": "#/$defs/notifications" },
     { "$ref": "#/$defs/response" }
   ],
   "$defs": {
-    "request": {
-      "type": "object",
-      "required": ["jsonrpc", "id", "method", "params"],
-      "properties": {
-        "jsonrpc": { "const": "2.0" },
-        "id": { "type": "integer" },
-        "method": {
-          "enum": ["initialize", "status/get", "catalog/list", "binding/apply", "binding/release", "shutdown"]
-        },
-        "params": { "type": "object" }
-      }
+    "request": { "properties": { "method": { "enum": ["initialize", "status/get", "catalog/list", "binding/apply", "binding/release", "shutdown"] } } },
+    "notification": { "properties": { "method": { "enum": ["status/changed", "$/cancel"] } } },
+    "requests": {
+      "anyOf": [
+        { "$ref": "#/$defs/initializeRequest" }, { "$ref": "#/$defs/statusGetRequest" },
+        { "$ref": "#/$defs/catalogListRequest" }, { "$ref": "#/$defs/bindingApplyRequest" },
+        { "$ref": "#/$defs/bindingReleaseRequest" }, { "$ref": "#/$defs/shutdownRequest" }
+      ]
     },
-    "notification": {
-      "type": "object",
-      "required": ["jsonrpc", "method", "params"],
-      "properties": {
-        "jsonrpc": { "const": "2.0" },
-        "method": { "enum": ["status/changed", "$/cancel"] },
-        "params": { "type": "object" }
-      }
+    "initializeRequest": {
+      "type": "object", "additionalProperties": false, "required": ["jsonrpc", "id", "method", "params"],
+      "properties": { "jsonrpc": { "const": "2.0" }, "id": { "type": "integer" }, "method": { "const": "initialize" }, "params": { "$ref": "#/$defs/initializeParameters" } }
+    },
+    "statusGetRequest": {
+      "type": "object", "additionalProperties": false, "required": ["jsonrpc", "id", "method", "params"],
+      "properties": { "jsonrpc": { "const": "2.0" }, "id": { "type": "integer" }, "method": { "const": "status/get" }, "params": { "$ref": "#/$defs/emptyObject" } }
+    },
+    "catalogListRequest": {
+      "type": "object", "additionalProperties": false, "required": ["jsonrpc", "id", "method", "params"],
+      "properties": { "jsonrpc": { "const": "2.0" }, "id": { "type": "integer" }, "method": { "const": "catalog/list" }, "params": { "$ref": "#/$defs/catalogListParameters" } }
+    },
+    "bindingApplyRequest": {
+      "type": "object", "additionalProperties": false, "required": ["jsonrpc", "id", "method", "params"],
+      "properties": { "jsonrpc": { "const": "2.0" }, "id": { "type": "integer" }, "method": { "const": "binding/apply" }, "params": { "$ref": "#/$defs/bindingApplyParameters" } }
+    },
+    "bindingReleaseRequest": {
+      "type": "object", "additionalProperties": false, "required": ["jsonrpc", "id", "method", "params"],
+      "properties": { "jsonrpc": { "const": "2.0" }, "id": { "type": "integer" }, "method": { "const": "binding/release" }, "params": { "$ref": "#/$defs/bindingReleaseParameters" } }
+    },
+    "shutdownRequest": {
+      "type": "object", "additionalProperties": false, "required": ["jsonrpc", "id", "method", "params"],
+      "properties": { "jsonrpc": { "const": "2.0" }, "id": { "type": "integer" }, "method": { "const": "shutdown" }, "params": { "$ref": "#/$defs/emptyObject" } }
+    },
+    "notifications": {
+      "anyOf": [
+        { "type": "object", "additionalProperties": false, "required": ["jsonrpc", "method", "params"], "properties": { "jsonrpc": { "const": "2.0" }, "method": { "const": "status/changed" }, "params": { "$ref": "#/$defs/emptyObject" } } },
+        { "type": "object", "additionalProperties": false, "required": ["jsonrpc", "method", "params"], "properties": { "jsonrpc": { "const": "2.0" }, "method": { "const": "$/cancel" }, "params": { "$ref": "#/$defs/cancelParameters" } } }
+      ]
     },
     "response": {
-      "type": "object",
-      "required": ["jsonrpc", "id"],
+      "type": "object", "additionalProperties": false, "required": ["jsonrpc", "id"],
       "properties": {
-        "jsonrpc": { "const": "2.0" },
-        "id": { "type": ["integer", "null"] },
-        "result": {},
-        "error": {
-          "type": "object",
-          "required": ["code", "message"],
-          "properties": {
-            "code": { "type": "integer" },
-            "message": { "type": "string" }
-          }
-        }
+        "jsonrpc": { "const": "2.0" }, "id": { "type": ["integer", "null"] },
+        "result": { "anyOf": [
+          { "$ref": "#/$defs/initializeResult" }, { "$ref": "#/$defs/pluginStatusResult" },
+          { "$ref": "#/$defs/pluginCatalogResult" }, { "$ref": "#/$defs/bindingApplyResult" },
+          { "$ref": "#/$defs/bindingReleaseResult" }, { "$ref": "#/$defs/emptyObject" }
+        ] },
+        "error": { "$ref": "#/$defs/rpcError" }
       },
       "oneOf": [
         { "required": ["result"], "not": { "required": ["error"] } },
         { "required": ["error"], "not": { "required": ["result"] } }
       ]
-    }
+    },
+    "emptyObject": { "type": "object", "additionalProperties": false },
+    "rpcError": { "type": "object", "additionalProperties": false, "required": ["code", "message"], "properties": { "code": { "type": "integer" }, "message": { "type": "string" } } },
+    "pluginHostInfo": { "type": "object", "additionalProperties": false, "required": ["name", "version"], "properties": { "name": { "type": "string" }, "version": { "type": "string" } } },
+    "initializeParameters": {
+      "type": "object", "additionalProperties": false, "required": ["contractVersion", "host"],
+      "properties": { "contractVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" }, "host": { "$ref": "#/$defs/pluginHostInfo" } }
+    },
+    "initializeResult": {
+      "type": "object", "additionalProperties": false, "required": ["pluginId", "pluginVersion", "contractVersion", "capabilities"],
+      "properties": {
+        "pluginId": { "type": "string" }, "pluginVersion": { "type": "string" }, "contractVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+        "capabilities": { "type": "array", "items": { "$ref": "#/$defs/pluginCapability" } }
+      }
+    },
+    "pluginCapability": { "type": "object", "additionalProperties": false, "required": ["id", "support"], "properties": { "id": { "type": "string" }, "support": { "type": "string" }, "reason": { "$ref": "#/$defs/pluginReason" } } },
+    "pluginReason": { "type": "object", "additionalProperties": false, "required": ["code", "message"], "properties": { "code": { "type": "string" }, "message": { "type": "string" } } },
+    "pluginStatusResult": { "type": "object", "additionalProperties": false, "required": ["availability"], "properties": { "availability": { "type": "string" }, "reason": { "$ref": "#/$defs/pluginReason" }, "current": { "$ref": "#/$defs/pluginSelection" } } },
+    "pluginSelection": { "type": "object", "additionalProperties": false, "properties": { "effect": { "$ref": "#/$defs/pluginResourceReference" }, "layout": { "$ref": "#/$defs/pluginResourceReference" } } },
+    "pluginResourceReference": { "type": "object", "additionalProperties": false, "required": ["displayName"], "properties": { "resourceId": { "type": "string" }, "displayName": { "type": "string" } } },
+    "catalogListParameters": { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "type": "string", "enum": ["effect", "layout"] } } },
+    "pluginCatalogResult": {
+      "type": "object", "additionalProperties": false, "required": ["support", "items"],
+      "properties": { "support": { "type": "string" }, "refreshedAt": { "type": "string", "format": "date-time" }, "items": { "type": "array", "items": { "$ref": "#/$defs/pluginCatalogItem" } }, "reason": { "$ref": "#/$defs/pluginReason" } }
+    },
+    "pluginCatalogItem": { "type": "object", "additionalProperties": false, "required": ["resourceId", "displayName", "available"], "properties": { "resourceId": { "type": "string" }, "displayName": { "type": "string" }, "available": { "type": "boolean" }, "reason": { "$ref": "#/$defs/pluginReason" } } },
+    "pluginDeviceScope": { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "type": "string" }, "deviceIds": { "type": "array", "items": { "type": "string" } } } },
+    "bindingApplyParameters": {
+      "type": "object", "additionalProperties": false, "required": ["profile", "bindingId", "renderingAuthority", "deviceScope"],
+      "properties": { "profile": { "type": "string" }, "bindingId": { "type": "string" }, "renderingAuthority": { "type": "string" }, "deviceScope": { "$ref": "#/$defs/pluginDeviceScope" }, "effect": { "$ref": "#/$defs/pluginResourceReference" }, "layout": { "$ref": "#/$defs/pluginResourceReference" } }
+    },
+    "bindingApplyResult": { "type": "object", "additionalProperties": false, "required": ["outcome"], "properties": { "outcome": { "type": "string" }, "reason": { "$ref": "#/$defs/pluginReason" }, "actual": { "$ref": "#/$defs/pluginSelection" } } },
+    "bindingReleaseParameters": { "type": "object", "additionalProperties": false, "required": ["profile", "bindingId"], "properties": { "profile": { "type": "string" }, "bindingId": { "type": "string" } } },
+    "bindingReleaseResult": { "type": "object", "additionalProperties": false, "required": ["outcome"], "properties": { "outcome": { "type": "string" } } },
+    "cancelParameters": { "type": "object", "additionalProperties": false, "required": ["id"], "properties": { "id": { "type": "integer" } } }
   }
 }

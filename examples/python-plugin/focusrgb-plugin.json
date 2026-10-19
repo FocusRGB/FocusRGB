@@ -7,7 +7,7 @@
   "operatingSystems": ["linux", "macos"],
   "architectures": ["x64", "arm64"],
   "roles": ["output"],
-  "resources": ["provider-effects"],
+  "resources": [],
   "license": "MIT",
   "source": "https://github.com/FocusRGB/FocusRGB"
 }

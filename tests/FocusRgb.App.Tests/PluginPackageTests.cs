@@ -80,6 +80,7 @@ namespace FocusRgb.App.Tests
         [InlineData("version")]
         [InlineData("operating-system")]
         [InlineData("duplicate-resource")]
+        [InlineData("unsupported-resource")]
         [InlineData("source")]
         public void Load_RejectsManifestThatDoesNotMatchSchemaRules(string invalid)
         {
@@ -88,6 +89,7 @@ namespace FocusRgb.App.Tests
                 "version" => Manifest() with { Version = "1.0" },
                 "operating-system" => Manifest() with { OperatingSystems = ["plan9"] },
                 "duplicate-resource" => Manifest() with { Resources = ["effect", "effect"] },
+                "unsupported-resource" => Manifest() with { Resources = ["provider-effects"] },
                 _ => Manifest() with { Source = "relative" }
             };
             WritePackage(manifest);

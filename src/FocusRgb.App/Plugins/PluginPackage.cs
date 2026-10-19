@@ -103,8 +103,10 @@ namespace FocusRgb.App.Plugins
                 return "Architectures must be unique supported values.";
             if (!ValidList(manifest.Roles, ["detector", "discovery", "integration", "output", "effect"]))
                 return "Roles must be unique supported values.";
-            if (manifest.Resources is null || manifest.Resources.Count != manifest.Resources.Distinct(StringComparer.Ordinal).Count())
-                return "Resources are required and must be unique.";
+            if (manifest.Resources is null
+                || manifest.Resources.Count != manifest.Resources.Distinct(StringComparer.Ordinal).Count()
+                || manifest.Resources.Any(resource => resource is not ("process.read" or "process.start" or "filesystem.read")))
+                return "Resources must be unique supported values.";
             if (string.IsNullOrWhiteSpace(manifest.License)) return "License is required.";
             if (manifest.Source is not null
                 && (!Uri.TryCreate(manifest.Source, UriKind.Absolute, out var source)
