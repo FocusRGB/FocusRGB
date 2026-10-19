@@ -7,6 +7,7 @@ using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
 using FocusRgb.Core.Selection;
 using FocusRgb.Contracts;
+using FocusRgb.App.Diagnostics;
 
 namespace FocusRgb.App.ViewModels
 {
@@ -475,32 +476,53 @@ namespace FocusRgb.App.ViewModels
             var revision = Interlocked.Increment(ref _profileResourceRevision);
             var profile = EditingProfile;
             if (_pluginGateway is null || profile is null) return;
-            var binding = _settings.Profiles!.Single(item => item.Id == profile.Id).Bindings![0];
+            var binding = _settings.Profiles!.SingleOrDefault(item => item.Id == profile.Id)?.Bindings?[0];
+            if (binding is null) return;
             var effectDraft = DraftResource(SelectedProfileEffect, ProfileEffect);
             var layoutDraft = string.Equals(ProfileLayout, "Current provider layout", StringComparison.Ordinal)
                 ? null
                 : DraftResource(SelectedProfileLayout, ProfileLayout);
-            var capabilities = _pluginGateway.GetCapabilities(binding.Plugin!);
-            if (capabilities is null)
+            try
             {
-                if (revision == _profileResourceRevision && ReferenceEquals(profile, EditingProfile))
+                var capabilities = _pluginGateway.GetCapabilities(binding.Plugin!);
+                if (capabilities is null)
                 {
-                    ReplaceResourceOptions(ProfileEffectOptions, [], effectDraft, retainCurrent: false);
-                    ReplaceResourceOptions(ProfileLayoutOptions, [], layoutDraft, retainCurrent: true);
-                    SelectProviderResources(effectDraft, layoutDraft);
-                    ProfileResourceStatus = $"Plugin '{binding.Plugin}' is unavailable; current choices are shown as unavailable.";
+                    if (revision == _profileResourceRevision && ReferenceEquals(profile, EditingProfile))
+                    {
+                        ReplaceResourceOptions(ProfileEffectOptions, [], effectDraft, retainCurrent: false);
+                        ReplaceResourceOptions(ProfileLayoutOptions, [], layoutDraft, retainCurrent: true);
+                        SelectProviderResources(effectDraft, layoutDraft);
+                        ProfileResourceStatus = $"Plugin '{binding.Plugin}' is unavailable; current choices are shown as unavailable.";
+                    }
+                    return;
                 }
-                return;
+
+                var effect = await LoadCatalogAsync(binding.Plugin!, "effect", capabilities, cancellationToken);
+                var layout = await LoadCatalogAsync(binding.Plugin!, "layout", capabilities, cancellationToken);
+                if (revision != _profileResourceRevision || !ReferenceEquals(profile, EditingProfile)) return;
+                effectDraft = DraftResource(SelectedProfileEffect, ProfileEffect);
+                layoutDraft = string.Equals(ProfileLayout, "Current provider layout", StringComparison.Ordinal)
+                    ? null
+                    : DraftResource(SelectedProfileLayout, ProfileLayout);
+
+                ReplaceResourceOptions(ProfileEffectOptions, effect.Items, effectDraft, retainCurrent: false);
+                ReplaceResourceOptions(ProfileLayoutOptions, layout.Items, layoutDraft, retainCurrent: true);
+                SelectProviderResources(effectDraft, layoutDraft);
+                var resolvedByName = binding.Effect?.ResourceId is null
+                    && SelectedProfileEffect?.ResourceId is not null
+                    && SelectedProfileEffect.DisplayName == binding.Effect?.DisplayName;
+                ProfileResourceStatus = $"Effects: {effect.Status} Layouts: {layout.Status}"
+                    + (resolvedByName ? " Resolved by name; save to pin the provider ID." : "");
             }
-
-            var effect = await LoadCatalogAsync(binding.Plugin!, "effect", capabilities, cancellationToken);
-            var layout = await LoadCatalogAsync(binding.Plugin!, "layout", capabilities, cancellationToken);
-            if (revision != _profileResourceRevision || !ReferenceEquals(profile, EditingProfile)) return;
-
-            ReplaceResourceOptions(ProfileEffectOptions, effect.Items, effectDraft, retainCurrent: false);
-            ReplaceResourceOptions(ProfileLayoutOptions, layout.Items, layoutDraft, retainCurrent: true);
-            SelectProviderResources(effectDraft, layoutDraft);
-            ProfileResourceStatus = $"Effects: {effect.Status} Layouts: {layout.Status}";
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+            catch (Exception exception)
+            {
+                AppLog.Write($"Provider catalog refresh failed: {exception.Message}");
+                if (revision == _profileResourceRevision && ReferenceEquals(profile, EditingProfile))
+                    ProfileResourceStatus = $"Provider catalogs could not be refreshed: {exception.Message}";
+            }
         }
 
         public async Task SaveProfileAsync(CancellationToken cancellationToken = default)
@@ -1422,15 +1444,24 @@ namespace FocusRgb.App.ViewModels
             if (EditingProfile is null) return true;
             var saved = TemplateFor(EditingProfile.Id);
             var fallback = saved.Fallback!.FirstOrDefault();
+            var savedEffect = saved.Bindings![0].Effect!;
+            var savedLayoutResource = saved.Bindings[0].Layout;
             var savedLayout = saved.Bindings![0].Layout?.DisplayName ?? "Current provider layout";
             return ProfileName == EditingProfile.DisplayName
-                && ProfileEffect == saved.Bindings[0].Effect!.DisplayName
-                && SelectedProfileEffect?.ResourceId == saved.Bindings[0].Effect!.ResourceId
+                && ProfileEffect == savedEffect.DisplayName
+                && ResourceMatchesSaved(SelectedProfileEffect, savedEffect)
                 && ProfileLayout == savedLayout
-                && SelectedProfileLayout?.ResourceId == saved.Bindings[0].Layout?.ResourceId
+                && ResourceMatchesSaved(SelectedProfileLayout, savedLayoutResource)
                 && ProfileFallbackKind == (fallback?.Kind ?? "native-setup")
                 && (ProfileFallbackKind != "profile" || ProfileFallbackProfile?.Id == fallback?.Profile);
         }
+
+        private static bool ResourceMatchesSaved(
+            ProviderResourceOptionViewModel? selected,
+            ResourceReference? saved) => saved is null
+                ? selected?.ResourceId is null
+                : selected?.DisplayName == saved.DisplayName
+                    && (saved.ResourceId is null || selected?.ResourceId == saved.ResourceId);
 
         private static string RequiredName(string value, string fallback) =>
             string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();

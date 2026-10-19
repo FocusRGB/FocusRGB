@@ -96,13 +96,13 @@ namespace FocusRgb.App
                             change.ReasonCode,
                             change.Message);
                         await Dispatcher.UIThread.InvokeAsync(() => UpdateIntegrationStatuses(viewModel));
-                        await await Dispatcher.UIThread.InvokeAsync<Task>(
-                            () => viewModel.RefreshProfileResourcesAsync());
                         if (change.ReasonCode is "plugin-exited" or "timeout")
                         {
                             AppLog.Write($"Plugin {change.PluginId} became unavailable: {change.Message}");
                             _ = RestartPluginAsync(packagesDirectory, change.PluginId, pluginGateway, viewModel, outputCoordinator);
                         }
+                        await await Dispatcher.UIThread.InvokeAsync<Task>(
+                            () => viewModel.RefreshProfileResourcesAsync());
                     }
                     catch (Exception exception)
                     {
@@ -146,8 +146,8 @@ namespace FocusRgb.App
                     {
                         pluginGateway.Attach(_plugins.Entries);
                         UpdateIntegrationStatuses(viewModel);
-                        await viewModel.RefreshProfileResourcesAsync();
                         await viewModel.ReapplyOutputAsync();
+                        await viewModel.RefreshProfileResourcesAsync();
                         foreach (var entry in _plugins.Entries.Where(entry => !entry.IsRunning))
                             _ = RestartPluginAsync(packagesDirectory, entry.PluginId, pluginGateway, viewModel, outputCoordinator);
                     }
@@ -375,8 +375,6 @@ namespace FocusRgb.App
                 ConfigurePluginLogging([entry]);
                 gateway.Attach([entry]);
                 await Dispatcher.UIThread.InvokeAsync(() => UpdateIntegrationStatuses(viewModel));
-                await await Dispatcher.UIThread.InvokeAsync<Task>(
-                    () => viewModel.RefreshProfileResourcesAsync());
                 if (entry.IsRunning)
                     await coordinator.ReportAvailabilityAsync(entry.PluginId, true);
                 retry = !entry.IsRunning;
@@ -384,6 +382,8 @@ namespace FocusRgb.App
                     AppLog.Write($"Plugin {pluginId} failed to restart; another attempt will be made.");
                 else if (!retry)
                     _ = ResetRestartAttemptsAfterStableRunAsync(runtime, entry);
+                await await Dispatcher.UIThread.InvokeAsync<Task>(
+                    () => viewModel.RefreshProfileResourcesAsync());
             }
             catch (ObjectDisposedException) when (_shutdownApproved)
             {

@@ -128,13 +128,50 @@ namespace FocusRgb.App.Tests
             Assert.Equal("signalrgb-aurora", viewModel.SelectedProfileEffect!.ResourceId);
             Assert.Equal("Current provider layout", viewModel.SelectedProfileLayout!.DisplayName);
             Assert.Contains("No supported SignalRGB layout interface", viewModel.ProfileResourceStatus, StringComparison.Ordinal);
-            Assert.True(viewModel.IsProfileDirty);
+            Assert.Contains("save to pin the provider ID", viewModel.ProfileResourceStatus, StringComparison.Ordinal);
+            Assert.False(viewModel.IsProfileDirty);
             await viewModel.SaveProfileAsync(TestContext.Current.CancellationToken);
 
             var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
             var binding = restarted.Snapshot!.Settings.Profiles!.Single(profile => profile.Id == "default").Bindings![0];
             Assert.Equal("signalrgb-aurora", binding.Effect!.ResourceId);
             Assert.Null(binding.Layout);
+        }
+
+        [Fact]
+        public async Task RefreshProfileResourcesAsync_DoesNotOverwriteSelectionMadeDuringRefresh()
+        {
+            var store = Store();
+            var startup = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(startup.IsSuccess, startup.Error?.Message);
+            var gateway = new CatalogGateway();
+            var viewModel = MainWindowViewModel.CreatePersistent(
+                startup.Snapshot!, store, pluginGateway: gateway);
+            await viewModel.RefreshProfileResourcesAsync(TestContext.Current.CancellationToken);
+            gateway.PauseCatalog = true;
+
+            var refresh = viewModel.RefreshProfileResourcesAsync(TestContext.Current.CancellationToken);
+            await gateway.CatalogStarted.Task.WaitAsync(TestContext.Current.CancellationToken);
+            viewModel.SelectedProfileEffect = viewModel.ProfileEffectOptions.Single(item => item.ResourceId == "signalrgb-rainbow");
+            gateway.ContinueCatalog.SetResult();
+            await refresh;
+
+            Assert.Equal("signalrgb-rainbow", viewModel.SelectedProfileEffect!.ResourceId);
+            Assert.True(viewModel.IsProfileDirty);
+        }
+
+        [Fact]
+        public async Task RefreshProfileResourcesAsync_ReportsCatalogFailureWithoutThrowing()
+        {
+            var store = Store();
+            var startup = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(startup.IsSuccess, startup.Error?.Message);
+            var viewModel = MainWindowViewModel.CreatePersistent(
+                startup.Snapshot!, store, pluginGateway: new CatalogGateway { CatalogException = new IOException("locked") });
+
+            await viewModel.RefreshProfileResourcesAsync(TestContext.Current.CancellationToken);
+
+            Assert.Contains("could not be refreshed", viewModel.ProfileResourceStatus, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -385,6 +422,10 @@ namespace FocusRgb.App.Tests
         private sealed class CatalogGateway : IPluginOutputGateway
         {
             public bool IsRunning { get; init; } = true;
+            public Exception? CatalogException { get; init; }
+            public bool PauseCatalog { get; set; }
+            public TaskCompletionSource CatalogStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            public TaskCompletionSource ContinueCatalog { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
             public IReadOnlyList<PluginCapability>? GetCapabilities(string pluginId) =>
                 IsRunning ?
@@ -413,11 +454,18 @@ namespace FocusRgb.App.Tests
                 }
             ] : null;
 
-            public Task<PluginGatewayResult<PluginCatalogResult>> ListCatalogAsync(
+            public async Task<PluginGatewayResult<PluginCatalogResult>> ListCatalogAsync(
                 string pluginId,
                 string kind,
-                CancellationToken cancellationToken = default) => Task.FromResult(
-                    new PluginGatewayResult<PluginCatalogResult>(new PluginCatalogResult
+                CancellationToken cancellationToken = default)
+            {
+                if (CatalogException is not null) throw CatalogException;
+                if (PauseCatalog)
+                {
+                    CatalogStarted.TrySetResult();
+                    await ContinueCatalog.Task.WaitAsync(cancellationToken);
+                }
+                return new PluginGatewayResult<PluginCatalogResult>(new PluginCatalogResult
                     {
                         Support = "supported",
                         Items =
@@ -427,9 +475,16 @@ namespace FocusRgb.App.Tests
                                 ResourceId = "signalrgb-aurora",
                                 DisplayName = "Aurora",
                                 Available = true
+                            },
+                            new PluginCatalogItem
+                            {
+                                ResourceId = "signalrgb-rainbow",
+                                DisplayName = "Rainbow",
+                                Available = true
                             }
                         ]
-                    }));
+                    });
+            }
 
             public Task<PluginGatewayResult<BindingApplyResult>> ApplyBindingAsync(
                 string pluginId,
