@@ -2,17 +2,15 @@
 name: Publish plugin SDK
 
 on:
-  workflow_dispatch:
+  push:
+    tags:
+      - sdk-v*
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   publish:
-    # TODO(FocusRGB/FocusRGB#79): replace this disabled publisher; the organization token gets
-    # HTTP 403 when writing to the MAJ224-owned feed.
-    if: ${{ false }}
     runs-on: windows-latest
     env:
       DOTNET_NOLOGO: true
@@ -33,8 +31,8 @@ jobs:
         run: |
           Get-ChildItem build/packages -Filter *.nupkg | ForEach-Object {
             dotnet nuget push $_.FullName `
-              --source "https://nuget.pkg.github.com/MAJ224/index.json" `
-              --api-key "${{ secrets.GITHUB_TOKEN }}" `
+              --source "https://api.nuget.org/v3/index.json" `
+              --api-key "${{ secrets.NUGET_API_KEY }}" `
               --skip-duplicate
             if ($LASTEXITCODE -ne 0) { throw "Package publication failed for $($_.Name)." }
           }
