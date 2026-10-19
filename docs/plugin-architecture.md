@@ -115,6 +115,10 @@ literal child repositories, so the naming convention and catalog express their r
 
 ## Contract sketch
 
+[`plugin-protocol.md`](plugin-protocol.md) is the normative transport, lifecycle, message, and
+versioning contract. The JSON schemas are normative machine-readable constraints. This section
+explains architectural intent and does not redefine their wire shapes.
+
 - Manifest: stable ID, plugin version, contract version, roles, config schema, prerequisites.
 - Packaging: supported OS/architecture, entry point, license, declared resource access, and
   optional source/homepage URLs. Reject duplicate IDs and incompatible contract ranges.

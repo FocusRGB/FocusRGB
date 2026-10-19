@@ -9,7 +9,8 @@ Requirements live in [`app-brief.md`](app-brief.md), contracts and behavior in
 [`plugin-architecture.md`](plugin-architecture.md), and verified external facts in
 [`integration-evidence.md`](integration-evidence.md).
 
-Status: **00–15 implemented and merged. 16 is in progress.**
+Status: **00–15 implemented and merged. Slice 16 implementation is merged with its live gate
+still open. Slice 17 is in progress.**
 
 ## 1 — Foundation
 

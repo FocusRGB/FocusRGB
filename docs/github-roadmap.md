@@ -49,8 +49,8 @@ and acceptance criteria. GitHub issues track execution and milestones group cohe
 | 13 | [#39 — Application mappings and persistence](https://github.com/FocusRGB/FocusRGB/issues/39) | v0.3.0-alpha.1 | Completed |
 | 14 | [#38 — SignalRGB capability investigation](https://github.com/FocusRGB/FocusRGB/issues/38) | v0.3.0-alpha.1 | Completed |
 | 15 | [#43 — External SignalRGB plugin repository](https://github.com/FocusRGB/FocusRGB/issues/43) | v0.3.0-alpha.1 | Completed |
-| 16 | [#41 — SignalRGB acceptance gate](https://github.com/FocusRGB/FocusRGB/issues/41) | v0.3.0-alpha.1 | Planned |
-| 17 | [#42 — Stabilize the public SDK and contributor example](https://github.com/FocusRGB/FocusRGB/issues/42) | v0.4.0-alpha.1 | Planned |
+| 16 | [#41 — SignalRGB acceptance gate](https://github.com/FocusRGB/FocusRGB/issues/41) | v0.3.0-alpha.1 | Implementation merged in [#85](https://github.com/FocusRGB/FocusRGB/pull/85); live gate remains |
+| 17 | [#42 — Stabilize the public SDK and contributor example](https://github.com/FocusRGB/FocusRGB/issues/42) | v0.4.0-alpha.1 | In progress |
 | 18 | [#45 — Local MCP commands](https://github.com/FocusRGB/FocusRGB/issues/45) | v0.4.0-alpha.1 | Planned |
 | 19 | [#44 — Installed game catalog and assignments](https://github.com/FocusRGB/FocusRGB/issues/44) | v0.4.0-alpha.1 | Planned |
 | 20 | [#48 — One game API adapter](https://github.com/FocusRGB/FocusRGB/issues/48) | v0.4.0-alpha.1 | Planned |
@@ -68,7 +68,10 @@ and acceptance criteria. GitHub issues track execution and milestones group cohe
 
 | Owning slice | Issue | Milestone | Status |
 |---:|---|---|---|
-| Slice 17 | [#75 — Restart only the affected plugin](https://github.com/FocusRGB/FocusRGB/issues/75) | v0.4.0-alpha.1 | Fix in review: [#78](https://github.com/FocusRGB/FocusRGB/pull/78); Release build clean and all 291 tests pass |
+| Slice 17 | [#75 — Restart only the affected plugin](https://github.com/FocusRGB/FocusRGB/issues/75) | v0.4.0-alpha.1 | Completed in [#78](https://github.com/FocusRGB/FocusRGB/pull/78) |
+| Slice 17 | [#79 — Document the plugin protocol and publish the SDK to nuget.org](https://github.com/FocusRGB/FocusRGB/issues/79) | v0.4.0-alpha.1 | In progress with Slice 17 |
+| Slice 17 | [#80 — Discover and install official or custom plugins](https://github.com/FocusRGB/FocusRGB/issues/80) | v0.4.0-alpha.1 | Planned after the 1.0 package contract |
+| Slice 17 | [#84 — Move contracts and SDKs to FocusRGB-Plugin-SDK](https://github.com/FocusRGB/FocusRGB/issues/84) | v0.4.0-alpha.1 | Planned after #79 |
 | Slice 28 | [#76 — Preserve runtime when Windows session end is cancelled](https://github.com/FocusRGB/FocusRGB/issues/76) | v0.5.0-alpha.1 | Fix in review: [#78](https://github.com/FocusRGB/FocusRGB/pull/78); query, cancellation, and committed-end regressions pass |
 
 Assisted-by: OpenAI Codex
