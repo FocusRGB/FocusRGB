@@ -2,7 +2,7 @@
 
 [← All implementation slices](../../implementation-slices.md)
 
-Depends on: 10, 14. Scope: create the public `MAJ224/FocusRGB-Plugin-SignalRGB` repository when
+Depends on: 10, 14. Scope: create the public `FocusRGB/FocusRGB-Plugin-SignalRGB` repository when
 implementation starts. Move maintained SignalRGB-specific research/tools from the staging module,
 then implement status/catalog requests, effect application, optional supported layout selection,
 and provider authority/device scope against a published `FocusRgb.PluginSdk` version. Omitted

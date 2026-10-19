@@ -9,5 +9,5 @@ Acceptance: each capability is verified, unavailable, or unresolved with evidenc
 fixture names against actual catalog (including Screen Ambient versus historical Screen
 Ambience). No light switching, provider settings edits, or device reconfiguration in this slice.
 
-Completed evidence: [SignalRGB capability investigation — 2026-10-18](https://github.com/MAJ224/FocusRGB-Plugin-SignalRGB/blob/develop/research/docs/capability-investigation-2026-10-18.md).
+Completed evidence: [SignalRGB capability investigation — 2026-10-18](https://github.com/FocusRGB/FocusRGB-Plugin-SignalRGB/blob/develop/research/docs/capability-investigation-2026-10-18.md).
 

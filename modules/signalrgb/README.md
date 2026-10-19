@@ -2,7 +2,7 @@
 
 The maintained SignalRGB plugin, capability evidence, examples, templates, and developer tools
 now live in the independent public
-[`MAJ224/FocusRGB-Plugin-SignalRGB`](https://github.com/MAJ224/FocusRGB-Plugin-SignalRGB)
+[`FocusRGB/FocusRGB-Plugin-SignalRGB`](https://github.com/FocusRGB/FocusRGB-Plugin-SignalRGB)
 repository. Its Slice 15 implementation is reviewed separately from the provider-neutral
 FocusRGB application.
 

@@ -108,7 +108,7 @@ Updated: 2026-10-18.
 - SignalRGB-only starters, examples, and the Pro-blocked experiment separated from the empty
   active `effects/` and `plugins/` install folders; tools now have explicit names.
 - SignalRGB implementation and maintained public research now live in the independent
-  `MAJ224/FocusRGB-Plugin-SignalRGB` repository; `modules/signalrgb/` is a migration link only.
+  `FocusRGB/FocusRGB-Plugin-SignalRGB` repository; `modules/signalrgb/` is a migration link only.
 - Generated builds and tool artifacts are consolidated under the ignored `build/` directory;
   repository Graphify output is stored in `build/graphify-out/`.
 - Runtime selected: .NET 10 with an Avalonia tray/settings UI and UI-independent background
@@ -209,8 +209,8 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 
 - Slice: 16 — SignalRGB acceptance gate
 - State: planned; Slice 15 is merged in both repositories
-- Repositories: `MAJ224/FocusRGB` owns the acceptance gate and
-  `MAJ224/FocusRGB-Plugin-SignalRGB` owns the provider package under test.
+- Repositories: `FocusRGB/FocusRGB` owns the acceptance gate and
+  `FocusRGB/FocusRGB-Plugin-SignalRGB` owns the provider package under test.
 - Remaining acceptance criteria: run Slice 16's live install, profile-switching, visible-output,
   failure, and removal gate.
 - Current blocker or required product input: none.
@@ -222,7 +222,7 @@ Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, 
 `global.json`; use `dotnet test --solution …`, not the VSTest form. The App and Windows
 platform projects target `net10.0-windows`; Contracts and Core stay `net10.0`.
 
-Project name (2026-10-10): FocusRGB. The repository is `MAJ224/FocusRGB`; .NET projects
+Project name (2026-10-10): FocusRGB. The repository is `FocusRGB/FocusRGB`; .NET projects
 use the `FocusRgb.*` prefix (`FocusRgb.Contracts`, `FocusRgb.Core`, `FocusRgb.Platform.Windows`,
 `FocusRgb.App`). The archived SignalRGB effect keeps its historical publisher metadata.
 

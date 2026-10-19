@@ -90,7 +90,7 @@ Provider-specific identifiers remain outside the rule engine.
 ## Repository and package ownership
 
 Production plugins live in independent repositories named `FocusRGB-Plugin-<Name>`, such as
-`MAJ224/FocusRGB-Plugin-SignalRGB` and `MAJ224/FocusRGB-Plugin-WLED`. A plugin repository owns
+`FocusRGB/FocusRGB-Plugin-SignalRGB` and `FocusRGB/FocusRGB-Plugin-WLED`. A plugin repository owns
 its executable, manifest, provider-specific code, tests, documentation, packaging, license,
 and releases. Official and community plugins follow the same package contract.
 
@@ -102,7 +102,7 @@ the manifest's plugin and contract versions before launch.
 
 Create each repository when its implementation slice starts, not as an empty placeholder.
 Slice 15 moved maintained SignalRGB-specific material into
-[`FocusRGB-Plugin-SignalRGB`](https://github.com/MAJ224/FocusRGB-Plugin-SignalRGB); the main
+[`FocusRGB-Plugin-SignalRGB`](https://github.com/FocusRGB/FocusRGB-Plugin-SignalRGB); the main
 repository retains only a migration link. Slice 22 creates `FocusRGB-Plugin-WLED`. A selected game integration follows the
 same convention in slice 20 and consumes the public SDK established in slice 17. Shared rules,
 layouts, native effects, and hardware-independent

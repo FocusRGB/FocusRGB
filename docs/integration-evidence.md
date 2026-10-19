@@ -6,7 +6,7 @@ checks below were repeated on this machine. Verify versions and official docs be
 ## SignalRGB
 
 The Slice 14 read-only capability matrix and reproducible probes are recorded in
-[the 2026-10-18 investigation](https://github.com/MAJ224/FocusRGB-Plugin-SignalRGB/blob/develop/research/docs/capability-investigation-2026-10-18.md).
+[the 2026-10-18 investigation](https://github.com/FocusRGB/FocusRGB-Plugin-SignalRGB/blob/develop/research/docs/capability-investigation-2026-10-18.md).
 It supersedes older assumptions where the results differ.
 
 | Surface | Recorded outcome | Limit |
@@ -37,7 +37,7 @@ guess as the API contract.
 **Transport gap:** `device_ledoverrides`/`device_writesetting` are tool names, not established
 wire APIs for the controller. Discover supported transport, connection setup, prerequisites,
 and error behavior before implementing them. The historical launcher in the external plugin's
-[`research/tools`](https://github.com/MAJ224/FocusRGB-Plugin-SignalRGB/tree/develop/research/tools) is a
+[`research/tools`](https://github.com/FocusRGB/FocusRGB-Plugin-SignalRGB/tree/develop/research/tools) is a
 lead, not a guaranteed app dependency. Calls took roughly half a second historically;
 animation performance and persistent-connection benefits were not measured.
 
