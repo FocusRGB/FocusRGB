@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   publish:
+    # TODO(FocusRGB/FocusRGB#79): replace this disabled publisher; the organization token gets
+    # HTTP 403 when writing to the MAJ224-owned feed.
+    if: ${{ false }}
     runs-on: windows-latest
     env:
       DOTNET_NOLOGO: true
@@ -27,7 +30,6 @@ jobs:
           dotnet pack src/FocusRgb.PluginSdk/FocusRgb.PluginSdk.csproj -c Release --no-restore -o build/packages
       - name: Publish packages
         shell: pwsh
-        # TODO(FocusRGB/FocusRGB#79): replace the MAJ224 feed with the FocusRGB nuget.org organization.
         run: |
           Get-ChildItem build/packages -Filter *.nupkg | ForEach-Object {
             dotnet nuget push $_.FullName `
