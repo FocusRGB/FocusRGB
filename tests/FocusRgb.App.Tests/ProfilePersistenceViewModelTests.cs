@@ -3,6 +3,7 @@ using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
+using FocusRgb.Contracts;
 
 namespace FocusRgb.App.Tests
 {
@@ -106,6 +107,48 @@ namespace FocusRgb.App.Tests
             Assert.Equal("Logarithmic Visualizer",
                 restarted.Snapshot!.Settings.Profiles!.Single(profile => profile.Id == "music")
                     .Bindings![0].Effect!.DisplayName);
+        }
+
+        [Fact]
+        public async Task RefreshProfileResourcesAsync_SavesExactCatalogIdAndKeepsUnsupportedLayout()
+        {
+            var store = Store();
+            var startup = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(startup.IsSuccess, startup.Error?.Message);
+            var gateway = new CatalogGateway();
+            using var coordinator = new OutputCoordinator(gateway, startup.Snapshot!.NativeSetup);
+            var viewModel = MainWindowViewModel.CreatePersistent(
+                startup.Snapshot,
+                store,
+                outputCoordinator: coordinator,
+                pluginGateway: gateway);
+
+            await viewModel.RefreshProfileResourcesAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal("signalrgb-aurora", viewModel.SelectedProfileEffect!.ResourceId);
+            Assert.Equal("Current provider layout", viewModel.SelectedProfileLayout!.DisplayName);
+            Assert.Contains("No supported SignalRGB layout interface", viewModel.ProfileResourceStatus, StringComparison.Ordinal);
+            Assert.True(viewModel.IsProfileDirty);
+            await viewModel.SaveProfileAsync(TestContext.Current.CancellationToken);
+
+            var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+            var binding = restarted.Snapshot!.Settings.Profiles!.Single(profile => profile.Id == "default").Bindings![0];
+            Assert.Equal("signalrgb-aurora", binding.Effect!.ResourceId);
+            Assert.Null(binding.Layout);
+        }
+
+        [Fact]
+        public async Task CreatePersistent_ShowsSavedResourcesAsUnavailableWhenPluginIsAbsent()
+        {
+            var store = Store();
+            var startup = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(startup.IsSuccess, startup.Error?.Message);
+
+            var viewModel = MainWindowViewModel.CreatePersistent(
+                startup.Snapshot!, store, pluginGateway: new CatalogGateway { IsRunning = false });
+
+            Assert.False(viewModel.SelectedProfileEffect!.IsAvailable);
+            Assert.Contains("unavailable", viewModel.ProfileResourceStatus, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
@@ -337,6 +380,75 @@ namespace FocusRgb.App.Tests
         public void Dispose()
         {
             if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
+        }
+
+        private sealed class CatalogGateway : IPluginOutputGateway
+        {
+            public bool IsRunning { get; init; } = true;
+
+            public IReadOnlyList<PluginCapability>? GetCapabilities(string pluginId) =>
+                IsRunning ?
+            [
+                new PluginCapability { Id = "provider.effect.catalog", Support = "supported" },
+                new PluginCapability { Id = "provider.effect.select", Support = "unverified" },
+                new PluginCapability
+                {
+                    Id = "provider.layout.catalog",
+                    Support = "unsupported",
+                    Reason = new PluginReason
+                    {
+                        Code = "capability-unsupported",
+                        Message = "No supported SignalRGB layout interface is available."
+                    }
+                },
+                new PluginCapability
+                {
+                    Id = "provider.layout.select",
+                    Support = "unsupported",
+                    Reason = new PluginReason
+                    {
+                        Code = "capability-unsupported",
+                        Message = "No supported SignalRGB layout interface is available."
+                    }
+                }
+            ] : null;
+
+            public Task<PluginGatewayResult<PluginCatalogResult>> ListCatalogAsync(
+                string pluginId,
+                string kind,
+                CancellationToken cancellationToken = default) => Task.FromResult(
+                    new PluginGatewayResult<PluginCatalogResult>(new PluginCatalogResult
+                    {
+                        Support = "supported",
+                        Items =
+                        [
+                            new PluginCatalogItem
+                            {
+                                ResourceId = "signalrgb-aurora",
+                                DisplayName = "Aurora",
+                                Available = true
+                            }
+                        ]
+                    }));
+
+            public Task<PluginGatewayResult<BindingApplyResult>> ApplyBindingAsync(
+                string pluginId,
+                BindingApplyParameters parameters,
+                CancellationToken cancellationToken = default) => Task.FromResult(
+                    new PluginGatewayResult<BindingApplyResult>(new BindingApplyResult
+                    {
+                        Outcome = "unverified",
+                        Actual = new PluginSelection { Effect = parameters.Effect, Layout = parameters.Layout }
+                    }));
+
+            public Task<PluginGatewayResult<BindingReleaseResult>> ReleaseBindingAsync(
+                string pluginId,
+                BindingReleaseParameters parameters,
+                CancellationToken cancellationToken = default) => Task.FromResult(
+                    new PluginGatewayResult<BindingReleaseResult>(new BindingReleaseResult
+                    {
+                        Outcome = "nothing-to-release"
+                    }));
         }
     }
 }
