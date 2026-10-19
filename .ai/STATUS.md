@@ -211,22 +211,20 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 - State: in progress; Slice 16 implementation merged in PR #85 at `e592873`, while its explicitly
   destructive live SignalRGB matrix remains open in issue #41 at the owner's direction.
 - Branch, latest relevant implementation commit, and pull request:
-  `slice/17-public-sdk-and-example`; based on `origin/develop` at `e592873`; PR not opened yet.
+  `slice/17-public-sdk-and-example`; based on `origin/develop` at `e592873`; draft PR #86.
 - Scope and dependencies verified: Slices 10 and 15 are merged; per-plugin restart isolation #75
-  is complete. Slice 17 owns protocol/nuget.org work #79 and discovery/install work #80. The
-  repository split #84 follows the frozen and published 1.0 contract.
+  is complete. Slice 17 owns protocol/nuget.org work #79 and discovery/install work #80. Revised
+  #84 keeps the .NET, Node, and Python SDKs together in this repository under `sdk/`.
 - Implemented files and entry points: `ContractVersion` and both NuGet projects now declare 1.0;
   the fake process and clean consumer fixture use 1.0; package/handshake tests reject both 0.x
-  and future majors. `docs/plugin-protocol.md` is the normative language-neutral transport,
-  lifecycle, message, manifest, and compatibility specification. Schema drift tests compare
-  method constants and manifest properties, and the publisher targets nuget.org through the
-  owner-supplied `NUGET_API_KEY`. `tools/plugin-conformance.py` drives any child-process command
-  through the 1.0 lifecycle using only the Python standard library; it passes against both the
-  .NET fake process and the non-.NET `examples/python-plugin` implementation.
-  `templates/dotnet-plugin` is an installable `dotnet new` template with public package-only
-  references, a manifest, example provider lifecycle, license, README, and standalone CI.
-- Verification: `dotnet build FocusRgb.slnx -c Release --no-restore` passed with 0 warnings/errors;
-  `dotnet test FocusRgb.slnx -c Release --no-build --no-restore` passed 297/297. The independent
+  and future majors. `sdk/spec/plugin-protocol.md` and its adjacent schemas are normative.
+  Contracts and the .NET SDK live under `sdk/dotnet`, the language-neutral runner under
+  `sdk/conformance`, and the current template/example under `sdk/templates` and `sdk/examples`.
+  The optional 1.0 initialize-result `sdk { name, language, version }` is shape-validated,
+  diagnostic-only, injected automatically by `FocusRgb.PluginSdk`, and shown/logged by the host.
+  Publishing uses the gated `sdk-dotnet-v*` tag family.
+- Verification: `dotnet restore FocusRgb.slnx` passed; `dotnet test FocusRgb.slnx -c Release
+  --no-restore` passed 322/322 with 0 warnings/errors. The independent
   package script built reproducible `FocusRgb.Contracts` and `FocusRgb.PluginSdk` 1.0.0 packages
   twice and built a clean external consumer from the local feed. The language-neutral runner
   passed the full initialize/status/catalog/apply/release/shutdown sequence against the Python
@@ -235,18 +233,15 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
   feed, built with 0 warnings/errors, validated its substituted manifest, and passed conformance.
 - External/live evidence: no package was published, no repository was created, no plugin was
   installed, and no hardware or visible lighting was changed.
-- Remaining acceptance criteria: freeze/document contract 1.0, add schema/type drift checks and
-  language-neutral conformance, publish credential-free packages, finish the external template
-  and example, define discovery metadata, verify incompatible-major rejection, and complete the
-  explicitly confirmed installation flows.
+- Remaining acceptance criteria: review and merge PR #86 after the owner's live #41 decision;
+  publish credential-free packages after owner setup; then complete #82, multi-language SDKs
+  under #84, and official/custom discovery and installation under #80.
 - Current blocker or required product input: the owner must create/configure the nuget.org
   `FocusRGB` organization, reserve the `FocusRgb.*` prefix, and add the scoped `NUGET_API_KEY`
-  secret before publication can be verified. Repository creation/settings for #84 also require
-  owner confirmation if not already present.
-- Uncommitted work to preserve: the external .NET template, expanded package verification, and
-  documentation updates; template generation/build/conformance pass.
-- Next action: define the minimal official release catalog assets and implement the secure,
-  user-triggered discovery/install foundation from #80 without background network access.
+  secret before publication can be verified. The live SignalRGB gate remains issue #41.
+- Uncommitted work to preserve: none after the PR #86 SDK-layout checkpoint.
+- Next action: push PR #86, verify CI, then begin narrowed test-infrastructure issue #82 on its
+  own branch from `origin/develop` without merging PR #86.
 - Next slice: 18 only after Slice 17 acceptance criteria pass.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
