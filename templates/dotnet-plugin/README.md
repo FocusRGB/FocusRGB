@@ -3,6 +3,9 @@
 Standalone FocusRGB 1.0 process-plugin starter. It depends only on the public
 `FocusRgb.PluginSdk` package and does not require an app source checkout.
 
+The 1.0 package is not on nuget.org until the protected SDK publication workflow completes;
+restore will fail before that release is published.
+
 ## Create a plugin repository
 
 ```powershell

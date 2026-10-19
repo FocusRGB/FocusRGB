@@ -12,14 +12,38 @@ permissions:
 jobs:
   publish:
     runs-on: windows-latest
+    environment: nuget
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
+      - name: Verify release tag and package versions
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_name }}" -notmatch '^sdk-v([0-9]+\.[0-9]+\.[0-9]+)$') {
+            throw "SDK tags must use sdk-vMAJOR.MINOR.PATCH."
+          }
+          $tagVersion = $Matches[1]
+          foreach ($project in @(
+            "src/FocusRgb.Contracts/FocusRgb.Contracts.csproj",
+            "src/FocusRgb.PluginSdk/FocusRgb.PluginSdk.csproj")) {
+            [xml]$xml = Get-Content $project
+            if ($xml.Project.PropertyGroup.Version -ne $tagVersion) {
+              throw "$project version must equal tag version $tagVersion."
+            }
+          }
+          git fetch origin develop main --no-tags
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/develop
+          $onDevelop = $LASTEXITCODE -eq 0
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/main
+          $onMain = $LASTEXITCODE -eq 0
+          if (-not ($onDevelop -or $onMain)) { throw "SDK tags must point to develop or main history." }
       - run: dotnet restore FocusRgb.slnx
       - name: Pack contracts and SDK
         shell: pwsh
@@ -32,7 +56,6 @@ jobs:
           Get-ChildItem build/packages -Filter *.nupkg | ForEach-Object {
             dotnet nuget push $_.FullName `
               --source "https://api.nuget.org/v3/index.json" `
-              --api-key "${{ secrets.NUGET_API_KEY }}" `
-              --skip-duplicate
+              --api-key "${{ secrets.NUGET_API_KEY }}"
             if ($LASTEXITCODE -ne 0) { throw "Package publication failed for $($_.Name)." }
           }

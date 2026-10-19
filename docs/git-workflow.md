@@ -105,6 +105,10 @@ CI restores the public packages from nuget.org without credentials. Issue #84 mo
 publisher and the stable contracts into `FocusRGB/FocusRGB-Plugin-SDK` after protocol 1.0 is
 published. Link the main slice issue to the plugin repository's own issue and pull request,
 using the same release milestone.
+
+The `nuget` GitHub environment must be protected with MAJ224 as its required reviewer. The
+publication job validates the `sdk-vMAJOR.MINOR.PATCH` tag against both package versions and
+requires the tagged commit to belong to `develop` or `main` before using `NUGET_API_KEY`.
 Move only maintained, publication-safe research: do not republish local security-testing notes,
 credentials, private-network addresses, or machine-specific paths in a public plugin repository.
 

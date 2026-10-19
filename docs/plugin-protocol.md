@@ -22,7 +22,7 @@ constraints. `FocusRgb.Contracts` is the matching hand-written C# model, and
 ## Lifecycle and time limits
 
 The first request is `initialize`. No other request is valid until it succeeds. The manifest ID,
-handshake plugin ID, and contract major must match. The host then uses `status/get`,
+handshake plugin ID, and compatible contract version must match. The host then uses `status/get`,
 `catalog/list`, `binding/apply`, and `binding/release` only when the declared capabilities allow
 them. `shutdown` is the final request.
 
@@ -55,7 +55,7 @@ capability has a stable `id`, one `support` value, and an optional `reason`.
 ### `status/get`
 
 Parameters are empty. The result contains `availability`, an optional `reason`, and an optional
-current `selection`. A selection contains optional effect and layout resource references. A
+`current`. The current value contains optional effect and layout resource references. A
 resource reference contains an opaque provider `resourceId` when known and a required
 `displayName`.
 
@@ -122,6 +122,10 @@ The host rejects path traversal, a missing entry point, an unsupported platform 
 an unexpected plugin ID, and an incompatible contract major before launching code. Plugins run
 with the user's permissions and therefore require explicit installation and enablement.
 
+The manifest resource vocabulary is `process.read`, `process.start`, and `filesystem.read`;
+declare only access the plugin actually needs, or use an empty array. New resource names require
+a manifest-schema update before plugins may use them.
+
 ## Versioning and compatibility
 
 Contract versions are `major.minor`; package versions are semantic `major.minor.patch`.
@@ -136,6 +140,10 @@ Contract versions are `major.minor`; package versions are semantic `major.minor.
 - Unknown optional capabilities are ignored. Required behavior is invoked only after capability
   negotiation, leaving room for game events and native frame output in later 1.x versions.
 
+During the SignalRGB migration only, host 1.0 also accepts contract 0.1 when both the manifest
+and handshake declare 0.1. The UI and log identify it as legacy. Remove this exception after the
+SignalRGB plugin publishes its coordinated 1.0 package.
+
 ## Conformance
 
 Conformance does not require .NET. A conforming executable communicates only through the
@@ -143,8 +151,9 @@ transport above, validates initialization, implements every capability it report
 cancellation and shutdown, keeps logs off standard output, and agrees with
 [`plugin-protocol.schema.json`](../schemas/plugin-protocol.schema.json).
 
-The repository checks package reproducibility, an external package consumer, manifest and
-handshake incompatibility, malformed and oversized messages, timeouts, cancellation, concurrent
-calls, process exit, catalog/apply/release behavior, and shutdown. Schema/type drift tests must
-fail when the normative schemas, method constants, contract version, or hand-written C# shapes
-diverge.
+The language-neutral runner checks the successful initialize, status, catalog, apply, release,
+and shutdown lifecycle. The repository's host and SDK tests separately cover package
+reproducibility, an external package consumer, manifest and handshake incompatibility, malformed
+and oversized messages, timeouts, cancellation, concurrent calls, process exit, stderr/stdout
+separation, and shutdown. Schema/type drift tests fail when the normative schemas, method
+constants, contract version, or hand-written C# property names, requiredness, and types diverge.
