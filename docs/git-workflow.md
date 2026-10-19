@@ -79,6 +79,8 @@ Adopted 2026-10-10. Applies to people and AI assistants.
 - Add active slice pull requests to the `FocusRGB Roadmap` project and to the milestone that
   names their intended release checkpoint. Slices 10-11 share
   `v0.2.0-alpha.1 - Plugin runtime and coordination`.
+- The [`FocusRGB Roadmap`](https://github.com/orgs/FocusRGB/projects/1) project is public and
+  owned by the `FocusRGB` organization; keep its cards in canonical slice order.
 - Assign only the repository owner. If an assistant helps implement or review a change, record it
   with the matching `Assisted-by:` trailer instead of assigning or requesting review from it.
 - Reviews are submitted under the repository owner's account. A review drafted with Claude or
@@ -129,6 +131,6 @@ the `build` workflow passes on both branches, but those checks are not yet requi
 rulesets. When enabling them, update the live rulesets and the exported definitions together.
 
 To recreate a ruleset, use Settings → Rules → Rulesets → New ruleset → Import a ruleset, or
-`gh api repos/MAJ224/FocusRGB/rulesets --method POST --input .github/rulesets/develop.json`.
+`gh api repos/FocusRGB/FocusRGB/rulesets --method POST --input .github/rulesets/develop.json`.
 In an emergency the owner can temporarily set a ruleset's enforcement to Disabled in the
 GitHub UI.

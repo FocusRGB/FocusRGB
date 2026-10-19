@@ -23,52 +23,52 @@ and acceptance criteria. GitHub issues track execution and milestones group cohe
 
 | Milestone | Slices | State |
 |---|---:|---|
-| [v0.1.0-alpha.1 — Application foundation](https://github.com/MAJ224/FocusRGB/milestone/2) | 00–09 | Closed |
-| [v0.2.0-alpha.1 — Plugin runtime and coordination](https://github.com/MAJ224/FocusRGB/milestone/1) | 10–11 | Closed |
-| [v0.3.0-alpha.1 — External applications](https://github.com/MAJ224/FocusRGB/milestone/3) | 12–16 | Open |
-| [v0.4.0-alpha.1 — Games and external control](https://github.com/MAJ224/FocusRGB/milestone/4) | 17–20 | Open |
-| [v0.5.0-alpha.1 — Native RGB system](https://github.com/MAJ224/FocusRGB/milestone/5) | 21–29 | Open |
+| [v0.1.0-alpha.1 — Application foundation](https://github.com/FocusRGB/FocusRGB/milestone/2) | 00–09 | Closed |
+| [v0.2.0-alpha.1 — Plugin runtime and coordination](https://github.com/FocusRGB/FocusRGB/milestone/1) | 10–11 | Closed |
+| [v0.3.0-alpha.1 — External applications](https://github.com/FocusRGB/FocusRGB/milestone/3) | 12–16 | Open |
+| [v0.4.0-alpha.1 — Games and external control](https://github.com/FocusRGB/FocusRGB/milestone/4) | 17–20 | Open |
+| [v0.5.0-alpha.1 — Native RGB system](https://github.com/FocusRGB/FocusRGB/milestone/5) | 21–29 | Open |
 
 ## Slice issues
 
 | Slice | Issue | Milestone | State |
 |---:|---|---|---|
-| 00 | [#30 — Freeze the minimal data and command contract](https://github.com/MAJ224/FocusRGB/issues/30) | v0.1.0-alpha.1 | Completed |
-| 01 | [#26 — Solution scaffold and repeatable checks](https://github.com/MAJ224/FocusRGB/issues/26) | v0.1.0-alpha.1 | Completed |
-| 02 | [#27 — Profiles and configuration validation](https://github.com/MAJ224/FocusRGB/issues/27) | v0.1.0-alpha.1 | Completed |
-| 03 | [#28 — UI shell with preview state](https://github.com/MAJ224/FocusRGB/issues/28) | v0.1.0-alpha.1 | Completed |
-| 04 | [#29 — Profile mapping editor with preview state](https://github.com/MAJ224/FocusRGB/issues/29) | v0.1.0-alpha.1 | Completed |
-| 05 | [#34 — Pure selection engine](https://github.com/MAJ224/FocusRGB/issues/34) | v0.1.0-alpha.1 | Completed |
-| 06 | [#32 — Saved state and startup restoration](https://github.com/MAJ224/FocusRGB/issues/32) | v0.1.0-alpha.1 | Completed |
-| 07 | [#31 — Profile editor and persistence](https://github.com/MAJ224/FocusRGB/issues/31) | v0.1.0-alpha.1 | Completed |
-| 08 | [#33 — Desktop runtime and tray](https://github.com/MAJ224/FocusRGB/issues/33) | v0.1.0-alpha.1 | Completed |
-| 09 | [#35 — Application settings and lifecycle preferences](https://github.com/MAJ224/FocusRGB/issues/35) | v0.1.0-alpha.1 | Completed |
-| 10 | [#36 — Minimal plugin runtime, SDK, and fake output](https://github.com/MAJ224/FocusRGB/issues/36) | v0.2.0-alpha.1 | Completed |
-| 11 | [#37 — Command coordination and fallback state](https://github.com/MAJ224/FocusRGB/issues/37) | v0.2.0-alpha.1 | Completed |
-| 12 | [#40 — Windows application observations](https://github.com/MAJ224/FocusRGB/issues/40) | v0.3.0-alpha.1 | Completed |
-| 13 | [#39 — Application mappings and persistence](https://github.com/MAJ224/FocusRGB/issues/39) | v0.3.0-alpha.1 | Completed |
-| 14 | [#38 — SignalRGB capability investigation](https://github.com/MAJ224/FocusRGB/issues/38) | v0.3.0-alpha.1 | Completed |
-| 15 | [#43 — External SignalRGB plugin repository](https://github.com/MAJ224/FocusRGB/issues/43) | v0.3.0-alpha.1 | Completed |
-| 16 | [#41 — SignalRGB acceptance gate](https://github.com/MAJ224/FocusRGB/issues/41) | v0.3.0-alpha.1 | Planned |
-| 17 | [#42 — Stabilize the public SDK and contributor example](https://github.com/MAJ224/FocusRGB/issues/42) | v0.4.0-alpha.1 | Planned |
-| 18 | [#45 — Local MCP commands](https://github.com/MAJ224/FocusRGB/issues/45) | v0.4.0-alpha.1 | Planned |
-| 19 | [#44 — Installed game catalog and assignments](https://github.com/MAJ224/FocusRGB/issues/44) | v0.4.0-alpha.1 | Planned |
-| 20 | [#48 — One game API adapter](https://github.com/MAJ224/FocusRGB/issues/48) | v0.4.0-alpha.1 | Planned |
-| 21 | [#46 — Placement model and offline renderer](https://github.com/MAJ224/FocusRGB/issues/46) | v0.5.0-alpha.1 | Planned |
-| 22 | [#49 — WLED plugin and native output gate](https://github.com/MAJ224/FocusRGB/issues/49) | v0.5.0-alpha.1 | Planned |
-| 23 | [#47 — Layout canvas editor](https://github.com/MAJ224/FocusRGB/issues/47) | v0.5.0-alpha.1 | Planned |
-| 24 | [#50 — Hybrid game layers](https://github.com/MAJ224/FocusRGB/issues/50) | v0.5.0-alpha.1 | Planned |
-| 25 | [#52 — Stacked groups](https://github.com/MAJ224/FocusRGB/issues/52) | v0.5.0-alpha.1 | Planned |
-| 26 | [#54 — Native screen ambience and calibration](https://github.com/MAJ224/FocusRGB/issues/54) | v0.5.0-alpha.1 | Planned |
-| 27 | [#53 — One native peripheral backend](https://github.com/MAJ224/FocusRGB/issues/53) | v0.5.0-alpha.1 | Planned |
-| 28 | [#51 — Startup, packaging, and recovery gate](https://github.com/MAJ224/FocusRGB/issues/51) | v0.5.0-alpha.1 | Planned |
-| 29 | [#55 — SignalRGB independence gate](https://github.com/MAJ224/FocusRGB/issues/55) | v0.5.0-alpha.1 | Planned |
+| 00 | [#30 — Freeze the minimal data and command contract](https://github.com/FocusRGB/FocusRGB/issues/30) | v0.1.0-alpha.1 | Completed |
+| 01 | [#26 — Solution scaffold and repeatable checks](https://github.com/FocusRGB/FocusRGB/issues/26) | v0.1.0-alpha.1 | Completed |
+| 02 | [#27 — Profiles and configuration validation](https://github.com/FocusRGB/FocusRGB/issues/27) | v0.1.0-alpha.1 | Completed |
+| 03 | [#28 — UI shell with preview state](https://github.com/FocusRGB/FocusRGB/issues/28) | v0.1.0-alpha.1 | Completed |
+| 04 | [#29 — Profile mapping editor with preview state](https://github.com/FocusRGB/FocusRGB/issues/29) | v0.1.0-alpha.1 | Completed |
+| 05 | [#34 — Pure selection engine](https://github.com/FocusRGB/FocusRGB/issues/34) | v0.1.0-alpha.1 | Completed |
+| 06 | [#32 — Saved state and startup restoration](https://github.com/FocusRGB/FocusRGB/issues/32) | v0.1.0-alpha.1 | Completed |
+| 07 | [#31 — Profile editor and persistence](https://github.com/FocusRGB/FocusRGB/issues/31) | v0.1.0-alpha.1 | Completed |
+| 08 | [#33 — Desktop runtime and tray](https://github.com/FocusRGB/FocusRGB/issues/33) | v0.1.0-alpha.1 | Completed |
+| 09 | [#35 — Application settings and lifecycle preferences](https://github.com/FocusRGB/FocusRGB/issues/35) | v0.1.0-alpha.1 | Completed |
+| 10 | [#36 — Minimal plugin runtime, SDK, and fake output](https://github.com/FocusRGB/FocusRGB/issues/36) | v0.2.0-alpha.1 | Completed |
+| 11 | [#37 — Command coordination and fallback state](https://github.com/FocusRGB/FocusRGB/issues/37) | v0.2.0-alpha.1 | Completed |
+| 12 | [#40 — Windows application observations](https://github.com/FocusRGB/FocusRGB/issues/40) | v0.3.0-alpha.1 | Completed |
+| 13 | [#39 — Application mappings and persistence](https://github.com/FocusRGB/FocusRGB/issues/39) | v0.3.0-alpha.1 | Completed |
+| 14 | [#38 — SignalRGB capability investigation](https://github.com/FocusRGB/FocusRGB/issues/38) | v0.3.0-alpha.1 | Completed |
+| 15 | [#43 — External SignalRGB plugin repository](https://github.com/FocusRGB/FocusRGB/issues/43) | v0.3.0-alpha.1 | Completed |
+| 16 | [#41 — SignalRGB acceptance gate](https://github.com/FocusRGB/FocusRGB/issues/41) | v0.3.0-alpha.1 | Planned |
+| 17 | [#42 — Stabilize the public SDK and contributor example](https://github.com/FocusRGB/FocusRGB/issues/42) | v0.4.0-alpha.1 | Planned |
+| 18 | [#45 — Local MCP commands](https://github.com/FocusRGB/FocusRGB/issues/45) | v0.4.0-alpha.1 | Planned |
+| 19 | [#44 — Installed game catalog and assignments](https://github.com/FocusRGB/FocusRGB/issues/44) | v0.4.0-alpha.1 | Planned |
+| 20 | [#48 — One game API adapter](https://github.com/FocusRGB/FocusRGB/issues/48) | v0.4.0-alpha.1 | Planned |
+| 21 | [#46 — Placement model and offline renderer](https://github.com/FocusRGB/FocusRGB/issues/46) | v0.5.0-alpha.1 | Planned |
+| 22 | [#49 — WLED plugin and native output gate](https://github.com/FocusRGB/FocusRGB/issues/49) | v0.5.0-alpha.1 | Planned |
+| 23 | [#47 — Layout canvas editor](https://github.com/FocusRGB/FocusRGB/issues/47) | v0.5.0-alpha.1 | Planned |
+| 24 | [#50 — Hybrid game layers](https://github.com/FocusRGB/FocusRGB/issues/50) | v0.5.0-alpha.1 | Planned |
+| 25 | [#52 — Stacked groups](https://github.com/FocusRGB/FocusRGB/issues/52) | v0.5.0-alpha.1 | Planned |
+| 26 | [#54 — Native screen ambience and calibration](https://github.com/FocusRGB/FocusRGB/issues/54) | v0.5.0-alpha.1 | Planned |
+| 27 | [#53 — One native peripheral backend](https://github.com/FocusRGB/FocusRGB/issues/53) | v0.5.0-alpha.1 | Planned |
+| 28 | [#51 — Startup, packaging, and recovery gate](https://github.com/FocusRGB/FocusRGB/issues/51) | v0.5.0-alpha.1 | Planned |
+| 29 | [#55 — SignalRGB independence gate](https://github.com/FocusRGB/FocusRGB/issues/55) | v0.5.0-alpha.1 | Planned |
 
 ## Bug follow-ups
 
 | Owning slice | Issue | Milestone | Status |
 |---:|---|---|---|
-| Slice 17 | [#75 — Restart only the affected plugin](https://github.com/MAJ224/FocusRGB/issues/75) | v0.4.0-alpha.1 | Fix in review: [#78](https://github.com/MAJ224/FocusRGB/pull/78); Release build clean and all 291 tests pass |
-| Slice 28 | [#76 — Preserve runtime when Windows session end is cancelled](https://github.com/MAJ224/FocusRGB/issues/76) | v0.5.0-alpha.1 | Fix in review: [#78](https://github.com/MAJ224/FocusRGB/pull/78); query, cancellation, and committed-end regressions pass |
+| Slice 17 | [#75 — Restart only the affected plugin](https://github.com/FocusRGB/FocusRGB/issues/75) | v0.4.0-alpha.1 | Fix in review: [#78](https://github.com/FocusRGB/FocusRGB/pull/78); Release build clean and all 291 tests pass |
+| Slice 28 | [#76 — Preserve runtime when Windows session end is cancelled](https://github.com/FocusRGB/FocusRGB/issues/76) | v0.5.0-alpha.1 | Fix in review: [#78](https://github.com/FocusRGB/FocusRGB/pull/78); query, cancellation, and committed-end regressions pass |
 
 Assisted-by: OpenAI Codex

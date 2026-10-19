@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   publish:
+    # TODO(FocusRGB/FocusRGB#79): replace this disabled publisher; the organization token gets
+    # HTTP 403 when writing to the MAJ224-owned feed.
+    if: ${{ false }}
     runs-on: windows-latest
     env:
       DOTNET_NOLOGO: true
@@ -30,7 +33,7 @@ jobs:
         run: |
           Get-ChildItem build/packages -Filter *.nupkg | ForEach-Object {
             dotnet nuget push $_.FullName `
-              --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
+              --source "https://nuget.pkg.github.com/MAJ224/index.json" `
               --api-key "${{ secrets.GITHUB_TOKEN }}" `
               --skip-duplicate
             if ($LASTEXITCODE -ne 0) { throw "Package publication failed for $($_.Name)." }

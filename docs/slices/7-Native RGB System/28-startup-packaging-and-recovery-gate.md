@@ -8,7 +8,7 @@ and clean shutdown/reconnect checks for everything delivered through slice 27, i
 local MCP server, game plugins, and screen-capture release. This gate
 repeats the packaging regression after external-observation and SignalRGB work has landed. Its
 Windows lifecycle coverage distinguishes a session-end query from a committed end so a cancelled
-shutdown leaves the app running ([#76](https://github.com/MAJ224/FocusRGB/issues/76)).
+shutdown leaves the app running ([#76](https://github.com/FocusRGB/FocusRGB/issues/76)).
 Acceptance: install/run/uninstall checks preserve user settings; recovered stale output is
 reported honestly; startup applies saved intent without granting recovered plugins authority
 against the user's reconnect preference; cancelled and committed Windows shutdown paths behave

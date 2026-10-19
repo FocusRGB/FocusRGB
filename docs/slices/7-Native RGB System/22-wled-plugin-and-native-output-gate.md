@@ -2,7 +2,7 @@
 
 [← All implementation slices](../../implementation-slices.md)
 
-Depends on: 10, 11, 14, 21. Scope: create `MAJ224/FocusRGB-Plugin-WLED`; implement WLED status/device
+Depends on: 10, 11, 14, 21. Scope: create `FocusRGB/FocusRGB-Plugin-WLED`; implement WLED status/device
 capabilities, configured network targets, static output then frame streaming, bounded timeouts,
 cleanup/realtime expiry, and ownership against a published SDK version. Add the native frame-output methods to the plugin
 contract and fake plugin as a backward-compatible SDK 1.x minor version. Use fake network checks
