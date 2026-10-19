@@ -1,5 +1,6 @@
 # --- build output ---
 /build/
+graphify-out/
 
 # --- python ---
 __pycache__/
