@@ -182,9 +182,20 @@
               <StackPanel Spacing="10">
                 <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                   <TextBlock Text="Name" VerticalAlignment="Center" /><TextBox Grid.Column="1" Text="{Binding ProfileName}" />
-                  <TextBlock Grid.Row="1" Text="Effect" VerticalAlignment="Center" /><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ProfileEffect}" />
-                  <TextBlock Grid.Row="2" Text="Layout" VerticalAlignment="Center" /><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ProfileLayout}" />
+                  <TextBlock Grid.Row="1" Text="Effect" VerticalAlignment="Center" />
+                  <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding ProfileEffectOptions}"
+                            SelectedItem="{Binding SelectedProfileEffect}"
+                            AutomationProperties.Name="Provider effect" PlaceholderText="No provider effects available">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProviderResourceOptionViewModel"><TextBlock Text="{Binding DisplayLabel}" TextWrapping="Wrap" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <TextBlock Grid.Row="2" Text="Layout" VerticalAlignment="Center" />
+                  <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding ProfileLayoutOptions}"
+                            SelectedItem="{Binding SelectedProfileLayout}"
+                            AutomationProperties.Name="Provider layout" PlaceholderText="No provider layouts available">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProviderResourceOptionViewModel"><TextBlock Text="{Binding DisplayLabel}" TextWrapping="Wrap" /></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
                 </Grid>
+                <TextBlock Text="{Binding ProfileResourceStatus}" Opacity="0.7" TextWrapping="Wrap" />
                 <Grid ColumnDefinitions="120,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                   <TextBlock Text="Fallback" VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1" ItemsSource="{Binding ProfileFallbackKinds}" SelectedItem="{Binding ProfileFallbackKind}"

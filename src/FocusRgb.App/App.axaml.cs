@@ -84,7 +84,7 @@ namespace FocusRgb.App
                     startup.Snapshot.Desired.Reason);
                 ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
                 var viewModel = MainWindowViewModel.CreatePersistent(
-                    startup.Snapshot, _store, trayAvailable, outputCoordinator, initialOutput);
+                    startup.Snapshot, _store, trayAvailable, outputCoordinator, initialOutput, pluginGateway);
                 pluginGateway.AvailabilityChanged += async (_, change) =>
                 {
                     if (_shutdownApproved) return;
@@ -96,6 +96,8 @@ namespace FocusRgb.App
                             change.ReasonCode,
                             change.Message);
                         await Dispatcher.UIThread.InvokeAsync(() => UpdateIntegrationStatuses(viewModel));
+                        await await Dispatcher.UIThread.InvokeAsync<Task>(
+                            () => viewModel.RefreshProfileResourcesAsync());
                         if (change.ReasonCode is "plugin-exited" or "timeout")
                         {
                             AppLog.Write($"Plugin {change.PluginId} became unavailable: {change.Message}");
@@ -144,6 +146,7 @@ namespace FocusRgb.App
                     {
                         pluginGateway.Attach(_plugins.Entries);
                         UpdateIntegrationStatuses(viewModel);
+                        await viewModel.RefreshProfileResourcesAsync();
                         await viewModel.ReapplyOutputAsync();
                         foreach (var entry in _plugins.Entries.Where(entry => !entry.IsRunning))
                             _ = RestartPluginAsync(packagesDirectory, entry.PluginId, pluginGateway, viewModel, outputCoordinator);
@@ -372,6 +375,8 @@ namespace FocusRgb.App
                 ConfigurePluginLogging([entry]);
                 gateway.Attach([entry]);
                 await Dispatcher.UIThread.InvokeAsync(() => UpdateIntegrationStatuses(viewModel));
+                await await Dispatcher.UIThread.InvokeAsync<Task>(
+                    () => viewModel.RefreshProfileResourcesAsync());
                 if (entry.IsRunning)
                     await coordinator.ReportAvailabilityAsync(entry.PluginId, true);
                 retry = !entry.IsRunning;

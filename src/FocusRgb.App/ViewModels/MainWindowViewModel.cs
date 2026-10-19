@@ -6,6 +6,7 @@ using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
 using FocusRgb.Core.Selection;
+using FocusRgb.Contracts;
 
 namespace FocusRgb.App.ViewModels
 {
@@ -15,6 +16,7 @@ namespace FocusRgb.App.ViewModels
         private bool _isManual = true;
         private readonly LocalStateStore? _settingsStore;
         private readonly SelectionCommandService? _selectionCommands;
+        private readonly IPluginOutputGateway? _pluginGateway;
         private SettingsDocument _settings;
         private SelectionEngine _selectionEngine;
         private SelectionStateDocument? _selectionState;
@@ -28,6 +30,10 @@ namespace FocusRgb.App.ViewModels
         private string _profileName = "";
         private string _profileEffect = "";
         private string _profileLayout = "";
+        private ProviderResourceOptionViewModel? _selectedProfileEffect;
+        private ProviderResourceOptionViewModel? _selectedProfileLayout;
+        private string _profileResourceStatus = "Provider resources have not been loaded.";
+        private int _profileResourceRevision;
         private string _profileFallbackKind = "native-setup";
         private ProfileOptionViewModel? _profileFallbackProfile;
         private bool _profileLivePreview;
@@ -59,6 +65,7 @@ namespace FocusRgb.App.ViewModels
             LocalStateStore? settingsStore,
             SelectionStateDocument? selectionState,
             SelectionCommandService? selectionCommands,
+            IPluginOutputGateway? pluginGateway,
             SelectionReason? selectionReason,
             SelectionRuntimeStatus? runtimeStatus,
             bool canMinimizeToTray)
@@ -71,6 +78,7 @@ namespace FocusRgb.App.ViewModels
             _settingsStore = settingsStore;
             _selectionState = selectionState;
             _selectionCommands = selectionCommands;
+            _pluginGateway = pluginGateway;
             _runtimeStatus = runtimeStatus;
             CanMinimizeToTray = canMinimizeToTray;
             if (selectionReason is not null) _selectionReason = selectionReason;
@@ -109,9 +117,11 @@ namespace FocusRgb.App.ViewModels
                 ProfileEffect = value?.EffectName ?? "";
                 ProfileLayout = value?.LayoutName ?? "";
                 LoadProfileFallback(value);
+                LoadSavedProviderResources(value);
                 _loadingProfileDraft = false;
                 IsProfileDirty = false;
                 if (discarded) ProfileEditorStatus = "Unsaved profile changes were discarded when the selection changed.";
+                if (_pluginGateway is not null) _ = RefreshProfileResourcesAsync();
             }
         }
 
@@ -139,6 +149,35 @@ namespace FocusRgb.App.ViewModels
         public string ProfileName { get => _profileName; set => SetProfileDraft(ref _profileName, value); }
         public string ProfileEffect { get => _profileEffect; set => SetProfileDraft(ref _profileEffect, value); }
         public string ProfileLayout { get => _profileLayout; set => SetProfileDraft(ref _profileLayout, value); }
+        public ObservableCollection<ProviderResourceOptionViewModel> ProfileEffectOptions { get; } = [];
+        public ObservableCollection<ProviderResourceOptionViewModel> ProfileLayoutOptions { get; } = [];
+        public ProviderResourceOptionViewModel? SelectedProfileEffect
+        {
+            get => _selectedProfileEffect;
+            set
+            {
+                if (!Set(ref _selectedProfileEffect, value)) return;
+                var textChanged = value is not null && ProfileEffect != value.DisplayName;
+                if (value is not null) ProfileEffect = value.DisplayName;
+                if (!_loadingProfileDraft && !textChanged) UpdateProfileDraftState();
+            }
+        }
+        public ProviderResourceOptionViewModel? SelectedProfileLayout
+        {
+            get => _selectedProfileLayout;
+            set
+            {
+                if (!Set(ref _selectedProfileLayout, value)) return;
+                var textChanged = value is not null && ProfileLayout != value.DisplayName;
+                if (value is not null) ProfileLayout = value.DisplayName;
+                if (!_loadingProfileDraft && !textChanged) UpdateProfileDraftState();
+            }
+        }
+        public string ProfileResourceStatus
+        {
+            get => _profileResourceStatus;
+            private set => Set(ref _profileResourceStatus, value);
+        }
         public string ProfileFallbackKind
         {
             get => _profileFallbackKind;
@@ -429,6 +468,39 @@ namespace FocusRgb.App.ViewModels
             IntegrationStatuses.Clear();
             foreach (var status in statuses) IntegrationStatuses.Add(status);
             if (IntegrationStatuses.Count == 0) IntegrationStatuses.Add("No plugins configured.");
+        }
+
+        public async Task RefreshProfileResourcesAsync(CancellationToken cancellationToken = default)
+        {
+            var revision = Interlocked.Increment(ref _profileResourceRevision);
+            var profile = EditingProfile;
+            if (_pluginGateway is null || profile is null) return;
+            var binding = _settings.Profiles!.Single(item => item.Id == profile.Id).Bindings![0];
+            var effectDraft = DraftResource(SelectedProfileEffect, ProfileEffect);
+            var layoutDraft = string.Equals(ProfileLayout, "Current provider layout", StringComparison.Ordinal)
+                ? null
+                : DraftResource(SelectedProfileLayout, ProfileLayout);
+            var capabilities = _pluginGateway.GetCapabilities(binding.Plugin!);
+            if (capabilities is null)
+            {
+                if (revision == _profileResourceRevision && ReferenceEquals(profile, EditingProfile))
+                {
+                    ReplaceResourceOptions(ProfileEffectOptions, [], effectDraft, retainCurrent: false);
+                    ReplaceResourceOptions(ProfileLayoutOptions, [], layoutDraft, retainCurrent: true);
+                    SelectProviderResources(effectDraft, layoutDraft);
+                    ProfileResourceStatus = $"Plugin '{binding.Plugin}' is unavailable; current choices are shown as unavailable.";
+                }
+                return;
+            }
+
+            var effect = await LoadCatalogAsync(binding.Plugin!, "effect", capabilities, cancellationToken);
+            var layout = await LoadCatalogAsync(binding.Plugin!, "layout", capabilities, cancellationToken);
+            if (revision != _profileResourceRevision || !ReferenceEquals(profile, EditingProfile)) return;
+
+            ReplaceResourceOptions(ProfileEffectOptions, effect.Items, effectDraft, retainCurrent: false);
+            ReplaceResourceOptions(ProfileLayoutOptions, layout.Items, layoutDraft, retainCurrent: true);
+            SelectProviderResources(effectDraft, layoutDraft);
+            ProfileResourceStatus = $"Effects: {effect.Status} Layouts: {layout.Status}";
         }
 
         public async Task SaveProfileAsync(CancellationToken cancellationToken = default)
@@ -781,18 +853,19 @@ namespace FocusRgb.App.ViewModels
                 throw new InvalidOperationException("Validated default profiles are unavailable.");
             }
 
-            return Create(result.Settings, null, null, null, null, null, canMinimizeToTray: true);
+            return Create(result.Settings, null, null, null, null, null, null, canMinimizeToTray: true);
         }
 
         public static MainWindowViewModel CreatePreview(SettingsDocument settings)
-            => Create(settings, null, null, null, null, null, canMinimizeToTray: true);
+            => Create(settings, null, null, null, null, null, null, canMinimizeToTray: true);
 
         public static MainWindowViewModel CreatePersistent(
             StartupSnapshot snapshot,
             LocalStateStore settingsStore,
             bool canMinimizeToTray = true,
             OutputCoordinator? outputCoordinator = null,
-            SelectionRuntimeStatus? runtimeStatus = null)
+            SelectionRuntimeStatus? runtimeStatus = null,
+            IPluginOutputGateway? pluginGateway = null)
         {
             ArgumentNullException.ThrowIfNull(snapshot);
             ArgumentNullException.ThrowIfNull(settingsStore);
@@ -801,6 +874,7 @@ namespace FocusRgb.App.ViewModels
                 settingsStore,
                 snapshot.State,
                 new SelectionCommandService(settingsStore, outputCoordinator),
+                pluginGateway,
                 snapshot.Desired.Reason,
                 runtimeStatus,
                 canMinimizeToTray);
@@ -825,6 +899,7 @@ namespace FocusRgb.App.ViewModels
             LocalStateStore? settingsStore,
             SelectionStateDocument? selectionState,
             SelectionCommandService? selectionCommands,
+            IPluginOutputGateway? pluginGateway,
             SelectionReason? selectionReason,
             SelectionRuntimeStatus? runtimeStatus,
             bool canMinimizeToTray)
@@ -860,6 +935,7 @@ namespace FocusRgb.App.ViewModels
                 settingsStore,
                 selectionState,
                 selectionCommands,
+                pluginGateway,
                 selectionReason,
                 runtimeStatus,
                 canMinimizeToTray);
@@ -974,6 +1050,115 @@ namespace FocusRgb.App.ViewModels
                 : null;
         }
 
+        private void LoadSavedProviderResources(ProfileOptionViewModel? profile)
+        {
+            ProfileEffectOptions.Clear();
+            ProfileLayoutOptions.Clear();
+            SelectedProfileEffect = null;
+            SelectedProfileLayout = null;
+            if (profile is null) return;
+            var binding = _settings.Profiles!.Single(item => item.Id == profile.Id).Bindings![0];
+            ReplaceResourceOptions(ProfileEffectOptions, [], binding.Effect, retainCurrent: false);
+            ReplaceResourceOptions(ProfileLayoutOptions, [], binding.Layout, retainCurrent: true);
+            SelectProviderResources(binding.Effect, binding.Layout);
+            ProfileResourceStatus = $"Plugin '{binding.Plugin}' has not reported its catalogs yet.";
+        }
+
+        private async Task<ResourceCatalogLoad> LoadCatalogAsync(
+            string pluginId,
+            string kind,
+            IReadOnlyList<PluginCapability> capabilities,
+            CancellationToken cancellationToken)
+        {
+            var capability = capabilities.SingleOrDefault(item => item.Id == $"provider.{kind}.catalog");
+            if (capability is null || capability.Support == "unsupported")
+                return new ResourceCatalogLoad([], capability?.Reason?.Message ?? $"{kind} catalog unsupported.");
+            var selection = capabilities.SingleOrDefault(item => item.Id == $"provider.{kind}.select");
+            if (selection is null || selection.Support == "unsupported")
+                return new ResourceCatalogLoad([], selection?.Reason?.Message ?? $"{kind} selection unsupported.");
+            var result = await _pluginGateway!.ListCatalogAsync(pluginId, kind, cancellationToken);
+            if (!result.IsSuccess)
+                return new ResourceCatalogLoad([], result.ErrorMessage!);
+            if (result.Value!.Support != "supported")
+                return new ResourceCatalogLoad([], result.Value.Reason?.Message ?? $"{kind} catalog unsupported.");
+            return new ResourceCatalogLoad(result.Value.Items, $"{result.Value.Items.Count} reported.");
+        }
+
+        private static void ReplaceResourceOptions(
+            ObservableCollection<ProviderResourceOptionViewModel> target,
+            IReadOnlyList<PluginCatalogItem> items,
+            ResourceReference? saved,
+            bool retainCurrent)
+        {
+            target.Clear();
+            if (retainCurrent)
+            {
+                target.Add(new ProviderResourceOptionViewModel
+                {
+                    ResourceId = null,
+                    DisplayName = "Current provider layout",
+                    IsAvailable = true
+                });
+            }
+            foreach (var item in items)
+            {
+                target.Add(new ProviderResourceOptionViewModel
+                {
+                    ResourceId = item.ResourceId,
+                    DisplayName = item.DisplayName,
+                    IsAvailable = item.Available,
+                    UnavailableReason = item.Reason?.Message
+                });
+            }
+            var savedMatches = saved is null
+                ? []
+                : target.Where(item => item.DisplayName == saved.DisplayName).ToList();
+            if (saved is not null
+                && !target.Any(item => item.ResourceId == saved.ResourceId
+                    && item.DisplayName == saved.DisplayName)
+                && (saved.ResourceId is not null || savedMatches.Count != 1))
+            {
+                target.Add(new ProviderResourceOptionViewModel
+                {
+                    ResourceId = saved.ResourceId,
+                    DisplayName = saved.DisplayName!,
+                    IsAvailable = false,
+                    UnavailableReason = "not reported by the provider"
+                });
+            }
+        }
+
+        private void SelectProviderResources(ResourceReference? effect, ResourceReference? layout)
+        {
+            SelectedProfileEffect = MatchSaved(ProfileEffectOptions, effect);
+            SelectedProfileLayout = layout is null
+                ? ProfileLayoutOptions.FirstOrDefault(item => item.ResourceId is null)
+                : MatchSaved(ProfileLayoutOptions, layout);
+        }
+
+        private static ResourceReference DraftResource(
+            ProviderResourceOptionViewModel? selected,
+            string displayName) => new()
+            {
+                ResourceId = selected?.DisplayName == displayName ? selected.ResourceId : null,
+                DisplayName = displayName
+            };
+
+        private static ProviderResourceOptionViewModel? MatchSaved(
+            IEnumerable<ProviderResourceOptionViewModel> options,
+            ResourceReference? saved)
+        {
+            if (saved is null) return null;
+            var values = options.ToList();
+            if (saved.ResourceId is not null)
+                return values.FirstOrDefault(item => item.ResourceId == saved.ResourceId
+                    && item.DisplayName == saved.DisplayName);
+            var matches = values.Where(item => item.DisplayName == saved.DisplayName).ToList();
+            return matches.Count == 1
+                ? matches[0]
+                : matches.SingleOrDefault(item => item.ResourceId is null);
+        }
+
         private ProfileSettings TemplateFor(string id) =>
             _settings.Profiles!.FirstOrDefault(profile => profile.Id == id)
             ?? _settings.Profiles!.Single(profile => profile.Id == "default");
@@ -986,7 +1171,9 @@ namespace FocusRgb.App.ViewModels
             var layoutName = ProfileLayout.Trim();
             var effect = new ResourceReference
             {
-                ResourceId = binding.Effect?.DisplayName == effectName ? binding.Effect.ResourceId : null,
+                ResourceId = SelectedProfileEffect?.DisplayName == effectName
+                    ? SelectedProfileEffect.ResourceId
+                    : binding.Effect?.DisplayName == effectName ? binding.Effect.ResourceId : null,
                 DisplayName = effectName,
                 AdditionalProperties = binding.Effect?.AdditionalProperties
             };
@@ -996,7 +1183,9 @@ namespace FocusRgb.App.ViewModels
             {
                 layout = new ResourceReference
                 {
-                    ResourceId = binding.Layout?.DisplayName == layoutName ? binding.Layout.ResourceId : null,
+                    ResourceId = SelectedProfileLayout?.DisplayName == layoutName
+                        ? SelectedProfileLayout.ResourceId
+                        : binding.Layout?.DisplayName == layoutName ? binding.Layout.ResourceId : null,
                     DisplayName = layoutName,
                     AdditionalProperties = binding.Layout?.AdditionalProperties
                 };
@@ -1207,6 +1396,12 @@ namespace FocusRgb.App.ViewModels
         {
             if (!Set(ref field, value, propertyName)) return false;
             if (_loadingProfileDraft) return true;
+            UpdateProfileDraftState();
+            return true;
+        }
+
+        private void UpdateProfileDraftState()
+        {
             IsProfileDirty = !ProfileDraftMatchesSaved();
             if (ProfileLivePreview)
             {
@@ -1220,7 +1415,6 @@ namespace FocusRgb.App.ViewModels
                     ? "Profile changes are waiting for Save."
                     : "Profile draft matches the saved values.";
             }
-            return true;
         }
 
         private bool ProfileDraftMatchesSaved()
@@ -1231,7 +1425,9 @@ namespace FocusRgb.App.ViewModels
             var savedLayout = saved.Bindings![0].Layout?.DisplayName ?? "Current provider layout";
             return ProfileName == EditingProfile.DisplayName
                 && ProfileEffect == saved.Bindings[0].Effect!.DisplayName
+                && SelectedProfileEffect?.ResourceId == saved.Bindings[0].Effect!.ResourceId
                 && ProfileLayout == savedLayout
+                && SelectedProfileLayout?.ResourceId == saved.Bindings[0].Layout?.ResourceId
                 && ProfileFallbackKind == (fallback?.Kind ?? "native-setup")
                 && (ProfileFallbackKind != "profile" || ProfileFallbackProfile?.Id == fallback?.Profile);
         }
@@ -1259,5 +1455,9 @@ namespace FocusRgb.App.ViewModels
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             return true;
         }
+
+        private sealed record ResourceCatalogLoad(
+            IReadOnlyList<PluginCatalogItem> Items,
+            string Status);
     }
 }
