@@ -9,11 +9,13 @@
     <File Path="LICENSE" />
     <File Path="README.md" />
   </Folder>
+  <Folder Name="/sdk/dotnet/">
+    <Project Path="sdk/dotnet/FocusRgb.Contracts/FocusRgb.Contracts.csproj" />
+    <Project Path="sdk/dotnet/FocusRgb.PluginSdk/FocusRgb.PluginSdk.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/FocusRgb.App/FocusRgb.App.csproj" />
-    <Project Path="src/FocusRgb.Contracts/FocusRgb.Contracts.csproj" />
     <Project Path="src/FocusRgb.Core/FocusRgb.Core.csproj" />
-    <Project Path="src/FocusRgb.PluginSdk/FocusRgb.PluginSdk.csproj" />
     <Project Path="src/FocusRgb.Platform.Windows/FocusRgb.Platform.Windows.csproj" />
   </Folder>
   <Folder Name="/tests/">

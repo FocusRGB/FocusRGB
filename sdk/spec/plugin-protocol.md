@@ -1,7 +1,7 @@
 # FocusRGB plugin protocol 1.0
 
 This document is the normative, language-neutral contract between the FocusRGB host and a
-plugin process. The JSON schemas in [`schemas/`](../schemas/) are normative machine-readable
+plugin process. The JSON schemas beside this document are normative machine-readable
 constraints. `FocusRgb.Contracts` is the matching hand-written C# model, and
 `FocusRgb.PluginSdk` is an optional convenience for .NET authors.
 
@@ -109,7 +109,7 @@ request cancelled. Exception details go to standard error, not the JSON-RPC erro
 ## Manifest and package
 
 The package root contains `focusrgb-plugin.json`, validated by
-[`plugin-manifest.schema.json`](../schemas/plugin-manifest.schema.json). Schema version 1 requires:
+[`plugin-manifest.schema.json`](plugin-manifest.schema.json). Schema version 1 requires:
 
 - `id`: lowercase letters, digits, and hyphens, at most 64 characters;
 - semantic `version` with three numeric parts and `contractVersion` with two numeric parts;
@@ -149,7 +149,7 @@ SignalRGB plugin publishes its coordinated 1.0 package.
 Conformance does not require .NET. A conforming executable communicates only through the
 transport above, validates initialization, implements every capability it reports, handles
 cancellation and shutdown, keeps logs off standard output, and agrees with
-[`plugin-protocol.schema.json`](../schemas/plugin-protocol.schema.json).
+[`plugin-protocol.schema.json`](plugin-protocol.schema.json).
 
 The language-neutral runner checks the successful initialize, status, catalog, apply, release,
 and shutdown lifecycle. The repository's host and SDK tests separately cover package

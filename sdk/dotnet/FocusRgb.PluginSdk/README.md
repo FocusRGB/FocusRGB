@@ -13,4 +13,4 @@ await PluginServer.RunAsync(
 
 Implement `IFocusRgbPlugin`, write protocol messages only through `PluginServer`, and keep logs on
 standard error. The language-neutral protocol and schemas are documented at
-<https://github.com/FocusRGB/FocusRGB/blob/develop/docs/plugin-protocol.md>.
+<https://github.com/FocusRGB/FocusRGB/blob/develop/sdk/spec/plugin-protocol.md>.

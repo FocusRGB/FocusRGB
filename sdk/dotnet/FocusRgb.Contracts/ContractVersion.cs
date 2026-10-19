@@ -1,7 +1,7 @@
 namespace FocusRgb.Contracts
 {
     /// <summary>
-    /// Version of the plugin protocol defined in docs/plugin-protocol.md. The host and a
+    /// Version of the plugin protocol defined in sdk/spec/plugin-protocol.md. The host and a
     /// plugin must share the major version; a plugin may report a lower minor version.
     /// </summary>
     public static class ContractVersion

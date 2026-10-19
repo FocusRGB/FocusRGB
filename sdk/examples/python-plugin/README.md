@@ -6,7 +6,7 @@ does not use `FocusRgb.PluginSdk`, demonstrating that the wire contract is langu
 Run its conformance check from the repository root:
 
 ```powershell
-python tools/plugin-conformance.py --plugin-id python-example -- python examples/python-plugin/plugin.py
+python sdk/conformance/plugin-conformance.py --plugin-id python-example -- python sdk/examples/python-plugin/plugin.py
 ```
 
 The manifest targets Linux and macOS because those platforms can launch the executable script

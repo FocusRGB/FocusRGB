@@ -26,4 +26,4 @@ Run the language-neutral conformance check before packaging:
 python path/to/plugin-conformance.py --plugin-id my-device -- dotnet bin/Release/net10.0/FocusRgb.Plugin.MyDevice.dll
 ```
 
-See the [FocusRGB plugin protocol](https://github.com/FocusRGB/FocusRGB/blob/develop/docs/plugin-protocol.md).
+See the [FocusRGB plugin protocol](https://github.com/FocusRGB/FocusRGB/blob/develop/sdk/spec/plugin-protocol.md).

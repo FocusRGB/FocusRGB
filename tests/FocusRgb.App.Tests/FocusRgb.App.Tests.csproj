@@ -9,7 +9,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\FocusRgb.App\FocusRgb.App.csproj" />
-    <ProjectReference Include="..\..\src\FocusRgb.PluginSdk\FocusRgb.PluginSdk.csproj" />
+    <ProjectReference Include="..\..\sdk\dotnet\FocusRgb.PluginSdk\FocusRgb.PluginSdk.csproj" />
     <ProjectReference Include="..\FocusRgb.FakePlugin\FocusRgb.FakePlugin.csproj" />
   </ItemGroup>
   <ItemGroup>

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/FocusRGB/FocusRGB/develop/schemas/plugin-manifest.schema.json",
+  "$id": "https://raw.githubusercontent.com/FocusRGB/FocusRGB/develop/sdk/spec/plugin-manifest.schema.json",
   "title": "FocusRGB plugin manifest",
   "type": "object",
   "additionalProperties": false,

@@ -33,5 +33,5 @@ jobs:
         run: ./tools/verify-plugin-sdk-package.ps1
       - name: Verify language-neutral plugin conformance
         run: |
-          python tools/plugin-conformance.py --plugin-id python-example -- python examples/python-plugin/plugin.py
-          python tools/plugin-conformance.py --plugin-id fake-output -- dotnet build/artifacts/bin/FocusRgb.FakePlugin/release/FocusRgb.FakePlugin.dll
+          python sdk/conformance/plugin-conformance.py --plugin-id python-example -- python sdk/examples/python-plugin/plugin.py
+          python sdk/conformance/plugin-conformance.py --plugin-id fake-output -- dotnet build/artifacts/bin/FocusRgb.FakePlugin/release/FocusRgb.FakePlugin.dll

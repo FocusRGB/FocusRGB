@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/FocusRGB/FocusRGB/develop/schemas/plugin-protocol.schema.json",
+  "$id": "https://raw.githubusercontent.com/FocusRGB/FocusRGB/develop/sdk/spec/plugin-protocol.schema.json",
   "title": "FocusRGB newline JSON-RPC message",
   "oneOf": [
     { "$ref": "#/$defs/requests" },
