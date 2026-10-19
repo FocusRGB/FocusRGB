@@ -17,8 +17,18 @@ integrations receive their own peer repositories when their implementation slice
 
 Preserve unrelated edits and untracked files. Follow `../.gitattributes` and native Windows
 CRLF working-tree endings (`core.autocrlf=true`). Put generated builds, reports, caches, and
-tool output under `../build/`; do not commit them. Graphify uses `../build/graphify-out/`, so
-run extraction with `graphify extract . --out build` and pass that graph path to queries.
+tool output under `../build/`; do not commit them.
+
+The code graph is at the repository root's `graphify-out/` and is ignored; local git hooks
+refresh it automatically. Before broad searches, orient with `graphify query "<question>"`,
+`graphify explain "<symbol>"`, or `graphify path "A" "B"`, keeping `--budget` small on each
+command. Confirm findings in the actual source because the graph can lag. If it is stale or
+missing, run `graphify update .` (no LLM). Never run `graphify extract` or semantic/deep modes
+unless the owner asks: they call an LLM. Never commit `graphify-out/`.
+
+Repository instructions (git-workflow, attribution, conventions, and slice docs) take precedence
+over the ponytail skill when they conflict; otherwise its "smallest complete change" applies,
+and its `shortcut:` comment format is accepted.
 
 Follow `../docs/git-workflow.md`. `develop` is the default branch: start standalone work from
 `origin/develop`; stacked work starts from and targets its immediate dependency branch. Push a
