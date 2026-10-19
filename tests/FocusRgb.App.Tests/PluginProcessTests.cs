@@ -48,12 +48,12 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public async Task StartAsync_ReturnsContractIncompatible_WhenPluginReportsPreStableMajor()
+        public async Task StartAsync_AcceptsLegacySignalRgbContractDuringTransition()
         {
-            var started = await StartAsync("--contract-version", "0.1");
+            var started = await StartAsync(Manifest("0.1"), "--contract-version", "0.1");
 
-            Assert.False(started.IsSuccess);
-            Assert.Equal("contract-incompatible", started.ErrorCode);
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await started.Client!.DisposeAsync();
         }
 
         [Fact]
@@ -518,21 +518,32 @@ namespace FocusRgb.App.Tests
         private static Task<PluginStartResult> StartAsync(
             CancellationToken cancellationToken,
             params string[] arguments)
+            => StartAsync(Manifest(), cancellationToken, arguments);
+
+        private static Task<PluginStartResult> StartAsync(
+            PluginManifest manifest,
+            params string[] arguments)
+            => StartAsync(manifest, TestContext.Current.CancellationToken, arguments);
+
+        private static Task<PluginStartResult> StartAsync(
+            PluginManifest manifest,
+            CancellationToken cancellationToken,
+            params string[] arguments)
         {
             var launchArguments = new List<string> { FakePluginPath() };
             launchArguments.AddRange(arguments);
             return PluginProcessClient.StartAsync(
                 new PluginLaunchSpec { FileName = "dotnet", Arguments = launchArguments },
-                Manifest(),
+                manifest,
                 cancellationToken);
         }
 
-        private static PluginManifest Manifest() => new()
+        private static PluginManifest Manifest(string? contractVersion = null) => new()
         {
             SchemaVersion = 1,
             Id = "fake-output",
             Version = "1.0.0",
-            ContractVersion = ContractVersion.Current,
+            ContractVersion = contractVersion ?? ContractVersion.Current,
             EntryPoint = "FocusRgb.FakePlugin.dll",
             OperatingSystems = ["windows"],
             Architectures = ["x64"],
