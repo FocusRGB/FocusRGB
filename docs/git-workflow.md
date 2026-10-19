@@ -79,8 +79,8 @@ Adopted 2026-10-10. Applies to people and AI assistants.
 - Add active slice pull requests to the `FocusRGB Roadmap` project and to the milestone that
   names their intended release checkpoint. Slices 10-11 share
   `v0.2.0-alpha.1 - Plugin runtime and coordination`.
-- TODO: update the project link after the owner moves or recreates `FocusRGB Roadmap` and provides
-  its new URL; user-owned GitHub Projects do not transfer with repositories.
+- The [`FocusRGB Roadmap`](https://github.com/orgs/FocusRGB/projects/1) project is public and
+  owned by the `FocusRGB` organization; keep its cards in canonical slice order.
 - Assign only the repository owner. If an assistant helps implement or review a change, record it
   with the matching `Assisted-by:` trailer instead of assigning or requesting review from it.
 - Reviews are submitted under the repository owner's account. A review drafted with Claude or
