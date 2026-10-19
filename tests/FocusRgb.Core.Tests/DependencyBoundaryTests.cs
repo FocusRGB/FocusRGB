@@ -1,8 +1,8 @@
-using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text.Json;
 using System.Xml.Linq;
 using FocusRgb.Contracts;
+using FocusRgb.TestSupport;
 
 namespace FocusRgb.Core.Tests
 {
@@ -203,16 +203,9 @@ namespace FocusRgb.Core.Tests
 
         private static XDocument ReadProject(string project) =>
             XDocument.Load(Path.Combine(
-                RepositoryRoot(),
+                RepositoryPaths.Root,
                 project is "FocusRgb.Contracts" or "FocusRgb.PluginSdk" ? Path.Combine("sdk", "dotnet") : "src",
                 project,
                 project + ".csproj"));
-
-        private static string RepositoryRoot()
-        {
-            return typeof(DependencyBoundaryTests).Assembly
-                .GetCustomAttributes<AssemblyMetadataAttribute>()
-                .Single(attribute => attribute.Key == "RepositoryRoot").Value!;
-        }
     }
 }

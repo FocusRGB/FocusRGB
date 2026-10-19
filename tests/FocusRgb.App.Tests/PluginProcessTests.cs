@@ -555,7 +555,7 @@ namespace FocusRgb.App.Tests
             CancellationToken cancellationToken,
             params string[] arguments)
         {
-            var launchArguments = new List<string> { FakePluginPath() };
+            var launchArguments = new List<string> { RepositoryPaths.FakePlugin };
             launchArguments.AddRange(arguments);
             return PluginProcessClient.StartAsync(
                 new PluginLaunchSpec { FileName = "dotnet", Arguments = launchArguments },
@@ -581,7 +581,7 @@ namespace FocusRgb.App.Tests
         {
             var packageDirectory = Path.Combine(packagesDirectory, "fake-output");
             Directory.CreateDirectory(packageDirectory);
-            var sourceDirectory = Path.GetDirectoryName(FakePluginPath())!;
+            var sourceDirectory = Path.GetDirectoryName(RepositoryPaths.FakePlugin)!;
             foreach (var fileName in new[]
             {
                 "FocusRgb.FakePlugin.dll",
@@ -599,22 +599,5 @@ namespace FocusRgb.App.Tests
                 cancellationToken);
         }
 
-        private static string FakePluginPath()
-        {
-            var local = Path.Combine(AppContext.BaseDirectory, "FocusRgb.FakePlugin.dll");
-            if (File.Exists(local)) return local;
-            var configuration = new DirectoryInfo(AppContext.BaseDirectory.TrimEnd(
-                Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)).Name;
-            return Path.Combine(RepositoryRoot(), "build", "artifacts", "bin", "FocusRgb.FakePlugin",
-                configuration, "FocusRgb.FakePlugin.dll");
-        }
-
-        private static string RepositoryRoot()
-        {
-            var directory = new DirectoryInfo(Directory.GetCurrentDirectory());
-            while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "global.json")))
-                directory = directory.Parent;
-            return directory?.FullName ?? throw new InvalidOperationException("Repository root not found from the test working directory.");
-        }
     }
 }
