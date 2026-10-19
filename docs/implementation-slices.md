@@ -114,7 +114,6 @@ Status: **00–13 implemented and merged. 14 is implemented and awaiting review.
 - `src/FocusRgb.App/`: Avalonia tray/settings UI and generic plugin-host wiring.
 - `tests/`: core, contract, integration, platform, UI, and fake-plugin conformance checks.
 - `FocusRGB-Plugin-<Name>` repositories: production integration executables and releases.
-- `modules/signalrgb/`: migration link to the external SignalRGB plugin repository.
 - `build/`: ignored generated output, reports, packages, and tool artifacts.
 
 Core may reference shared contracts; neither Core nor App references provider projects. Portable

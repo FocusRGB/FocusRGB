@@ -11,8 +11,7 @@ Final goal: replace SignalRGB with our own controller and effects, while retaini
 integrations with other applications through plugins. SignalRGB is an interim backend.
 
 Keep SignalRGB-specific implementation, maintained content, tools, and research in the peer
-`FocusRGB/FocusRGB-Plugin-SignalRGB` repository. `../modules/signalrgb/` is only a migration link;
-do not restore provider code to the main repository. Controller plugins are separate processes
+`FocusRGB/FocusRGB-Plugin-SignalRGB` repository; do not restore provider code to the main repository. Controller plugins are separate processes
 over versioned JSON-RPC and consume a published `FocusRgb.PluginSdk` package. Other production
 integrations receive their own peer repositories when their implementation slice starts.
 

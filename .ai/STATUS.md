@@ -163,9 +163,9 @@ the current desired selection, capabilities, and ownership. Native fallback can 
 until native rendering/output exists or the target hardware is released.
 
 The SignalRGB peer repository contains the plugin, templates, a Canvas API example, and an
-archived Pro-blocked effect; the main repository retains only a migration link.
-The shared screen colour test remains under `tools/`; the Arduino sketch moved to
-`../modules/arduino/sketches/`. `../src/` contains the app scaffold and portable configuration
+archived Pro-blocked effect. The unused `modules/` folder (SignalRGB migration link and the
+earlier Arduino LED strip sketch) was removed; both remain in history. The shared screen colour
+test remains under `tools/`. `../src/` contains the app scaffold and portable configuration
 code. No custom
 SignalRGB effects or user device plugins are active in the repo or Documents folders.
 The controller app now opens a minimal tray-backed shell with Home, Profiles, Application Groups,
