@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text.Json;
 using System.Xml.Linq;
@@ -78,7 +79,7 @@ namespace FocusRgb.Core.Tests
         public void ProtocolSchema_MethodsMatchContractConstants()
         {
             using var schema = JsonDocument.Parse(File.ReadAllText(
-                Path.Combine(RepositoryRoot(), "sdk", "spec", "plugin-protocol.schema.json")));
+                Path.Combine(RepositoryPaths.Root, "sdk", "spec", "plugin-protocol.schema.json")));
             var definitions = schema.RootElement.GetProperty("$defs");
             var schemaMethods = definitions.GetProperty("request").GetProperty("properties")
                 .GetProperty("method").GetProperty("enum").EnumerateArray()
@@ -120,7 +121,7 @@ namespace FocusRgb.Core.Tests
         public void ProtocolSchema_ShapesMatchContractTypes(Type contractType, string definitionName)
         {
             using var schema = JsonDocument.Parse(File.ReadAllText(
-                Path.Combine(RepositoryRoot(), "sdk", "spec", "plugin-protocol.schema.json")));
+                Path.Combine(RepositoryPaths.Root, "sdk", "spec", "plugin-protocol.schema.json")));
             var definition = schema.RootElement.GetProperty("$defs").GetProperty(definitionName);
             var schemaProperties = definition.GetProperty("properties").EnumerateObject()
                 .ToDictionary(property => property.Name, property => property.Value, StringComparer.Ordinal);
@@ -151,7 +152,7 @@ namespace FocusRgb.Core.Tests
         public void ManifestSchema_PropertiesMatchContractType()
         {
             using var schema = JsonDocument.Parse(File.ReadAllText(
-                Path.Combine(RepositoryRoot(), "sdk", "spec", "plugin-manifest.schema.json")));
+                Path.Combine(RepositoryPaths.Root, "sdk", "spec", "plugin-manifest.schema.json")));
             var schemaProperties = schema.RootElement.GetProperty("properties").EnumerateObject()
                 .Select(property => property.Name)
                 .ToHashSet(StringComparer.Ordinal);
