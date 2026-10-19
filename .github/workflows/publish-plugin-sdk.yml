@@ -27,11 +27,11 @@ jobs:
           dotnet pack src/FocusRgb.PluginSdk/FocusRgb.PluginSdk.csproj -c Release --no-restore -o build/packages
       - name: Publish packages
         shell: pwsh
-        # TODO(#79): publish from the FocusRGB nuget.org organization after its package setup exists.
+        # TODO(FocusRGB/FocusRGB#79): replace the MAJ224 feed with the FocusRGB nuget.org organization.
         run: |
           Get-ChildItem build/packages -Filter *.nupkg | ForEach-Object {
             dotnet nuget push $_.FullName `
-              --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
+              --source "https://nuget.pkg.github.com/MAJ224/index.json" `
               --api-key "${{ secrets.GITHUB_TOKEN }}" `
               --skip-duplicate
             if ($LASTEXITCODE -ne 0) { throw "Package publication failed for $($_.Name)." }
