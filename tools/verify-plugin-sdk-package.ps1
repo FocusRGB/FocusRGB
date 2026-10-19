@@ -14,6 +14,8 @@ $feedB = Join-Path $run 'feed-b'
 $artifactsA = Join-Path $run 'artifacts-a'
 $artifactsB = Join-Path $run 'artifacts-b'
 $consumer = Join-Path $run 'consumer'
+$templateHive = Join-Path $run 'template-hive'
+$generated = Join-Path $run 'generated-plugin'
 $packages = Join-Path $run 'packages'
 New-Item -ItemType Directory -Path $feedA, $feedB, $consumer | Out-Null
 
@@ -45,7 +47,21 @@ try {
     Invoke-DotNet restore (Join-Path $consumer 'FocusRgb.PluginSdk.ConsumerFixture.csproj') --source $feedA --packages $packages
     Invoke-DotNet build (Join-Path $consumer 'FocusRgb.PluginSdk.ConsumerFixture.csproj') -c Release --no-restore
 
-    Write-Host 'Verified independent reproducible FocusRgb.PluginSdk 1.0.0 builds.'
+    Invoke-DotNet new install (Join-Path $repository 'templates\dotnet-plugin') --debug:custom-hive $templateHive
+    Invoke-DotNet new focusrgb-plugin --name FocusRgb.Plugin.Generated --PluginId generated-output `
+        --output $generated --debug:custom-hive $templateHive
+    $generatedProject = Join-Path $generated 'FocusRgb.Plugin.Generated.csproj'
+    Invoke-DotNet restore $generatedProject --source $feedA --packages $packages
+    Invoke-DotNet build $generatedProject -c Release --no-restore
+    $generatedManifest = Get-Content (Join-Path $generated 'focusrgb-plugin.json') -Raw | ConvertFrom-Json
+    if ($generatedManifest.id -ne 'generated-output' -or $generatedManifest.contractVersion -ne '1.0') {
+        throw 'Generated plugin manifest did not contain the requested ID and stable contract.'
+    }
+    & python (Join-Path $repository 'tools\plugin-conformance.py') --plugin-id generated-output -- `
+        dotnet (Join-Path $generated 'bin\Release\net10.0\FocusRgb.Plugin.Generated.dll')
+    if ($LASTEXITCODE -ne 0) { throw 'Generated plugin failed protocol conformance.' }
+
+    Write-Host 'Verified reproducible SDK packages, independent consumer, and generated plugin.'
 }
 finally {
     $resolvedRun = [System.IO.Path]::GetFullPath($run)

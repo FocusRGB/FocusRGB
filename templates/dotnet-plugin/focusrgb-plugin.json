@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "focusrgb-plugin-template",
+  "version": "1.0.0",
+  "contractVersion": "1.0",
+  "entryPoint": "FocusRgb.Plugin.Template.dll",
+  "operatingSystems": ["windows", "linux", "macos"],
+  "architectures": ["x64", "arm64"],
+  "roles": ["output"],
+  "resources": ["provider-effects"],
+  "license": "MIT"
+}

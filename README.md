@@ -94,6 +94,7 @@ tests/
 schemas/                       plugin manifest and protocol JSON schemas
 tools/                         SDK package check and screen colour test
 examples/python-plugin/        language-neutral protocol example
+templates/dotnet-plugin/       standalone `dotnet new` plugin repository starter
 docs/                          brief, architecture, contract, slices, workflow
 .ai/                           shared AI instructions, status, handoff
 build/                         generated output (git-ignored)

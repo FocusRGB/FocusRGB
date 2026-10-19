@@ -112,6 +112,9 @@ The main repository retains a fake/reference plugin so host and SDK compatibilit
 tested in one checkout. A lightweight catalog may later point to approved plugin releases;
 plugins are never included through Git submodules. GitHub repositories are peers rather than
 literal child repositories, so the naming convention and catalog express their relationship.
+The `templates/dotnet-plugin` template generates an independent repository that restores the
+public SDK package, builds without an app checkout, and starts from the same conformance-tested
+provider lifecycle as the fake plugin.
 
 ## Contract sketch
 
