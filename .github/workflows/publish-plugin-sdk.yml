@@ -27,6 +27,7 @@ jobs:
           dotnet pack src/FocusRgb.PluginSdk/FocusRgb.PluginSdk.csproj -c Release --no-restore -o build/packages
       - name: Publish packages
         shell: pwsh
+        # TODO(#79): publish from the FocusRGB nuget.org organization after its package setup exists.
         run: |
           Get-ChildItem build/packages -Filter *.nupkg | ForEach-Object {
             dotnet nuget push $_.FullName `
