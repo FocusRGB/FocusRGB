@@ -2,14 +2,15 @@ using FocusRgb.App.Diagnostics;
 using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Persistence;
+using FocusRgb.TestSupport;
 
 namespace FocusRgb.App.Tests
 {
     public sealed class ApplicationSettingsViewModelTests : IDisposable
     {
         private static readonly DateTimeOffset Start = new(2026, 10, 14, 16, 0, 0, TimeSpan.Zero);
-        private readonly string _directory = Path.Combine(
-            Path.GetTempPath(), "FocusRgb.App.Tests", Guid.NewGuid().ToString("N"));
+        private readonly TempDirectory _tempDirectory = new(nameof(ApplicationSettingsViewModelTests));
+        private string _directory => _tempDirectory.Path;
 
         [Fact]
         public async Task SaveApplicationSettingsAsync_PersistsPreferencesWithoutChangingSelectionState()
@@ -131,7 +132,7 @@ namespace FocusRgb.App.Tests
 
         public void Dispose()
         {
-            if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
+            _tempDirectory.Dispose();
         }
     }
 }

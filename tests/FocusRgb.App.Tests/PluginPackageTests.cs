@@ -1,6 +1,7 @@
 using System.Text.Json;
 using FocusRgb.App.Plugins;
 using FocusRgb.Contracts;
+using FocusRgb.TestSupport;
 
 namespace FocusRgb.App.Tests
 {
@@ -8,8 +9,8 @@ namespace FocusRgb.App.Tests
     [Collection("Environment variables")]
     public sealed class PluginPackageTests : IDisposable
     {
-        private readonly string _directory = Path.Combine(
-            Path.GetTempPath(), "FocusRgb.PackageTests", Guid.NewGuid().ToString("N"));
+        private readonly TempDirectory _tempDirectory = new(nameof(PluginPackageTests));
+        private string _directory => _tempDirectory.Path;
 
         [Fact]
         public void Load_ReturnsLaunchSpec_WhenManifestAndEntryPointAreValid()
@@ -145,7 +146,7 @@ namespace FocusRgb.App.Tests
 
         public void Dispose()
         {
-            if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
+            _tempDirectory.Dispose();
         }
 
         private string WritePackage(ManifestData manifest)
@@ -158,17 +159,21 @@ namespace FocusRgb.App.Tests
             return package;
         }
 
-        private static ManifestData Manifest() => new(
-            1,
-            "fake-output",
-            "1.0.0",
-            ContractVersion.Current,
-            "fake.dll",
-            [OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "macos" : "linux"],
-            [System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()],
-            ["output"],
-            [],
-            "MIT");
+        private static ManifestData Manifest()
+        {
+            var manifest = FakePluginPackage.Manifest("fake.dll");
+            return new ManifestData(
+                manifest.SchemaVersion,
+                manifest.Id!,
+                manifest.Version!,
+                manifest.ContractVersion!,
+                manifest.EntryPoint!,
+                manifest.OperatingSystems!,
+                manifest.Architectures!,
+                manifest.Roles!,
+                manifest.Resources!,
+                manifest.License!);
+        }
 
         private sealed record ManifestData(
             int SchemaVersion,
