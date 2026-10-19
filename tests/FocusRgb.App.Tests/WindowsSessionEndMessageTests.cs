@@ -5,20 +5,41 @@ namespace FocusRgb.App.Tests
         [Fact]
         public void Query_IsAcknowledgedWithoutBeingTreatedAsCommitted()
         {
-            Assert.True(WindowsSessionEndMessage.IsQuery(0x0011));
-            Assert.False(WindowsSessionEndMessage.IsCommitted(0x0011, new IntPtr(1)));
+            var committed = false;
+            var handled = false;
+
+            var result = WindowsSessionEndMessage.Handle(
+                0x0011, new IntPtr(1), () => committed = true, ref handled);
+
+            Assert.True(handled);
+            Assert.Equal(new IntPtr(1), result);
+            Assert.False(committed);
         }
 
         [Fact]
         public void CancelledEndSession_IsNotCommitted()
         {
-            Assert.False(WindowsSessionEndMessage.IsCommitted(0x0016, IntPtr.Zero));
+            var committed = false;
+            var handled = false;
+
+            WindowsSessionEndMessage.Handle(
+                0x0016, IntPtr.Zero, () => committed = true, ref handled);
+
+            Assert.False(handled);
+            Assert.False(committed);
         }
 
         [Fact]
         public void ConfirmedEndSession_IsCommitted()
         {
-            Assert.True(WindowsSessionEndMessage.IsCommitted(0x0016, new IntPtr(1)));
+            var committed = false;
+            var handled = false;
+
+            WindowsSessionEndMessage.Handle(
+                0x0016, new IntPtr(1), () => committed = true, ref handled);
+
+            Assert.False(handled);
+            Assert.True(committed);
         }
     }
 }

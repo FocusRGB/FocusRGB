@@ -468,16 +468,8 @@ namespace FocusRgb.App
             uint message,
             IntPtr wParam,
             IntPtr lParam,
-            ref bool handled)
-        {
-            if (WindowsSessionEndMessage.IsQuery(message))
-            {
-                handled = true;
-                return new IntPtr(1);
-            }
-            if (WindowsSessionEndMessage.IsCommitted(message, wParam)) CompleteSessionEnd();
-            return IntPtr.Zero;
-        }
+            ref bool handled) => WindowsSessionEndMessage.Handle(
+                message, wParam, CompleteSessionEnd, ref handled);
 
         private void CompleteSessionEnd()
         {
