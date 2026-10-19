@@ -93,6 +93,7 @@ tests/
   FocusRgb.FakePlugin/         executable plugin protocol fixture
 schemas/                       plugin manifest and protocol JSON schemas
 tools/                         SDK package check and screen colour test
+examples/python-plugin/        language-neutral protocol example
 docs/                          brief, architecture, contract, slices, workflow
 .ai/                           shared AI instructions, status, handoff
 build/                         generated output (git-ignored)

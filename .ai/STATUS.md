@@ -220,11 +220,15 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
   and future majors. `docs/plugin-protocol.md` is the normative language-neutral transport,
   lifecycle, message, manifest, and compatibility specification. Schema drift tests compare
   method constants and manifest properties, and the publisher targets nuget.org through the
-  owner-supplied `NUGET_API_KEY`.
+  owner-supplied `NUGET_API_KEY`. `tools/plugin-conformance.py` drives any child-process command
+  through the 1.0 lifecycle using only the Python standard library; it passes against both the
+  .NET fake process and the non-.NET `examples/python-plugin` implementation.
 - Verification: `dotnet build FocusRgb.slnx -c Release --no-restore` passed with 0 warnings/errors;
   `dotnet test FocusRgb.slnx -c Release --no-build --no-restore` passed 297/297. The independent
   package script built reproducible `FocusRgb.Contracts` and `FocusRgb.PluginSdk` 1.0.0 packages
-  twice and built a clean external consumer from the local feed.
+  twice and built a clean external consumer from the local feed. The language-neutral runner
+  passed the full initialize/status/catalog/apply/release/shutdown sequence against the Python
+  example and the .NET fake plugin.
 - External/live evidence: no package was published, no repository was created, no plugin was
   installed, and no hardware or visible lighting was changed.
 - Remaining acceptance criteria: freeze/document contract 1.0, add schema/type drift checks and
@@ -235,10 +239,10 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
   `FocusRGB` organization, reserve the `FocusRgb.*` prefix, and add the scoped `NUGET_API_KEY`
   secret before publication can be verified. Repository creation/settings for #84 also require
   owner confirmation if not already present.
-- Uncommitted work to preserve: the first Slice 17 contract, package, workflow, tests, and
-  documentation increment; all checks above pass.
-- Next action: add the language-neutral conformance runner and non-.NET example, then finish the
-  external plugin template before implementing discovery/install #80.
+- Uncommitted work to preserve: the conformance runner, Python example, CI calls, and this handoff
+  update; both conformance runs pass.
+- Next action: finish the external .NET plugin template and verify generation against the local
+  1.0 package feed before implementing discovery/install #80.
 - Next slice: 18 only after Slice 17 acceptance criteria pass.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
