@@ -209,8 +209,8 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 
 - Slice: 16 — SignalRGB acceptance gate
 - State: in progress; Slice 15 is merged in both repositories
-- Branch, latest relevant commit, and pull request: `slice/16-signalrgb-acceptance-gate`;
-  commits and PR pending.
+- Branch, latest relevant implementation commit, and pull request:
+  `slice/16-signalrgb-acceptance-gate`; `ea30750`; PR pending.
 - Scope and dependencies verified: the existing coordinator owns catalog resolution, timeout,
   fallback, ownership, and recovery consent; the app supplies lifecycle/status wiring; the peer
   SignalRGB plugin supplies its honest effect and unsupported-layout capabilities.
@@ -219,17 +219,22 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
   options, retains unavailable saved/draft choices, preserves the current provider layout, and
   saves an exact catalog resource ID. App startup, provider loss, and restart refresh the editor.
 - Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passed with 0 warnings/errors;
-  `dotnet test --solution FocusRGB.slnx -c Release --no-restore` passed 293/293.
-- External/live evidence: not requested; no SignalRGB URL was submitted and no visible lighting,
-  provider files, or user settings were changed.
-- Remaining acceptance criteria: package/install the merged plugin, verify first start/restart,
+  `dotnet test --solution FocusRGB.slnx -c Release --no-restore` passed 293/293. The merged peer
+  plugin passed 10/10 tests and produced a validated dry-run ZIP with SHA-256
+  `247572801EFC862C903106ACB0A4344A1F9CE497619ED2863B0FF3FB91AB6E48`.
+- External/live evidence: a read-only probe of the packaged executable completed initialize,
+  status, effect/layout catalog, and shutdown. SignalRGB was stopped; Aurora, Logarithmic
+  Visualizer, and Screen Ambience were available, and layouts reported unsupported as designed.
+  No `binding/apply` call or SignalRGB URL was submitted, and no visible lighting, provider files,
+  or user settings were changed.
+- Remaining acceptance criteria: install the merged plugin, verify first start/restart,
   manual and automatic four-profile switching, absent-provider/failure/recovery approval, visible
   output, and removal. Record application-URL requests as unverified until the user confirms light.
 - Current blocker or required product input: explicit approval is required before the live
   SignalRGB session changes visible lighting.
-- Uncommitted work to preserve: provider-catalog UI/runtime wiring, tests, and this handoff.
-- Next action: commit the catalog UI/runtime wiring and tests, then package the merged plugin for
-  the non-live portion of the acceptance gate.
+- Uncommitted work to preserve: none after the package/probe evidence commit.
+- Next action: after explicit live-test approval, back up the real FocusRGB data folder, install
+  and enable the package, and run the four-profile acceptance matrix with visible confirmation.
 - Next slice: 17 only after all Slice 16 acceptance criteria pass.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
