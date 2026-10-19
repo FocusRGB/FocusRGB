@@ -207,28 +207,16 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 
 ## Active implementation slice
 
-- Slice: 15 — external SignalRGB plugin repository
-- State: implementation complete; external and main-repository pull requests are in review
-- Repositories: `MAJ224/FocusRGB-Plugin-SignalRGB` owns the provider implementation;
-  `MAJ224/FocusRGB` retains provider-neutral contracts, hosting, and a migration link.
-- External branch and pull request: `slice/15-separate-signalrgb-plugin` targets `develop`;
-  external PR #1.
-- Main branch and pull request: `slice/15-external-signalrgb-plugin` targets `develop`; PR #74.
-- Implemented behavior: status/process discovery, bundled and downloaded effect catalog,
-  provider-authority and provider-managed-scope validation, encoded application-URL submission
-  only while SignalRGB is already running, honest unverified selection, and unsupported layouts.
-- Package boundary: standalone CI restores public `FocusRgb.PluginSdk` 0.1.0 from GitHub
-  Packages; there is no source checkout, submodule, or provider project reference.
-- Verification: standalone Release build passes with 0 warnings/errors; 10/10 mock tests and a
-  JSON-RPC initialize/status/shutdown smoke check pass. The assembled release package loads and
-  starts through FocusRGB's real host, then clean removal reports `plugin-absent`. Live effect
-  application remains Slice 16.
-- Remaining acceptance criteria: review and merge external PR #1 and main PR #74.
+- Slice: 16 — SignalRGB acceptance gate
+- State: planned; Slice 15 is merged in both repositories
+- Repositories: `MAJ224/FocusRGB` owns the acceptance gate and
+  `MAJ224/FocusRGB-Plugin-SignalRGB` owns the provider package under test.
+- Remaining acceptance criteria: run Slice 16's live install, profile-switching, visible-output,
+  failure, and removal gate.
 - Current blocker or required product input: none.
-- Uncommitted work to preserve: none after both Slice 15 branches are pushed.
-- Next action: resolve reviews on both Slice 15 PRs, merge them, package the plugin, then run
-  Slice 16's live end-to-end acceptance gate.
-- Next slice: 16 — SignalRGB acceptance gate, only after Slice 15 is merged.
+- Uncommitted work to preserve: none.
+- Next action: package the merged plugin and run Slice 16's live end-to-end acceptance gate.
+- Next slice: 16 — SignalRGB acceptance gate.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
 `global.json`; use `dotnet test --solution …`, not the VSTest form. The App and Windows
@@ -259,7 +247,7 @@ assistant contributions are recorded only with the matching `Assisted-by:` trail
 
 Issue planning (2026-10-15): every Slice 00–29 has one owner-assigned GitHub issue with linked
 dependencies, `slice` and `enhancement` labels, and a release milestone. Issues for completed
-Slices 00–14 are closed as completed; Slice 15 is in review and Slices 15–29 remain open. The durable
+Slices 00–15 are closed as completed and Slices 16–29 remain open. The durable
 issue and milestone map is `../docs/github-roadmap.md`.
 
 Proposed defaults frozen in slice 00 for the user to confirm or change: three persisted files
@@ -271,8 +259,8 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slice 15 is implemented in the independent SignalRGB plugin repository and the main-repository
-migration branch. Resolve both PRs before Slice 16. Slice 16 performs the live install,
+Slice 15 is merged in the independent SignalRGB plugin repository and the main repository.
+Slice 16 performs the live install,
 profile-switching, visible-output, failure, and removal gate; no live effect application belongs
 in Slice 15.
 

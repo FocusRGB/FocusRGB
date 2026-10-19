@@ -66,6 +66,10 @@ Adopted 2026-10-10. Applies to people and AI assistants.
   document, its dependency issues, scope, and acceptance criteria. Keep the issue-to-slice map in
   [`github-roadmap.md`](github-roadmap.md).
 - Assign slice issues only to the repository owner and label them `slice` and `enhancement`.
+- Issue numbers are immutable and need not match slice numbers. Keep slice issues in numeric slice
+  order in `github-roadmap.md` and the `FocusRGB Roadmap` project's manual order. Put a follow-up
+  bug beside its owning slice, assign it to that slice's milestone, and link it from the slice
+  document.
 - Group slices into coherent release milestones without invented due dates. Close a slice issue as
   completed only when the roadmap says it is complete; close its milestone after the related pull
   requests have also landed.
