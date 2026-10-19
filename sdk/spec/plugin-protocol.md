@@ -146,6 +146,10 @@ Contract versions are `major.minor`; package versions are semantic `major.minor.
 - Unknown optional capabilities are ignored. Required behavior is invoked only after capability
   negotiation, leaving room for game events and native frame output in later 1.x versions.
 
+The schemas in the development branch use `develop` URLs while the release is being prepared.
+Every released schema `$id` must instead resolve to that release's immutable tag, using
+`https://raw.githubusercontent.com/FocusRGB/FocusRGB/sdk-dotnet-vX.Y.Z/sdk/spec/<schema-name>`.
+
 During the SignalRGB migration only, host 1.0 also accepts contract 0.1 when both the manifest
 and handshake declare 0.1. The UI and log identify it as legacy. Remove this exception after the
 SignalRGB plugin publishes its coordinated 1.0 package.

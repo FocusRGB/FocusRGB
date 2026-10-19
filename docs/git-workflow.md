@@ -108,6 +108,9 @@ repository's own issue and pull request, using the same release milestone.
 The `nuget` GitHub environment must be protected with MAJ224 as its required reviewer. The
 publication job validates the `sdk-dotnet-vMAJOR.MINOR.PATCH` tag against both package versions and
 requires the tagged commit to belong to `develop` or `main` before using `NUGET_API_KEY`.
+Before creating that tag, change each released schema `$id` from its moving `develop` URL to
+`https://raw.githubusercontent.com/FocusRGB/FocusRGB/sdk-dotnet-vX.Y.Z/sdk/spec/<schema-name>` so
+the published contract resolves to the exact immutable release.
 Move only maintained, publication-safe research: do not republish local security-testing notes,
 credentials, private-network addresses, or machine-specific paths in a public plugin repository.
 
