@@ -57,6 +57,18 @@ namespace FocusRgb.App
 
         public void NotifyStartedMinimized() => ViewModel.NotifyWindowHidden();
 
+        public void CreateHiddenPlatformWindow()
+        {
+            Opacity = 0;
+            ShowInTaskbar = false;
+            ShowActivated = false;
+            Show();
+            Hide();
+            Opacity = 1;
+            ShowInTaskbar = true;
+            ShowActivated = true;
+        }
+
         public void ReportQuitFailure() =>
             ViewModel.ReportUnexpectedError("Could not save before quitting. Choose Quit again to exit without saving.");
 

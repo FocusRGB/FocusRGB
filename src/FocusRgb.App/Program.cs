@@ -1,6 +1,6 @@
+using System.Security.Principal;
 using Avalonia;
 using Avalonia.Threading;
-using System.Security.Principal;
 
 namespace FocusRgb.App
 {
@@ -46,6 +46,15 @@ namespace FocusRgb.App
         public static AppBuilder BuildAvaloniaApp() =>
             AppBuilder.Configure<App>()
                 .UsePlatformDetect()
+                .AfterSetup(_ =>
+                {
+                    if (OperatingSystem.IsWindows())
+                    {
+                        // Avalonia treats WM_QUERYENDSESSION as final; the window hook waits for WM_ENDSESSION.
+                        if (!AvaloniaWindowsSessionEndWorkaround.SuppressQueryShutdown())
+                            throw new InvalidOperationException("Avalonia query shutdown could not be suppressed.");
+                    }
+                })
                 .WithInterFont()
                 .LogToTrace();
     }

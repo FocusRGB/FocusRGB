@@ -5,15 +5,22 @@ namespace FocusRgb.App.Plugins
     /// <summary>Starts only settings-enabled local packages and isolates individual startup failures.</summary>
     public sealed class PluginRuntime : IAsyncDisposable
     {
-        private readonly List<PluginProcessClient> _clients;
+        private readonly List<PluginRuntimeEntry> _entries;
+        private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
+        private bool _disposed;
 
-        private PluginRuntime(List<PluginRuntimeEntry> entries, List<PluginProcessClient> clients)
+        private PluginRuntime(List<PluginRuntimeEntry> entries)
         {
-            Entries = entries;
-            _clients = clients;
+            _entries = entries;
         }
 
-        public IReadOnlyList<PluginRuntimeEntry> Entries { get; }
+        public IReadOnlyList<PluginRuntimeEntry> Entries
+        {
+            get
+            {
+                lock (_entries) return _entries.ToArray();
+            }
+        }
 
         public static async Task<PluginRuntime> StartAsync(
             string packagesDirectory,
@@ -25,10 +32,7 @@ namespace FocusRgb.App.Plugins
             try
             {
                 var entries = await Task.WhenAll(tasks).ConfigureAwait(false);
-                return new PluginRuntime(entries.ToList(), entries
-                    .Where(entry => entry.Client is not null)
-                    .Select(entry => entry.Client!)
-                    .ToList());
+                return new PluginRuntime(entries.ToList());
             }
             catch
             {
@@ -42,9 +46,54 @@ namespace FocusRgb.App.Plugins
 
         public async ValueTask DisposeAsync()
         {
-            foreach (var client in _clients)
+            await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+            try
             {
-                await DisposeWithoutThrowingAsync(client).ConfigureAwait(false);
+                if (_disposed) return;
+                _disposed = true;
+                foreach (var client in Entries
+                    .Where(entry => entry.Client is not null)
+                    .Select(entry => entry.Client!))
+                {
+                    await DisposeWithoutThrowingAsync(client).ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                _lifecycleGate.Release();
+            }
+        }
+
+        public async Task<PluginRuntimeEntry> RestartAsync(
+            string packagesDirectory,
+            string pluginId,
+            CancellationToken cancellationToken = default)
+        {
+            await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                int index;
+                lock (_entries)
+                {
+                    index = _entries.FindIndex(entry => entry.PluginId == pluginId);
+                }
+                if (index < 0) throw new InvalidOperationException($"Plugin '{pluginId}' is not enabled.");
+                var replacement = await StartOneAsync(
+                    packagesDirectory, pluginId, cancellationToken).ConfigureAwait(false);
+                PluginProcessClient? previous;
+                lock (_entries)
+                {
+                    previous = _entries[index].Client;
+                    _entries[index] = replacement;
+                }
+                if (previous is not null)
+                    await DisposeWithoutThrowingAsync(previous).ConfigureAwait(false);
+                return replacement;
+            }
+            finally
+            {
+                _lifecycleGate.Release();
             }
         }
 
