@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -29,9 +30,10 @@ namespace FocusRgb.App
         private bool _quitPending;
         private bool _quitWithoutSaving;
         private bool _shutdownApproved;
-        private int _pluginRestartPending;
-        private int _pluginRestartAttempts;
-        private bool _pluginRestartLimitReached;
+        private readonly ConcurrentDictionary<string, byte> _pluginRestartsPending = new(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, int> _pluginRestartAttempts = new(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, byte> _pluginRestartLimits = new(StringComparer.Ordinal);
+        private Win32Properties.CustomWndProcHookCallback? _windowsMessageHook;
 
         public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -96,7 +98,7 @@ namespace FocusRgb.App
                         if (change.ReasonCode is "plugin-exited" or "timeout")
                         {
                             AppLog.Write($"Plugin {change.PluginId} became unavailable: {change.Message}");
-                            _ = RestartPluginsAsync(packagesDirectory, enabledPluginIds, pluginGateway, viewModel, outputCoordinator);
+                            _ = RestartPluginAsync(packagesDirectory, change.PluginId, pluginGateway, viewModel, outputCoordinator);
                         }
                     }
                     catch (Exception exception)
@@ -105,6 +107,7 @@ namespace FocusRgb.App
                     }
                 };
                 var mainWindow = new MainWindow(viewModel, directory);
+                AttachWindowsSessionEnd(mainWindow);
                 outputCoordinator.StatusChanged += (_, status) =>
                     Dispatcher.UIThread.Post(() => mainWindow.ApplyOutputStatus(status));
                 _mainWindow = mainWindow;
@@ -140,8 +143,8 @@ namespace FocusRgb.App
                         pluginGateway.Attach(_plugins.Entries);
                         UpdateIntegrationStatuses(viewModel);
                         await viewModel.ReapplyOutputAsync();
-                        if (_plugins.Entries.Any(entry => !entry.IsRunning))
-                            _ = RestartPluginsAsync(packagesDirectory, enabledPluginIds, pluginGateway, viewModel, outputCoordinator);
+                        foreach (var entry in _plugins.Entries.Where(entry => !entry.IsRunning))
+                            _ = RestartPluginAsync(packagesDirectory, entry.PluginId, pluginGateway, viewModel, outputCoordinator);
                     }
                 }
                 finally
@@ -165,6 +168,7 @@ namespace FocusRgb.App
                 Content = new TextBlock { Text = message, Margin = new Thickness(24), TextWrapping = Avalonia.Media.TextWrapping.Wrap }
             };
             _startupErrorWindow = errorWindow;
+            AttachWindowsSessionEnd(errorWindow);
             desktop.MainWindow = errorWindow;
             errorWindow.Closed += (_, _) =>
             {
@@ -338,80 +342,78 @@ namespace FocusRgb.App
             }
         }
 
-        private async Task RestartPluginsAsync(
+        private async Task RestartPluginAsync(
             string packagesDirectory,
-            IReadOnlyList<string> enabledPluginIds,
+            string pluginId,
             PluginRuntimeGateway gateway,
             MainWindowViewModel viewModel,
             OutputCoordinator coordinator)
         {
-            if (Interlocked.Exchange(ref _pluginRestartPending, 1) != 0 || _shutdownApproved) return;
+            if (!_pluginRestartsPending.TryAdd(pluginId, 0)
+                || _shutdownApproved
+                || _plugins is not { } runtime) return;
             var retry = false;
             var attempt = 0;
             try
             {
-                attempt = Interlocked.Increment(ref _pluginRestartAttempts);
+                attempt = _pluginRestartAttempts.AddOrUpdate(pluginId, 1, static (_, current) => current + 1);
                 if (attempt > 3)
                 {
-                    await ShowRestartLimitAsync(viewModel);
+                    await ShowRestartLimitAsync(viewModel, pluginId);
                     return;
                 }
                 await Task.Delay(attempt switch { 1 => 1000, 2 => 5000, _ => 30000 });
-                if (_shutdownApproved) return;
-                if (_plugins is not null) await _plugins.DisposeAsync();
-                var runtime = await PluginRuntime.StartAsync(packagesDirectory, enabledPluginIds);
-                _plugins = runtime;
-                if (_shutdownApproved)
-                {
-                    await runtime.DisposeAsync();
-                    if (ReferenceEquals(_plugins, runtime)) _plugins = null;
-                    return;
-                }
-                _pluginRestartLimitReached = false;
-                ConfigurePluginLogging(_plugins.Entries);
-                gateway.Attach(_plugins.Entries);
+                if (_shutdownApproved || !ReferenceEquals(_plugins, runtime)) return;
+                var entry = await runtime.RestartAsync(packagesDirectory, pluginId);
+                if (_shutdownApproved || !ReferenceEquals(_plugins, runtime)) return;
+                _pluginRestartLimits.TryRemove(pluginId, out _);
+                ConfigurePluginLogging([entry]);
+                gateway.Attach([entry]);
                 await Dispatcher.UIThread.InvokeAsync(() => UpdateIntegrationStatuses(viewModel));
-                foreach (var entry in _plugins.Entries.Where(entry => entry.IsRunning))
+                if (entry.IsRunning)
                     await coordinator.ReportAvailabilityAsync(entry.PluginId, true);
-                retry = _plugins.Entries.Any(entry => !entry.IsRunning);
-                if (retry)
-                {
-                    if (attempt < 3)
-                        AppLog.Write("One or more plugins failed to restart; another attempt will be made.");
-                }
-                else
-                    _ = ResetRestartAttemptsAfterStableRunAsync(_plugins);
+                retry = !entry.IsRunning;
+                if (retry && attempt < 3)
+                    AppLog.Write($"Plugin {pluginId} failed to restart; another attempt will be made.");
+                else if (!retry)
+                    _ = ResetRestartAttemptsAfterStableRunAsync(runtime, entry);
+            }
+            catch (ObjectDisposedException) when (_shutdownApproved)
+            {
             }
             catch (Exception exception)
             {
-                AppLog.Write($"Plugin restart failed: {exception.Message}");
+                AppLog.Write($"Plugin {pluginId} restart failed: {exception.Message}");
                 retry = true;
             }
             finally
             {
-                Interlocked.Exchange(ref _pluginRestartPending, 0);
+                _pluginRestartsPending.TryRemove(pluginId, out _);
             }
             if (retry && !_shutdownApproved)
             {
                 if (attempt < 3)
-                    _ = RestartPluginsAsync(packagesDirectory, enabledPluginIds, gateway, viewModel, coordinator);
+                    _ = RestartPluginAsync(packagesDirectory, pluginId, gateway, viewModel, coordinator);
                 else
-                    await ShowRestartLimitAsync(viewModel);
+                    await ShowRestartLimitAsync(viewModel, pluginId);
             }
         }
 
-        private async Task ShowRestartLimitAsync(MainWindowViewModel viewModel)
+        private async Task ShowRestartLimitAsync(MainWindowViewModel viewModel, string pluginId)
         {
-            _pluginRestartLimitReached = true;
-            AppLog.Write("Plugin restart limit reached; restart FocusRGB to try again.");
+            _pluginRestartLimits.TryAdd(pluginId, 0);
+            AppLog.Write($"Plugin {pluginId} restart limit reached; restart FocusRGB to try again.");
             await Dispatcher.UIThread.InvokeAsync(() => UpdateIntegrationStatuses(viewModel));
         }
 
-        private async Task ResetRestartAttemptsAfterStableRunAsync(PluginRuntime runtime)
+        private async Task ResetRestartAttemptsAfterStableRunAsync(
+            PluginRuntime runtime,
+            PluginRuntimeEntry entry)
         {
             await Task.Delay(TimeSpan.FromMinutes(1));
-            if (ReferenceEquals(_plugins, runtime) && runtime.Entries.All(entry => entry.IsRunning))
-                Interlocked.Exchange(ref _pluginRestartAttempts, 0);
+            if (ReferenceEquals(_plugins, runtime)
+                && runtime.Entries.Any(current => ReferenceEquals(current, entry) && current.IsRunning))
+                _pluginRestartAttempts.TryRemove(entry.PluginId, out _);
         }
 
         private void UpdateIntegrationStatuses(MainWindowViewModel viewModel)
@@ -421,7 +423,7 @@ namespace FocusRgb.App
                 ? $"{entry.PluginId}: running"
                 : $"{entry.PluginId}: {entry.ErrorCode ?? entry.Client?.Health ?? "unavailable"} — "
                     + (entry.ErrorMessage ?? "The plugin is not available.")
-                    + (_pluginRestartLimitReached ? " Automatic restart stopped." : string.Empty)));
+                    + (_pluginRestartLimits.ContainsKey(entry.PluginId) ? " Automatic restart stopped." : string.Empty)));
         }
 
         private static void ConfigurePluginLogging(IEnumerable<PluginRuntimeEntry> entries)
@@ -451,9 +453,73 @@ namespace FocusRgb.App
         private void Desktop_OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
         {
             if (_shutdownApproved || _mainWindow is null) return;
+            CompleteSessionEnd();
+        }
+
+        private void AttachWindowsSessionEnd(Window window)
+        {
+            if (!OperatingSystem.IsWindows()) return;
+            _windowsMessageHook ??= OnWindowsMessage;
+            Win32Properties.AddWndProcHookCallback(window, _windowsMessageHook);
+        }
+
+        private IntPtr OnWindowsMessage(
+            IntPtr hWnd,
+            uint message,
+            IntPtr wParam,
+            IntPtr lParam,
+            ref bool handled)
+        {
+            if (WindowsSessionEndMessage.IsQuery(message))
+            {
+                handled = true;
+                return new IntPtr(1);
+            }
+            if (WindowsSessionEndMessage.IsCommitted(message, wParam)) CompleteSessionEnd();
+            return IntPtr.Zero;
+        }
+
+        private void CompleteSessionEnd()
+        {
+            var cleanup = CompleteSessionEndAsync();
+            if (!cleanup.IsCompleted)
+            {
+                var frame = new DispatcherFrame();
+                _ = cleanup.ContinueWith(
+                    _ => Dispatcher.UIThread.Post(() => frame.Continue = false),
+                    TaskScheduler.Default);
+                Dispatcher.UIThread.PushFrame(frame);
+            }
+            try
+            {
+                cleanup.GetAwaiter().GetResult();
+            }
+            catch (Exception exception)
+            {
+                AppLog.Write($"Best-effort session-end cleanup failed: {exception.Message}");
+            }
+        }
+
+        private async Task CompleteSessionEndAsync()
+        {
+            if (_shutdownApproved || _desktop is null) return;
             _shutdownApproved = true;
-            _mainWindow.AllowClose();
-            _ = StopPluginsForSessionEndAsync();
+            if (_mainWindow is not null)
+            {
+                using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                try
+                {
+                    if (!await _mainWindow.PrepareQuitAsync(cancellation.Token))
+                        AppLog.Write("Could not save runtime state during session end.");
+                }
+                catch (Exception exception)
+                {
+                    AppLog.Write($"Could not save runtime state during session end: {exception.Message}");
+                }
+                _mainWindow.AllowClose();
+            }
+            await StopPluginsForSessionEndAsync();
+            _desktop.Shutdown();
         }
 
         private async Task StopPluginsForSessionEndAsync()

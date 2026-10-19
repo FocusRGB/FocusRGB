@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using FocusRgb.Contracts;
 using FocusRgb.Core.Coordination;
 
@@ -6,7 +7,7 @@ namespace FocusRgb.App.Plugins
     /// <summary>Adapts supervised plugin processes to the portable output coordinator.</summary>
     public sealed class PluginRuntimeGateway : IPluginOutputGateway
     {
-        private readonly Dictionary<string, PluginRuntimeEntry> _entries;
+        private readonly ConcurrentDictionary<string, PluginRuntimeEntry> _entries;
 
         public PluginRuntimeGateway(PluginRuntime runtime)
             : this(runtime?.Entries ?? throw new ArgumentNullException(nameof(runtime)))
@@ -16,7 +17,7 @@ namespace FocusRgb.App.Plugins
         public PluginRuntimeGateway(IEnumerable<PluginRuntimeEntry> entries)
         {
             ArgumentNullException.ThrowIfNull(entries);
-            _entries = new Dictionary<string, PluginRuntimeEntry>(StringComparer.Ordinal);
+            _entries = new ConcurrentDictionary<string, PluginRuntimeEntry>(StringComparer.Ordinal);
             Attach(entries);
         }
 

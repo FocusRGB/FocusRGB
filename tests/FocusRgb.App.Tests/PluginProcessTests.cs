@@ -438,6 +438,32 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task Runtime_RestartsOnlyRequestedPlugin_AndKeepsHealthyPeerRunning()
+        {
+            var directory = Path.Combine(Path.GetTempPath(), "FocusRgb.PluginTests", Guid.NewGuid().ToString("N"));
+            try
+            {
+                await CreateFakePackageAsync(directory, TestContext.Current.CancellationToken);
+                await using var runtime = await PluginRuntime.StartAsync(
+                    directory, ["fake-output", "missing-plugin"], TestContext.Current.CancellationToken);
+                var healthy = runtime.Entries.Single(entry => entry.PluginId == "fake-output");
+                Assert.True(healthy.IsRunning);
+
+                var restarted = await runtime.RestartAsync(
+                    directory, "missing-plugin", TestContext.Current.CancellationToken);
+
+                Assert.False(restarted.IsRunning);
+                Assert.Same(healthy, runtime.Entries.Single(entry => entry.PluginId == "fake-output"));
+                var status = await healthy.Client!.GetStatusAsync(TestContext.Current.CancellationToken);
+                Assert.True(status.IsSuccess, status.ErrorMessage);
+            }
+            finally
+            {
+                if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+            }
+        }
+
+        [Fact]
         public async Task Coordinator_AppliesDesiredProfile_ThroughRealFakeProcess()
         {
             var started = await StartAsync();
@@ -514,6 +540,28 @@ namespace FocusRgb.App.Tests
             Resources = [],
             License = "MIT"
         };
+
+        private static async Task CreateFakePackageAsync(string packagesDirectory, CancellationToken cancellationToken)
+        {
+            var packageDirectory = Path.Combine(packagesDirectory, "fake-output");
+            Directory.CreateDirectory(packageDirectory);
+            var sourceDirectory = Path.GetDirectoryName(FakePluginPath())!;
+            foreach (var fileName in new[]
+            {
+                "FocusRgb.FakePlugin.dll",
+                "FocusRgb.FakePlugin.deps.json",
+                "FocusRgb.FakePlugin.runtimeconfig.json",
+                "FocusRgb.PluginSdk.dll",
+                "FocusRgb.Contracts.dll"
+            })
+            {
+                File.Copy(Path.Combine(sourceDirectory, fileName), Path.Combine(packageDirectory, fileName));
+            }
+            await File.WriteAllTextAsync(
+                Path.Combine(packageDirectory, PluginPackage.ManifestFileName),
+                JsonSerializer.Serialize(Manifest(), PluginJson.Options),
+                cancellationToken);
+        }
 
         private static string FakePluginPath()
         {
