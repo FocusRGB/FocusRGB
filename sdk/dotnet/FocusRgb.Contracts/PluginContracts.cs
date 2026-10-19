@@ -53,6 +53,15 @@ namespace FocusRgb.Contracts
         public required string PluginVersion { get; init; }
         public required string ContractVersion { get; init; }
         public IReadOnlyList<PluginCapability> Capabilities { get; init; } = [];
+        public PluginSdkInfo? Sdk { get; init; }
+    }
+
+    /// <summary>Identifies the optional SDK implementation for compatibility diagnostics only.</summary>
+    public sealed class PluginSdkInfo
+    {
+        public required string Name { get; init; }
+        public required string Language { get; init; }
+        public required string Version { get; init; }
     }
 
     /// <summary>Reports support for one provider-neutral capability.</summary>

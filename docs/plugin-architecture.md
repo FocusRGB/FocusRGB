@@ -53,6 +53,11 @@ resources such as network, screen capture, or USB access. The UI must show those
 before enabling an untrusted plugin. Keep frame messages batched; add a measured binary
 transport only if JSON becomes a demonstrated streaming bottleneck.
 
+An initialize result may report `sdk { name, language, version }` for compatibility diagnostics.
+That self-reported value is shown and logged but never establishes trust or causes acceptance or
+rejection. Trust comes from the install source and verified package checksums; SDK runners do not
+sandbox plugin modules, which continue to run with the user's permissions.
+
 Start with the smallest SDK and host surface needed by the fake test integration. Pack it as a
 versioned `0.x` prerelease before the first external plugin repository consumes it. Once the
 fake and SignalRGB plugins prove the boundary, stabilize the public SDK rather than

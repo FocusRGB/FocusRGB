@@ -428,6 +428,9 @@ namespace FocusRgb.App
             var entries = _plugins?.Entries ?? [];
             viewModel.SetIntegrationStatuses(entries.Select(entry => entry.IsRunning
                 ? $"{entry.PluginId}: running"
+                    + (entry.Handshake?.Sdk is { } sdk
+                        ? $" — SDK {sdk.Name} {sdk.Version} ({sdk.Language})"
+                        : string.Empty)
                     + (entry.Handshake?.ContractVersion == "0.1"
                         ? " — legacy contract 0.1; update required."
                         : string.Empty)
@@ -443,6 +446,8 @@ namespace FocusRgb.App
                 if (plugin.Client is { } client)
                 {
                     client.LogReceived += (_, message) => AppLog.Write($"Plugin {plugin.PluginId}: {message}");
+                    if (plugin.Handshake?.Sdk is { } sdk)
+                        AppLog.Write($"Plugin {plugin.PluginId} SDK: {sdk.Name} {sdk.Version} ({sdk.Language}).");
                     if (plugin.Handshake?.ContractVersion == "0.1")
                         AppLog.Write($"Plugin {plugin.PluginId} uses legacy contract 0.1; update required.");
                 }

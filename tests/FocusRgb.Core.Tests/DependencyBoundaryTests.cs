@@ -98,6 +98,7 @@ namespace FocusRgb.Core.Tests
             { typeof(PluginHostInfo), "pluginHostInfo" },
             { typeof(InitializeParameters), "initializeParameters" },
             { typeof(InitializeResult), "initializeResult" },
+            { typeof(PluginSdkInfo), "pluginSdkInfo" },
             { typeof(PluginCapability), "pluginCapability" },
             { typeof(PluginReason), "pluginReason" },
             { typeof(PluginStatusResult), "pluginStatusResult" },

@@ -74,7 +74,16 @@
       "type": "object", "additionalProperties": false, "required": ["pluginId", "pluginVersion", "contractVersion", "capabilities"],
       "properties": {
         "pluginId": { "type": "string" }, "pluginVersion": { "type": "string" }, "contractVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
-        "capabilities": { "type": "array", "items": { "$ref": "#/$defs/pluginCapability" } }
+        "capabilities": { "type": "array", "items": { "$ref": "#/$defs/pluginCapability" } },
+        "sdk": { "$ref": "#/$defs/pluginSdkInfo" }
+      }
+    },
+    "pluginSdkInfo": {
+      "type": "object", "additionalProperties": false, "required": ["name", "language", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "language": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" }
       }
     },
     "pluginCapability": { "type": "object", "additionalProperties": false, "required": ["id", "support"], "properties": { "id": { "type": "string" }, "support": { "type": "string" }, "reason": { "$ref": "#/$defs/pluginReason" } } },

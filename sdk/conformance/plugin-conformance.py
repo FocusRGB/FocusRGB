@@ -4,6 +4,7 @@
 import argparse
 import json
 import queue
+import re
 import subprocess
 import sys
 import threading
@@ -134,6 +135,16 @@ def run(plugin_id: str, timeout: float, command: list[str]) -> None:
             if capability_id in support_by_id:
                 raise ProtocolError(f"capability {capability_id} was reported more than once")
             support_by_id[capability_id] = support
+
+        sdk = initialized.get("sdk")
+        if sdk is not None:
+            if not isinstance(sdk, dict) or set(sdk) != {"name", "language", "version"}:
+                raise ProtocolError("initialize.sdk must contain only name, language, and version")
+            require_string(sdk.get("name"), "initialize.sdk.name")
+            require_string(sdk.get("language"), "initialize.sdk.language")
+            sdk_version = require_string(sdk.get("version"), "initialize.sdk.version")
+            if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", sdk_version) is None:
+                raise ProtocolError("initialize.sdk.version must use major.minor.patch")
 
         status = session.call(2, "status/get", {})
         require_string(status.get("availability"), "status.availability")

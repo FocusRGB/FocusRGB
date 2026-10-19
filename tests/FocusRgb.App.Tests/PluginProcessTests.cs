@@ -57,6 +57,28 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task StartAsync_ReportsAutomaticSdkIdentity_WhenPluginUsesDotnetSdk()
+        {
+            var started = await StartAsync();
+
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            Assert.Equal("FocusRgb.PluginSdk", started.Handshake!.Sdk!.Name);
+            Assert.Equal("dotnet", started.Handshake.Sdk.Language);
+            Assert.Equal("1.0.0", started.Handshake.Sdk.Version);
+            await started.Client!.DisposeAsync();
+        }
+
+        [Fact]
+        public async Task StartAsync_AcceptsMissingSdkIdentity()
+        {
+            var started = await StartAsync("--invalid-response", "no-sdk");
+
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            Assert.Null(started.Handshake!.Sdk);
+            await started.Client!.DisposeAsync();
+        }
+
+        [Fact]
         public async Task StartAsync_RejectsNullCapabilities()
         {
             var started = await StartAsync("--null-capabilities");

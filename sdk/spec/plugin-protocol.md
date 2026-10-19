@@ -52,6 +52,12 @@ Parameters contain `contractVersion` and `host { name, version }`. The result co
 `pluginId`, `pluginVersion`, the negotiated `contractVersion`, and `capabilities[]`. Each
 capability has a stable `id`, one `support` value, and an optional `reason`.
 
+The result may include `sdk { name, language, version }`. When present, all three fields are
+required strings and `version` uses `major.minor.patch`. Known `language` values are `dotnet`,
+`node`, and `python`, but the field is intentionally not an enum so another language needs no
+contract change. SDK identity is compatibility and diagnostic metadata only: it is not proof of
+origin, not a trust boundary, and the host never accepts or rejects a plugin based on its values.
+
 ### `status/get`
 
 Parameters are empty. The result contains `availability`, an optional `reason`, and an optional
