@@ -110,7 +110,7 @@ Updated: 2026-10-19.
 - SignalRGB implementation and maintained public research now live in the independent
   `FocusRGB/FocusRGB-Plugin-SignalRGB` repository; `modules/signalrgb/` is a migration link only.
 - Generated builds and tool artifacts are consolidated under the ignored `build/` directory;
-  repository Graphify output is stored in `build/graphify-out/`.
+  the local code graph is stored separately in the ignored `graphify-out/` directory.
 - Runtime selected: .NET 10 with an Avalonia tray/settings UI and UI-independent background
   core, targeting Windows, macOS, and Linux where platform integrations permit it.
 - Plugin direction selected: open manifests/protocol/schemas and official .NET SDK/templates;
