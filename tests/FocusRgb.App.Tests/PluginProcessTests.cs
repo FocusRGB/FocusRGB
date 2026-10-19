@@ -567,8 +567,8 @@ namespace FocusRgb.App.Tests
             Version = "1.0.0",
             ContractVersion = contractVersion ?? ContractVersion.Current,
             EntryPoint = "FocusRgb.FakePlugin.dll",
-            OperatingSystems = ["windows"],
-            Architectures = ["x64"],
+            OperatingSystems = [OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "macos" : "linux"],
+            Architectures = [System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()],
             Roles = ["output"],
             Resources = [],
             License = "MIT"
