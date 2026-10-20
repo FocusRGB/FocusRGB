@@ -48,8 +48,12 @@ The host launches and supervises plugins; it never loads third-party assemblies 
 process.
 
 Node and Python packages declare `runtime` in the manifest and keep `entryPoint` as the module
-inside the package. The host resolves only the matching official `focusrgb-*-runner`, first from
-its bundled `runners` directory and then from `PATH`; it never executes the module directly.
+inside the package. The host resolves the runner named `focusrgb-*-runner`; it never executes the
+module directly. On Windows, Node packages use `node.exe` from `PATH` with either the bundled
+`runners/node/focusrgb-node-runner.js` or npm's
+`node_modules/@focusrgb/plugin-sdk/dist/focusrgb-node-runner.js` beside its PATH shim. Python and
+non-Windows runner executables are resolved first from the bundled `runners` directory and then
+from `PATH`.
 The supported minimums are Node.js 22 and Python 3.11. A missing runtime value for a runner
 package leaves it in the direct-executable path; the no-SDK Python conformance example uses that
 path deliberately. A declared runtime without its matching runner is reported before launch.

@@ -122,7 +122,7 @@ The package root contains `focusrgb-plugin.json`, validated by
 - `id`: lowercase letters, digits, and hyphens, at most 64 characters;
 - semantic `version` with three numeric parts and `contractVersion` with two numeric parts;
 - an entry point contained inside the package;
-- optional `runtime` set to `node` or `python` for a module launched by the official runner;
+- optional `runtime` set to `node` or `python` for a module launched by the matching named runner;
 - unique supported operating systems, architectures, roles, and declared resources;
 - a non-empty SPDX license expression; and
 - optional absolute HTTP(S) `source`.
@@ -131,10 +131,14 @@ The host rejects path traversal, a missing entry point, an unsupported platform 
 an unexpected plugin ID, and an incompatible contract major before launching code. Plugins run
 with the user's permissions and therefore require explicit installation and enablement.
 
-Runner plugins use `focusrgb-node-runner` or `focusrgb-python-runner`. The host looks first in
-the bundled `runners` directory beside the application and then on `PATH`, and fails before
-launch when the official runner is absent. The Node runner supports Node.js 22 or later; the
-Python runner supports Python 3.11 or later. `entryPoint` remains a package-relative module path.
+Runner plugins use the runner named `focusrgb-node-runner` or `focusrgb-python-runner`. The host
+fails before launch when the matching runtime or runner is absent. On Windows it launches Node
+without a command shell as `node.exe <runner.js> <entryPoint>`; the runner module is either
+bundled at `runners/node/focusrgb-node-runner.js` or installed by npm at
+`node_modules/@focusrgb/plugin-sdk/dist/focusrgb-node-runner.js` beside its PATH shim. Python and
+non-Windows runner executables are resolved first from the bundled `runners` directory and then
+from `PATH`. The Node runner supports Node.js 22 or later; the Python runner supports Python 3.11
+or later. `entryPoint` remains a package-relative module path.
 Node runner entry points end in `.js`, `.mjs`, or `.cjs`; Python runner entry points end in `.py`.
 Direct executable packages omit `runtime`, including the no-SDK Python conformance example.
 
