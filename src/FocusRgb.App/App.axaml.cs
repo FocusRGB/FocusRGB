@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using FocusRgb.App.Diagnostics;
@@ -555,10 +556,7 @@ namespace FocusRgb.App
 
         private static WindowIcon CreateIcon()
         {
-            // shortcut: temporary generated glyph, replace when project branding is defined.
-            const string ico =
-                "AAABAAEAEBAAAAEAIACnAAAAFgAAAIlQTkcNChoKAAAADUlIRFIAAAAQAAAAEAgGAAAAH/P/YQAAAAFzUkdCAK7OHOkAAAAEZ0FNQQAAsY8L/GEFAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAAPElEQVQ4T2NQTX79nxLMgC5AKh62Bsz7+R8DXPyIqQ6/Ab//L27CIkdHA5ABbsPwGIBb01AwgAQ8DAwAAOu2jQQgoyQsAAAAAElFTkSuQmCC";
-            using var stream = new MemoryStream(Convert.FromBase64String(ico));
+            using var stream = AssetLoader.Open(new Uri("avares://FocusRGB/Assets/focusrgb.ico"));
             return new WindowIcon(stream);
         }
     }
