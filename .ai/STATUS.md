@@ -108,7 +108,7 @@ Updated: 2026-10-19.
 - SignalRGB-only starters, examples, and the Pro-blocked experiment separated from the empty
   active `effects/` and `plugins/` install folders; tools now have explicit names.
 - SignalRGB implementation and maintained public research now live in the independent
-  `FocusRGB/FocusRGB-Plugin-SignalRGB` repository; `modules/signalrgb/` is a migration link only.
+  `FocusRGB/FocusRGB-Plugin-SignalRGB` repository.
 - Generated builds and tool artifacts are consolidated under the ignored `build/` directory;
   the local code graph is stored separately in the ignored `graphify-out/` directory.
 - Runtime selected: .NET 10 with an Avalonia tray/settings UI and UI-independent background
