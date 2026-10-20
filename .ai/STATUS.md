@@ -233,15 +233,14 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
   feed, built with 0 warnings/errors, validated its substituted manifest, and passed conformance.
 - External/live evidence: no package was published, no repository was created, no plugin was
   installed, and no hardware or visible lighting was changed.
-- Remaining acceptance criteria: review and merge PR #86 after the owner's live #41 decision;
-  publish credential-free packages after owner setup; then complete #82, multi-language SDKs
+- Remaining acceptance criteria: publish the credential-free 1.0 packages through the configured
+  nuget.org Trusted Publishing policy after its workflow update merges; then complete the multi-language SDKs
   under #84, and official/custom discovery and installation under #80.
-- Current blocker or required product input: the owner must create/configure the nuget.org
-  `FocusRGB` organization, reserve the `FocusRgb.*` prefix, and add the scoped `NUGET_API_KEY`
-  secret before publication can be verified. The live SignalRGB gate remains issue #41.
-- Uncommitted work to preserve: none after the PR #86 SDK-layout checkpoint.
-- Next action: push PR #86, verify CI, then begin narrowed test-infrastructure issue #82 on its
-  own branch from `origin/develop` without merging PR #86.
+- Current blocker or required product input: none for .NET SDK publication configuration. The
+  live SignalRGB gate remains issue #41.
+- Uncommitted work to preserve: none.
+- Next action: review and merge the Trusted Publishing release-preparation PR, then create
+  `sdk-dotnet-v1.0.0` from the resulting `develop` commit.
 - Next slice: 18 only after Slice 17 acceptance criteria pass.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
