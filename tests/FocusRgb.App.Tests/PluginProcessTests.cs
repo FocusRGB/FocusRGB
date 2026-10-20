@@ -48,12 +48,12 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public async Task StartAsync_AcceptsLegacySignalRgbContractDuringTransition()
+        public async Task StartAsync_RejectsLegacyContract()
         {
             var started = await StartAsync(Manifest("0.1"), "--contract-version", "0.1");
 
-            Assert.True(started.IsSuccess, started.ErrorMessage);
-            await started.Client!.DisposeAsync();
+            Assert.False(started.IsSuccess);
+            Assert.Equal("contract-incompatible", started.ErrorCode);
         }
 
         [Fact]

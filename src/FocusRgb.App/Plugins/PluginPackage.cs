@@ -140,9 +140,7 @@ namespace FocusRgb.App.Plugins
         internal static bool IsContractCompatible(string? version, int hostMajor, int hostMinor)
         {
             if (!TryContractVersion(version, out var major, out var minor)) return false;
-            // shortcut: accept the shipped 0.1 SignalRGB wire shape until its 1.0 package is published.
-            return major == hostMajor && minor <= hostMinor
-                || hostMajor == 1 && major == 0 && minor == 1;
+            return major == hostMajor && minor <= hostMinor;
         }
 
         private static bool IsContractAtLeast(string? version, int requiredMajor, int requiredMinor) =>
