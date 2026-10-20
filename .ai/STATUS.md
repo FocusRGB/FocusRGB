@@ -233,14 +233,15 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
   feed, built with 0 warnings/errors, validated its substituted manifest, and passed conformance.
 - External/live evidence: no package was published, no repository was created, no plugin was
   installed, and no hardware or visible lighting was changed.
-- Remaining acceptance criteria: publish the credential-free 1.0 packages through the configured
-  nuget.org Trusted Publishing policy after its workflow update merges; then complete the multi-language SDKs
-  under #84, and official/custom discovery and installation under #80.
-- Current blocker or required product input: none for .NET SDK publication configuration. The
-  live SignalRGB gate remains issue #41.
+- Remaining acceptance criteria: confirm the protected GitHub `nuget` environment, then publish
+  the credential-free 1.0 packages through the configured nuget.org Trusted Publishing policy;
+  complete the multi-language SDKs under #84 and official/custom discovery under #80.
+- Current blocker or required product input: the owner must confirm that the GitHub `nuget`
+  environment has MAJ224 as its required reviewer, then create `sdk-dotnet-v1.0.0`. The live
+  SignalRGB gate remains issue #41.
 - Uncommitted work to preserve: none.
-- Next action: review and merge the Trusted Publishing release-preparation PR, then create
-  `sdk-dotnet-v1.0.0` from the resulting `develop` commit.
+- Next action: confirm the protected `nuget` environment, then create `sdk-dotnet-v1.0.0` from
+  `develop`.
 - Next slice: 18 only after Slice 17 acceptance criteria pass.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
