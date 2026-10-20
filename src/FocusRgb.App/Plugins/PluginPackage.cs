@@ -20,6 +20,19 @@ namespace FocusRgb.App.Plugins
 
             var root = Path.GetFullPath(packagesDirectory);
             var packageDirectory = Path.GetFullPath(Path.Combine(root, pluginId));
+            return LoadDirectory(packageDirectory, pluginId);
+        }
+
+        internal static PluginPackageResult LoadDirectory(string packageDirectory, string pluginId)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(packageDirectory);
+            ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+            if (!IsId(pluginId))
+            {
+                return PluginPackageResult.Fail("manifest-invalid", "The enabled plugin ID is invalid.");
+            }
+
+            packageDirectory = Path.GetFullPath(packageDirectory);
             var manifestPath = Path.Combine(packageDirectory, ManifestFileName);
             if (!File.Exists(manifestPath))
             {
