@@ -99,20 +99,21 @@ project references. When a protocol change spans repositories, use separate link
 requests: publish the compatible SDK prerelease first, then update the plugin and the app's
 compatibility fixtures to the exact declared versions.
 
-Publish `FocusRgb.Contracts` and `FocusRgb.PluginSdk` to nuget.org through the .NET-specific
-`sdk-dotnet-v*` tag before an external plugin consumes that version. Publishing uses the
-nuget.org Trusted Publishing policy for `FocusRGB/FocusRGB`, the `publish-plugin-sdk.yml`
-workflow, and the protected `nuget` environment. `NuGet/login@v1` exchanges GitHub's OIDC token
-for a short-lived API key under the `maj224` nuget.org profile; do not store a long-lived NuGet
-API key. External CI restores the public packages from nuget.org without credentials. The stable
-spec and all language SDKs remain under this repository's `sdk/` area. Link the main slice issue
-to the plugin repository's own issue and pull request, using the same release milestone.
+Publish only `FocusRgb.PluginSdk` to nuget.org through the .NET-specific `sdk-dotnet-v*` tag in
+`FocusRGB/FocusRGB-Plugin-SDK` before an external .NET plugin consumes that version.
+`FocusRgb.Contracts` is not a package; its public plugin-author types are included in
+`FocusRgb.PluginSdk`. Publishing uses that repository's Trusted Publishing workflow and
+protected `nuget` environment. `NuGet/login@v1` exchanges GitHub's OIDC token for a short-lived
+API key under the `maj224` nuget.org profile; do not store a long-lived NuGet API key. External
+CI restores the public package from nuget.org without credentials. This repository owns only
+the normative spec, schemas, conformance kit, and host. Link the main slice issue to the SDK or
+plugin repository's own issue and pull request, using the same release milestone.
 
-The `nuget` GitHub environment must be protected with MAJ224 as its required reviewer. The
-publication job validates the `sdk-dotnet-vMAJOR.MINOR.PATCH` tag against both package versions and
+The SDK repository's `nuget` GitHub environment must be protected with MAJ224 as its required
+reviewer. The publication job validates the `sdk-dotnet-vMAJOR.MINOR.PATCH` tag against the package version and
 requires the tagged commit to belong to `develop` or `main` before requesting the short-lived key.
 Each released schema `$id` and packaged protocol link resolves through its immutable
-`sdk-dotnet-vX.Y.Z` tag so the published contract cannot move after release.
+`spec-vX.Y.Z` tag in this repository so the published contract cannot move after release.
 Move only maintained, publication-safe research: do not republish local security-testing notes,
 credentials, private-network addresses, or machine-specific paths in a public plugin repository.
 

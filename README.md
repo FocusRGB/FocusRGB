@@ -68,10 +68,11 @@ to preserve progress when switching models or reaching a session limit.
 
 ## Repository conventions
 
-The main repository owns contracts, the minimal .NET plugin SDK, host, schemas, conformance
-tests, and fake/reference plugin. Production integrations live in independent repositories
-named `FocusRGB-Plugin-<Name>` and consume a published SDK version; they are not Git submodules
-or app project references. Repositories are created when their implementation slice starts.
+The main repository owns the protocol, schemas, conformance kit, host, and raw fake plugin.
+Official SDKs and their templates live in
+[`FocusRGB-Plugin-SDK`](https://github.com/FocusRGB/FocusRGB-Plugin-SDK). Production integrations
+live in independent repositories named `FocusRGB-Plugin-<Name>` and consume a published SDK
+version; they are not Git submodules or app project references.
 
 The independent
 [`FocusRGB-Plugin-SignalRGB`](https://github.com/FocusRGB/FocusRGB-Plugin-SignalRGB) repository
@@ -83,19 +84,17 @@ owns the SignalRGB provider implementation and maintained research. Application 
 FocusRGB.slnx
 sdk/
   spec/                        normative protocol and manifest schemas
-  dotnet/                      FocusRgb.Contracts and FocusRgb.PluginSdk
   conformance/                 language-neutral protocol runner
-  templates/dotnet-plugin/     standalone `dotnet new` repository starter
   examples/python-plugin/      no-SDK language-neutral example
 src/
-  FocusRgb.Core/               net10.0, profiles, selection, and local persistence
+  FocusRgb.Core/               net10.0, host protocol, profiles, selection, and persistence
   FocusRgb.Platform.Windows/   net10.0-windows, focus/process detection
   FocusRgb.App/                net10.0-windows, Avalonia shell (FocusRGB.exe)
 tests/
   FocusRgb.App.Tests/          xUnit; UI-facing preview-state tests
   FocusRgb.Core.Tests/         xUnit; dependency-boundary and core tests
   FocusRgb.FakePlugin/         executable plugin protocol fixture
-tools/                         SDK package check and screen colour test
+tools/                         screen colour test
 docs/                          brief, architecture, contract, slices, workflow
 .ai/                           shared AI instructions, status, handoff
 build/                         generated output (git-ignored)

@@ -10,6 +10,10 @@ off stdout. The fake plugin remains a main-repository conformance fixture. Recor
 packages are enabled through a versioned `settings.json` migration (proposed default: a per-user
 `plugins` folder plus an explicit enabled list, all disabled until the user enables them).
 
+Current ownership note: Slice 17 moved SDK source, templates, package verification, and publishing
+to `FocusRGB/FocusRGB-Plugin-SDK`. This repository retains the protocol, host, conformance kit,
+and a raw fake plugin; the Slice 10 text below records the original `0.x` implementation.
+
 Acceptance: fake catalog/apply works; unsupported version, malformed responses, timeout, and
 plugin exit do not crash the app or hang a request; the SDK packs reproducibly; an external
 clean-room fixture restores/builds against the declared package feed or versioned release
@@ -21,7 +25,7 @@ Status: **Complete (2026-10-15).** The host loads only explicitly enabled per-us
 validates manifests and handshakes, bounds requests, and isolates plugin failures. The portable
 SDK package, protocol/manifest schemas, fake executable, and clean-room package consumer are in
 place. Release build: 0 warnings/errors; tests: 200/200; package-content reproducibility and the
-external consumer build pass via `tools/verify-plugin-sdk-package.ps1`.
+external consumer build passed. Slice 17 later moved that package verification into the SDK repository.
 
 PR review hardening also validates typed JSON-RPC fields without killing the reader, limits each
 protocol line to 64 KiB, drains UTF-8 stderr before initialization, bounds writes, ignores late
