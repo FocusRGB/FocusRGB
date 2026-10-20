@@ -1,5 +1,7 @@
 # FocusRGB
 
+<img src="assets/focusrgb-logo.svg" alt="FocusRGB logo" width="128">
+
 A desktop RGB controller under active development with an Avalonia UI and .NET 10 background core.
 The first executable targets Windows; shared code remains portable for future platforms.
 **Early implementation:** slices 00–11 provide the contract, solution scaffold, validated
