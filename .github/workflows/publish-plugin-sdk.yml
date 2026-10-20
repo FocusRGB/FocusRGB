@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   publish:
@@ -50,12 +51,17 @@ jobs:
         run: |
           dotnet pack sdk/dotnet/FocusRgb.Contracts/FocusRgb.Contracts.csproj -c Release --no-restore -o build/packages
           dotnet pack sdk/dotnet/FocusRgb.PluginSdk/FocusRgb.PluginSdk.csproj -c Release --no-restore -o build/packages
+      - name: NuGet login
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: maj224
       - name: Publish packages
         shell: pwsh
         run: |
           Get-ChildItem build/packages -Filter *.nupkg | ForEach-Object {
             dotnet nuget push $_.FullName `
               --source "https://api.nuget.org/v3/index.json" `
-              --api-key "${{ secrets.NUGET_API_KEY }}"
+              --api-key "${{ steps.login.outputs.NUGET_API_KEY }}"
             if ($LASTEXITCODE -ne 0) { throw "Package publication failed for $($_.Name)." }
           }
