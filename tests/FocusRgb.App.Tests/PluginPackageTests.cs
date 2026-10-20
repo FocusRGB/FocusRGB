@@ -69,6 +69,18 @@ namespace FocusRgb.App.Tests
             Assert.True(result.IsSuccess, result.ErrorMessage);
         }
 
+        [Fact]
+        public void Load_RejectsRunnerPluginUsingContract10()
+        {
+            WritePackage(Manifest() with { ContractVersion = "1.0", Runtime = "node" });
+
+            var result = PluginPackage.Load(_directory, "fake-output");
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("contract-incompatible", result.ErrorCode);
+            Assert.Equal("Runner plugins require contract version 1.1 or later.", result.ErrorMessage);
+        }
+
         [Theory]
         [InlineData("1.0", true)]
         [InlineData("1.2", true)]

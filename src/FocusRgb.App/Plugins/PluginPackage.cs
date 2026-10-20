@@ -45,6 +45,11 @@ namespace FocusRgb.App.Plugins
                 return PluginPackageResult.Fail("plugin-absent", exception.Message);
             }
 
+            if (manifest?.Runtime is not null && !IsContractAtLeast(manifest.ContractVersion, 1, 1))
+            {
+                return PluginPackageResult.Fail(
+                    "contract-incompatible", "Runner plugins require contract version 1.1 or later.");
+            }
             var error = Validate(manifest, pluginId);
             if (error is not null)
             {
@@ -134,16 +139,26 @@ namespace FocusRgb.App.Plugins
 
         internal static bool IsContractCompatible(string? version, int hostMajor, int hostMinor)
         {
-            var parts = version?.Split('.');
-            if (parts is not { Length: 2 }
-                || !int.TryParse(parts[0], System.Globalization.NumberStyles.None,
-                    System.Globalization.CultureInfo.InvariantCulture, out var major)
-                || !int.TryParse(parts[1], System.Globalization.NumberStyles.None,
-                    System.Globalization.CultureInfo.InvariantCulture, out var minor))
-                return false;
+            if (!TryContractVersion(version, out var major, out var minor)) return false;
             // shortcut: accept the shipped 0.1 SignalRGB wire shape until its 1.0 package is published.
             return major == hostMajor && minor <= hostMinor
-                || hostMajor == 1 && hostMinor == 0 && major == 0 && minor == 1;
+                || hostMajor == 1 && major == 0 && minor == 1;
+        }
+
+        private static bool IsContractAtLeast(string? version, int requiredMajor, int requiredMinor) =>
+            TryContractVersion(version, out var major, out var minor)
+            && (major > requiredMajor || major == requiredMajor && minor >= requiredMinor);
+
+        private static bool TryContractVersion(string? version, out int major, out int minor)
+        {
+            var parts = version?.Split('.');
+            major = 0;
+            minor = 0;
+            return parts is { Length: 2 }
+                && int.TryParse(parts[0], System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out major)
+                && int.TryParse(parts[1], System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out minor);
         }
 
         private static bool IsId(string? value) => value is { Length: >= 1 and <= 64 }

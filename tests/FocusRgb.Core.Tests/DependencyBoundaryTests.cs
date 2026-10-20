@@ -71,7 +71,20 @@ namespace FocusRgb.Core.Tests
 
         [Fact]
         public void ContractVersion_MatchesStableProtocol() =>
-            Assert.Equal("1.0", ContractVersion.Current);
+            Assert.Equal("1.1", ContractVersion.Current);
+
+        [Theory]
+        [InlineData("plugin-manifest.schema.json")]
+        [InlineData("plugin-protocol.schema.json")]
+        public void ProtocolSchema_IdTargetsStableSpecTag(string fileName)
+        {
+            using var schema = JsonDocument.Parse(File.ReadAllText(
+                Path.Combine(RepositoryPaths.Root, "sdk", "spec", fileName)));
+
+            Assert.Equal(
+                $"https://raw.githubusercontent.com/FocusRGB/FocusRGB/spec-v1.1.0/sdk/spec/{fileName}",
+                schema.RootElement.GetProperty("$id").GetString());
+        }
 
         [Fact]
         public void ProtocolSchema_MethodsMatchContractConstants()
@@ -164,6 +177,9 @@ namespace FocusRgb.Core.Tests
             Assert.Equal(["node", "python"], schema.RootElement.GetProperty("properties")
                 .GetProperty("runtime").GetProperty("enum").EnumerateArray()
                 .Select(value => value.GetString()));
+            Assert.Equal("^1\\.(?:[1-9][0-9]*)$", schema.RootElement.GetProperty("allOf")[0]
+                .GetProperty("then").GetProperty("properties").GetProperty("contractVersion")
+                .GetProperty("pattern").GetString());
             Assert.Equal(typeof(string), typeof(PluginManifest).GetProperty(nameof(PluginManifest.Runtime))!.PropertyType);
         }
 

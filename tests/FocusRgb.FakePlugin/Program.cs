@@ -414,7 +414,7 @@ static async Task RunFakePluginAsync(
 
 internal static class Protocol
 {
-    public const string ContractVersion = "1.0";
+    public const string ContractVersion = "1.1";
     public const string Initialize = "initialize";
     public const string StatusGet = "status/get";
     public const string CatalogList = "catalog/list";

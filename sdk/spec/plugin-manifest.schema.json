@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/FocusRGB/FocusRGB/spec-v1.0.0/sdk/spec/plugin-manifest.schema.json",
+  "$id": "https://raw.githubusercontent.com/FocusRGB/FocusRGB/spec-v1.1.0/sdk/spec/plugin-manifest.schema.json",
   "title": "FocusRGB plugin manifest",
   "type": "object",
   "additionalProperties": false,
@@ -15,6 +15,12 @@
     "roles",
     "resources",
     "license"
+  ],
+  "allOf": [
+    {
+      "if": { "required": ["runtime"] },
+      "then": { "properties": { "contractVersion": { "pattern": "^1\\.(?:[1-9][0-9]*)$" } } }
+    }
   ],
   "properties": {
     "schemaVersion": { "const": 1 },
