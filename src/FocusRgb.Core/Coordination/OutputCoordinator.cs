@@ -1,4 +1,4 @@
-using FocusRgb.Contracts;
+using FocusRgb.Core.Protocol;
 using FocusRgb.Core.Commands;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Selection;

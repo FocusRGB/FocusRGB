@@ -3,7 +3,7 @@ using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
-using FocusRgb.Contracts;
+using FocusRgb.Core.Protocol;
 using FocusRgb.TestSupport;
 
 namespace FocusRgb.App.Tests

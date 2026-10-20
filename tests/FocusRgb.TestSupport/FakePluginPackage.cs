@@ -1,5 +1,5 @@
 using System.Text.Json;
-using FocusRgb.Contracts;
+using FocusRgb.Core.Protocol;
 
 namespace FocusRgb.TestSupport
 {

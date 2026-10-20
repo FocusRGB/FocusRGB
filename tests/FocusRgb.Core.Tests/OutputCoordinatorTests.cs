@@ -1,5 +1,5 @@
 using System.Text.Json.Nodes;
-using FocusRgb.Contracts;
+using FocusRgb.Core.Protocol;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Selection;

@@ -6,7 +6,7 @@ using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
 using FocusRgb.Core.Selection;
-using FocusRgb.Contracts;
+using FocusRgb.Core.Protocol;
 using FocusRgb.App.Diagnostics;
 
 namespace FocusRgb.App.ViewModels

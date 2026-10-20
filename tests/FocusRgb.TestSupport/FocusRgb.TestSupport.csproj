@@ -3,7 +3,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\sdk\dotnet\FocusRgb.Contracts\FocusRgb.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\FocusRgb.Core\FocusRgb.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
