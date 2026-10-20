@@ -45,6 +45,11 @@ namespace FocusRgb.App.Plugins
                 return PluginPackageResult.Fail("plugin-absent", exception.Message);
             }
 
+            if (manifest?.Runtime is not null && !IsContractAtLeast(manifest.ContractVersion, 1, 1))
+            {
+                return PluginPackageResult.Fail(
+                    "contract-incompatible", "Runner plugins require contract version 1.1 or later.");
+            }
             var error = Validate(manifest, pluginId);
             if (error is not null)
             {
@@ -75,6 +80,14 @@ namespace FocusRgb.App.Plugins
                 return PluginPackageResult.Fail("plugin-absent", "The package entry point is missing or outside the package.");
             }
 
+            if (manifest.Runtime is not null)
+            {
+                var launch = ResolveRunner(manifest.Runtime, entryPoint);
+                return launch is null
+                    ? PluginPackageResult.Fail("plugin-absent",
+                        $"The {manifest.Runtime} runtime or named FocusRGB runner was not found in the bundled runners directory or PATH.")
+                    : PluginPackageResult.Ok(manifest, launch);
+            }
             if (entryPoint.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             {
                 var dotnet = ResolveDotNetHost();
@@ -97,6 +110,15 @@ namespace FocusRgb.App.Plugins
             if (!IsContractCompatible(manifest.ContractVersion, ContractVersion.Major, ContractVersion.Minor))
                 return "Plugin contract version is incompatible.";
             if (string.IsNullOrWhiteSpace(manifest.EntryPoint)) return "Entry point is required.";
+            if (manifest.Runtime is not null && manifest.Runtime is not ("node" or "python"))
+                return "Runtime must be node or python.";
+            if (manifest.Runtime == "node"
+                && !new[] { ".js", ".mjs", ".cjs" }.Contains(
+                    Path.GetExtension(manifest.EntryPoint), StringComparer.OrdinalIgnoreCase))
+                return "Node runner entry points must be JavaScript modules.";
+            if (manifest.Runtime == "python"
+                && !manifest.EntryPoint.EndsWith(".py", StringComparison.OrdinalIgnoreCase))
+                return "Python runner entry points must be Python modules.";
             if (!ValidList(manifest.OperatingSystems, ["windows", "linux", "macos"]))
                 return "Operating systems must be unique supported values.";
             if (!ValidList(manifest.Architectures, ["x64", "arm64"]))
@@ -117,16 +139,26 @@ namespace FocusRgb.App.Plugins
 
         internal static bool IsContractCompatible(string? version, int hostMajor, int hostMinor)
         {
-            var parts = version?.Split('.');
-            if (parts is not { Length: 2 }
-                || !int.TryParse(parts[0], System.Globalization.NumberStyles.None,
-                    System.Globalization.CultureInfo.InvariantCulture, out var major)
-                || !int.TryParse(parts[1], System.Globalization.NumberStyles.None,
-                    System.Globalization.CultureInfo.InvariantCulture, out var minor))
-                return false;
+            if (!TryContractVersion(version, out var major, out var minor)) return false;
             // shortcut: accept the shipped 0.1 SignalRGB wire shape until its 1.0 package is published.
             return major == hostMajor && minor <= hostMinor
-                || hostMajor == 1 && hostMinor == 0 && major == 0 && minor == 1;
+                || hostMajor == 1 && major == 0 && minor == 1;
+        }
+
+        private static bool IsContractAtLeast(string? version, int requiredMajor, int requiredMinor) =>
+            TryContractVersion(version, out var major, out var minor)
+            && (major > requiredMajor || major == requiredMajor && minor >= requiredMinor);
+
+        private static bool TryContractVersion(string? version, out int major, out int minor)
+        {
+            var parts = version?.Split('.');
+            major = 0;
+            minor = 0;
+            return parts is { Length: 2 }
+                && int.TryParse(parts[0], System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out major)
+                && int.TryParse(parts[1], System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out minor);
         }
 
         private static bool IsId(string? value) => value is { Length: >= 1 and <= 64 }
@@ -160,6 +192,47 @@ namespace FocusRgb.App.Plugins
             }
             foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
                 .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var candidate = Path.Combine(directory, fileName);
+                if (File.Exists(candidate)) return Path.GetFullPath(candidate);
+            }
+            return null;
+        }
+
+        private static PluginLaunchSpec? ResolveRunner(string runtime, string entryPoint)
+        {
+            var pathDirectories = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+                .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (runtime == "node" && OperatingSystem.IsWindows())
+            {
+                var node = FindFile(pathDirectories, OperatingSystem.IsWindows() ? "node.exe" : "node");
+                var nodeRunner = FindFile(
+                    new[] { Path.Combine(AppContext.BaseDirectory, "runners", "node") }
+                        .Concat(pathDirectories.Select(directory => Path.Combine(
+                            directory, "node_modules", "@focusrgb", "plugin-sdk", "dist"))),
+                    "focusrgb-node-runner.js");
+                return node is null || nodeRunner is null ? null : new PluginLaunchSpec
+                {
+                    FileName = node,
+                    Arguments = [nodeRunner, entryPoint]
+                };
+            }
+
+            var name = $"focusrgb-{runtime}-runner";
+            var fileName = OperatingSystem.IsWindows() ? name + ".exe" : name;
+            var directories = new[] { Path.Combine(AppContext.BaseDirectory, "runners") }
+                .Concat(pathDirectories);
+            var runner = FindFile(directories, fileName);
+            return runner is null ? null : new PluginLaunchSpec
+            {
+                FileName = runner,
+                Arguments = [entryPoint]
+            };
+        }
+
+        private static string? FindFile(IEnumerable<string> directories, string fileName)
+        {
+            foreach (var directory in directories)
             {
                 var candidate = Path.Combine(directory, fileName);
                 if (File.Exists(candidate)) return Path.GetFullPath(candidate);

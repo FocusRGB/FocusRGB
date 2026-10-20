@@ -56,7 +56,7 @@ A local MCP interface is planned for controlling the same commands used by the U
   diagnostics, ownership boundaries, and defaults.
 - [Minimal contract](docs/minimal-contract.md): frozen settings, state, status, command,
   and plugin protocol shapes for the first implementation goal.
-- [Plugin protocol](sdk/spec/plugin-protocol.md): normative language-neutral process-plugin 1.0
+- [Plugin protocol](sdk/spec/plugin-protocol.md): normative language-neutral process-plugin 1.1
   transport, lifecycle, messages, and compatibility policy.
 - [Plugin architecture](docs/plugin-architecture.md): integration contracts, selection,
   rendering authority, fallback, and layouts.

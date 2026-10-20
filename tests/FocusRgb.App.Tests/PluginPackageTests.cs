@@ -69,6 +69,18 @@ namespace FocusRgb.App.Tests
             Assert.True(result.IsSuccess, result.ErrorMessage);
         }
 
+        [Fact]
+        public void Load_RejectsRunnerPluginUsingContract10()
+        {
+            WritePackage(Manifest() with { ContractVersion = "1.0", Runtime = "node" });
+
+            var result = PluginPackage.Load(_directory, "fake-output");
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("contract-incompatible", result.ErrorCode);
+            Assert.Equal("Runner plugins require contract version 1.1 or later.", result.ErrorMessage);
+        }
+
         [Theory]
         [InlineData("1.0", true)]
         [InlineData("1.2", true)]
@@ -144,6 +156,121 @@ namespace FocusRgb.App.Tests
             }
         }
 
+        [Fact]
+        public void Load_ResolvesPythonRunnerFromPath()
+        {
+            var runnerDirectory = Path.Combine(_directory, "runners");
+            Directory.CreateDirectory(runnerDirectory);
+            var runner = Path.Combine(runnerDirectory,
+                "focusrgb-python-runner" + (OperatingSystem.IsWindows() ? ".exe" : string.Empty));
+            File.WriteAllText(runner, string.Empty);
+            const string entryPoint = "plugin.py";
+            var package = WritePackage(Manifest() with { EntryPoint = entryPoint, Runtime = "python" });
+            File.WriteAllText(Path.Combine(package, entryPoint), string.Empty);
+            var previousPath = Environment.GetEnvironmentVariable("PATH");
+            try
+            {
+                Environment.SetEnvironmentVariable("PATH", runnerDirectory);
+
+                var result = PluginPackage.Load(_directory, "fake-output");
+
+                Assert.True(result.IsSuccess, result.ErrorMessage);
+                Assert.Equal(Path.GetFullPath(runner), result.Launch!.FileName);
+                Assert.EndsWith(entryPoint, Assert.Single(result.Launch.Arguments), StringComparison.Ordinal);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("PATH", previousPath);
+            }
+        }
+
+        [Fact]
+        public void Load_ResolvesNodeRunnerFromDocumentedWindowsNpmLayout()
+        {
+            if (!OperatingSystem.IsWindows()) return;
+
+            var npmDirectory = Path.Combine(_directory, "npm");
+            var runner = Path.Combine(npmDirectory, "node_modules", "@focusrgb", "plugin-sdk", "dist",
+                "focusrgb-node-runner.js");
+            Directory.CreateDirectory(Path.GetDirectoryName(runner)!);
+            File.WriteAllText(runner, string.Empty);
+            File.WriteAllText(Path.Combine(npmDirectory, "focusrgb-node-runner.cmd"), string.Empty);
+            var nodeDirectory = Path.Combine(_directory, "nodejs");
+            Directory.CreateDirectory(nodeDirectory);
+            var node = Path.Combine(nodeDirectory, "node.exe");
+            File.WriteAllText(node, string.Empty);
+            const string entryPoint = "PLUGIN.JS";
+            var package = WritePackage(Manifest() with { EntryPoint = entryPoint, Runtime = "node" });
+            File.WriteAllText(Path.Combine(package, entryPoint), string.Empty);
+            var previousPath = Environment.GetEnvironmentVariable("PATH");
+            try
+            {
+                Environment.SetEnvironmentVariable("PATH", string.Join(Path.PathSeparator, nodeDirectory, npmDirectory));
+
+                var result = PluginPackage.Load(_directory, "fake-output");
+
+                Assert.True(result.IsSuccess, result.ErrorMessage);
+                Assert.Equal(Path.GetFullPath(node), result.Launch!.FileName);
+                Assert.Equal([Path.GetFullPath(runner), Path.GetFullPath(Path.Combine(package, entryPoint))],
+                    result.Launch.Arguments);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("PATH", previousPath);
+            }
+        }
+
+        [Fact]
+        public void Load_RejectsUnsupportedRuntime()
+        {
+            WritePackage(Manifest() with { Runtime = "ruby" });
+
+            var result = PluginPackage.Load(_directory, "fake-output");
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("manifest-invalid", result.ErrorCode);
+            Assert.Equal("Runtime must be node or python.", result.ErrorMessage);
+        }
+
+        [Fact]
+        public void Load_ReportsMissingNamedRunner()
+        {
+            var package = WritePackage(Manifest() with { EntryPoint = "plugin.mjs", Runtime = "node" });
+            File.WriteAllText(Path.Combine(package, "plugin.mjs"), string.Empty);
+            var previousPath = Environment.GetEnvironmentVariable("PATH");
+            try
+            {
+                Environment.SetEnvironmentVariable("PATH", string.Empty);
+
+                var result = PluginPackage.Load(_directory, "fake-output");
+
+                Assert.False(result.IsSuccess);
+                Assert.Equal("plugin-absent", result.ErrorCode);
+                Assert.Contains("node runtime or named FocusRGB runner", result.ErrorMessage, StringComparison.Ordinal);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("PATH", previousPath);
+            }
+        }
+
+        [Theory]
+        [InlineData("node", "plugin.py", "Node runner entry points must be JavaScript modules.")]
+        [InlineData("python", "plugin.mjs", "Python runner entry points must be Python modules.")]
+        public void Load_RejectsEntryPointThatDoesNotMatchRuntime(
+            string runtime,
+            string entryPoint,
+            string expectedMessage)
+        {
+            WritePackage(Manifest() with { EntryPoint = entryPoint, Runtime = runtime });
+
+            var result = PluginPackage.Load(_directory, "fake-output");
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("manifest-invalid", result.ErrorCode);
+            Assert.Equal(expectedMessage, result.ErrorMessage);
+        }
+
         public void Dispose()
         {
             _tempDirectory.Dispose();
@@ -186,6 +313,7 @@ namespace FocusRgb.App.Tests
             IReadOnlyList<string> Roles,
             IReadOnlyList<string> Resources,
             string License,
+            string? Runtime = null,
             string? Source = null);
     }
 

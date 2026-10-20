@@ -1,4 +1,4 @@
-# FocusRGB plugin protocol 1.0
+# FocusRGB plugin protocol 1.1
 
 This document is the normative, language-neutral contract between the FocusRGB host and a
 plugin process. The JSON schemas beside this document are normative machine-readable
@@ -122,6 +122,8 @@ The package root contains `focusrgb-plugin.json`, validated by
 - `id`: lowercase letters, digits, and hyphens, at most 64 characters;
 - semantic `version` with three numeric parts and `contractVersion` with two numeric parts;
 - an entry point contained inside the package;
+- optional `runtime`, introduced in contract 1.1, set to `node` or `python` for a module launched
+  by the matching named runner; a manifest with `runtime` must declare `contractVersion` 1.1 or later;
 - unique supported operating systems, architectures, roles, and declared resources;
 - a non-empty SPDX license expression; and
 - optional absolute HTTP(S) `source`.
@@ -129,6 +131,17 @@ The package root contains `focusrgb-plugin.json`, validated by
 The host rejects path traversal, a missing entry point, an unsupported platform or architecture,
 an unexpected plugin ID, and an incompatible contract major before launching code. Plugins run
 with the user's permissions and therefore require explicit installation and enablement.
+
+Runner plugins use the runner named `focusrgb-node-runner` or `focusrgb-python-runner`. The host
+fails before launch when the matching runtime or runner is absent. On Windows it launches Node
+without a command shell as `node.exe <runner.js> <entryPoint>`; the runner module is either
+bundled at `runners/node/focusrgb-node-runner.js` or installed by npm at
+`node_modules/@focusrgb/plugin-sdk/dist/focusrgb-node-runner.js` beside its PATH shim. Python and
+non-Windows runner executables are resolved first from the bundled `runners` directory and then
+from `PATH`. The Node runner supports Node.js 22 or later; the Python runner supports Python 3.11
+or later. `entryPoint` remains a package-relative module path.
+Node runner entry points end in `.js`, `.mjs`, or `.cjs`; Python runner entry points end in `.py`.
+Direct executable packages omit `runtime`, including the no-SDK Python conformance example.
 
 The manifest resource vocabulary is `process.read`, `process.start`, and `filesystem.read`;
 declare only access the plugin actually needs, or use an empty array. New resource names require
@@ -142,17 +155,19 @@ Contract versions are `major.minor`; package versions are semantic `major.minor.
   major with `contract-incompatible` before or during initialization.
 - A minor contract change adds optional methods, fields, or capabilities. A plugin must negotiate
   a version it supports and must not require behavior newer than the host's offered minor.
+- Contract 1.1 adds the optional manifest `runtime` field. Runner plugins must declare contract
+  1.1 or later; direct executable plugins may continue to declare 1.0.
 - Patch releases change implementation or documentation without changing the wire contract.
 - Stable 1.x fields and methods are not removed before 2.0. Deprecations remain supported for at
   least the rest of the current major and are documented before removal.
 - Unknown optional capabilities are ignored. Required behavior is invoked only after capability
   negotiation, leaving room for game events and native frame output in later 1.x versions.
 
-The schemas in the development branch use `develop` URLs while the release is being prepared.
-Every released schema `$id` must instead resolve to that release's immutable tag, using
-`https://raw.githubusercontent.com/FocusRGB/FocusRGB/sdk-dotnet-vX.Y.Z/sdk/spec/<schema-name>`.
+The 1.1 schema `$id`s resolve to the immutable `spec-v1.1.0` tag. Every future released schema
+must likewise resolve to its protocol release tag, using
+`https://raw.githubusercontent.com/FocusRGB/FocusRGB/spec-vX.Y.Z/sdk/spec/<schema-name>`.
 
-During the SignalRGB migration only, host 1.0 also accepts contract 0.1 when both the manifest
+During the SignalRGB migration only, host 1.x also accepts contract 0.1 when both the manifest
 and handshake declare 0.1. The UI and log identify it as legacy. Remove this exception after the
 SignalRGB plugin publishes its coordinated 1.0 package.
 
