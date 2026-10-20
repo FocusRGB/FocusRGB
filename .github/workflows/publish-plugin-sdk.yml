@@ -5,6 +5,13 @@ on:
   push:
     tags:
       - sdk-dotnet-v*
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: SDK tag to validate and pack without publishing
+        required: true
+        default: sdk-dotnet-v1.0.0
+        type: string
 
 permissions:
   contents: read
@@ -17,6 +24,7 @@ jobs:
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -27,7 +35,7 @@ jobs:
       - name: Verify release tag and package versions
         shell: pwsh
         run: |
-          if ("${{ github.ref_name }}" -notmatch '^sdk-dotnet-v([0-9]+\.[0-9]+\.[0-9]+)$') {
+          if ($env:RELEASE_TAG -notmatch '^sdk-dotnet-v([0-9]+\.[0-9]+\.[0-9]+)$') {
             throw "SDK tags must use sdk-dotnet-vMAJOR.MINOR.PATCH."
           }
           $tagVersion = $Matches[1]
@@ -39,24 +47,41 @@ jobs:
               throw "$project version must equal tag version $tagVersion."
             }
           }
-          git fetch origin develop main --no-tags
+          git fetch origin --no-tags `
+            "+refs/heads/develop:refs/remotes/origin/develop" `
+            "+refs/heads/main:refs/remotes/origin/main"
+          if ($LASTEXITCODE -ne 0) { throw "Could not refresh develop and main history." }
           git merge-base --is-ancestor $env:GITHUB_SHA origin/develop
-          $onDevelop = $LASTEXITCODE -eq 0
+          $developExit = $LASTEXITCODE
+          if ($developExit -gt 1) { throw "Could not inspect develop ancestry." }
+          $onDevelop = $developExit -eq 0
           git merge-base --is-ancestor $env:GITHUB_SHA origin/main
-          $onMain = $LASTEXITCODE -eq 0
+          $mainExit = $LASTEXITCODE
+          if ($mainExit -gt 1) { throw "Could not inspect main ancestry." }
+          $onMain = $mainExit -eq 0
           if (-not ($onDevelop -or $onMain)) { throw "SDK tags must point to develop or main history." }
+          exit 0
       - run: dotnet restore FocusRgb.slnx
       - name: Pack contracts and SDK
         shell: pwsh
         run: |
           dotnet pack sdk/dotnet/FocusRgb.Contracts/FocusRgb.Contracts.csproj -c Release --no-restore -o build/packages
           dotnet pack sdk/dotnet/FocusRgb.PluginSdk/FocusRgb.PluginSdk.csproj -c Release --no-restore -o build/packages
+      - name: Report dry run
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          $packages = @(Get-ChildItem build/packages -Filter *.nupkg)
+          if ($packages.Count -ne 2) { throw "Dry run expected two SDK packages." }
+          Write-Host "Dry run completed for $env:RELEASE_TAG; no packages were published."
       - name: NuGet login
+        if: github.event_name == 'push'
         uses: NuGet/login@v1
         id: login
         with:
           user: maj224
       - name: Publish packages
+        if: github.event_name == 'push'
         shell: pwsh
         run: |
           Get-ChildItem build/packages -Filter *.nupkg | ForEach-Object {
