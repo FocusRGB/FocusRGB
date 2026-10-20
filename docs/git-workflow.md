@@ -10,6 +10,7 @@ Adopted 2026-10-10. Applies to people and AI assistants.
 | `main` | Stable releases | Pull requests from `develop` only, merged by the repository owner |
 | `slice/NN-short-name` | One detail file linked from `implementation-slices.md` | Its author |
 | `feature/…`, `fix/…`, `chore/…`, `docs/…` | Other scoped work | Its author |
+| `dependabot/…` | Automated dependency updates (`.github/dependabot.yml`) | Dependabot |
 
 ## Rules
 
@@ -27,7 +28,7 @@ Adopted 2026-10-10. Applies to people and AI assistants.
    owner explicitly asks.
 5. Only the owner opens and merges the `develop` → `main` release pull request. `main`
    accepts pull requests only from `develop`; `develop` accepts them only from `feature/`,
-   `slice/`, `fix/`, `chore/`, and `docs/` branches.
+   `slice/`, `fix/`, `chore/`, and `docs/` branches, plus Dependabot's `dependabot/` branches.
 6. Merge slice pull requests into `develop` with squash or a merge commit. Merge `develop`
    into `main` with a merge commit, not a squash, so the two branches do not diverge.
 7. Build a pull request from several focused commits, never one commit for the whole change.
