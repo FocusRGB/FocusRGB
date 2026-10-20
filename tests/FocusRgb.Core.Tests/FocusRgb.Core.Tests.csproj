@@ -7,9 +7,7 @@
     <PackageReference Include="xunit.v3" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\sdk\dotnet\FocusRgb.Contracts\FocusRgb.Contracts.csproj" />
     <ProjectReference Include="..\..\src\FocusRgb.Core\FocusRgb.Core.csproj" />
-    <ProjectReference Include="..\..\sdk\dotnet\FocusRgb.PluginSdk\FocusRgb.PluginSdk.csproj" />
     <ProjectReference Include="..\FocusRgb.TestSupport\FocusRgb.TestSupport.csproj" />
   </ItemGroup>
   <ItemGroup>

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/FocusRGB/FocusRGB/sdk-dotnet-v1.0.0/sdk/spec/plugin-manifest.schema.json",
+  "$id": "https://raw.githubusercontent.com/FocusRGB/FocusRGB/spec-v1.0.0/sdk/spec/plugin-manifest.schema.json",
   "title": "FocusRGB plugin manifest",
   "type": "object",
   "additionalProperties": false,

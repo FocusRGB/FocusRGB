@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-19.
+Updated: 2026-10-20.
 
 ## Completed
 
@@ -87,11 +87,10 @@ Updated: 2026-10-19.
   no longer crash preview projection. Full solution tests passed 107/107. Last-known-good settings
   recovery is intentionally scheduled for slice 09 because partial linked-setting recovery is
   unsafe.
-- Plugin repository ownership is decided: contracts, the minimal .NET SDK, host, schemas,
-  conformance tests, template, and fake plugin stay in FocusRGB; production plugins use peer
-  `FocusRGB-Plugin-<Name>` repositories and published SDK versions. Empty repositories are not
-  created early: SignalRGB is created in slice 15, the selected game adapter in 20, and WLED in
-  22. Slice 17 stabilizes the fake- and SignalRGB-proven `0.x` SDK as version 1 (PR #16).
+- Plugin repository ownership is decided: FocusRGB owns the normative protocol, schemas,
+  conformance kit, host, and raw fake plugin. Official .NET, Node, and Python SDKs, templates,
+  tests, and publishing live in `FocusRGB/FocusRGB-Plugin-SDK`; production plugins use peer
+  `FocusRGB-Plugin-<Name>` repositories and published SDK versions.
 - Application settings are now specified with researched defaults and ownership boundaries.
   Close-button behavior defaults to minimize to tray and can be changed to real exit; startup
   registration remains opt-in work for slice 28. Implementation is isolated in slice 09 after
@@ -208,48 +207,36 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 ## Active implementation slice
 
 - Slice: 17 — Stabilize the public SDK and contributor example
-- State: in progress; Slice 16 implementation merged in PR #85 at `e592873`, while its explicitly
-  destructive live SignalRGB matrix remains open in issue #41 at the owner's direction.
-- Branch, latest relevant implementation commit, and pull request:
-  `slice/17-public-sdk-and-example`; based on `origin/develop` at `e592873`; draft PR #86.
-- Scope and dependencies verified: Slices 10 and 15 are merged; per-plugin restart isolation #75
-  is complete. Slice 17 owns protocol/nuget.org work #79 and discovery/install work #80. Revised
-  #84 keeps the .NET, Node, and Python SDKs together in this repository under `sdk/`.
-- Implemented files and entry points: `ContractVersion` and both NuGet projects now declare 1.0;
-  the fake process and clean consumer fixture use 1.0; package/handshake tests reject both 0.x
-  and future majors. `sdk/spec/plugin-protocol.md` and its adjacent schemas are normative.
-  Contracts and the .NET SDK live under `sdk/dotnet`, the language-neutral runner under
-  `sdk/conformance`, and the current template/example under `sdk/templates` and `sdk/examples`.
-  The optional 1.0 initialize-result `sdk { name, language, version }` is shape-validated,
-  diagnostic-only, injected automatically by `FocusRgb.PluginSdk`, and shown/logged by the host.
-  Publishing uses the gated `sdk-dotnet-v*` tag family.
-- Verification: `dotnet restore FocusRgb.slnx` passed; `dotnet test FocusRgb.slnx -c Release
-  --no-restore` passed 322/322 with 0 warnings/errors. The independent
-  package script built reproducible `FocusRgb.Contracts` and `FocusRgb.PluginSdk` 1.0.0 packages
-  twice and built a clean external consumer from the local feed. The language-neutral runner
-  passed the full initialize/status/catalog/apply/release/shutdown sequence against the Python
-  example and the .NET fake plugin. The package script also installed the template into an
-  isolated hive, generated `FocusRgb.Plugin.Generated`, restored it only from the local package
-  feed, built with 0 warnings/errors, validated its substituted manifest, and passed conformance.
-- External/live evidence: no package was published, no repository was created, no plugin was
-  installed, and no hardware or visible lighting was changed.
-- Remaining acceptance criteria: confirm the protected GitHub `nuget` environment, then publish
-  the credential-free 1.0 packages through the configured nuget.org Trusted Publishing policy;
-  complete the multi-language SDKs under #84 and official/custom discovery under #80.
-- Current blocker or required product input: the owner must confirm that the GitHub `nuget`
-  environment has MAJ224 as its required reviewer, then create `sdk-dotnet-v1.0.0`. The live
-  SignalRGB gate remains issue #41.
-- Uncommitted work to preserve: none.
-- Next action: confirm the protected `nuget` environment, then create `sdk-dotnet-v1.0.0` from
-  `develop`.
+- State: in progress. `FocusRGB-Plugin-SDK` PR #1 established the standalone single-package .NET
+  SDK and PR #2 added repository automation. The main-repository protocol-only cleanup is on
+  `chore/protocol-only-repository`; the Slice 16 live SignalRGB matrix remains issue #41.
+- Scope and dependencies verified: revised #84 keeps the normative spec, schemas, conformance
+  kit, and host in FocusRGB. SDK source, templates, tests, and publishing live only in
+  `FocusRGB/FocusRGB-Plugin-SDK`, tracked by SDK issue #3.
+- Implemented files and entry points: host wire types moved to the non-packable
+  `FocusRgb.Core.Protocol` namespace; SDK projects, template, consumer fixture, package tool, and
+  publish workflow were removed. The fake plugin speaks raw JSON-RPC without SDK source, while
+  schema drift tests continue to check the host model. Schema IDs target `spec-v1.0.0`.
+- Verification: Release build passes with 0 warnings/errors and 309/309 tests pass. The raw fake
+  continues to pass host lifecycle/error tests and language-neutral conformance.
+- External/live evidence: no tag or package was created, no plugin was installed, and no hardware
+  or visible lighting was changed.
+- Remaining acceptance criteria: merge the protocol cleanup; owner deletes the stale
+  `sdk-dotnet-v1.0.0` tag and creates `spec-v1.0.0`; SDK issue #3 adds tag-pinned drift tests and
+  conformance before any SDK tag. Then publish the single .NET SDK, add Node/Python, complete #80,
+  and move SignalRGB to SDK 1.0.
+- Current blocker or required product input: owner tag actions after the cleanup merges. The live
+  SignalRGB gate remains issue #41 and can run independently.
+- Uncommitted work to preserve: protocol-only cleanup on `chore/protocol-only-repository`.
+- Next action: open and review the protocol-only cleanup PR; do not tag from FocusRGB yet.
 - Next slice: 18 only after Slice 17 acceptance criteria pass.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
 `global.json`; use `dotnet test --solution …`, not the VSTest form. The App and Windows
-platform projects target `net10.0-windows`; Contracts and Core stay `net10.0`.
+platform projects target `net10.0-windows`; Core stays `net10.0` and is not packable.
 
 Project name (2026-10-10): FocusRGB. The repository is `FocusRGB/FocusRGB`; .NET projects
-use the `FocusRgb.*` prefix (`FocusRgb.Contracts`, `FocusRgb.Core`, `FocusRgb.Platform.Windows`,
+use the `FocusRgb.*` prefix (`FocusRgb.Core`, `FocusRgb.Platform.Windows`,
 `FocusRgb.App`). The archived SignalRGB effect keeps its historical publisher metadata.
 
 Git workflow (2026-10-10): `develop` is the default branch; all work reaches it through pull
@@ -287,7 +274,8 @@ exact catalog match; SignalRGB bindings use a
 
 Slice 16 implementation is merged in PR #85. Its live install, switching, visible-output,
 failure, and removal gate remains recorded in issue #41. Slice 17 is active on
-`slice/17-public-sdk-and-example`, starting with the frozen 1.0 protocol and package metadata.
+`chore/protocol-only-repository`. After it merges, the owner creates `spec-v1.0.0`; SDK issue #3
+then adds pinned drift/conformance checks before the first SDK tag or package publication.
 
 Profile persistence, tray lifecycle, application settings, plugin hosting, coordination, Windows
 observations, application mappings, and the SignalRGB capability investigation are complete.

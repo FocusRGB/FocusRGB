@@ -2,8 +2,10 @@
 
 This document is the normative, language-neutral contract between the FocusRGB host and a
 plugin process. The JSON schemas beside this document are normative machine-readable
-constraints. `FocusRgb.Contracts` is the matching hand-written C# model, and
-`FocusRgb.PluginSdk` is an optional convenience for .NET authors.
+constraints. The host's matching hand-written model is internal to its non-packable Core
+assembly under `FocusRgb.Core.Protocol`. Official language SDKs are maintained and published
+from [`FocusRGB-Plugin-SDK`](https://github.com/FocusRGB/FocusRGB-Plugin-SDK); they pin an
+immutable protocol tag and do not define the wire contract.
 
 ## Transport
 

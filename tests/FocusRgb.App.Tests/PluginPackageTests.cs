@@ -1,6 +1,6 @@
 using System.Text.Json;
 using FocusRgb.App.Plugins;
-using FocusRgb.Contracts;
+using FocusRgb.Core.Protocol;
 using FocusRgb.TestSupport;
 
 namespace FocusRgb.App.Tests

@@ -2,23 +2,21 @@ using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text.Json;
 using System.Xml.Linq;
-using FocusRgb.Contracts;
+using FocusRgb.Core.Protocol;
 using FocusRgb.TestSupport;
 
 namespace FocusRgb.Core.Tests
 {
     /// <summary>
-    /// Guards the source boundaries in docs/implementation-slices.md: Contracts and Core stay
-    /// portable and never reference platform, application, or provider projects. A failure
+    /// Guards the source boundaries in docs/implementation-slices.md: Core stays portable and
+    /// never references platform, application, or provider projects. A failure
     /// here means a dependency leaked into the portable layer, not that the test is flaky.
     /// </summary>
     public sealed class DependencyBoundaryTests
     {
         private static readonly Dictionary<string, string[]> AllowedProjectReferences = new()
         {
-            ["FocusRgb.Contracts"] = [],
-            ["FocusRgb.Core"] = ["FocusRgb.Contracts"],
-            ["FocusRgb.PluginSdk"] = ["FocusRgb.Contracts"],
+            ["FocusRgb.Core"] = [],
         };
 
         public static TheoryData<string> PortableProjects() => new(AllowedProjectReferences.Keys);
@@ -203,10 +201,6 @@ namespace FocusRgb.Core.Tests
         }
 
         private static XDocument ReadProject(string project) =>
-            XDocument.Load(Path.Combine(
-                RepositoryPaths.Root,
-                project is "FocusRgb.Contracts" or "FocusRgb.PluginSdk" ? Path.Combine("sdk", "dotnet") : "src",
-                project,
-                project + ".csproj"));
+            XDocument.Load(Path.Combine(RepositoryPaths.Root, "src", project, project + ".csproj"));
     }
 }
