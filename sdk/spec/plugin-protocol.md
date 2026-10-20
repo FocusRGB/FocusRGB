@@ -120,6 +120,7 @@ The package root contains `focusrgb-plugin.json`, validated by
 - `id`: lowercase letters, digits, and hyphens, at most 64 characters;
 - semantic `version` with three numeric parts and `contractVersion` with two numeric parts;
 - an entry point contained inside the package;
+- optional `runtime` set to `node` or `python` for a module launched by the official runner;
 - unique supported operating systems, architectures, roles, and declared resources;
 - a non-empty SPDX license expression; and
 - optional absolute HTTP(S) `source`.
@@ -127,6 +128,13 @@ The package root contains `focusrgb-plugin.json`, validated by
 The host rejects path traversal, a missing entry point, an unsupported platform or architecture,
 an unexpected plugin ID, and an incompatible contract major before launching code. Plugins run
 with the user's permissions and therefore require explicit installation and enablement.
+
+Runner plugins use `focusrgb-node-runner` or `focusrgb-python-runner`. The host looks first in
+the bundled `runners` directory beside the application and then on `PATH`, and fails before
+launch when the official runner is absent. The Node runner supports Node.js 22 or later; the
+Python runner supports Python 3.11 or later. `entryPoint` remains a package-relative module path.
+Node runner entry points end in `.js`, `.mjs`, or `.cjs`; Python runner entry points end in `.py`.
+Direct executable packages omit `runtime`, including the no-SDK Python conformance example.
 
 The manifest resource vocabulary is `process.read`, `process.start`, and `filesystem.read`;
 declare only access the plugin actually needs, or use an empty array. New resource names require

@@ -47,6 +47,13 @@ side of the protocol, while the published JSON schemas remain language-neutral.
 The host launches and supervises plugins; it never loads third-party assemblies into the app
 process.
 
+Node and Python packages declare `runtime` in the manifest and keep `entryPoint` as the module
+inside the package. The host resolves only the matching official `focusrgb-*-runner`, first from
+its bundled `runners` directory and then from `PATH`; it never executes the module directly.
+The supported minimums are Node.js 22 and Python 3.11. A missing runtime value for a runner
+package leaves it in the direct-executable path; the no-SDK Python conformance example uses that
+path deliberately. A declared runtime without its matching runner is reported before launch.
+
 Process separation contains crashes and permits plugin restart, but is not a security
 sandbox. Manifests declare operating systems, architectures, roles, capabilities, and needed
 resources such as network, screen capture, or USB access. The UI must show those declarations
