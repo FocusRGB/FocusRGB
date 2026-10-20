@@ -75,6 +75,18 @@ namespace FocusRgb.App.Plugins
                 return PluginPackageResult.Fail("plugin-absent", "The package entry point is missing or outside the package.");
             }
 
+            if (manifest.Runtime is not null)
+            {
+                var runner = ResolveRunner(manifest.Runtime);
+                return runner is null
+                    ? PluginPackageResult.Fail("plugin-absent",
+                        $"The official {manifest.Runtime} plugin runner was not found in the bundled runners directory or PATH.")
+                    : PluginPackageResult.Ok(manifest, new PluginLaunchSpec
+                    {
+                        FileName = runner,
+                        Arguments = [entryPoint]
+                    });
+            }
             if (entryPoint.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             {
                 var dotnet = ResolveDotNetHost();
@@ -97,6 +109,14 @@ namespace FocusRgb.App.Plugins
             if (!IsContractCompatible(manifest.ContractVersion, ContractVersion.Major, ContractVersion.Minor))
                 return "Plugin contract version is incompatible.";
             if (string.IsNullOrWhiteSpace(manifest.EntryPoint)) return "Entry point is required.";
+            if (manifest.Runtime is not null && manifest.Runtime is not ("node" or "python"))
+                return "Runtime must be node or python.";
+            if (manifest.Runtime == "node"
+                && Path.GetExtension(manifest.EntryPoint) is not (".js" or ".mjs" or ".cjs"))
+                return "Node runner entry points must be JavaScript modules.";
+            if (manifest.Runtime == "python"
+                && !manifest.EntryPoint.EndsWith(".py", StringComparison.OrdinalIgnoreCase))
+                return "Python runner entry points must be Python modules.";
             if (!ValidList(manifest.OperatingSystems, ["windows", "linux", "macos"]))
                 return "Operating systems must be unique supported values.";
             if (!ValidList(manifest.Architectures, ["x64", "arm64"]))
@@ -160,6 +180,21 @@ namespace FocusRgb.App.Plugins
             }
             foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
                 .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var candidate = Path.Combine(directory, fileName);
+                if (File.Exists(candidate)) return Path.GetFullPath(candidate);
+            }
+            return null;
+        }
+
+        private static string? ResolveRunner(string runtime)
+        {
+            var name = $"focusrgb-{runtime}-runner";
+            var fileName = OperatingSystem.IsWindows() ? name + ".exe" : name;
+            var directories = new[] { Path.Combine(AppContext.BaseDirectory, "runners") }
+                .Concat((Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+                    .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            foreach (var directory in directories)
             {
                 var candidate = Path.Combine(directory, fileName);
                 if (File.Exists(candidate)) return Path.GetFullPath(candidate);
