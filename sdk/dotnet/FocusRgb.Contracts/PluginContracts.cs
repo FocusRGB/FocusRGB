@@ -24,6 +24,7 @@ namespace FocusRgb.Contracts
         public string? Version { get; init; }
         public string? ContractVersion { get; init; }
         public string? EntryPoint { get; init; }
+        public string? Runtime { get; init; }
         public List<string>? OperatingSystems { get; init; }
         public List<string>? Architectures { get; init; }
         public List<string>? Roles { get; init; }

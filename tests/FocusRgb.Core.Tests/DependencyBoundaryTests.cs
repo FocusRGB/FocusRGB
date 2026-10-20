@@ -161,6 +161,12 @@ namespace FocusRgb.Core.Tests
                 .ToHashSet(StringComparer.Ordinal);
 
             Assert.True(contractProperties.SetEquals(schemaProperties));
+            Assert.DoesNotContain("runtime", schema.RootElement.GetProperty("required")
+                .EnumerateArray().Select(value => value.GetString()));
+            Assert.Equal(["node", "python"], schema.RootElement.GetProperty("properties")
+                .GetProperty("runtime").GetProperty("enum").EnumerateArray()
+                .Select(value => value.GetString()));
+            Assert.Equal(typeof(string), typeof(PluginManifest).GetProperty(nameof(PluginManifest.Runtime))!.PropertyType);
         }
 
         [Fact]
