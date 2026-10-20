@@ -216,7 +216,7 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 - Implemented files and entry points: host wire types moved to the non-packable
   `FocusRgb.Core.Protocol` namespace; SDK projects, template, consumer fixture, package tool, and
   publish workflow were removed. The fake plugin speaks raw JSON-RPC without SDK source, while
-  schema drift tests continue to check the host model. Schema IDs target `spec-v1.0.0`.
+  schema drift tests continue to check the host model. Schema IDs target `spec-v1.1.0`.
 - Verification: Release build passes with 0 warnings/errors and 309/309 tests pass. The raw fake
   continues to pass host lifecycle/error tests and language-neutral conformance.
 - External/live evidence: no tag or package was created, no plugin was installed, and no hardware
