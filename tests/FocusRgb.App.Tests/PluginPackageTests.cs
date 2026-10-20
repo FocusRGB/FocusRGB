@@ -182,7 +182,10 @@ namespace FocusRgb.App.Tests
                 "focusrgb-node-runner.js");
             Directory.CreateDirectory(Path.GetDirectoryName(runner)!);
             File.WriteAllText(runner, string.Empty);
-            var node = Path.Combine(npmDirectory, "node.exe");
+            File.WriteAllText(Path.Combine(npmDirectory, "focusrgb-node-runner.cmd"), string.Empty);
+            var nodeDirectory = Path.Combine(_directory, "nodejs");
+            Directory.CreateDirectory(nodeDirectory);
+            var node = Path.Combine(nodeDirectory, "node.exe");
             File.WriteAllText(node, string.Empty);
             const string entryPoint = "PLUGIN.JS";
             var package = WritePackage(Manifest() with { EntryPoint = entryPoint, Runtime = "node" });
@@ -190,7 +193,7 @@ namespace FocusRgb.App.Tests
             var previousPath = Environment.GetEnvironmentVariable("PATH");
             try
             {
-                Environment.SetEnvironmentVariable("PATH", npmDirectory);
+                Environment.SetEnvironmentVariable("PATH", string.Join(Path.PathSeparator, nodeDirectory, npmDirectory));
 
                 var result = PluginPackage.Load(_directory, "fake-output");
 
