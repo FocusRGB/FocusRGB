@@ -49,6 +49,84 @@ namespace FocusRgb.App.Tests
             Assert.False(Directory.Exists(Path.Combine(PackagesDirectory, ".staging")));
         }
 
+        [Fact]
+        public async Task StageOfficialAsync_VerifiesReleaseSetBeforeStaging()
+        {
+            var archive = CreatePackage();
+            var (manifest, checksums) = CreateReleaseMetadata(archive, ManifestJson());
+            var installer = new PluginPackageInstaller(PackagesDirectory);
+
+            var result = await installer.StageOfficialAsync(
+                Listing(), archive, manifest, checksums, TestContext.Current.CancellationToken);
+
+            Assert.True(result.IsSuccess, result.ErrorMessage);
+            Assert.NotNull(result.StagedPackage);
+        }
+
+        [Fact]
+        public async Task StageOfficialAsync_RejectsAmbiguousZipAssets()
+        {
+            var archive = CreatePackage();
+            var (manifest, checksums) = CreateReleaseMetadata(archive, ManifestJson());
+            var listing = Listing(
+                [
+                    new OfficialPluginAsset { Name = "plugin.zip", Url = "https://example.test/plugin.zip" },
+                    new OfficialPluginAsset { Name = "other.zip", Url = "https://example.test/other.zip" }
+                ]);
+            var installer = new PluginPackageInstaller(PackagesDirectory);
+
+            var result = await installer.StageOfficialAsync(
+                listing, archive, manifest, checksums, TestContext.Current.CancellationToken);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("package-ambiguous", result.ErrorCode);
+        }
+
+        [Fact]
+        public async Task StageOfficialAsync_RejectsZipMissingFromChecksums()
+        {
+            var archive = CreatePackage();
+            var (manifest, checksums) = CreateReleaseMetadata(
+                archive, ManifestJson(), includePackage: false);
+            var installer = new PluginPackageInstaller(PackagesDirectory);
+
+            var result = await installer.StageOfficialAsync(
+                Listing(), archive, manifest, checksums, TestContext.Current.CancellationToken);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("checksum-missing", result.ErrorCode);
+        }
+
+        [Fact]
+        public async Task StageOfficialAsync_RejectsManifestAssetHashMismatch()
+        {
+            var archive = CreatePackage();
+            var (manifest, checksums) = CreateReleaseMetadata(
+                archive, ManifestJson(), manifestHash: new string('0', 64));
+            var installer = new PluginPackageInstaller(PackagesDirectory);
+
+            var result = await installer.StageOfficialAsync(
+                Listing(), archive, manifest, checksums, TestContext.Current.CancellationToken);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("checksum-mismatch", result.ErrorCode);
+        }
+
+        [Fact]
+        public async Task StageOfficialAsync_RejectsZipManifestVersionThatDiffersFromListing()
+        {
+            var archive = CreatePackage(version: "2.0.0");
+            var (manifest, checksums) = CreateReleaseMetadata(archive, ManifestJson());
+            var installer = new PluginPackageInstaller(PackagesDirectory);
+
+            var result = await installer.StageOfficialAsync(
+                Listing(), archive, manifest, checksums, TestContext.Current.CancellationToken);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("listing-mismatch", result.ErrorCode);
+            Assert.Empty(Directory.GetDirectories(Path.Combine(PackagesDirectory, ".staging")));
+        }
+
         [Theory]
         [InlineData("../outside.txt")]
         [InlineData("/absolute.txt")]
@@ -142,23 +220,12 @@ namespace FocusRgb.App.Tests
         private string CreatePackage(
             string? extraEntry = null,
             bool symbolicLink = false,
-            int additionalEntries = 0)
+            int additionalEntries = 0,
+            string version = "1.0.0")
         {
             var path = Path.Combine(_temporaryDirectory.Path, $"package-{Guid.NewGuid():N}.zip");
             using var archive = ZipFile.Open(path, ZipArchiveMode.Create);
-            WriteEntry(archive, PluginPackage.ManifestFileName, JsonSerializer.Serialize(new
-            {
-                schemaVersion = 1,
-                id = "fake-output",
-                version = "1.0.0",
-                contractVersion = "1.0",
-                entryPoint = "plugin.exe",
-                operatingSystems = OperatingSystems,
-                architectures = Architectures,
-                roles = Roles,
-                resources = Array.Empty<string>(),
-                license = "MIT"
-            }, PluginJson.Options));
+            WriteEntry(archive, PluginPackage.ManifestFileName, ManifestJson(version));
             WriteEntry(archive, "plugin.exe", "plugin");
             if (extraEntry is not null) WriteEntry(archive, extraEntry, "unsafe");
             for (var index = 0; index < additionalEntries; index++)
@@ -172,6 +239,60 @@ namespace FocusRgb.App.Tests
             }
             return path;
         }
+
+        private (string Manifest, string Checksums) CreateReleaseMetadata(
+            string archive,
+            string manifestJson,
+            bool includePackage = true,
+            string? manifestHash = null)
+        {
+            var manifest = Path.Combine(_temporaryDirectory.Path, $"manifest-{Guid.NewGuid():N}.json");
+            var checksums = Path.Combine(_temporaryDirectory.Path, $"checksums-{Guid.NewGuid():N}.txt");
+            File.WriteAllText(manifest, manifestJson);
+            var lines = new List<string>();
+            if (includePackage) lines.Add($"{Sha256(archive)}  plugin.zip");
+            lines.Add($"{manifestHash ?? Sha256(manifest)}  {PluginPackage.ManifestFileName}");
+            File.WriteAllLines(checksums, lines);
+            return (manifest, checksums);
+        }
+
+        private static OfficialPluginListing Listing(
+            IReadOnlyList<OfficialPluginAsset>? packageCandidates = null) => new()
+        {
+            Id = "fake-output",
+            Name = "Fake Output",
+            Version = "1.0.0",
+            RepositoryUrl = "https://github.com/FocusRGB/FocusRGB-Plugin-Fake",
+            ReleaseUrl = "https://github.com/FocusRGB/FocusRGB-Plugin-Fake/releases/tag/v1.0.0",
+            PackageUrl = "https://example.test/plugin.zip",
+            PackageFileName = "plugin.zip",
+            PackageCandidates = packageCandidates ??
+                [new OfficialPluginAsset { Name = "plugin.zip", Url = "https://example.test/plugin.zip" }],
+            ManifestUrl = "https://example.test/focusrgb-plugin.json",
+            ChecksumsUrl = "https://example.test/SHA256SUMS",
+            ContractVersion = "1.0",
+            Resources = [],
+            OperatingSystems = OperatingSystems,
+            Architectures = Architectures,
+            IsCompatible = true
+        };
+
+        private static string ManifestJson(string version = "1.0.0") => JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1,
+            id = "fake-output",
+            version,
+            contractVersion = "1.0",
+            entryPoint = "plugin.exe",
+            operatingSystems = OperatingSystems,
+            architectures = Architectures,
+            roles = Roles,
+            resources = Array.Empty<string>(),
+            license = "MIT"
+        }, PluginJson.Options);
+
+        private static string Sha256(string path) => Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
 
         private static void WriteEntry(ZipArchive archive, string path, string content)
         {

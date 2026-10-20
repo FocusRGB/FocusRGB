@@ -10,6 +10,7 @@ namespace FocusRgb.App.Plugins
     {
         public const int MaximumEntryCount = 512;
         public const long MaximumExpandedBytes = 256L * 1024 * 1024;
+        private const long MaximumReleaseMetadataBytes = 1024 * 1024;
         private readonly string _packagesDirectory;
         private readonly string _stagingDirectory;
 
@@ -36,6 +37,72 @@ namespace FocusRgb.App.Plugins
             ArgumentException.ThrowIfNullOrWhiteSpace(expectedSha256);
             return ReadArchiveAsync(
                 archivePath, expectedPluginId, expectedSha256, true, cancellationToken);
+        }
+
+        public async Task<PluginArchiveResult> StageOfficialAsync(
+            OfficialPluginListing listing,
+            string archivePath,
+            string manifestPath,
+            string checksumsPath,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(listing);
+            try
+            {
+                if (listing.PackageCandidates.Count != 1)
+                    return PluginArchiveResult.Fail(
+                        "package-ambiguous", "The release must contain exactly one plugin zip.");
+                var package = listing.PackageCandidates[0];
+                if (!package.Name.Equals(listing.PackageFileName, StringComparison.Ordinal)
+                    || !package.Url.Equals(listing.PackageUrl, StringComparison.Ordinal)
+                    || !IsHttps(package.Url) || !IsHttps(listing.ManifestUrl))
+                {
+                    return PluginArchiveResult.Fail(
+                        "listing-invalid", "The selected release assets do not match the official listing.");
+                }
+
+                var checksums = await ReadChecksumsAsync(checksumsPath, cancellationToken).ConfigureAwait(false);
+                if (!checksums.TryGetValue(package.Name, out var packageHash))
+                    return PluginArchiveResult.Fail(
+                        "checksum-missing", "SHA256SUMS does not contain the plugin zip.");
+                if (!checksums.TryGetValue(PluginPackage.ManifestFileName, out var manifestHash))
+                    return PluginArchiveResult.Fail(
+                        "checksum-missing", $"SHA256SUMS does not contain {PluginPackage.ManifestFileName}.");
+
+                await using var manifestStream = new FileStream(Path.GetFullPath(manifestPath), FileMode.Open,
+                    FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+                if (manifestStream.Length > MaximumReleaseMetadataBytes)
+                    throw new InvalidDataException("The release manifest exceeds the metadata size limit.");
+                var actualManifestHash = Convert.ToHexString(
+                    await SHA256.HashDataAsync(manifestStream, cancellationToken).ConfigureAwait(false))
+                    .ToLowerInvariant();
+                if (!actualManifestHash.Equals(manifestHash, StringComparison.OrdinalIgnoreCase))
+                    return PluginArchiveResult.Fail(
+                        "checksum-mismatch", $"The {PluginPackage.ManifestFileName} SHA-256 does not match.");
+                manifestStream.Position = 0;
+                var releaseManifest = await JsonSerializer.DeserializeAsync<PluginManifest>(
+                    manifestStream, PluginJson.Options, cancellationToken).ConfigureAwait(false);
+                var manifestError = PluginPackage.ValidateManifest(releaseManifest, listing.Id);
+                if (manifestError is not null || releaseManifest!.Version != listing.Version)
+                    return PluginArchiveResult.Fail(
+                        "listing-mismatch", "The release manifest does not match the listed plugin ID and version.");
+
+                var staged = await StageAsync(
+                    archivePath, listing.Id, packageHash, cancellationToken).ConfigureAwait(false);
+                if (!staged.IsSuccess || staged.Manifest!.Version == listing.Version) return staged;
+                DeleteStagingWithoutThrowing(staged.StagedPackage!.Directory);
+                return PluginArchiveResult.Fail(
+                    "listing-mismatch", "The zip manifest does not match the listed plugin ID and version.");
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                or InvalidDataException or JsonException or NotSupportedException)
+            {
+                return PluginArchiveResult.Fail("release-invalid", exception.Message);
+            }
         }
 
         /// <summary>Swaps a validated staged package after its existing process has been stopped.</summary>
@@ -260,6 +327,35 @@ namespace FocusRgb.App.Plugins
         private static bool IsSha256(string value) => value.Length == 64
             && value.All(character => character is >= '0' and <= '9'
                 or >= 'a' and <= 'f' or >= 'A' and <= 'F');
+
+        private static async Task<Dictionary<string, string>> ReadChecksumsAsync(
+            string path,
+            CancellationToken cancellationToken)
+        {
+            await using var stream = new FileStream(Path.GetFullPath(path), FileMode.Open, FileAccess.Read,
+                FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            if (stream.Length > MaximumReleaseMetadataBytes)
+                throw new InvalidDataException("SHA256SUMS exceeds the metadata size limit.");
+            using var reader = new StreamReader(stream);
+            var result = new Dictionary<string, string>(StringComparer.Ordinal);
+            string? line;
+            while ((line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false)) is not null)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                if (line.Length < 67 || !IsSha256(line[..64]) || line[64] != ' ')
+                    throw new InvalidDataException("SHA256SUMS contains an invalid line.");
+                var name = line[65..].TrimStart(' ', '*');
+                if (string.IsNullOrWhiteSpace(name) || Path.GetFileName(name) != name
+                    || !result.TryAdd(name, line[..64].ToLowerInvariant()))
+                {
+                    throw new InvalidDataException("SHA256SUMS contains an unsafe or duplicate file name.");
+                }
+            }
+            return result;
+        }
+
+        private static bool IsHttps(string value) => Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            && uri.Scheme == Uri.UriSchemeHttps;
 
         private static bool IsPluginId(string? value) => value is { Length: >= 1 and <= 64 }
             && value[0] is >= 'a' and <= 'z' or >= '0' and <= '9'
