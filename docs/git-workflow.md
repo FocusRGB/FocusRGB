@@ -99,18 +99,19 @@ requests: publish the compatible SDK prerelease first, then update the plugin an
 compatibility fixtures to the exact declared versions.
 
 Publish `FocusRgb.Contracts` and `FocusRgb.PluginSdk` to nuget.org through the .NET-specific
-`sdk-dotnet-v*` tag before an external plugin consumes that version. The owner supplies a scoped
-`NUGET_API_KEY`; never place it in source, logs, issue text, or package configuration. External
-CI restores the public packages from nuget.org without credentials. The stable spec and all
-language SDKs remain under this repository's `sdk/` area. Link the main slice issue to the plugin
-repository's own issue and pull request, using the same release milestone.
+`sdk-dotnet-v*` tag before an external plugin consumes that version. Publishing uses the
+nuget.org Trusted Publishing policy for `FocusRGB/FocusRGB`, the `publish-plugin-sdk.yml`
+workflow, and the protected `nuget` environment. `NuGet/login@v1` exchanges GitHub's OIDC token
+for a short-lived API key under the `maj224` nuget.org profile; do not store a long-lived NuGet
+API key. External CI restores the public packages from nuget.org without credentials. The stable
+spec and all language SDKs remain under this repository's `sdk/` area. Link the main slice issue
+to the plugin repository's own issue and pull request, using the same release milestone.
 
 The `nuget` GitHub environment must be protected with MAJ224 as its required reviewer. The
 publication job validates the `sdk-dotnet-vMAJOR.MINOR.PATCH` tag against both package versions and
-requires the tagged commit to belong to `develop` or `main` before using `NUGET_API_KEY`.
-Before creating that tag, change each released schema `$id` from its moving `develop` URL to
-`https://raw.githubusercontent.com/FocusRGB/FocusRGB/sdk-dotnet-vX.Y.Z/sdk/spec/<schema-name>` so
-the published contract resolves to the exact immutable release.
+requires the tagged commit to belong to `develop` or `main` before requesting the short-lived key.
+Each released schema `$id` and packaged protocol link resolves through its immutable
+`sdk-dotnet-vX.Y.Z` tag so the published contract cannot move after release.
 Move only maintained, publication-safe research: do not republish local security-testing notes,
 credentials, private-network addresses, or machine-specific paths in a public plugin repository.
 
