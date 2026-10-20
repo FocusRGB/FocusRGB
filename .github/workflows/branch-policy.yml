@@ -31,9 +31,9 @@ jobs:
               ;;
             develop)
               case "$HEAD" in
-                feature/*|slice/*|fix/*|chore/*|docs/*) ;;
+                feature/*|slice/*|fix/*|chore/*|docs/*|dependabot/*) ;;
                 *)
-                  echo "::error::develop accepts pull requests only from feature/, slice/, fix/, chore/, or docs/ branches (got $HEAD)."
+                  echo "::error::develop accepts pull requests only from feature/, slice/, fix/, chore/, docs/, or dependabot/ branches (got $HEAD)."
                   exit 1
                   ;;
               esac
