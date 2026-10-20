@@ -68,6 +68,20 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task DiscoverAsync_DoesNotListRunnerUsingContract10()
+        {
+            var handler = new DiscoveryHandler(runtime: "node", contractVersion: "1.0");
+            using var client = new HttpClient(handler);
+            using var discovery = new OfficialPluginDiscovery(
+                client, Path.Combine(_temporaryDirectory.Path, "catalog.json"));
+
+            var result = await discovery.DiscoverAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Empty(result.Items);
+            Assert.Equal(3, handler.RequestCount);
+        }
+
+        [Fact]
         public async Task DiscoverAsync_ReturnsClearMessage_WhenOfflineWithoutCache()
         {
             using var client = new HttpClient(new OfflineHandler());
@@ -103,7 +117,9 @@ namespace FocusRgb.App.Tests
 
         private sealed class DiscoveryHandler(
             bool includeUntrustedRepository = false,
-            bool rateLimitedAfterSearch = false) : HttpMessageHandler
+            bool rateLimitedAfterSearch = false,
+            string? runtime = null,
+            string contractVersion = "1.0") : HttpMessageHandler
         {
             public int RequestCount { get; private set; }
 
@@ -150,9 +166,14 @@ namespace FocusRgb.App.Tests
                 ]}
                 """;
 
-            private static string ManifestJson() => $$"""
-                {"schemaVersion":1,"id":"signalrgb","version":"1.0.0","contractVersion":"1.0","entryPoint":"FocusRgb.Plugin.SignalRgb.dll","operatingSystems":["{{CurrentOperatingSystem()}}"],"architectures":["{{System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()}}"],"roles":["integration","output"],"resources":["process.read","filesystem.read"],"license":"MIT","source":"https://github.com/FocusRGB/FocusRGB-Plugin-SignalRGB"}
-                """;
+            private string ManifestJson()
+            {
+                var entryPoint = runtime == "node" ? "plugin.js" : "FocusRgb.Plugin.SignalRgb.dll";
+                var runtimeProperty = runtime is null ? string.Empty : $",\"runtime\":\"{runtime}\"";
+                return $$"""
+                    {"schemaVersion":1,"id":"signalrgb","version":"1.0.0","contractVersion":"{{contractVersion}}","entryPoint":"{{entryPoint}}"{{runtimeProperty}},"operatingSystems":["{{CurrentOperatingSystem()}}"],"architectures":["{{System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()}}"],"roles":["integration","output"],"resources":["process.read","filesystem.read"],"license":"MIT","source":"https://github.com/FocusRGB/FocusRGB-Plugin-SignalRGB"}
+                    """;
+            }
 
             private static string CurrentOperatingSystem() => OperatingSystem.IsWindows()
                 ? "windows"
