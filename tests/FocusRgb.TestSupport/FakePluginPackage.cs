@@ -33,9 +33,7 @@ namespace FocusRgb.TestSupport
             {
                 "FocusRgb.FakePlugin.dll",
                 "FocusRgb.FakePlugin.deps.json",
-                "FocusRgb.FakePlugin.runtimeconfig.json",
-                "FocusRgb.PluginSdk.dll",
-                "FocusRgb.Contracts.dll"
+                "FocusRgb.FakePlugin.runtimeconfig.json"
             })
             {
                 File.Copy(Path.Combine(sourceDirectory, fileName), Path.Combine(packageDirectory, fileName));
