@@ -8,6 +8,7 @@ namespace FocusRgb.App.Plugins
     public static class PluginPackage
     {
         public const string ManifestFileName = "focusrgb-plugin.json";
+        private const string RunnerContractError = "Runner plugins require contract version 1.1 or later.";
 
         public static PluginPackageResult Load(string packagesDirectory, string pluginId)
         {
@@ -58,15 +59,11 @@ namespace FocusRgb.App.Plugins
                 return PluginPackageResult.Fail("plugin-absent", exception.Message);
             }
 
-            if (manifest?.Runtime is not null && !IsContractAtLeast(manifest.ContractVersion, 1, 1))
-            {
-                return PluginPackageResult.Fail(
-                    "contract-incompatible", "Runner plugins require contract version 1.1 or later.");
-            }
             var error = ValidateManifest(manifest, pluginId);
             if (error is not null)
             {
-                return PluginPackageResult.Fail("manifest-invalid", error);
+                return PluginPackageResult.Fail(
+                    error == RunnerContractError ? "contract-incompatible" : "manifest-invalid", error);
             }
             if (!SupportsCurrentPlatform(manifest!))
             {
@@ -121,6 +118,8 @@ namespace FocusRgb.App.Plugins
             if (!TryExactVersion(manifest.Version)) return "Plugin version must contain three numeric parts.";
             if (!IsContractCompatible(manifest.ContractVersion, ContractVersion.Major, ContractVersion.Minor))
                 return "Plugin contract version is incompatible.";
+            if (manifest.Runtime is not null && !IsContractAtLeast(manifest.ContractVersion, 1, 1))
+                return RunnerContractError;
             if (string.IsNullOrWhiteSpace(manifest.EntryPoint)) return "Entry point is required.";
             if (manifest.Runtime is not null && manifest.Runtime is not ("node" or "python"))
                 return "Runtime must be node or python.";
