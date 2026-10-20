@@ -77,15 +77,11 @@ namespace FocusRgb.App.Plugins
 
             if (manifest.Runtime is not null)
             {
-                var runner = ResolveRunner(manifest.Runtime);
-                return runner is null
+                var launch = ResolveRunner(manifest.Runtime, entryPoint);
+                return launch is null
                     ? PluginPackageResult.Fail("plugin-absent",
-                        $"The official {manifest.Runtime} plugin runner was not found in the bundled runners directory or PATH.")
-                    : PluginPackageResult.Ok(manifest, new PluginLaunchSpec
-                    {
-                        FileName = runner,
-                        Arguments = [entryPoint]
-                    });
+                        $"The {manifest.Runtime} runtime or named FocusRGB runner was not found in the bundled runners directory or PATH.")
+                    : PluginPackageResult.Ok(manifest, launch);
             }
             if (entryPoint.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             {
@@ -112,7 +108,8 @@ namespace FocusRgb.App.Plugins
             if (manifest.Runtime is not null && manifest.Runtime is not ("node" or "python"))
                 return "Runtime must be node or python.";
             if (manifest.Runtime == "node"
-                && Path.GetExtension(manifest.EntryPoint) is not (".js" or ".mjs" or ".cjs"))
+                && !new[] { ".js", ".mjs", ".cjs" }.Contains(
+                    Path.GetExtension(manifest.EntryPoint), StringComparer.OrdinalIgnoreCase))
                 return "Node runner entry points must be JavaScript modules.";
             if (manifest.Runtime == "python"
                 && !manifest.EntryPoint.EndsWith(".py", StringComparison.OrdinalIgnoreCase))
@@ -187,13 +184,39 @@ namespace FocusRgb.App.Plugins
             return null;
         }
 
-        private static string? ResolveRunner(string runtime)
+        private static PluginLaunchSpec? ResolveRunner(string runtime, string entryPoint)
         {
+            var pathDirectories = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+                .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (runtime == "node" && OperatingSystem.IsWindows())
+            {
+                var node = FindFile(pathDirectories, OperatingSystem.IsWindows() ? "node.exe" : "node");
+                var nodeRunner = FindFile(
+                    new[] { Path.Combine(AppContext.BaseDirectory, "runners", "node") }
+                        .Concat(pathDirectories.Select(directory => Path.Combine(
+                            directory, "node_modules", "@focusrgb", "plugin-sdk", "dist"))),
+                    "focusrgb-node-runner.js");
+                return node is null || nodeRunner is null ? null : new PluginLaunchSpec
+                {
+                    FileName = node,
+                    Arguments = [nodeRunner, entryPoint]
+                };
+            }
+
             var name = $"focusrgb-{runtime}-runner";
             var fileName = OperatingSystem.IsWindows() ? name + ".exe" : name;
             var directories = new[] { Path.Combine(AppContext.BaseDirectory, "runners") }
-                .Concat((Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
-                    .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                .Concat(pathDirectories);
+            var runner = FindFile(directories, fileName);
+            return runner is null ? null : new PluginLaunchSpec
+            {
+                FileName = runner,
+                Arguments = [entryPoint]
+            };
+        }
+
+        private static string? FindFile(IEnumerable<string> directories, string fileName)
+        {
             foreach (var directory in directories)
             {
                 var candidate = Path.Combine(directory, fileName);
