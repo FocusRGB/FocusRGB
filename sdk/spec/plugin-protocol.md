@@ -167,10 +167,6 @@ The 1.1 schema `$id`s resolve to the immutable `spec-v1.1.0` tag. Every future r
 must likewise resolve to its protocol release tag, using
 `https://raw.githubusercontent.com/FocusRGB/FocusRGB/spec-vX.Y.Z/sdk/spec/<schema-name>`.
 
-During the SignalRGB migration only, host 1.x also accepts contract 0.1 when both the manifest
-and handshake declare 0.1. The UI and log identify it as legacy. Remove this exception after the
-SignalRGB plugin publishes its coordinated 1.0 package.
-
 ## Conformance
 
 Conformance does not require .NET. A conforming executable communicates only through the
