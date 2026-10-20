@@ -186,7 +186,7 @@ windows, process-exit handling, protected Default fallback, and explicit reasons
 local store validates and atomically persists settings, desired selection state, and an
 independent native fallback snapshot; it seeds first run, restores restarts, and archives
 malformed or invalid-reference documents with explicit recovery details. The desktop starts
-explicitly enabled local process plugins through the 0.1 SDK and isolates package/protocol failures.
+explicitly enabled local process plugins through the published 1.0 SDK and isolates package/protocol failures.
 Selection commands feed a portable coordinator that reports desired/effective/applied/pending
 state, prevents an unconfirmed competing writer, activates validated fallback, and requires
 consent before recovered output resumes. Application detection is wired to automatic selection;

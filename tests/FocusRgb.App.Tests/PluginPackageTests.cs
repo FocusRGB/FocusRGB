@@ -48,6 +48,7 @@ namespace FocusRgb.App.Tests
         }
 
         [Theory]
+        [InlineData("0.1")]
         [InlineData("2.0")]
         public void Load_RejectsIncompatibleContractBeforeLaunch(string contractVersion)
         {
@@ -57,16 +58,6 @@ namespace FocusRgb.App.Tests
 
             Assert.False(result.IsSuccess);
             Assert.Equal("manifest-invalid", result.ErrorCode);
-        }
-
-        [Fact]
-        public void Load_AcceptsLegacySignalRgbContractDuringTransition()
-        {
-            WritePackage(Manifest() with { ContractVersion = "0.1" });
-
-            var result = PluginPackage.Load(_directory, "fake-output");
-
-            Assert.True(result.IsSuccess, result.ErrorMessage);
         }
 
         [Fact]
@@ -82,6 +73,7 @@ namespace FocusRgb.App.Tests
         }
 
         [Theory]
+        [InlineData("0.1", false)]
         [InlineData("1.0", true)]
         [InlineData("1.2", true)]
         [InlineData("1.3", false)]

@@ -432,9 +432,6 @@ namespace FocusRgb.App
                     + (entry.Handshake?.Sdk is { } sdk
                         ? $" — SDK {sdk.Name} {sdk.Version} ({sdk.Language})"
                         : string.Empty)
-                    + (entry.Handshake?.ContractVersion == "0.1"
-                        ? " — legacy contract 0.1; update required."
-                        : string.Empty)
                 : $"{entry.PluginId}: {entry.ErrorCode ?? entry.Client?.Health ?? "unavailable"} — "
                     + (entry.ErrorMessage ?? "The plugin is not available.")
                     + (_pluginRestartLimits.ContainsKey(entry.PluginId) ? " Automatic restart stopped." : string.Empty)));
@@ -449,8 +446,6 @@ namespace FocusRgb.App
                     client.LogReceived += (_, message) => AppLog.Write($"Plugin {plugin.PluginId}: {message}");
                     if (plugin.Handshake?.Sdk is { } sdk)
                         AppLog.Write($"Plugin {plugin.PluginId} SDK: {sdk.Name} {sdk.Version} ({sdk.Language}).");
-                    if (plugin.Handshake?.ContractVersion == "0.1")
-                        AppLog.Write($"Plugin {plugin.PluginId} uses legacy contract 0.1; update required.");
                 }
                 else
                     AppLog.Write($"Plugin {plugin.PluginId} did not start: {plugin.ErrorCode}: {plugin.ErrorMessage}");
