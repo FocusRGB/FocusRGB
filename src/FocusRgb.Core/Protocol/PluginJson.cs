@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace FocusRgb.Contracts
+namespace FocusRgb.Core.Protocol
 {
     /// <summary>Provides the shared, provider-neutral JSON settings used on the plugin wire.</summary>
     public static class PluginJson

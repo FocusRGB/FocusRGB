@@ -10,6 +10,7 @@ Adopted 2026-10-10. Applies to people and AI assistants.
 | `main` | Stable releases | Pull requests from `develop` only, merged by the repository owner |
 | `slice/NN-short-name` | One detail file linked from `implementation-slices.md` | Its author |
 | `feature/…`, `fix/…`, `chore/…`, `docs/…` | Other scoped work | Its author |
+| `dependabot/…` | Automated dependency updates (`.github/dependabot.yml`) | Dependabot |
 
 ## Rules
 
@@ -27,7 +28,7 @@ Adopted 2026-10-10. Applies to people and AI assistants.
    owner explicitly asks.
 5. Only the owner opens and merges the `develop` → `main` release pull request. `main`
    accepts pull requests only from `develop`; `develop` accepts them only from `feature/`,
-   `slice/`, `fix/`, `chore/`, and `docs/` branches.
+   `slice/`, `fix/`, `chore/`, and `docs/` branches, plus Dependabot's `dependabot/` branches.
 6. Merge slice pull requests into `develop` with squash or a merge commit. Merge `develop`
    into `main` with a merge commit, not a squash, so the two branches do not diverge.
 7. Build a pull request from several focused commits, never one commit for the whole change.
@@ -98,19 +99,21 @@ project references. When a protocol change spans repositories, use separate link
 requests: publish the compatible SDK prerelease first, then update the plugin and the app's
 compatibility fixtures to the exact declared versions.
 
-Publish `FocusRgb.Contracts` and `FocusRgb.PluginSdk` to nuget.org through the .NET-specific
-`sdk-dotnet-v*` tag before an external plugin consumes that version. The owner supplies a scoped
-`NUGET_API_KEY`; never place it in source, logs, issue text, or package configuration. External
-CI restores the public packages from nuget.org without credentials. The stable spec and all
-language SDKs remain under this repository's `sdk/` area. Link the main slice issue to the plugin
-repository's own issue and pull request, using the same release milestone.
+Publish only `FocusRgb.PluginSdk` to nuget.org through the .NET-specific `sdk-dotnet-v*` tag in
+`FocusRGB/FocusRGB-Plugin-SDK` before an external .NET plugin consumes that version.
+`FocusRgb.Contracts` is not a package; its public plugin-author types are included in
+`FocusRgb.PluginSdk`. Publishing uses that repository's Trusted Publishing workflow and
+protected `nuget` environment. `NuGet/login@v1` exchanges GitHub's OIDC token for a short-lived
+API key under the `maj224` nuget.org profile; do not store a long-lived NuGet API key. External
+CI restores the public package from nuget.org without credentials. This repository owns only
+the normative spec, schemas, conformance kit, and host. Link the main slice issue to the SDK or
+plugin repository's own issue and pull request, using the same release milestone.
 
-The `nuget` GitHub environment must be protected with MAJ224 as its required reviewer. The
-publication job validates the `sdk-dotnet-vMAJOR.MINOR.PATCH` tag against both package versions and
-requires the tagged commit to belong to `develop` or `main` before using `NUGET_API_KEY`.
-Before creating that tag, change each released schema `$id` from its moving `develop` URL to
-`https://raw.githubusercontent.com/FocusRGB/FocusRGB/sdk-dotnet-vX.Y.Z/sdk/spec/<schema-name>` so
-the published contract resolves to the exact immutable release.
+The SDK repository's `nuget` GitHub environment must be protected with MAJ224 as its required
+reviewer. The publication job validates the `sdk-dotnet-vMAJOR.MINOR.PATCH` tag against the package version and
+requires the tagged commit to belong to `develop` or `main` before requesting the short-lived key.
+Each released schema `$id` and packaged protocol link resolves through its immutable
+`spec-vX.Y.Z` tag in this repository so the published contract cannot move after release.
 Move only maintained, publication-safe research: do not republish local security-testing notes,
 credentials, private-network addresses, or machine-specific paths in a public plugin repository.
 

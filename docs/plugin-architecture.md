@@ -120,13 +120,13 @@ same convention in slice 20 and consumes the public SDK established in slice 17.
 layouts, native effects, and hardware-independent
 tools remain in the main repository.
 
-The main repository retains a fake/reference plugin so host and SDK compatibility can be
-tested in one checkout. A lightweight catalog may later point to approved plugin releases;
+The main repository retains a raw-protocol fake plugin so the host can be tested without an SDK
+source or package dependency. A lightweight catalog may later point to approved plugin releases;
 plugins are never included through Git submodules. GitHub repositories are peers rather than
 literal child repositories, so the naming convention and catalog express their relationship.
-The `sdk/templates/dotnet-plugin` template generates an independent repository that restores the
-public SDK package, builds without an app checkout, and starts from the same conformance-tested
-provider lifecycle as the fake plugin.
+Official SDKs, templates, examples, and package publishing live in
+[`FocusRGB-Plugin-SDK`](https://github.com/FocusRGB/FocusRGB-Plugin-SDK). Each SDK pins the
+immutable protocol tag and passes this repository's language-neutral conformance kit.
 
 ## Contract sketch
 

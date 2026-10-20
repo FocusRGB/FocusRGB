@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using FocusRgb.Contracts;
+using FocusRgb.Core.Protocol;
 using FocusRgb.Core.Coordination;
 
 namespace FocusRgb.App.Plugins

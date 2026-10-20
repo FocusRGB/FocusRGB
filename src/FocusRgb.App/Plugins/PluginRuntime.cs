@@ -1,4 +1,4 @@
-using FocusRgb.Contracts;
+using FocusRgb.Core.Protocol;
 
 namespace FocusRgb.App.Plugins
 {

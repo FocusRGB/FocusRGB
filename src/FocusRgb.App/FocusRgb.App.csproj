@@ -7,7 +7,11 @@
     <RootNamespace>FocusRgb.App</RootNamespace>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\assets\focusrgb.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="..\..\assets\focusrgb.ico" Link="Assets\focusrgb.ico" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />
@@ -15,7 +19,6 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\sdk\dotnet\FocusRgb.Contracts\FocusRgb.Contracts.csproj" />
     <ProjectReference Include="..\FocusRgb.Core\FocusRgb.Core.csproj" />
     <ProjectReference Include="..\FocusRgb.Platform.Windows\FocusRgb.Platform.Windows.csproj" />
   </ItemGroup>

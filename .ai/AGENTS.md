@@ -14,6 +14,8 @@ Keep SignalRGB-specific implementation, maintained content, tools, and research 
 `FocusRGB/FocusRGB-Plugin-SignalRGB` repository; do not restore provider code to the main repository. Controller plugins are separate processes
 over versioned JSON-RPC and consume a published `FocusRgb.PluginSdk` package. Other production
 integrations receive their own peer repositories when their implementation slice starts.
+The normative protocol, schemas, conformance kit, and host stay here. All language SDK source,
+templates, and publishing live in the peer `FocusRGB/FocusRGB-Plugin-SDK` repository.
 
 Preserve unrelated edits and untracked files. Follow `../.gitattributes` and native Windows
 CRLF working-tree endings (`core.autocrlf=true`). Put generated builds, reports, caches, and

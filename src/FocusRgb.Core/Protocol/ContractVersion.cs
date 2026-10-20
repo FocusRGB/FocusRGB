@@ -1,4 +1,4 @@
-namespace FocusRgb.Contracts
+namespace FocusRgb.Core.Protocol
 {
     /// <summary>
     /// Version of the plugin protocol defined in sdk/spec/plugin-protocol.md. The host and a

@@ -108,16 +108,17 @@ still open. Slice 17 is in progress.**
 ## Source boundaries
 
 - `sdk/spec/`: normative plugin protocol and manifest schemas.
-- `sdk/dotnet/`: provider-neutral contracts and packaged .NET plugin-side helpers.
-- `src/FocusRgb.Core/`: profiles, arbitration, persistence, commands, fallback, and ownership.
+- `sdk/conformance/`: language-neutral protocol verification.
+- `src/FocusRgb.Core/`: internal host protocol types, profiles, arbitration, persistence, commands, fallback, and ownership.
 - `src/FocusRgb.Platform.Windows/`: Windows process/focus detection and later screen capture.
 - `src/FocusRgb.App/`: Avalonia tray/settings UI and generic plugin-host wiring.
 - `tests/`: core, contract, integration, platform, UI, and fake-plugin conformance checks.
+- `FocusRGB-Plugin-SDK`: official language SDKs, templates, tests, and package publishing.
 - `FocusRGB-Plugin-<Name>` repositories: production integration executables and releases.
 - `build/`: ignored generated output, reports, packages, and tool artifacts.
 
-Core may reference shared contracts; neither Core nor App references provider projects. Portable
-Contracts/Core target .NET 10 without Windows APIs. The first app executable runs on Windows.
+Neither Core nor App references provider or SDK projects. Portable Core targets .NET 10 without
+Windows APIs and contains the host's non-packaged protocol model. The first app executable runs on Windows.
 Use one background engine hosted by the tray app initially; a separate OS service is not required.
 
 ## Copy-paste prompts
