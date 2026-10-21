@@ -128,7 +128,7 @@ namespace FocusRgb.App
             if (Application.Current is not App app || !ViewModel.BeginPluginAction()) return;
             try
             {
-                ViewModel.ReportPluginAction(refresh ? "Refreshing official pluginsâ€¦" : "Loading pluginsâ€¦");
+                ViewModel.ReportPluginAction(refresh ? "Refreshing official plugins…" : "Loading plugins…");
                 await app.LoadPluginPageAsync(refresh);
             }
             catch (Exception exception)
@@ -150,7 +150,7 @@ namespace FocusRgb.App
                 var choice = await ConfirmInstallAsync(
                     item.Id, item.Version, item.Source, item.Resources, null, custom: false, collision: false);
                 if (!choice.Confirmed) return;
-                ViewModel.ReportPluginAction($"Downloading and verifying {item.Name}â€¦");
+                ViewModel.ReportPluginAction($"Downloading and verifying {item.Name}…");
                 var result = await app.InstallOfficialPluginAsync(item.Listing, choice.Enable);
                 ViewModel.ReportPluginAction(result.Message);
             }
@@ -182,7 +182,7 @@ namespace FocusRgb.App
             if (Application.Current is not App app || !ViewModel.BeginPluginAction()) return;
             try
             {
-                ViewModel.ReportPluginAction("Downloading the custom GitHub release for inspectionâ€¦");
+                ViewModel.ReportPluginAction("Downloading the custom GitHub release for inspection…");
                 using var download = await app.DownloadCustomPluginAsync(ViewModel.CustomPluginGitHubUrl);
                 await InstallCustomArchiveCoreAsync(app, download.ArchivePath, download.Source!);
             }
@@ -232,7 +232,7 @@ namespace FocusRgb.App
                 manifest.Id!, manifest.Version!, source, resources, inspected.Sha256,
                 custom: true, collision);
             if (!choice.Confirmed) return;
-            ViewModel.ReportPluginAction($"Verifying and installing {manifest.Id}â€¦");
+            ViewModel.ReportPluginAction($"Verifying and installing {manifest.Id}…");
             var result = await app.InstallCustomPluginAsync(
                 path, manifest.Id!, inspected.Sha256!, choice.Enable);
             ViewModel.ReportPluginAction(result.Message);

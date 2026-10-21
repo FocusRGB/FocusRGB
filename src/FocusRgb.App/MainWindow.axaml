@@ -349,7 +349,7 @@
                 <TextBlock Text="Custom plugins" FontSize="18" FontWeight="SemiBold" />
                 <TextBlock Text="Custom plugins are unverified and run with your full user permissions."
                            TextWrapping="Wrap" />
-                <Button Content="Choose a plugin ZIPâ€¦" HorizontalAlignment="Left"
+                <Button Content="Choose a plugin ZIP…" HorizontalAlignment="Left"
                         Click="InstallCustomZip_OnClick" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <TextBox PlaceholderText="owner/repo or https://github.com/owner/repo"
