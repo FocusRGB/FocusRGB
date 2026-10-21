@@ -8,6 +8,7 @@ namespace FocusRgb.App.Plugins
     public static class PluginPackage
     {
         public const string ManifestFileName = "focusrgb-plugin.json";
+        private const string RunnerContractError = "Runner plugins require contract version 1.1 or later.";
 
         public static PluginPackageResult Load(string packagesDirectory, string pluginId)
         {
@@ -45,19 +46,13 @@ namespace FocusRgb.App.Plugins
                 return PluginPackageResult.Fail("plugin-absent", exception.Message);
             }
 
-            if (manifest?.Runtime is not null && !IsContractAtLeast(manifest.ContractVersion, 1, 1))
-            {
-                return PluginPackageResult.Fail(
-                    "contract-incompatible", "Runner plugins require contract version 1.1 or later.");
-            }
-            var error = Validate(manifest, pluginId);
+            var error = ValidateManifest(manifest, pluginId);
             if (error is not null)
             {
-                return PluginPackageResult.Fail("manifest-invalid", error);
+                return PluginPackageResult.Fail(
+                    error == RunnerContractError ? "contract-incompatible" : "manifest-invalid", error);
             }
-            if (!manifest!.OperatingSystems!.Contains(CurrentOperatingSystem(), StringComparer.Ordinal)
-                || !manifest.Architectures!.Contains(RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant(),
-                    StringComparer.Ordinal))
+            if (!SupportsCurrentPlatform(manifest!))
             {
                 return PluginPackageResult.Fail("plugin-incompatible", "The package does not support this platform.");
             }
@@ -65,7 +60,7 @@ namespace FocusRgb.App.Plugins
             string entryPoint;
             try
             {
-                entryPoint = Path.GetFullPath(Path.Combine(packageDirectory, manifest.EntryPoint!));
+                entryPoint = Path.GetFullPath(Path.Combine(packageDirectory, manifest!.EntryPoint!));
             }
             catch (Exception exception) when (exception is ArgumentException or NotSupportedException)
             {
@@ -102,13 +97,16 @@ namespace FocusRgb.App.Plugins
             return PluginPackageResult.Ok(manifest, new PluginLaunchSpec { FileName = entryPoint });
         }
 
-        private static string? Validate(PluginManifest? manifest, string expectedId)
+        internal static string? ValidateManifest(PluginManifest? manifest, string? expectedId)
         {
             if (manifest is null || manifest.SchemaVersion != 1) return "Only manifest schema version 1 is supported.";
-            if (manifest.Id != expectedId || !IsId(manifest.Id)) return "Manifest ID does not match the enabled package ID.";
+            if (expectedId is not null && manifest.Id != expectedId || !IsId(manifest.Id))
+                return "Manifest ID does not match the enabled package ID.";
             if (!TryExactVersion(manifest.Version)) return "Plugin version must contain three numeric parts.";
             if (!IsContractCompatible(manifest.ContractVersion, ContractVersion.Major, ContractVersion.Minor))
                 return "Plugin contract version is incompatible.";
+            if (manifest.Runtime is not null && !IsContractAtLeast(manifest.ContractVersion, 1, 1))
+                return RunnerContractError;
             if (string.IsNullOrWhiteSpace(manifest.EntryPoint)) return "Entry point is required.";
             if (manifest.Runtime is not null && manifest.Runtime is not ("node" or "python"))
                 return "Runtime must be node or python.";
@@ -136,6 +134,11 @@ namespace FocusRgb.App.Plugins
                 return "Source must be an absolute HTTP or HTTPS URI.";
             return null;
         }
+
+        internal static bool SupportsCurrentPlatform(PluginManifest manifest) =>
+            manifest.OperatingSystems!.Contains(CurrentOperatingSystem(), StringComparer.Ordinal)
+            && manifest.Architectures!.Contains(
+                RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant(), StringComparer.Ordinal);
 
         internal static bool IsContractCompatible(string? version, int hostMajor, int hostMinor)
         {
