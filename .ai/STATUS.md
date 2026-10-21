@@ -207,8 +207,8 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 ## Active implementation slice
 
 - Slice: 17 — Stabilize the public SDK and contributor example
-- State: implementation complete; live package-install acceptance remains. Issues #79 and #84
-  are closed. Node and Python SDKs are deferred to `FocusRGB-Plugin-SDK#8` after Slice 29.
+- State: complete. Issues #41, #42, #79, #80 and #84 are closed. Node and Python SDKs are
+  deferred to `FocusRGB-Plugin-SDK#8` after Slice 29.
 - Implemented: FocusRGB owns protocol specs 1.0/1.1, schemas, conformance and internal host types;
   `FocusRGB-Plugin-SDK` publishes the standalone `FocusRgb.PluginSdk` 1.0 package from nuget.org;
   SignalRGB consumes it without credentials. Official discovery, cached offline results, safe
@@ -217,15 +217,14 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
   pass on the package-download cleanup branch. SignalRGB builds cleanly and passes the
   language-neutral conformance probe. Automated checks cover incompatible contracts, package
   integrity/path safety, offline discovery, isolated lifecycle changes and generated templates.
-- Remaining acceptance: publish the owner-tagged SignalRGB `v1.0.0` release, then exercise official
-  discovery plus install, enable, start and uninstall through the real UI without restarting the
-  app. Exercise the custom routes at the same gate. Issue #80 and parent #42 remain open for this.
-- Current blocker or required product input: the SignalRGB release tag and live UI/lighting checks
-  are owner-only. The Slice 16 live matrix remains issue #41 and can cover the SignalRGB path.
+- External/live evidence: the owner confirmed that official SignalRGB install, enable/start,
+  visible switching across Default, Programming, Movie and Music, automatic priority and
+  uninstall all passed. This completes the Slice 16 and Slice 17 live gates.
+- Remaining acceptance: none for Slices 16 or 17.
+- Current blocker or required product input: none.
 - Uncommitted work to preserve: none.
-- Next action: merge the reviewed download cleanup, prepare the SignalRGB 1.0 release, then run the
-  #80/#41 live gate and close Slice 17 if every check passes.
-- Next slice: 18 only after Slice 17 acceptance criteria pass.
+- Next action: start Slice 18 only when the owner requests it.
+- Next slice: 18 — Local MCP commands.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
 `global.json`; use `dotnet test --solution …`, not the VSTest form. The App and Windows
@@ -268,9 +267,9 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slice 16 implementation is merged in PR #85. Its live install, switching, visible-output,
-failure, and removal gate remains recorded in issue #41. Slice 17 implementation is merged;
-issues #80 and #42 remain open for the SignalRGB release and live package-install acceptance.
+Slices 16 and 17 are complete. The owner-confirmed live SignalRGB install, four-profile switching,
+automatic priority and uninstall results are recorded in issues #41 and #80; parent #42 is closed.
+Slice 18 is ready but does not start until the owner requests it.
 
 Profile persistence, tray lifecycle, application settings, plugin hosting, coordination, Windows
 observations, application mappings, and the SignalRGB capability investigation are complete.
