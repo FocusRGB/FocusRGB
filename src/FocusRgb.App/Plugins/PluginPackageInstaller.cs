@@ -166,6 +166,13 @@ namespace FocusRgb.App.Plugins
             }
         }
 
+        public void Discard(StagedPluginPackage stagedPackage)
+        {
+            ArgumentNullException.ThrowIfNull(stagedPackage);
+            var directory = Path.GetFullPath(stagedPackage.Directory);
+            if (IsChildOf(directory, _stagingDirectory)) DeleteStagingWithoutThrowing(directory);
+        }
+
         /// <summary>Removes one package without changing its saved settings.</summary>
         /// <remarks>The caller must stop the plugin process before invoking this method.</remarks>
         public PluginFileOperationResult Uninstall(string pluginId)

@@ -170,9 +170,13 @@ selection, streaming, and device release/acquisition. Explain unavailable action
 tier, missing API, disconnected hardware, or unverified support. API OK is not proof of
 visible output. Claude's MCP tools do not automatically form a standalone app API.
 
-Begin with explicitly installed and enabled local plugins. Do not build a marketplace or
+Begin with explicitly installed and enabled local plugins. The Plugins page may discover official
+repositories on demand from the `FocusRGB` GitHub organization or accept a user-selected local ZIP,
+GitHub repository URL, or existing package folder. Every install requires an in-app confirmation,
+shows declared resources, verifies the displayed checksum, and labels non-official sources
+**Custom, unverified**. Discovery is a bounded catalog, not a hosted marketplace; do not add an
 automatic plugin updater in the first version. Keep secrets outside committed profiles/logs.
-The initial host discovers a package at
+The host discovers a package at
 `%LOCALAPPDATA%\FocusRGB\plugins\<plugin-id>\focusrgb-plugin.json` only when the ID appears in
 `settings.json` under `plugins.enabled`. Each manifest resolves one entry point within its own
 package directory; invalid paths, platforms, architectures, or contract majors are rejected

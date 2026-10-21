@@ -8,6 +8,7 @@ using FocusRgb.Core.Persistence;
 using FocusRgb.Core.Selection;
 using FocusRgb.Core.Protocol;
 using FocusRgb.App.Diagnostics;
+using FocusRgb.App.Plugins;
 
 namespace FocusRgb.App.ViewModels
 {
@@ -57,6 +58,9 @@ namespace FocusRgb.App.ViewModels
         private DateTimeOffset _observationRetryAfter;
         private bool _loadingApplicationSettings;
         private string _applicationSettingsStatus = "Application preferences match the saved values.";
+        private string _pluginsStatus = "Open this page to load official plugins.";
+        private string _customPluginGitHubUrl = "";
+        private int _pluginActionPending;
 
         private MainWindowViewModel(
             ObservableCollection<ProfileOptionViewModel> profiles,
@@ -98,6 +102,8 @@ namespace FocusRgb.App.ViewModels
         public ObservableCollection<string> DraftExecutables { get; } = [];
         public ObservableCollection<string> DetectedExecutables { get; } = [];
         public ObservableCollection<string> IntegrationStatuses { get; } = ["No plugins configured."];
+        public ObservableCollection<OfficialPluginItemViewModel> OfficialPlugins { get; } = [];
+        public ObservableCollection<InstalledPluginItemViewModel> InstalledPlugins { get; } = [];
         public IReadOnlyList<string> CloseButtonBehaviors => CanMinimizeToTray
             ? ["Minimize to system tray", "Exit application"]
             : ["Exit application"];
@@ -253,6 +259,10 @@ namespace FocusRgb.App.ViewModels
             get => _applicationSettingsStatus;
             private set => Set(ref _applicationSettingsStatus, value);
         }
+        public string PluginsStatus { get => _pluginsStatus; private set => Set(ref _pluginsStatus, value); }
+        public string CustomPluginGitHubUrl { get => _customPluginGitHubUrl; set => Set(ref _customPluginGitHubUrl, value); }
+        public bool IsPluginActionPending => Volatile.Read(ref _pluginActionPending) != 0;
+        public IReadOnlyList<string> EnabledPluginIds => _settings.Plugins!.Enabled!.ToArray();
         public bool ShouldMinimizeOnClose => CanMinimizeToTray
             && _settings.Application!.CloseButtonBehavior == "minimize-to-tray";
         public string SavedApplicationTheme => _settings.Application!.Theme!;
@@ -469,6 +479,59 @@ namespace FocusRgb.App.ViewModels
             IntegrationStatuses.Clear();
             foreach (var status in statuses) IntegrationStatuses.Add(status);
             if (IntegrationStatuses.Count == 0) IntegrationStatuses.Add("No plugins configured.");
+        }
+
+        public void SetOfficialPlugins(OfficialPluginCatalogResult catalog)
+        {
+            OfficialPlugins.Clear();
+            foreach (var item in catalog.Items) OfficialPlugins.Add(new OfficialPluginItemViewModel(item));
+            PluginsStatus = catalog.Status;
+        }
+
+        public void SetInstalledPlugins(IEnumerable<InstalledPluginInfo> plugins)
+        {
+            InstalledPlugins.Clear();
+            foreach (var plugin in plugins) InstalledPlugins.Add(new InstalledPluginItemViewModel(plugin));
+        }
+
+        public void ReportPluginAction(string message) => PluginsStatus = message;
+
+        public bool BeginPluginAction()
+        {
+            if (Interlocked.CompareExchange(ref _pluginActionPending, 1, 0) != 0) return false;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsPluginActionPending)));
+            return true;
+        }
+
+        public void EndPluginAction()
+        {
+            Interlocked.Exchange(ref _pluginActionPending, 0);
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsPluginActionPending)));
+        }
+
+        public async Task<string?> SetPluginEnabledAsync(
+            string pluginId,
+            bool enabled,
+            CancellationToken cancellationToken = default)
+        {
+            if (!BeginSettingsSave()) return "Another settings save is already in progress.";
+            try
+            {
+                var enabledIds = _settings.Plugins!.Enabled!.ToHashSet(StringComparer.Ordinal);
+                if (enabled) enabledIds.Add(pluginId); else enabledIds.Remove(pluginId);
+                var candidate = WithPlugins(new PluginSettings
+                {
+                    Enabled = enabledIds.Order(StringComparer.Ordinal).ToList(),
+                    AdditionalProperties = _settings.Plugins.AdditionalProperties
+                });
+                var error = await SaveCandidateAsync(candidate, cancellationToken);
+                if (error is null) _settings = candidate;
+                return error;
+            }
+            finally
+            {
+                EndSettingsSave();
+            }
         }
 
         public async Task RefreshProfileResourcesAsync(CancellationToken cancellationToken = default)
@@ -1270,6 +1333,18 @@ namespace FocusRgb.App.ViewModels
             SchemaVersion = _settings.SchemaVersion,
             Application = application,
             Plugins = _settings.Plugins,
+            Selection = _settings.Selection,
+            Profiles = _settings.Profiles,
+            ApplicationGroups = _settings.ApplicationGroups,
+            Rules = _settings.Rules,
+            AdditionalProperties = _settings.AdditionalProperties
+        };
+
+        private SettingsDocument WithPlugins(PluginSettings plugins) => new()
+        {
+            SchemaVersion = _settings.SchemaVersion,
+            Application = _settings.Application,
+            Plugins = plugins,
             Selection = _settings.Selection,
             Profiles = _settings.Profiles,
             ApplicationGroups = _settings.ApplicationGroups,

@@ -18,7 +18,8 @@
       </Grid>
     </Border>
 
-    <TabControl Grid.Row="1" TabStripPlacement="Left" Margin="12">
+    <TabControl Grid.Row="1" TabStripPlacement="Left" Margin="12"
+                SelectionChanged="MainTabs_OnSelectionChanged">
       <TabItem Header="Home">
         <Grid Margin="24,16" RowDefinitions="Auto,*" RowSpacing="16">
           <Grid ColumnDefinitions="*,Auto">
@@ -270,11 +271,96 @@
         </ScrollViewer>
       </TabItem>
 
-      <TabItem Header="Integrations">
-        <StackPanel Margin="28,16" Spacing="10">
-          <TextBlock Text="Integrations" FontSize="26" FontWeight="SemiBold" />
-          <ItemsControl ItemsSource="{Binding IntegrationStatuses}" />
-        </StackPanel>
+      <TabItem Header="Plugins">
+        <ScrollViewer>
+          <StackPanel Margin="28,16" Spacing="18" MaxWidth="760" HorizontalAlignment="Stretch">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel>
+                <TextBlock Text="Plugins" FontSize="26" FontWeight="SemiBold" />
+                <TextBlock Text="Official discovery contacts GitHub only when this page opens or you refresh it."
+                           Opacity="0.65" TextWrapping="Wrap" />
+              </StackPanel>
+              <Button Grid.Column="1" Content="Refresh" Click="RefreshPlugins_OnClick" />
+            </Grid>
+            <TextBlock Text="{Binding PluginsStatus}" TextWrapping="Wrap" />
+
+            <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Spacing="10">
+                <TextBlock Text="Installed" FontSize="18" FontWeight="SemiBold" />
+                <ItemsControl ItemsSource="{Binding InstalledPlugins}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:InstalledPluginItemViewModel">
+                      <Border Padding="12" Margin="0,0,0,8" CornerRadius="8"
+                              BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="1">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                          <StackPanel Spacing="3">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding Id}" Opacity="0.65" />
+                            <TextBlock Text="{Binding Version}" Opacity="0.65" />
+                            <TextBlock Text="{Binding Origin}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button Content="Enable" IsEnabled="{Binding CanEnable}"
+                                    CommandParameter="{Binding}" Click="EnablePlugin_OnClick" />
+                            <Button Content="Disable" IsEnabled="{Binding CanDisable}"
+                                    CommandParameter="{Binding}" Click="DisablePlugin_OnClick" />
+                            <Button Content="Uninstall" CommandParameter="{Binding}" Click="UninstallPlugin_OnClick" />
+                          </StackPanel>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Spacing="10">
+                <TextBlock Text="Official plugins" FontSize="18" FontWeight="SemiBold" />
+                <ItemsControl ItemsSource="{Binding OfficialPlugins}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:OfficialPluginItemViewModel">
+                      <Border Padding="12" Margin="0,0,0,8" CornerRadius="8"
+                              BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="1">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                          <StackPanel Spacing="3">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Version}" Opacity="0.65" />
+                            <TextBlock Text="{Binding Contract}" Opacity="0.65" />
+                            <TextBlock Text="{Binding Resources}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Compatibility}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Source}" Opacity="0.65" TextWrapping="Wrap" />
+                          </StackPanel>
+                          <Button Grid.Column="1" Content="Install" IsEnabled="{Binding CanInstall}"
+                                  CommandParameter="{Binding}" Click="InstallOfficialPlugin_OnClick"
+                                  VerticalAlignment="Center" />
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Spacing="10">
+                <TextBlock Text="Custom plugins" FontSize="18" FontWeight="SemiBold" />
+                <TextBlock Text="Custom plugins are unverified and run with your full user permissions."
+                           TextWrapping="Wrap" />
+                <Button Content="Choose a plugin ZIPâ€¦" HorizontalAlignment="Left"
+                        Click="InstallCustomZip_OnClick" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <TextBox PlaceholderText="owner/repo or https://github.com/owner/repo"
+                           Text="{Binding CustomPluginGitHubUrl}" />
+                  <Button Grid.Column="1" Content="Install from GitHub"
+                          Click="InstallCustomGitHub_OnClick" />
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
       </TabItem>
       <TabItem Header="Devices" IsEnabled="False" />
       <TabItem Header="Settings">
