@@ -21,12 +21,9 @@ Preserve unrelated edits and untracked files. Follow `../.gitattributes` and nat
 CRLF working-tree endings (`core.autocrlf=true`). Put generated builds, reports, caches, and
 tool output under `../build/`; do not commit them.
 
-The code graph is at the repository root's `graphify-out/` and is ignored; local git hooks
-refresh it automatically. Before broad searches, orient with `graphify query "<question>"`,
-`graphify explain "<symbol>"`, or `graphify path "A" "B"`, keeping `--budget` small on each
-command. Confirm findings in the actual source because the graph can lag. If it is stale or
-missing, run `graphify update .` (no LLM). Never run `graphify extract` or semantic/deep modes
-unless the owner asks: they call an LLM. Never commit `graphify-out/`.
+The code graph is workspace-wide at `../build/graphify-out/` (see the workspace `AGENTS.md`).
+Query from the workspace folder or pass `--graph ../build/graphify-out/graph.json`. Never run
+`graphify hook install` in this repo; never commit graph output.
 
 Repository instructions (git-workflow, attribution, conventions, and slice docs) take precedence
 over the ponytail skill when they conflict; otherwise its "smallest complete change" applies,
@@ -40,6 +37,9 @@ request from `develop`. For requested repository work, assistants may create and
 branches, commit scoped changes, push working branches, and open pull requests into `develop`
 without separate confirmation. Do not include unrelated user changes, force-push, rewrite
 history, delete branches, or merge pull requests unless the user explicitly requests it.
+
+The current reviewer follows the [reviewer handbook](REVIEWER.md). A review counts for merging
+only when it is on the current head and explicitly says "ready to merge".
 
 For implementation, use the numbered index in `../docs/implementation-slices.md`, open the
 linked detail file for the active slice, and resume its exact state from `STATUS.md`. Use
