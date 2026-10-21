@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-20.
+Updated: 2026-10-21.
 
 ## Completed
 
@@ -207,28 +207,24 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 ## Active implementation slice
 
 - Slice: 17 — Stabilize the public SDK and contributor example
-- State: in progress. `FocusRGB-Plugin-SDK` PR #1 established the standalone single-package .NET
-  SDK and PR #2 added repository automation. The main-repository protocol-only cleanup is on
-  `chore/protocol-only-repository`; the Slice 16 live SignalRGB matrix remains issue #41.
-- Scope and dependencies verified: revised #84 keeps the normative spec, schemas, conformance
-  kit, and host in FocusRGB. SDK source, templates, tests, and publishing live only in
-  `FocusRGB/FocusRGB-Plugin-SDK`, tracked by SDK issue #3.
-- Implemented files and entry points: host wire types moved to the non-packable
-  `FocusRgb.Core.Protocol` namespace; SDK projects, template, consumer fixture, package tool, and
-  publish workflow were removed. The fake plugin speaks raw JSON-RPC without SDK source, while
-  schema drift tests continue to check the host model. Schema IDs target `spec-v1.1.0`.
-- Verification: Release build passes with 0 warnings/errors and 309/309 tests pass. The raw fake
-  continues to pass host lifecycle/error tests and language-neutral conformance.
-- External/live evidence: no tag or package was created, no plugin was installed, and no hardware
-  or visible lighting was changed.
-- Remaining acceptance criteria: merge the protocol cleanup; owner deletes the stale
-  `sdk-dotnet-v1.0.0` tag and creates `spec-v1.0.0`; SDK issue #3 adds tag-pinned drift tests and
-  conformance before any SDK tag. Then publish the single .NET SDK, add Node/Python, complete #80,
-  and move SignalRGB to SDK 1.0.
-- Current blocker or required product input: owner tag actions after the cleanup merges. The live
-  SignalRGB gate remains issue #41 and can run independently.
-- Uncommitted work to preserve: protocol-only cleanup on `chore/protocol-only-repository`.
-- Next action: open and review the protocol-only cleanup PR; do not tag from FocusRGB yet.
+- State: implementation complete; live package-install acceptance remains. Issues #79 and #84
+  are closed. Node and Python SDKs are deferred to `FocusRGB-Plugin-SDK#8` after Slice 29.
+- Implemented: FocusRGB owns protocol specs 1.0/1.1, schemas, conformance and internal host types;
+  `FocusRGB-Plugin-SDK` publishes the standalone `FocusRgb.PluginSdk` 1.0 package from nuget.org;
+  SignalRGB consumes it without credentials. Official discovery, cached offline results, safe
+  official/custom installation, per-plugin stop/start, uninstall and release assets are merged.
+- Verification: the latest FocusRGB Release build passes with 0 warnings/errors and 361/361 tests
+  pass on the package-download cleanup branch. SignalRGB builds cleanly and passes the
+  language-neutral conformance probe. Automated checks cover incompatible contracts, package
+  integrity/path safety, offline discovery, isolated lifecycle changes and generated templates.
+- Remaining acceptance: publish the owner-tagged SignalRGB `v1.0.0` release, then exercise official
+  discovery plus install, enable, start and uninstall through the real UI without restarting the
+  app. Exercise the custom routes at the same gate. Issue #80 and parent #42 remain open for this.
+- Current blocker or required product input: the SignalRGB release tag and live UI/lighting checks
+  are owner-only. The Slice 16 live matrix remains issue #41 and can cover the SignalRGB path.
+- Uncommitted work to preserve: none.
+- Next action: merge the reviewed download cleanup, prepare the SignalRGB 1.0 release, then run the
+  #80/#41 live gate and close Slice 17 if every check passes.
 - Next slice: 18 only after Slice 17 acceptance criteria pass.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -273,9 +269,8 @@ exact catalog match; SignalRGB bindings use a
 ## Next step
 
 Slice 16 implementation is merged in PR #85. Its live install, switching, visible-output,
-failure, and removal gate remains recorded in issue #41. Slice 17 is active on
-`chore/protocol-only-repository`. After it merges, the owner creates `spec-v1.0.0`; SDK issue #3
-then adds pinned drift/conformance checks before the first SDK tag or package publication.
+failure, and removal gate remains recorded in issue #41. Slice 17 implementation is merged;
+issues #80 and #42 remain open for the SignalRGB release and live package-install acceptance.
 
 Profile persistence, tray lifecycle, application settings, plugin hosting, coordination, Windows
 observations, application mappings, and the SignalRGB capability investigation are complete.
