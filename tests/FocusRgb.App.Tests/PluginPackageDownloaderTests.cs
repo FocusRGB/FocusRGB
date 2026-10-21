@@ -61,6 +61,19 @@ namespace FocusRgb.App.Tests
                 repository, TestContext.Current.CancellationToken));
         }
 
+        [Fact]
+        public async Task DownloadCustomGitHubAsync_StopsWhenCancelled()
+        {
+            using var client = new HttpClient(new WaitingHandler()) { Timeout = Timeout.InfiniteTimeSpan };
+            var downloader = new PluginPackageDownloader(client, _temporaryDirectory.Path);
+            using var cancellation = new CancellationTokenSource();
+
+            var download = downloader.DownloadCustomGitHubAsync("example/plugin", cancellation.Token);
+            await cancellation.CancelAsync();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => download);
+        }
+
         public void Dispose() => _temporaryDirectory.Dispose();
 
         private static HttpResponseMessage Json(string value) => new(HttpStatusCode.OK)
@@ -78,6 +91,17 @@ namespace FocusRgb.App.Tests
             protected override Task<HttpResponseMessage> SendAsync(
                 HttpRequestMessage request,
                 CancellationToken cancellationToken) => Task.FromResult(response(request));
+        }
+
+        private sealed class WaitingHandler : HttpMessageHandler
+        {
+            protected override async Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request,
+                CancellationToken cancellationToken)
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                throw new InvalidOperationException("The request should have been cancelled.");
+            }
         }
     }
 }

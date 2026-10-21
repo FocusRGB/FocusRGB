@@ -30,7 +30,8 @@ namespace FocusRgb.App
         private PluginPackageInstaller? _pluginInstaller;
         private PluginPackageDownloader? _pluginDownloader;
         private PluginInventory? _pluginInventory;
-        private readonly HttpClient _pluginHttpClient = new();
+        private readonly HttpClient _pluginDiscoveryHttpClient = new();
+        private readonly HttpClient _pluginDownloadHttpClient = new() { Timeout = Timeout.InfiniteTimeSpan };
         private OutputCoordinator? _outputCoordinator;
         private CancellationTokenSource? _pluginStartupCancellation;
         private Task? _pluginStartupTask;
@@ -88,11 +89,16 @@ namespace FocusRgb.App
                 _pluginGateway = pluginGateway;
                 var packagesDirectory = Path.Combine(directory, "plugins");
                 _packagesDirectory = packagesDirectory;
+                foreach (var warning in PluginTemporaryDirectory.CleanupContents(
+                    Path.Combine(directory, "plugin-downloads"), Path.Combine(packagesDirectory, ".staging")))
+                {
+                    AppLog.Write($"Plugin temporary-file cleanup failed: {warning}");
+                }
                 _pluginDiscovery = new OfficialPluginDiscovery(
-                    _pluginHttpClient, Path.Combine(directory, "cache", "official-plugins.json"));
+                    _pluginDiscoveryHttpClient, Path.Combine(directory, "cache", "official-plugins.json"));
                 _pluginInstaller = new PluginPackageInstaller(packagesDirectory);
                 _pluginDownloader = new PluginPackageDownloader(
-                    _pluginHttpClient, Path.Combine(directory, "plugin-downloads"));
+                    _pluginDownloadHttpClient, Path.Combine(directory, "plugin-downloads"));
                 _pluginInventory = new PluginInventory(packagesDirectory);
                 var enabledPluginIds = startup.Snapshot.Settings.Plugins!.Enabled!.ToArray();
                 var outputCoordinator = new OutputCoordinator(pluginGateway, startup.Snapshot.NativeSetup);
@@ -216,7 +222,8 @@ namespace FocusRgb.App
         {
             _pluginDiscovery?.Dispose();
             _pluginInventory?.Dispose();
-            _pluginHttpClient.Dispose();
+            _pluginDiscoveryHttpClient.Dispose();
+            _pluginDownloadHttpClient.Dispose();
         }
 
         public void ShowMainWindow()
