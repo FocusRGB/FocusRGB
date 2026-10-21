@@ -23,3 +23,10 @@ incompatible contracts clearly. A failed plugin restarts without interrupting he
 Signing, hosted marketplace, and automatic updates remain
 separate future work.
 
+Status (2026-10-21): the protocol, tagged specs, .NET SDK 1.0, template, conformance checks,
+runner host support, official discovery, package validation, install/runtime wiring and release
+assets are implemented. Follow-ups #79 and #84 are complete. Node and Python SDKs are deferred
+until after Slice 29 in `FocusRGB-Plugin-SDK#8` and do not block this slice. Issue #80 and this
+slice remain open until a SignalRGB `v1.0.0` release exists and the official install, enable,
+start and uninstall path is exercised through the real UI without restarting FocusRGB.
+
