@@ -11,6 +11,12 @@ namespace FocusRgb.App.Plugins
         public const int MaximumEntryCount = 512;
         public const long MaximumExpandedBytes = 256L * 1024 * 1024;
         private const long MaximumReleaseMetadataBytes = 1024 * 1024;
+        private static readonly HashSet<string> WindowsReservedNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        };
         private readonly string _packagesDirectory;
         private readonly string _stagingDirectory;
 
@@ -89,10 +95,12 @@ namespace FocusRgb.App.Plugins
 
                 var staged = await StageAsync(
                     archivePath, listing.Id, packageHash, cancellationToken).ConfigureAwait(false);
-                if (!staged.IsSuccess || staged.Manifest!.Version == listing.Version) return staged;
+                if (!staged.IsSuccess) return staged;
+                if (staged.ManifestSha256!.Equals(actualManifestHash, StringComparison.OrdinalIgnoreCase))
+                    return staged;
                 DeleteStagingWithoutThrowing(staged.StagedPackage!.Directory);
                 return PluginArchiveResult.Fail(
-                    "listing-mismatch", "The zip manifest does not match the listed plugin ID and version.");
+                    "listing-mismatch", "The zip manifest does not match the verified release manifest.");
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -105,7 +113,8 @@ namespace FocusRgb.App.Plugins
             }
         }
 
-        /// <summary>Swaps a validated staged package after its existing process has been stopped.</summary>
+        /// <summary>Swaps a validated staged package.</summary>
+        /// <remarks>The caller must stop the existing plugin process before invoking this method.</remarks>
         public PluginFileOperationResult Commit(StagedPluginPackage stagedPackage)
         {
             ArgumentNullException.ThrowIfNull(stagedPackage);
@@ -157,7 +166,8 @@ namespace FocusRgb.App.Plugins
             }
         }
 
-        /// <summary>Removes one package after its process has been stopped; saved plugin settings remain untouched.</summary>
+        /// <summary>Removes one package without changing its saved settings.</summary>
+        /// <remarks>The caller must stop the plugin process before invoking this method.</remarks>
         public PluginFileOperationResult Uninstall(string pluginId)
         {
             if (!IsPluginId(pluginId))
@@ -215,18 +225,21 @@ namespace FocusRgb.App.Plugins
 
                 stream.Position = 0;
                 using var archive = new ZipArchive(stream, ZipArchiveMode.Read, true);
-                var manifest = await ValidateArchiveAsync(
+                var validatedManifest = await ValidateArchiveAsync(
                     archive, expectedPluginId, cancellationToken).ConfigureAwait(false);
-                if (!extract) return PluginArchiveResult.Ok(manifest, hash);
+                if (!extract)
+                    return PluginArchiveResult.Ok(
+                        validatedManifest.Manifest, hash, validatedManifest.Sha256);
 
-                stagedDirectory = Path.Combine(_stagingDirectory, $"{manifest.Id}-{Guid.NewGuid():N}");
+                stagedDirectory = Path.Combine(
+                    _stagingDirectory, $"{validatedManifest.Manifest.Id}-{Guid.NewGuid():N}");
                 Directory.CreateDirectory(stagedDirectory);
                 await ExtractAsync(archive, stagedDirectory, cancellationToken).ConfigureAwait(false);
-                var loaded = PluginPackage.LoadDirectory(stagedDirectory, manifest.Id!);
+                var loaded = PluginPackage.LoadDirectory(stagedDirectory, validatedManifest.Manifest.Id!);
                 if (!loaded.IsSuccess)
                     throw new InvalidDataException(loaded.ErrorMessage);
-                return PluginArchiveResult.Ok(manifest, hash,
-                    new StagedPluginPackage(stagedDirectory, manifest));
+                return PluginArchiveResult.Ok(validatedManifest.Manifest, hash, validatedManifest.Sha256,
+                    new StagedPluginPackage(stagedDirectory, validatedManifest.Manifest));
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -241,7 +254,7 @@ namespace FocusRgb.App.Plugins
             }
         }
 
-        private static async Task<PluginManifest> ValidateArchiveAsync(
+        private static async Task<ValidatedManifest> ValidateArchiveAsync(
             ZipArchive archive,
             string? expectedPluginId,
             CancellationToken cancellationToken)
@@ -265,14 +278,33 @@ namespace FocusRgb.App.Plugins
             }
             if (manifestEntry is null)
                 throw new InvalidDataException($"The package root must contain {PluginPackage.ManifestFileName}.");
-            await using var manifestStream = manifestEntry.Open();
-            var manifest = await JsonSerializer.DeserializeAsync<PluginManifest>(
-                manifestStream, PluginJson.Options, cancellationToken).ConfigureAwait(false);
+            var manifestBytes = await ReadEntryAsync(
+                manifestEntry, MaximumReleaseMetadataBytes, cancellationToken).ConfigureAwait(false);
+            var manifest = JsonSerializer.Deserialize<PluginManifest>(manifestBytes, PluginJson.Options);
             var error = PluginPackage.ValidateManifest(manifest, expectedPluginId ?? manifest?.Id);
             if (error is not null) throw new InvalidDataException(error);
             if (!PluginPackage.SupportsCurrentPlatform(manifest!))
                 throw new InvalidDataException("The package does not support this platform.");
-            return manifest!;
+            var hash = Convert.ToHexString(SHA256.HashData(manifestBytes)).ToLowerInvariant();
+            return new ValidatedManifest(manifest!, hash);
+        }
+
+        private static async Task<byte[]> ReadEntryAsync(
+            ZipArchiveEntry entry,
+            long maximumBytes,
+            CancellationToken cancellationToken)
+        {
+            await using var input = entry.Open();
+            using var output = new MemoryStream();
+            var buffer = new byte[81920];
+            int read;
+            while ((read = await input.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+            {
+                if (read > maximumBytes - output.Length)
+                    throw new InvalidDataException($"{entry.FullName} exceeds the metadata size limit.");
+                await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+            }
+            return output.ToArray();
         }
 
         private static async Task ExtractAsync(
@@ -313,15 +345,25 @@ namespace FocusRgb.App.Plugins
         private static void ValidateEntry(ZipArchiveEntry entry)
         {
             var path = entry.FullName.Replace('\\', '/');
+            var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
             if (string.IsNullOrWhiteSpace(path) || path.StartsWith('/') || path.Contains(':')
                 || Path.IsPathRooted(entry.FullName)
-                || path.Split('/', StringSplitOptions.RemoveEmptyEntries).Contains("..", StringComparer.Ordinal))
+                || segments.Contains("..", StringComparer.Ordinal)
+                || segments.Any(IsUnsafeWindowsSegment))
             {
                 throw new InvalidDataException($"The package path '{entry.FullName}' is unsafe.");
             }
             var unixType = (entry.ExternalAttributes >> 16) & 0xF000;
             if (unixType == 0xA000 || (entry.ExternalAttributes & (int)FileAttributes.ReparsePoint) != 0)
                 throw new InvalidDataException($"The package entry '{entry.FullName}' is a link or reparse point.");
+        }
+
+        private static bool IsUnsafeWindowsSegment(string segment)
+        {
+            if (segment.EndsWith('.') || segment.EndsWith(' ')) return true;
+            var separator = segment.IndexOf('.');
+            var stem = (separator < 0 ? segment : segment[..separator]).TrimEnd(' ', '.');
+            return WindowsReservedNames.Contains(stem);
         }
 
         private static bool IsSha256(string value) => value.Length == 64
@@ -396,6 +438,8 @@ namespace FocusRgb.App.Plugins
             }
             Directory.Delete(path);
         }
+
+        private sealed record ValidatedManifest(PluginManifest Manifest, string Sha256);
     }
 
     /// <summary>Reports archive identity and, after extraction, its validated staging directory.</summary>
@@ -404,6 +448,7 @@ namespace FocusRgb.App.Plugins
         public bool IsSuccess => Manifest is not null;
         public PluginManifest? Manifest { get; private init; }
         public string? Sha256 { get; private init; }
+        public string? ManifestSha256 { get; private init; }
         public StagedPluginPackage? StagedPackage { get; private init; }
         public string? ErrorCode { get; private init; }
         public string? ErrorMessage { get; private init; }
@@ -411,10 +456,12 @@ namespace FocusRgb.App.Plugins
         public static PluginArchiveResult Ok(
             PluginManifest manifest,
             string sha256,
+            string manifestSha256,
             StagedPluginPackage? stagedPackage = null) => new()
             {
                 Manifest = manifest,
                 Sha256 = sha256,
+                ManifestSha256 = manifestSha256,
                 StagedPackage = stagedPackage
             };
 

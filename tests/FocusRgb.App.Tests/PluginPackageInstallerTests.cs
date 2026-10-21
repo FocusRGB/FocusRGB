@@ -127,10 +127,31 @@ namespace FocusRgb.App.Tests
             Assert.Empty(Directory.GetDirectories(Path.Combine(PackagesDirectory, ".staging")));
         }
 
+        [Fact]
+        public async Task StageOfficialAsync_RejectsZipManifestThatDiffersOnlyByResources()
+        {
+            var archive = CreatePackage(resources: ["process.read"]);
+            var (manifest, checksums) = CreateReleaseMetadata(archive, ManifestJson());
+            var installer = new PluginPackageInstaller(PackagesDirectory);
+
+            var result = await installer.StageOfficialAsync(
+                Listing(), archive, manifest, checksums, TestContext.Current.CancellationToken);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("listing-mismatch", result.ErrorCode);
+            Assert.Empty(Directory.GetDirectories(Path.Combine(PackagesDirectory, ".staging")));
+        }
+
         [Theory]
         [InlineData("../outside.txt")]
         [InlineData("/absolute.txt")]
         [InlineData("plugin.exe:payload")]
+        [InlineData("CON")]
+        [InlineData("NUL.txt")]
+        [InlineData("folder/COM1.log")]
+        [InlineData("folder/LPT9")]
+        [InlineData("folder./file.txt")]
+        [InlineData("folder/file.txt ")]
         public async Task StageAsync_RejectsUnsafePaths(string unsafePath)
         {
             var archive = CreatePackage(extraEntry: unsafePath);
@@ -221,11 +242,12 @@ namespace FocusRgb.App.Tests
             string? extraEntry = null,
             bool symbolicLink = false,
             int additionalEntries = 0,
-            string version = "1.0.0")
+            string version = "1.0.0",
+            IReadOnlyList<string>? resources = null)
         {
             var path = Path.Combine(_temporaryDirectory.Path, $"package-{Guid.NewGuid():N}.zip");
             using var archive = ZipFile.Open(path, ZipArchiveMode.Create);
-            WriteEntry(archive, PluginPackage.ManifestFileName, ManifestJson(version));
+            WriteEntry(archive, PluginPackage.ManifestFileName, ManifestJson(version, resources));
             WriteEntry(archive, "plugin.exe", "plugin");
             if (extraEntry is not null) WriteEntry(archive, extraEntry, "unsafe");
             for (var index = 0; index < additionalEntries; index++)
@@ -277,7 +299,9 @@ namespace FocusRgb.App.Tests
             IsCompatible = true
         };
 
-        private static string ManifestJson(string version = "1.0.0") => JsonSerializer.Serialize(new
+        private static string ManifestJson(
+            string version = "1.0.0",
+            IReadOnlyList<string>? resources = null) => JsonSerializer.Serialize(new
         {
             schemaVersion = 1,
             id = "fake-output",
@@ -287,7 +311,7 @@ namespace FocusRgb.App.Tests
             operatingSystems = OperatingSystems,
             architectures = Architectures,
             roles = Roles,
-            resources = Array.Empty<string>(),
+            resources = resources ?? Array.Empty<string>(),
             license = "MIT"
         }, PluginJson.Options);
 
