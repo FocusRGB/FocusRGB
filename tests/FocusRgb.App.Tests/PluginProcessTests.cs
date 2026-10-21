@@ -532,6 +532,31 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task Runtime_StartPluginAsync_RejectsAlreadyRunningPlugin()
+        {
+            var tempDirectory = new TempDirectory(nameof(PluginProcessTests));
+            var directory = tempDirectory.Path;
+            try
+            {
+                await FakePluginPackage.CreateAsync(directory, TestContext.Current.CancellationToken);
+                await using var runtime = await PluginRuntime.StartAsync(
+                    directory, ["fake-output"], TestContext.Current.CancellationToken);
+                var running = Assert.Single(runtime.Entries);
+
+                var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                    runtime.StartPluginAsync(
+                        directory, "fake-output", TestContext.Current.CancellationToken));
+
+                Assert.Contains("must be stopped", exception.Message, StringComparison.Ordinal);
+                Assert.Same(running, Assert.Single(runtime.Entries));
+            }
+            finally
+            {
+                tempDirectory.Dispose();
+            }
+        }
+
+        [Fact]
         public async Task Coordinator_AppliesDesiredProfile_ThroughRealFakeProcess()
         {
             var started = await StartAsync();

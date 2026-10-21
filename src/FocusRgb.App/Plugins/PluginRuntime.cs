@@ -132,6 +132,12 @@ namespace FocusRgb.App.Plugins
             try
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
+                lock (_entries)
+                {
+                    if (_entries.Any(entry => entry.PluginId == pluginId && entry.IsRunning))
+                        throw new InvalidOperationException(
+                            $"Plugin '{pluginId}' must be stopped before it can be started again.");
+                }
                 var entry = await StartOneAsync(
                     packagesDirectory, pluginId, cancellationToken).ConfigureAwait(false);
                 PluginProcessClient? previous = null;
