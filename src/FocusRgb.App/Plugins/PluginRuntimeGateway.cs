@@ -32,6 +32,8 @@ namespace FocusRgb.App.Plugins
             }
         }
 
+        public void Detach(string pluginId) => _entries.TryRemove(pluginId, out _);
+
         public event EventHandler<PluginAvailabilityChangedEventArgs>? AvailabilityChanged;
 
         public IReadOnlyList<PluginCapability>? GetCapabilities(string pluginId) =>

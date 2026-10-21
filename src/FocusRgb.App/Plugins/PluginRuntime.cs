@@ -97,6 +97,71 @@ namespace FocusRgb.App.Plugins
             }
         }
 
+        public async Task<bool> StopAsync(
+            string pluginId,
+            CancellationToken cancellationToken = default)
+        {
+            await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                PluginProcessClient? client;
+                lock (_entries)
+                {
+                    var index = _entries.FindIndex(entry => entry.PluginId == pluginId);
+                    if (index < 0) return false;
+                    client = _entries[index].Client;
+                    _entries.RemoveAt(index);
+                }
+                if (client is not null)
+                    await DisposeWithoutThrowingAsync(client).ConfigureAwait(false);
+                return true;
+            }
+            finally
+            {
+                _lifecycleGate.Release();
+            }
+        }
+
+        public async Task<PluginRuntimeEntry> StartPluginAsync(
+            string packagesDirectory,
+            string pluginId,
+            CancellationToken cancellationToken = default)
+        {
+            await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                lock (_entries)
+                {
+                    if (_entries.Any(entry => entry.PluginId == pluginId && entry.IsRunning))
+                        throw new InvalidOperationException(
+                            $"Plugin '{pluginId}' must be stopped before it can be started again.");
+                }
+                var entry = await StartOneAsync(
+                    packagesDirectory, pluginId, cancellationToken).ConfigureAwait(false);
+                PluginProcessClient? previous = null;
+                lock (_entries)
+                {
+                    var index = _entries.FindIndex(current => current.PluginId == pluginId);
+                    if (index < 0)
+                        _entries.Add(entry);
+                    else
+                    {
+                        previous = _entries[index].Client;
+                        _entries[index] = entry;
+                    }
+                }
+                if (previous is not null)
+                    await DisposeWithoutThrowingAsync(previous).ConfigureAwait(false);
+                return entry;
+            }
+            finally
+            {
+                _lifecycleGate.Release();
+            }
+        }
+
         private static async Task<PluginRuntimeEntry> StartOneAsync(
             string packagesDirectory,
             string pluginId,
