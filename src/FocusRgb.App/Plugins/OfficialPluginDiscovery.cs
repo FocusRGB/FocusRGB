@@ -110,13 +110,14 @@ namespace FocusRgb.App.Plugins
                 $"https://api.github.com/repos/{OfficialOrganization}/{name}/releases/latest"),
                 cancellationToken).ConfigureAwait(false);
             if (release.Draft || release.Prerelease) return null;
-            var package = release.Assets.FirstOrDefault(asset =>
-                asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
+            var packages = release.Assets.Where(asset =>
+                asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)).ToList();
             var manifestAsset = release.Assets.FirstOrDefault(asset =>
                 asset.Name.Equals(PluginPackage.ManifestFileName, StringComparison.Ordinal));
             var checksums = release.Assets.FirstOrDefault(asset =>
                 asset.Name.Equals("SHA256SUMS", StringComparison.Ordinal));
-            if (package is null || manifestAsset is null || checksums is null) return null;
+            if (packages.Count == 0 || manifestAsset is null || checksums is null) return null;
+            var package = packages[0];
 
             var manifest = await GetJsonAsync<PluginManifest>(
                 RequireHttps(manifestAsset.DownloadUrl), cancellationToken).ConfigureAwait(false);
@@ -131,6 +132,12 @@ namespace FocusRgb.App.Plugins
                 ReleaseUrl = RequireHttps(release.HtmlUrl).AbsoluteUri,
                 PackageUrl = RequireHttps(package.DownloadUrl).AbsoluteUri,
                 PackageFileName = package.Name,
+                PackageCandidates = packages.Select(asset => new OfficialPluginAsset
+                {
+                    Name = asset.Name,
+                    Url = RequireHttps(asset.DownloadUrl).AbsoluteUri
+                }).ToList(),
+                ManifestUrl = RequireHttps(manifestAsset.DownloadUrl).AbsoluteUri,
                 ChecksumsUrl = RequireHttps(checksums.DownloadUrl).AbsoluteUri,
                 ContractVersion = manifest.ContractVersion!,
                 Resources = manifest.Resources!,
@@ -279,12 +286,21 @@ namespace FocusRgb.App.Plugins
         public required string ReleaseUrl { get; init; }
         public required string PackageUrl { get; init; }
         public required string PackageFileName { get; init; }
+        public IReadOnlyList<OfficialPluginAsset> PackageCandidates { get; init; } = [];
+        public required string ManifestUrl { get; init; }
         public required string ChecksumsUrl { get; init; }
         public required string ContractVersion { get; init; }
         public IReadOnlyList<string> Resources { get; init; } = [];
         public IReadOnlyList<string> OperatingSystems { get; init; } = [];
         public IReadOnlyList<string> Architectures { get; init; } = [];
         public bool IsCompatible { get; init; }
+    }
+
+    /// <summary>Identifies one zip asset advertised by an official release.</summary>
+    public sealed class OfficialPluginAsset
+    {
+        public required string Name { get; init; }
+        public required string Url { get; init; }
     }
 
     /// <summary>Returns a fresh, cached, or unavailable official plugin catalog.</summary>
