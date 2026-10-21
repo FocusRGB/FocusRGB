@@ -21,9 +21,12 @@ Preserve unrelated edits and untracked files. Follow `../.gitattributes` and nat
 CRLF working-tree endings (`core.autocrlf=true`). Put generated builds, reports, caches, and
 tool output under `../build/`; do not commit them.
 
-The code graph is workspace-wide at `../build/graphify-out/` (see the workspace `AGENTS.md`).
-Query from the workspace folder or pass `--graph ../build/graphify-out/graph.json`. Never run
-`graphify hook install` in this repo; never commit graph output.
+The code graph is workspace-wide at the workspace folder's `build/graphify-out/` (the parent of
+this clone; see the workspace `AGENTS.md`). Query from the workspace folder, or from the repository
+root pass `--graph ../build/graphify-out/graph.json`. Confirm graph findings in source because the
+graph can lag. Never run `graphify update` inside a clone; run it only from the workspace folder.
+Never run `graphify hook install` in this repo. Never run `graphify extract` or semantic/deep modes
+unless the owner asks because they call an LLM. Never commit graph output.
 
 Repository instructions (git-workflow, attribution, conventions, and slice docs) take precedence
 over the ponytail skill when they conflict; otherwise its "smallest complete change" applies,
@@ -38,8 +41,9 @@ branches, commit scoped changes, push working branches, and open pull requests i
 without separate confirmation. Do not include unrelated user changes, force-push, rewrite
 history, delete branches, or merge pull requests unless the user explicitly requests it.
 
-The current reviewer follows the [reviewer handbook](REVIEWER.md). A review counts for merging
-only when it is on the current head and explicitly says "ready to merge".
+The current reviewer follows the [reviewer handbook](REVIEWER.md). The workspace `REVIEWER.md` is
+canonical; this repository copy is a snapshot. A review counts for merging only when it is on the
+current head and explicitly says "ready to merge".
 
 For implementation, use the numbered index in `../docs/implementation-slices.md`, open the
 linked detail file for the active slice, and resume its exact state from `STATUS.md`. Use

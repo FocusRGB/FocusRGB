@@ -109,9 +109,12 @@ Updated: 2026-10-21.
 - SignalRGB implementation and maintained public research now live in the independent
   `FocusRGB/FocusRGB-Plugin-SignalRGB` repository.
 - Generated builds and tool artifacts are consolidated under the ignored `build/` directory.
-  The code graph is workspace-wide at `../build/graphify-out/` (see the workspace `AGENTS.md`).
-  Query from the workspace folder or pass `--graph ../build/graphify-out/graph.json`. Never run
-  `graphify hook install` in this repo; never commit graph output.
+  The code graph is workspace-wide at the workspace folder's `build/graphify-out/` (the parent of
+  this clone; see the workspace `AGENTS.md`). Query from the workspace folder, or from the repository
+  root pass `--graph ../build/graphify-out/graph.json`. Confirm graph findings in source because the
+  graph can lag. Never run `graphify update` inside a clone; run it only from the workspace folder.
+  Never run `graphify hook install` in this repo. Never run `graphify extract` or semantic/deep modes
+  unless the owner asks because they call an LLM. Never commit graph output.
 - Runtime selected: .NET 10 with an Avalonia tray/settings UI and UI-independent background
   core, targeting Windows, macOS, and Linux where platform integrations permit it.
 - Plugin direction selected: open manifests/protocol/schemas and official .NET SDK/templates;
