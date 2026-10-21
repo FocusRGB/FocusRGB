@@ -15,7 +15,7 @@ using FocusRgb.Platform.Windows;
 
 namespace FocusRgb.App
 {
-    public sealed class App : Application
+    public sealed class App : Application, IDisposable
     {
         private TrayIcon? _trayIcon;
         private IClassicDesktopStyleApplicationLifetime? _desktop;
@@ -23,6 +23,14 @@ namespace FocusRgb.App
         private Window? _startupErrorWindow;
         private LocalStateStore? _store;
         private PluginRuntime? _plugins;
+        private PluginRuntimeGateway? _pluginGateway;
+        private MainWindowViewModel? _viewModel;
+        private string? _packagesDirectory;
+        private OfficialPluginDiscovery? _pluginDiscovery;
+        private PluginPackageInstaller? _pluginInstaller;
+        private PluginPackageDownloader? _pluginDownloader;
+        private PluginInventory? _pluginInventory;
+        private readonly HttpClient _pluginHttpClient = new();
         private OutputCoordinator? _outputCoordinator;
         private CancellationTokenSource? _pluginStartupCancellation;
         private Task? _pluginStartupTask;
@@ -34,6 +42,7 @@ namespace FocusRgb.App
         private readonly ConcurrentDictionary<string, byte> _pluginRestartsPending = new(StringComparer.Ordinal);
         private readonly ConcurrentDictionary<string, int> _pluginRestartAttempts = new(StringComparer.Ordinal);
         private readonly ConcurrentDictionary<string, byte> _pluginRestartLimits = new(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, byte> _pluginPackageChanges = new(StringComparer.Ordinal);
         private Win32Properties.CustomWndProcHookCallback? _windowsMessageHook;
 
         public override void Initialize() => AvaloniaXamlLoader.Load(this);
@@ -49,6 +58,7 @@ namespace FocusRgb.App
                 desktop.Exit += (_, _) =>
                 {
                     _trayIcon?.Dispose();
+                    Dispose();
                 };
                 InitializeDesktopAsync(desktop);
             }
@@ -75,7 +85,15 @@ namespace FocusRgb.App
                 AppLog.Configure(directory, startup.Snapshot!.Settings.Application!.VerboseLogging == true);
                 AppLog.Write($"Started; settings source={startup.Snapshot.SettingsSource}.");
                 var pluginGateway = new PluginRuntimeGateway([]);
+                _pluginGateway = pluginGateway;
                 var packagesDirectory = Path.Combine(directory, "plugins");
+                _packagesDirectory = packagesDirectory;
+                _pluginDiscovery = new OfficialPluginDiscovery(
+                    _pluginHttpClient, Path.Combine(directory, "cache", "official-plugins.json"));
+                _pluginInstaller = new PluginPackageInstaller(packagesDirectory);
+                _pluginDownloader = new PluginPackageDownloader(
+                    _pluginHttpClient, Path.Combine(directory, "plugin-downloads"));
+                _pluginInventory = new PluginInventory(packagesDirectory);
                 var enabledPluginIds = startup.Snapshot.Settings.Plugins!.Enabled!.ToArray();
                 var outputCoordinator = new OutputCoordinator(pluginGateway, startup.Snapshot.NativeSetup);
                 _outputCoordinator = outputCoordinator;
@@ -86,6 +104,7 @@ namespace FocusRgb.App
                 ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
                 var viewModel = MainWindowViewModel.CreatePersistent(
                     startup.Snapshot, _store, trayAvailable, outputCoordinator, initialOutput, pluginGateway);
+                _viewModel = viewModel;
                 pluginGateway.AvailabilityChanged += async (_, change) =>
                 {
                     if (_shutdownApproved) return;
@@ -97,7 +116,8 @@ namespace FocusRgb.App
                             change.ReasonCode,
                             change.Message);
                         await Dispatcher.UIThread.InvokeAsync(() => UpdateIntegrationStatuses(viewModel));
-                        if (change.ReasonCode is "plugin-exited" or "timeout")
+                        if (change.ReasonCode is "plugin-exited" or "timeout"
+                            && !_pluginPackageChanges.ContainsKey(change.PluginId))
                         {
                             AppLog.Write($"Plugin {change.PluginId} became unavailable: {change.Message}");
                             _ = RestartPluginAsync(packagesDirectory, change.PluginId, pluginGateway, viewModel, outputCoordinator);
@@ -147,6 +167,7 @@ namespace FocusRgb.App
                     {
                         pluginGateway.Attach(_plugins.Entries);
                         UpdateIntegrationStatuses(viewModel);
+                        UpdateInstalledPlugins(viewModel);
                         await viewModel.ReapplyOutputAsync();
                         await viewModel.RefreshProfileResourcesAsync();
                         foreach (var entry in _plugins.Entries.Where(entry => !entry.IsRunning))
@@ -190,6 +211,13 @@ namespace FocusRgb.App
             "Dark" or "dark" => ThemeVariant.Dark,
             _ => ThemeVariant.Default
         };
+
+        public void Dispose()
+        {
+            _pluginDiscovery?.Dispose();
+            _pluginInventory?.Dispose();
+            _pluginHttpClient.Dispose();
+        }
 
         public void ShowMainWindow()
         {
@@ -357,6 +385,7 @@ namespace FocusRgb.App
         {
             if (_shutdownApproved
                 || _plugins is not { } runtime
+                || _pluginPackageChanges.ContainsKey(pluginId)
                 || !_pluginRestartsPending.TryAdd(pluginId, 0)) return;
             var retry = false;
             var attempt = 0;
@@ -369,7 +398,8 @@ namespace FocusRgb.App
                     return;
                 }
                 await Task.Delay(attempt switch { 1 => 1000, 2 => 5000, _ => 30000 });
-                if (_shutdownApproved || !ReferenceEquals(_plugins, runtime)) return;
+                if (_shutdownApproved || !ReferenceEquals(_plugins, runtime)
+                    || _pluginPackageChanges.ContainsKey(pluginId)) return;
                 var entry = await runtime.RestartAsync(packagesDirectory, pluginId);
                 if (_shutdownApproved || !ReferenceEquals(_plugins, runtime)) return;
                 _pluginRestartLimits.TryRemove(pluginId, out _);
@@ -450,6 +480,236 @@ namespace FocusRgb.App
                 else
                     AppLog.Write($"Plugin {plugin.PluginId} did not start: {plugin.ErrorCode}: {plugin.ErrorMessage}");
             }
+        }
+
+        public async Task LoadPluginPageAsync(bool refresh, CancellationToken cancellationToken = default)
+        {
+            if (_pluginDiscovery is null || _viewModel is null) return;
+            var catalog = await _pluginDiscovery.DiscoverAsync(refresh, cancellationToken);
+            _viewModel.SetOfficialPlugins(catalog);
+            UpdateInstalledPlugins(_viewModel);
+        }
+
+        public Task<PluginArchiveResult> InspectCustomPluginAsync(
+            string archivePath,
+            CancellationToken cancellationToken = default) =>
+            _pluginInstaller?.InspectAsync(archivePath, cancellationToken: cancellationToken)
+            ?? Task.FromResult(PluginArchiveResult.Fail("runtime-unavailable", "Plugin management is not ready."));
+
+        public Task<DownloadedPluginPackage> DownloadCustomPluginAsync(
+            string repository,
+            CancellationToken cancellationToken = default) =>
+            _pluginDownloader?.DownloadCustomGitHubAsync(repository, cancellationToken)
+            ?? throw new InvalidOperationException("Plugin management is not ready.");
+
+        public async Task<PluginManagementResult> InstallOfficialPluginAsync(
+            OfficialPluginListing listing,
+            bool enable,
+            CancellationToken cancellationToken = default)
+        {
+            if (_pluginDownloader is null || _pluginInstaller is null)
+                return PluginManagementResult.Fail("Plugin management is not ready.");
+            using var download = await _pluginDownloader.DownloadOfficialAsync(listing, cancellationToken);
+            var staged = await _pluginInstaller.StageOfficialAsync(
+                listing, download.ArchivePath, download.ManifestPath!, download.ChecksumsPath!, cancellationToken);
+            if (!staged.IsSuccess)
+                return PluginManagementResult.Fail(staged.ErrorMessage ?? "The official package could not be staged.");
+            try
+            {
+                return await CommitPluginAsync(
+                    staged.StagedPackage!, enable, isOfficial: true, cancellationToken);
+            }
+            finally
+            {
+                _pluginInstaller.Discard(staged.StagedPackage!);
+            }
+        }
+
+        public async Task<PluginManagementResult> InstallCustomPluginAsync(
+            string archivePath,
+            string pluginId,
+            string sha256,
+            bool enable,
+            CancellationToken cancellationToken = default)
+        {
+            if (_pluginInstaller is null)
+                return PluginManagementResult.Fail("Plugin management is not ready.");
+            var staged = await _pluginInstaller.StageAsync(
+                archivePath, pluginId, sha256, cancellationToken);
+            if (!staged.IsSuccess)
+                return PluginManagementResult.Fail(staged.ErrorMessage ?? "The custom package could not be staged.");
+            try
+            {
+                return await CommitPluginAsync(
+                    staged.StagedPackage!, enable, isOfficial: false, cancellationToken);
+            }
+            finally
+            {
+                _pluginInstaller.Discard(staged.StagedPackage!);
+            }
+        }
+
+        public async Task<PluginManagementResult> SetPluginEnabledAsync(
+            string pluginId,
+            bool enabled,
+            CancellationToken cancellationToken = default)
+        {
+            if (_viewModel is null || await GetPluginRuntimeAsync() is not { } runtime)
+                return PluginManagementResult.Fail("Plugin runtime is not ready.");
+            if (!_pluginPackageChanges.TryAdd(pluginId, 0))
+                return PluginManagementResult.Fail($"Plugin '{pluginId}' already has an action in progress.");
+            try
+            {
+                if (enabled)
+                {
+                    var error = await _viewModel.SetPluginEnabledAsync(pluginId, true, cancellationToken);
+                    if (error is not null) return PluginManagementResult.Fail(error);
+                    var started = await StartManagedPluginAsync(runtime, pluginId, cancellationToken);
+                    return started.IsRunning
+                        ? PluginManagementResult.Ok($"Enabled and started {pluginId}.")
+                        : PluginManagementResult.Fail(started.ErrorMessage ?? $"Enabled {pluginId}, but it did not start.");
+                }
+
+                var hadEntry = runtime.Entries.Any(entry => entry.PluginId == pluginId);
+                await StopManagedPluginAsync(runtime, pluginId, cancellationToken);
+                var saveError = await _viewModel.SetPluginEnabledAsync(pluginId, false, cancellationToken);
+                if (saveError is null) return PluginManagementResult.Ok($"Disabled {pluginId}.");
+                if (hadEntry) await StartManagedPluginAsync(runtime, pluginId, cancellationToken);
+                return PluginManagementResult.Fail(saveError);
+            }
+            finally
+            {
+                _pluginPackageChanges.TryRemove(pluginId, out _);
+                UpdatePluginViews();
+            }
+        }
+
+        public async Task<PluginManagementResult> UninstallPluginAsync(
+            string pluginId,
+            CancellationToken cancellationToken = default)
+        {
+            if (_viewModel is null || _pluginInstaller is null || _pluginInventory is null
+                || await GetPluginRuntimeAsync() is not { } runtime)
+                return PluginManagementResult.Fail("Plugin management is not ready.");
+            if (!_pluginPackageChanges.TryAdd(pluginId, 0))
+                return PluginManagementResult.Fail($"Plugin '{pluginId}' already has an action in progress.");
+            var wasEnabled = _viewModel.EnabledPluginIds.Contains(pluginId, StringComparer.Ordinal);
+            var hadEntry = runtime.Entries.Any(entry => entry.PluginId == pluginId);
+            try
+            {
+                await StopManagedPluginAsync(runtime, pluginId, cancellationToken);
+                var saveError = await _viewModel.SetPluginEnabledAsync(pluginId, false, cancellationToken);
+                if (saveError is not null)
+                {
+                    if (hadEntry) await StartManagedPluginAsync(runtime, pluginId, cancellationToken);
+                    return PluginManagementResult.Fail(saveError);
+                }
+                var removed = _pluginInstaller.Uninstall(pluginId);
+                if (!removed.IsSuccess)
+                {
+                    if (wasEnabled) await _viewModel.SetPluginEnabledAsync(pluginId, true, cancellationToken);
+                    if (hadEntry) await StartManagedPluginAsync(runtime, pluginId, cancellationToken);
+                    return PluginManagementResult.Fail(removed.ErrorMessage ?? $"Could not uninstall {pluginId}.");
+                }
+                var warning = await _pluginInventory.SetOfficialAsync(pluginId, false, cancellationToken);
+                return PluginManagementResult.Ok($"Uninstalled {pluginId}."
+                    + (warning is null ? "" : $" Origin metadata warning: {warning}"));
+            }
+            finally
+            {
+                _pluginPackageChanges.TryRemove(pluginId, out _);
+                UpdatePluginViews();
+            }
+        }
+
+        private async Task<PluginManagementResult> CommitPluginAsync(
+            StagedPluginPackage staged,
+            bool enable,
+            bool isOfficial,
+            CancellationToken cancellationToken)
+        {
+            if (_viewModel is null || _pluginInstaller is null || _pluginInventory is null
+                || await GetPluginRuntimeAsync() is not { } runtime)
+                return PluginManagementResult.Fail("Plugin management is not ready.");
+            var pluginId = staged.Manifest.Id!;
+            if (!_pluginPackageChanges.TryAdd(pluginId, 0))
+                return PluginManagementResult.Fail($"Plugin '{pluginId}' already has an action in progress.");
+            var hadEntry = runtime.Entries.Any(entry => entry.PluginId == pluginId);
+            try
+            {
+                await StopManagedPluginAsync(runtime, pluginId, cancellationToken);
+                var committed = _pluginInstaller.Commit(staged);
+                if (!committed.IsSuccess)
+                {
+                    if (hadEntry) await StartManagedPluginAsync(runtime, pluginId, cancellationToken);
+                    return PluginManagementResult.Fail(committed.ErrorMessage ?? $"Could not install {pluginId}.");
+                }
+
+                var originWarning = await _pluginInventory.SetOfficialAsync(
+                    pluginId, isOfficial, cancellationToken);
+                var saveError = await _viewModel.SetPluginEnabledAsync(pluginId, enable, cancellationToken);
+                var shouldRun = _viewModel.EnabledPluginIds.Contains(pluginId, StringComparer.Ordinal);
+                PluginRuntimeEntry? started = null;
+                if (shouldRun) started = await StartManagedPluginAsync(runtime, pluginId, cancellationToken);
+                if (saveError is not null)
+                    return PluginManagementResult.Fail($"Installed {pluginId}, but settings could not be saved: {saveError}");
+                if (started is not null && !started.IsRunning)
+                    return PluginManagementResult.Fail($"Installed and enabled {pluginId}, but it did not start: {started.ErrorMessage}");
+                var warning = committed.Warning ?? originWarning;
+                return PluginManagementResult.Ok($"Installed {pluginId} {staged.Manifest.Version}."
+                    + (warning is null ? "" : $" Warning: {warning}"));
+            }
+            finally
+            {
+                _pluginPackageChanges.TryRemove(pluginId, out _);
+                UpdatePluginViews();
+            }
+        }
+
+        private async Task<PluginRuntime?> GetPluginRuntimeAsync()
+        {
+            if (_pluginStartupTask is { } startup) await startup;
+            return _plugins;
+        }
+
+        private async Task StopManagedPluginAsync(
+            PluginRuntime runtime,
+            string pluginId,
+            CancellationToken cancellationToken)
+        {
+            if (!runtime.Entries.Any(entry => entry.PluginId == pluginId)) return;
+            if (_outputCoordinator is not null)
+                await _outputCoordinator.ReportAvailabilityAsync(
+                    pluginId, false, "plugin-package-change", "The plugin is being changed.", cancellationToken);
+            _pluginGateway?.Detach(pluginId);
+            await runtime.StopAsync(pluginId, cancellationToken);
+        }
+
+        private async Task<PluginRuntimeEntry> StartManagedPluginAsync(
+            PluginRuntime runtime,
+            string pluginId,
+            CancellationToken cancellationToken)
+        {
+            var entry = await runtime.StartPluginAsync(_packagesDirectory!, pluginId, cancellationToken);
+            ConfigurePluginLogging([entry]);
+            _pluginGateway?.Attach([entry]);
+            if (entry.IsRunning && _outputCoordinator is not null)
+                await _outputCoordinator.ReportAvailabilityAsync(pluginId, true, cancellationToken: cancellationToken);
+            return entry;
+        }
+
+        private void UpdatePluginViews()
+        {
+            if (_viewModel is null) return;
+            UpdateIntegrationStatuses(_viewModel);
+            UpdateInstalledPlugins(_viewModel);
+        }
+
+        private void UpdateInstalledPlugins(MainWindowViewModel viewModel)
+        {
+            if (_pluginInventory is null) return;
+            viewModel.SetInstalledPlugins(_pluginInventory.List(
+                viewModel.EnabledPluginIds, _plugins?.Entries ?? []));
         }
 
         private async void RequestQuit()

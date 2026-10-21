@@ -233,6 +233,22 @@ namespace FocusRgb.App.Tests
             Assert.Equal("settings", File.ReadAllText(settings));
         }
 
+        [Fact]
+        public async Task Discard_RemovesUncommittedStagingDirectory()
+        {
+            var archive = CreatePackage();
+            var installer = new PluginPackageInstaller(PackagesDirectory);
+            var inspected = await installer.InspectAsync(
+                archive, cancellationToken: TestContext.Current.CancellationToken);
+            var staged = await installer.StageAsync(
+                archive, "fake-output", inspected.Sha256!, TestContext.Current.CancellationToken);
+            Assert.True(staged.IsSuccess, staged.ErrorMessage);
+
+            installer.Discard(staged.StagedPackage!);
+
+            Assert.False(Directory.Exists(staged.StagedPackage!.Directory));
+        }
+
         public void Dispose()
         {
             _temporaryDirectory.Dispose();

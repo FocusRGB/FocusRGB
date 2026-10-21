@@ -90,6 +90,24 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task SetPluginEnabledAsync_PersistsOnlyRequestedPluginState()
+        {
+            var (viewModel, store) = await CreateAsync();
+
+            Assert.Null(await viewModel.SetPluginEnabledAsync(
+                "test-plugin", true, TestContext.Current.CancellationToken));
+            Assert.Equal(["test-plugin"], viewModel.EnabledPluginIds);
+
+            var enabled = await store.InitializeAsync(
+                Start.AddMinutes(1), TestContext.Current.CancellationToken);
+            Assert.Equal(["test-plugin"], enabled.Snapshot!.Settings.Plugins!.Enabled);
+
+            Assert.Null(await viewModel.SetPluginEnabledAsync(
+                "test-plugin", false, TestContext.Current.CancellationToken));
+            Assert.Empty(viewModel.EnabledPluginIds);
+        }
+
+        [Fact]
         public void DiagnosticExport_ExcludesProfileMappingAndPathContent()
         {
             var viewModel = MainWindowViewModel.CreatePreview();
