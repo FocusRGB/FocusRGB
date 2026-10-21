@@ -143,6 +143,12 @@ or later. `entryPoint` remains a package-relative module path.
 Node runner entry points end in `.js`, `.mjs`, or `.cjs`; Python runner entry points end in `.py`.
 Direct executable packages omit `runtime`, including the no-SDK Python conformance example.
 
+For official discovery, a plugin repository uses the `focusrgb-plugin` topic and publishes one
+stable GitHub release containing exactly one package ZIP, the identical root
+`focusrgb-plugin.json`, and `SHA256SUMS` entries for both assets. The standalone manifest lets the
+app show identity, compatibility, and resources before download; installation succeeds only when
+its SHA-256 exactly matches the manifest inside the verified ZIP.
+
 The manifest resource vocabulary is `process.read`, `process.start`, and `filesystem.read`;
 declare only access the plugin actually needs, or use an empty array. New resource names require
 a manifest-schema update before plugins may use them.

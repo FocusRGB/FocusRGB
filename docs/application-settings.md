@@ -21,6 +21,11 @@ and export a diagnostic ZIP containing app/runtime metadata, the saved applicati
 preferences, and the privacy-limited diagnostic log when enabled. Profiles, mappings, paths, integration data, and secrets are excluded. Actions are
 not persisted preferences.
 
+Official plugin discovery is FocusRGB's first network feature. It sends an unauthenticated HTTPS
+request to GitHub only when the user opens the Plugins page or presses Refresh, never during
+startup or in the background. Results are cached for up to six hours; offline use shows that cache
+or a clear empty-state message. No profile, mapping, local path, or plugin setting is sent.
+
 ## Lifecycle behavior
 
 - Closing the window with **Minimize to system tray** selected hides the window while the
