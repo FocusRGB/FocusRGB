@@ -476,6 +476,62 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task Runtime_StopsAndStartsOnlyRequestedPlugin_AndKeepsHealthyPeerRunning()
+        {
+            var tempDirectory = new TempDirectory(nameof(PluginProcessTests));
+            var directory = tempDirectory.Path;
+            try
+            {
+                await FakePluginPackage.CreateAsync(directory, TestContext.Current.CancellationToken);
+                await using var runtime = await PluginRuntime.StartAsync(
+                    directory, ["fake-output", "missing-plugin"], TestContext.Current.CancellationToken);
+                var healthy = runtime.Entries.Single(entry => entry.PluginId == "fake-output");
+
+                Assert.True(await runtime.StopAsync(
+                    "missing-plugin", TestContext.Current.CancellationToken));
+                Assert.DoesNotContain(runtime.Entries, entry => entry.PluginId == "missing-plugin");
+                Assert.Same(healthy, runtime.Entries.Single(entry => entry.PluginId == "fake-output"));
+
+                var started = await runtime.StartPluginAsync(
+                    directory, "missing-plugin", TestContext.Current.CancellationToken);
+
+                Assert.False(started.IsRunning);
+                Assert.Same(started, runtime.Entries.Single(entry => entry.PluginId == "missing-plugin"));
+                Assert.Same(healthy, runtime.Entries.Single(entry => entry.PluginId == "fake-output"));
+                var status = await healthy.Client!.GetStatusAsync(TestContext.Current.CancellationToken);
+                Assert.True(status.IsSuccess, status.ErrorMessage);
+            }
+            finally
+            {
+                tempDirectory.Dispose();
+            }
+        }
+
+        [Fact]
+        public async Task Runtime_StopAsync_StopsRunningPluginAndRemovesItsEntry()
+        {
+            var tempDirectory = new TempDirectory(nameof(PluginProcessTests));
+            var directory = tempDirectory.Path;
+            try
+            {
+                await FakePluginPackage.CreateAsync(directory, TestContext.Current.CancellationToken);
+                await using var runtime = await PluginRuntime.StartAsync(
+                    directory, ["fake-output"], TestContext.Current.CancellationToken);
+                var client = Assert.Single(runtime.Entries).Client!;
+
+                Assert.True(await runtime.StopAsync(
+                    "fake-output", TestContext.Current.CancellationToken));
+
+                Assert.Empty(runtime.Entries);
+                Assert.Equal("exited", client.Health);
+            }
+            finally
+            {
+                tempDirectory.Dispose();
+            }
+        }
+
+        [Fact]
         public async Task Coordinator_AppliesDesiredProfile_ThroughRealFakeProcess()
         {
             var started = await StartAsync();
