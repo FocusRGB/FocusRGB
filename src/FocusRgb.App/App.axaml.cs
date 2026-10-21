@@ -89,6 +89,11 @@ namespace FocusRgb.App
                 _pluginGateway = pluginGateway;
                 var packagesDirectory = Path.Combine(directory, "plugins");
                 _packagesDirectory = packagesDirectory;
+                foreach (var warning in PluginTemporaryDirectory.CleanupContents(
+                    Path.Combine(directory, "plugin-downloads"), Path.Combine(packagesDirectory, ".staging")))
+                {
+                    AppLog.Write($"Plugin temporary-file cleanup failed: {warning}");
+                }
                 _pluginDiscovery = new OfficialPluginDiscovery(
                     _pluginDiscoveryHttpClient, Path.Combine(directory, "cache", "official-plugins.json"));
                 _pluginInstaller = new PluginPackageInstaller(packagesDirectory);
