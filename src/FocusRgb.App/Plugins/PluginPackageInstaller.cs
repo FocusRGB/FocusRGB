@@ -148,7 +148,8 @@ namespace FocusRgb.App.Plugins
                 catch (Exception rollback) when (rollback is IOException or UnauthorizedAccessException)
                 {
                     return PluginFileOperationResult.Fail("swap-failed",
-                        $"The package swap failed and the previous package remains at '{backup}': {rollback.Message}");
+                        $"The package swap failed and the previous package could not be restored. "
+                        + $"Reinstall the plugin before restarting FocusRGB: {rollback.Message}");
                 }
                 return PluginFileOperationResult.Fail("swap-failed", exception.Message);
             }
