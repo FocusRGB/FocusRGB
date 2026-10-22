@@ -7,7 +7,9 @@ The solution file is `../FocusRGB.slnx`.
 |---|---|---|
 | `FocusRgb.Core/` | Internal host protocol types, profiles, selection, persistence, commands, fallback, and ownership | Nothing project-specific |
 | `FocusRgb.Platform.Windows/` | Windows focus/process detection, later screen capture (`net10.0-windows`) | Core |
-| `FocusRgb.App/` | Avalonia tray/settings UI and plugin host wiring; builds `FocusRGB.exe` (`net10.0-windows`) | Core, Platform |
+| `FocusRgb.LocalMcp/` | Authenticated Windows named-pipe boundary shared by the app and MCP adapter | Nothing project-specific |
+| `FocusRgb.Mcp/` | Official-SDK stdio MCP adapter; builds `FocusRgb.Mcp.exe` (`net10.0-windows`) | LocalMcp |
+| `FocusRgb.App/` | Avalonia tray/settings UI and plugin host wiring; builds `FocusRGB.exe` (`net10.0-windows`) | Core, Platform, LocalMcp |
 
 Core targets portable .NET 10 without Windows APIs and is not packable. No project here
 references an integration or SDK source. Production plugins live in independent

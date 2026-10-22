@@ -270,13 +270,16 @@ application authority; provider-owned SignalRGB rendering remains authoritative.
 
 ## Local MCP boundary
 
-The background app may expose a local MCP server. MCP is an adapter over the same query and
-command services used by the UI; it must not edit profile files directly or bypass validation,
-mapping-order arbitration, plugin capability checks, or ownership transitions. Initial tools can
-list profiles/plugins/devices, explain the active selection, enter or leave manual mode,
-reorder mappings, update effect settings, and preview a profile. Loading executable
+The Windows app exposes an optional local MCP adapter over the same query and command services
+used by the UI; it must not edit profile files directly or bypass validation,
+mapping-order arbitration, plugin capability checks, or ownership transitions. Read tools list
+profiles, groups, ordered mappings, plugins, configured device scopes and runtime status. A later
+approval-gated set can enter or leave manual mode, reorder mappings, and update settings. Real-output
+profile preview is deferred to issue #112. Loading executable
 plugins, deleting data, or changing persistent hardware ownership requires explicit user
-confirmation. Bind locally and use per-install authentication where the transport permits it.
+confirmation. The default-off read boundary uses the official `ModelContextProtocol` C# SDK 2.2.0
+and MCP 2026-07-28 on adapter stdio, with a current-user-only authenticated named pipe to the app.
+The adapter verifies the server process ID and full executable path. See [Local MCP](local-mcp.md).
 
 ## Ownership and transitions
 
