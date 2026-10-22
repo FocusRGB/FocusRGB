@@ -50,7 +50,9 @@ namespace FocusRgb.Core.Commands
             _selectionEngine = new SelectionEngine(_settings);
             _store = store;
             _outputCoordinator = outputCoordinator;
-            _runtimeStatus = runtimeStatus;
+            _runtimeStatus = runtimeStatus
+                ?? outputCoordinator?.CurrentStatus
+                ?? SelectionCommandService.GetStatus(_selectionState, _selectionReason);
             _selectionCommands = new SelectionCommandService(store, outputCoordinator);
             if (outputCoordinator is not null) outputCoordinator.StatusChanged += OutputCoordinator_OnStatusChanged;
         }
