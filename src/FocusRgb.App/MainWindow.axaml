@@ -5,7 +5,7 @@
         x:DataType="vm:MainWindowViewModel"
         Title="FocusRGB" Width="1040" Height="680" MinWidth="820" MinHeight="560"
         WindowStartupLocation="CenterScreen">
-  <Grid RowDefinitions="Auto,*">
+  <Grid RowDefinitions="Auto,Auto,*">
     <Border Padding="22,16" BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="0,0,0,1">
       <Grid ColumnDefinitions="*,Auto">
         <StackPanel Spacing="2">
@@ -18,7 +18,16 @@
       </Grid>
     </Border>
 
-    <TabControl Grid.Row="1" TabStripPlacement="Left" Margin="12"
+    <Border Grid.Row="1" IsVisible="{Binding HasSettingsConflict}" Margin="12,10,12,0" Padding="12"
+            CornerRadius="8" BorderBrush="#F59E0B" BorderThickness="1">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <TextBlock Text="Settings changed elsewhere. Reload before saving the current editor draft."
+                   TextWrapping="Wrap" VerticalAlignment="Center" />
+        <Button Grid.Column="1" Content="Reload settings" Click="ReloadSettings_OnClick" />
+      </Grid>
+    </Border>
+
+    <TabControl Grid.Row="2" TabStripPlacement="Left" Margin="12"
                 SelectionChanged="MainTabs_OnSelectionChanged">
       <TabItem Header="Home">
         <Grid Margin="24,16" RowDefinitions="Auto,*" RowSpacing="16">

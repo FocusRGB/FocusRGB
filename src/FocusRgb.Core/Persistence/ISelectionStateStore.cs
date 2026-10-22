@@ -2,6 +2,15 @@ using FocusRgb.Core.Configuration;
 
 namespace FocusRgb.Core.Persistence
 {
+    /// <summary>Persists the application documents owned by the shared command service.</summary>
+    public interface IApplicationStateStore : ISelectionStateStore
+    {
+        /// <summary>Atomically saves validated application settings.</summary>
+        Task<SaveResult> SaveSettingsAsync(
+            SettingsDocument settings,
+            CancellationToken cancellationToken = default);
+    }
+
     /// <summary>Persists validated selection intent for shared UI and future MCP commands.</summary>
     public interface ISelectionStateStore
     {

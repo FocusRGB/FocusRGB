@@ -1,0 +1,450 @@
+using System.Diagnostics.CodeAnalysis;
+using FocusRgb.Core.Configuration;
+using FocusRgb.Core.Coordination;
+using FocusRgb.Core.Persistence;
+using FocusRgb.Core.Selection;
+
+namespace FocusRgb.Core.Commands
+{
+    /// <summary>Owns the current application documents and serializes every shared UI/MCP command.</summary>
+    [SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable",
+        Justification = "SemaphoreSlim owns no native handle because AvailableWaitHandle is never requested.")]
+    public sealed class ApplicationStateService
+    {
+        private readonly IApplicationStateStore _store;
+        private readonly OutputCoordinator? _outputCoordinator;
+        private readonly SemaphoreSlim _commandGate = new(1, 1);
+        private readonly object _snapshotGate = new();
+        private SelectionCommandService _selectionCommands;
+        private SettingsDocument _settings;
+        private SelectionStateDocument _selectionState;
+        private SelectionReason _selectionReason;
+        private SelectionEngine _selectionEngine;
+        private SelectionRuntimeStatus? _runtimeStatus;
+        private long _settingsRevision = 1;
+        private bool _commandActive;
+        private bool _outputChangedDuringCommand;
+
+        public ApplicationStateService(
+            SettingsDocument settings,
+            SelectionStateDocument selectionState,
+            SelectionReason selectionReason,
+            IApplicationStateStore store,
+            OutputCoordinator? outputCoordinator = null,
+            SelectionRuntimeStatus? runtimeStatus = null)
+        {
+            ArgumentNullException.ThrowIfNull(settings);
+            ArgumentNullException.ThrowIfNull(selectionState);
+            ArgumentNullException.ThrowIfNull(selectionReason);
+            ArgumentNullException.ThrowIfNull(store);
+            var errors = SettingsValidator.Validate(settings)
+                .Concat(StateJson.Validate(selectionState))
+                .Concat(StateJson.ValidateProfileReferences(selectionState, settings))
+                .ToList();
+            if (errors.Count > 0)
+                throw new ArgumentException(FormatErrors(errors), nameof(settings));
+
+            _settings = Clone(settings);
+            _selectionState = Clone(selectionState);
+            _selectionReason = selectionReason;
+            _selectionEngine = new SelectionEngine(_settings);
+            _store = store;
+            _outputCoordinator = outputCoordinator;
+            _runtimeStatus = runtimeStatus;
+            _selectionCommands = new SelectionCommandService(store, outputCoordinator);
+            if (outputCoordinator is not null) outputCoordinator.StatusChanged += OutputCoordinator_OnStatusChanged;
+        }
+
+        public event EventHandler<ApplicationStateSnapshot>? SnapshotChanged;
+
+        public ApplicationStateSnapshot Current
+        {
+            get
+            {
+                lock (_snapshotGate) return CreateSnapshot("query");
+            }
+        }
+
+        public Task<ApplicationCommandResult> SelectProfileAsync(
+            string profileId,
+            DateTimeOffset now,
+            string source = "ui",
+            CancellationToken cancellationToken = default) =>
+            RunSelectionCommandAsync(
+                (settings, state) => _selectionCommands.SelectProfileAsync(
+                    settings, state, profileId, now, cancellationToken),
+                source,
+                cancellationToken);
+
+        public Task<ApplicationCommandResult> SetModeAsync(
+            string mode,
+            DateTimeOffset now,
+            string source = "ui",
+            CancellationToken cancellationToken = default) =>
+            RunSelectionCommandAsync(
+                (settings, state) => _selectionCommands.SetModeAsync(
+                    settings, state, mode, now, cancellationToken),
+                source,
+                cancellationToken);
+
+        public Task<ApplicationCommandResult> SaveCurrentAsync(
+            DateTimeOffset now,
+            string source = "ui",
+            CancellationToken cancellationToken = default) =>
+            RunSelectionCommandAsync(
+                (settings, state) => _selectionCommands.SaveCurrentAsync(
+                    settings, state, now, cancellationToken),
+                source,
+                cancellationToken);
+
+        public Task<ApplicationCommandResult> RespondToNotificationAsync(
+            string notificationId,
+            string response,
+            string source = "ui",
+            CancellationToken cancellationToken = default) =>
+            RunSelectionCommandAsync(
+                (settings, state) => _selectionCommands.RespondToNotificationAsync(
+                    settings, state, notificationId, response, cancellationToken),
+                source,
+                cancellationToken);
+
+        public Task<ApplicationCommandResult> ReapplyAsync(
+            string source = "ui",
+            CancellationToken cancellationToken = default) =>
+            RunSelectionCommandAsync(
+                (settings, state) => _selectionCommands.ReapplyAsync(
+                    settings, state, _selectionReason, cancellationToken),
+                source,
+                cancellationToken);
+
+        public Task<ApplicationCommandResult> ObserveAsync(
+            ApplicationObservation observation,
+            DateTimeOffset observedAt,
+            CancellationToken cancellationToken = default) =>
+            RunSelectionCommandAsync(
+                (settings, state) => _selectionCommands.ObserveAsync(
+                    settings, state, _selectionEngine, observation, observedAt, cancellationToken),
+                "observation",
+                cancellationToken,
+                publishUnchanged: false);
+
+        /// <summary>Validates and saves a full document only when the caller read the current revision.</summary>
+        public async Task<ApplicationCommandResult> ApplySettingsAsync(
+            SettingsDocument candidate,
+            long expectedRevision,
+            string source,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(candidate);
+            ArgumentException.ThrowIfNullOrWhiteSpace(source);
+            await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            ApplicationStateSnapshot snapshot;
+            string? errorCode = null;
+            string? errorMessage = null;
+            PersistenceError? warning = null;
+            var publish = false;
+            BeginCommand();
+            try
+            {
+                SettingsDocument currentSettings;
+                SelectionStateDocument currentState;
+                SelectionReason currentReason;
+                long currentRevision;
+                lock (_snapshotGate)
+                {
+                    currentSettings = _settings;
+                    currentState = _selectionState;
+                    currentReason = _selectionReason;
+                    currentRevision = _settingsRevision;
+                }
+
+                if (expectedRevision != currentRevision)
+                {
+                    errorCode = "conflict";
+                    errorMessage = $"Settings revision {expectedRevision} is stale; current revision is {currentRevision}.";
+                }
+                else
+                {
+                    var validation = SettingsValidator.Validate(candidate);
+                    if (validation.Count > 0)
+                    {
+                        errorCode = "invalid-settings";
+                        errorMessage = FormatErrors(validation);
+                    }
+                    else
+                    {
+                        var savedCandidate = Clone(candidate);
+                        var nextState = RepairProfileReferences(
+                            currentState, savedCandidate, out var repaired, out var desiredRepaired);
+                        if (repaired)
+                        {
+                            var stateSave = await _store.SaveStateAsync(
+                                nextState, savedCandidate, cancellationToken).ConfigureAwait(false);
+                            if (!stateSave.IsSuccess)
+                            {
+                                errorCode = "persistence-failed";
+                                errorMessage = $"{stateSave.Error!.FileName}: {stateSave.Error.Message}";
+                            }
+                            else
+                            {
+                                currentState = nextState;
+                                if (desiredRepaired)
+                                {
+                                    currentReason = currentState.Mode == "manual"
+                                        ? SelectionReason.Manual()
+                                        : SelectionReason.ObservationPending();
+                                }
+                                lock (_snapshotGate)
+                                {
+                                    _selectionState = nextState;
+                                    _selectionReason = currentReason;
+                                    _runtimeStatus = ProjectRuntimeStatus(nextState, currentReason, _runtimeStatus);
+                                }
+                                _selectionCommands = new SelectionCommandService(_store, _outputCoordinator);
+                                publish = true;
+                            }
+                        }
+
+                        if (errorCode is null)
+                        {
+                            var save = await _store.SaveSettingsAsync(savedCandidate, cancellationToken)
+                                .ConfigureAwait(false);
+                            if (!save.IsSuccess)
+                            {
+                                errorCode = "persistence-failed";
+                                errorMessage = $"{save.Error!.FileName}: {save.Error.Message}";
+                            }
+                            else
+                            {
+                                warning = save.Warning;
+                                lock (_snapshotGate)
+                                {
+                                    _settings = savedCandidate;
+                                    _selectionState = currentState;
+                                    _selectionReason = currentReason;
+                                    _selectionEngine = new SelectionEngine(savedCandidate);
+                                    _settingsRevision++;
+                                }
+                                var reapplied = await _selectionCommands.ReapplyAsync(
+                                    savedCandidate, currentState, currentReason, cancellationToken)
+                                    .ConfigureAwait(false);
+                                if (reapplied.IsSuccess) ApplySelectionResult(reapplied);
+                                else warning ??= new PersistenceError
+                                {
+                                    FileName = "output",
+                                    Message = reapplied.ErrorMessage!
+                                };
+                                publish = true;
+                            }
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                snapshot = EndCommand(source, ref publish);
+                _commandGate.Release();
+            }
+
+            if (publish) SnapshotChanged?.Invoke(this, snapshot);
+            return errorCode is null
+                ? ApplicationCommandResult.Ok(snapshot, warning)
+                : ApplicationCommandResult.Fail(snapshot, errorCode, errorMessage!);
+        }
+
+        private async Task<ApplicationCommandResult> RunSelectionCommandAsync(
+            Func<SettingsDocument, SelectionStateDocument, Task<SelectionCommandResult>> command,
+            string source,
+            CancellationToken cancellationToken,
+            bool publishUnchanged = true)
+        {
+            await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            ApplicationStateSnapshot snapshot;
+            SelectionCommandResult? result = null;
+            var publish = false;
+            BeginCommand();
+            try
+            {
+                SettingsDocument settings;
+                SelectionStateDocument state;
+                SelectionReason reason;
+                lock (_snapshotGate)
+                {
+                    settings = _settings;
+                    state = _selectionState;
+                    reason = _selectionReason;
+                }
+                result = await command(settings, state).ConfigureAwait(false);
+                if (result.IsSuccess)
+                {
+                    ApplySelectionResult(result);
+                    publish = publishUnchanged
+                        || state.UpdatedAt != result.State!.UpdatedAt
+                        || reason.Kind != result.Status!.Desired.Reason.Kind
+                        || reason.RuleId != result.Status.Desired.Reason.RuleId;
+                }
+            }
+            finally
+            {
+                snapshot = EndCommand(source, ref publish);
+                _commandGate.Release();
+            }
+
+            if (publish) SnapshotChanged?.Invoke(this, snapshot);
+            return result!.IsSuccess
+                ? ApplicationCommandResult.Ok(snapshot)
+                : ApplicationCommandResult.Fail(snapshot, result.ErrorCode!, result.ErrorMessage!);
+        }
+
+        private void ApplySelectionResult(SelectionCommandResult result)
+        {
+            var status = result.Status!;
+            lock (_snapshotGate)
+            {
+                _selectionState = Clone(result.State!);
+                if (_runtimeStatus is null || status.Sequence >= _runtimeStatus.Sequence)
+                {
+                    _runtimeStatus = status;
+                    _selectionReason = status.Desired.Reason;
+                }
+            }
+        }
+
+        private void OutputCoordinator_OnStatusChanged(object? sender, SelectionRuntimeStatus status)
+        {
+            ApplicationStateSnapshot? snapshot = null;
+            lock (_snapshotGate)
+            {
+                if (_runtimeStatus is not null && status.Sequence < _runtimeStatus.Sequence) return;
+                _runtimeStatus = status;
+                _selectionReason = status.Desired.Reason;
+                if (_commandActive) _outputChangedDuringCommand = true;
+                else snapshot = CreateSnapshot("output");
+            }
+            if (snapshot is not null) SnapshotChanged?.Invoke(this, snapshot);
+        }
+
+        private void BeginCommand()
+        {
+            lock (_snapshotGate)
+            {
+                _commandActive = true;
+                _outputChangedDuringCommand = false;
+            }
+        }
+
+        private ApplicationStateSnapshot EndCommand(string source, ref bool publish)
+        {
+            lock (_snapshotGate)
+            {
+                _commandActive = false;
+                var outputOnly = !publish && _outputChangedDuringCommand;
+                publish |= _outputChangedDuringCommand;
+                _outputChangedDuringCommand = false;
+                return CreateSnapshot(outputOnly ? "output" : source);
+            }
+        }
+
+        private ApplicationStateSnapshot CreateSnapshot(string source) => new()
+        {
+            Settings = Clone(_settings),
+            SelectionState = Clone(_selectionState),
+            SelectionReason = _selectionReason,
+            RuntimeStatus = _runtimeStatus,
+            SettingsRevision = _settingsRevision,
+            Source = source
+        };
+
+        private static SelectionStateDocument RepairProfileReferences(
+            SelectionStateDocument state,
+            SettingsDocument settings,
+            out bool repaired,
+            out bool desiredRepaired)
+        {
+            var profileIds = settings.Profiles!.Select(profile => profile.Id!).ToHashSet(StringComparer.Ordinal);
+            var manualRepaired = !profileIds.Contains(state.ManualProfile!);
+            var automaticRepaired = !profileIds.Contains(state.LastSelectedProfile!);
+            repaired = manualRepaired || automaticRepaired;
+            desiredRepaired = state.Mode == "manual" ? manualRepaired : automaticRepaired;
+            if (!repaired) return state;
+            var replacement = settings.Selection!.DefaultProfile!;
+            return new SelectionStateDocument
+            {
+                SchemaVersion = state.SchemaVersion,
+                Mode = state.Mode,
+                ManualProfile = profileIds.Contains(state.ManualProfile!) ? state.ManualProfile : replacement,
+                LastSelectedProfile = profileIds.Contains(state.LastSelectedProfile!) ? state.LastSelectedProfile : replacement,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                AdditionalProperties = state.AdditionalProperties
+            };
+        }
+
+        private static SelectionRuntimeStatus ProjectRuntimeStatus(
+            SelectionStateDocument state,
+            SelectionReason reason,
+            SelectionRuntimeStatus? current)
+        {
+            if (current is null) return SelectionCommandService.GetStatus(state, reason);
+            return new SelectionRuntimeStatus
+            {
+                Sequence = current.Sequence,
+                Mode = state.Mode!,
+                Desired = new SelectionDecision
+                {
+                    ProfileId = state.Mode == "manual" ? state.ManualProfile! : state.LastSelectedProfile!,
+                    Reason = reason
+                },
+                Effective = current.Effective,
+                Applied = current.Applied,
+                Pending = current.Pending,
+                Notifications = current.Notifications,
+                AppliedDetail = current.AppliedDetail
+            };
+        }
+
+        private static SettingsDocument Clone(SettingsDocument settings)
+        {
+            var result = SettingsJson.Load(SettingsJson.Serialize(settings));
+            return result.Settings ?? throw new InvalidOperationException("Validated settings could not be copied.");
+        }
+
+        private static SelectionStateDocument Clone(SelectionStateDocument state)
+        {
+            var result = StateJson.Load(StateJson.Serialize(state));
+            return result.State ?? throw new InvalidOperationException("Validated selection state could not be copied.");
+        }
+
+        private static string FormatErrors(IEnumerable<ConfigurationError> errors) =>
+            string.Join("; ", errors.Select(error => $"{error.Path}: {error.Message}"));
+    }
+
+    /// <summary>An immutable copy of the application documents and latest projected runtime status.</summary>
+    public sealed class ApplicationStateSnapshot
+    {
+        public required SettingsDocument Settings { get; init; }
+        public required SelectionStateDocument SelectionState { get; init; }
+        public required SelectionReason SelectionReason { get; init; }
+        public SelectionRuntimeStatus? RuntimeStatus { get; init; }
+        public long SettingsRevision { get; init; }
+        public required string Source { get; init; }
+    }
+
+    /// <summary>Returns a shared command snapshot or one stable validation, conflict, or persistence error.</summary>
+    public sealed class ApplicationCommandResult
+    {
+        public bool IsSuccess => ErrorCode is null;
+        public required ApplicationStateSnapshot Snapshot { get; init; }
+        public string? ErrorCode { get; private init; }
+        public string? ErrorMessage { get; private init; }
+        public PersistenceError? Warning { get; private init; }
+
+        public static ApplicationCommandResult Ok(
+            ApplicationStateSnapshot snapshot,
+            PersistenceError? warning = null) => new() { Snapshot = snapshot, Warning = warning };
+
+        public static ApplicationCommandResult Fail(
+            ApplicationStateSnapshot snapshot,
+            string code,
+            string message) => new() { Snapshot = snapshot, ErrorCode = code, ErrorMessage = message };
+    }
+}
