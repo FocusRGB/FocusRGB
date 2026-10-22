@@ -53,6 +53,179 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public async Task ApplySettingsAsync_SerializesConcurrentWritesAndRejectsTheStaleWriter()
+        {
+            var store = new BlockingSettingsStore();
+            var service = CreateService(store);
+            var revision = service.Current.SettingsRevision;
+            var first = service.ApplySettingsAsync(
+                WithTheme(service.Current.Settings, "dark"), revision, "ui", TestContext.Current.CancellationToken);
+            await store.SaveStarted.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+            var second = service.ApplySettingsAsync(
+                WithTheme(service.Current.Settings, "light"), revision, "mcp", TestContext.Current.CancellationToken);
+            Assert.False(second.IsCompleted);
+            store.AllowSave.TrySetResult();
+
+            Assert.True((await first).IsSuccess);
+            Assert.Equal("conflict", (await second).ErrorCode);
+            Assert.Equal(1, store.SettingsSaveCount);
+            Assert.Equal("dark", service.Current.Settings.Application!.Theme);
+        }
+
+        [Fact]
+        public async Task ApplySettingsAsync_RepairsManualSelectionAfterProfileRemoval()
+        {
+            var service = CreateService(
+                new RecordingStore(),
+                state: State("manual", "movie", "movie"),
+                reason: SelectionReason.Manual());
+
+            var result = await service.ApplySettingsAsync(
+                WithoutProfile(service.Current.Settings, "movie"),
+                service.Current.SettingsRevision,
+                "ui",
+                TestContext.Current.CancellationToken);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal("default", result.Snapshot.SelectionState.ManualProfile);
+            Assert.Equal("default", result.Snapshot.SelectionState.LastSelectedProfile);
+            Assert.Equal("manual", result.Snapshot.SelectionReason.Kind);
+            Assert.Equal("default", result.Snapshot.RuntimeStatus!.Desired.ProfileId);
+        }
+
+        [Fact]
+        public async Task ApplySettingsAsync_PreservesAutomaticReasonWhenOnlyInactiveManualProfileIsRepaired()
+        {
+            var service = CreateService(
+                new RecordingStore(),
+                state: State("automatic", "movie", "programming"),
+                reason: SelectionReason.Rule("programming"));
+
+            var result = await service.ApplySettingsAsync(
+                WithoutProfile(service.Current.Settings, "movie"),
+                service.Current.SettingsRevision,
+                "mcp",
+                TestContext.Current.CancellationToken);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal("default", result.Snapshot.SelectionState.ManualProfile);
+            Assert.Equal("programming", result.Snapshot.SelectionState.LastSelectedProfile);
+            Assert.Equal("rule", result.Snapshot.SelectionReason.Kind);
+            Assert.Equal("programming", result.Snapshot.SelectionReason.RuleId);
+        }
+
+        [Fact]
+        public async Task ApplySettingsAsync_UsesObservationPendingWhenAutomaticDesiredProfileIsRepaired()
+        {
+            var service = CreateService(
+                new RecordingStore(),
+                state: State("automatic", "default", "movie"),
+                reason: SelectionReason.Rule("movie"));
+
+            var result = await service.ApplySettingsAsync(
+                WithoutProfile(service.Current.Settings, "movie"),
+                service.Current.SettingsRevision,
+                "mcp",
+                TestContext.Current.CancellationToken);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal("default", result.Snapshot.SelectionState.LastSelectedProfile);
+            Assert.Equal("observation-pending", result.Snapshot.SelectionReason.Kind);
+            Assert.Equal("default", result.Snapshot.RuntimeStatus!.Desired.ProfileId);
+        }
+
+        [Fact]
+        public async Task ApplySettingsAsync_LeavesStateUntouchedWhenRepairCannotBePersisted()
+        {
+            var store = new RecordingStore(failState: true);
+            var service = CreateService(
+                store,
+                state: State("manual", "movie", "movie"),
+                reason: SelectionReason.Manual());
+
+            var result = await service.ApplySettingsAsync(
+                WithoutProfile(service.Current.Settings, "movie"),
+                service.Current.SettingsRevision,
+                "ui",
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("persistence-failed", result.ErrorCode);
+            Assert.Equal(1, result.Snapshot.SettingsRevision);
+            Assert.Equal("movie", result.Snapshot.SelectionState.ManualProfile);
+            Assert.Contains(result.Snapshot.Settings.Profiles!, profile => profile.Id == "movie");
+        }
+
+        [Fact]
+        public async Task ApplySettingsAsync_KeepsRuntimeConsistentWhenSettingsFailAfterStateRepair()
+        {
+            var state = State("manual", "movie", "movie");
+            var reason = SelectionReason.Manual();
+            var store = new RecordingStore(failSettings: true);
+            var service = CreateService(
+                store,
+                state: state,
+                reason: reason,
+                runtimeStatus: SelectionCommandService.GetStatus(state, reason));
+
+            var result = await service.ApplySettingsAsync(
+                WithoutProfile(service.Current.Settings, "movie"),
+                service.Current.SettingsRevision,
+                "ui",
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("persistence-failed", result.ErrorCode);
+            Assert.Equal(1, result.Snapshot.SettingsRevision);
+            Assert.Equal("default", result.Snapshot.SelectionState.ManualProfile);
+            Assert.Equal("default", result.Snapshot.RuntimeStatus!.Desired.ProfileId);
+            Assert.Contains(result.Snapshot.Settings.Profiles!, profile => profile.Id == "movie");
+        }
+
+        [Fact]
+        public async Task ApplySettingsAsync_CancellationLeavesSettingsAndRevisionUnchanged()
+        {
+            var store = new CancelingSettingsStore();
+            var service = CreateService(store);
+            using var cancellation = new CancellationTokenSource();
+            var apply = service.ApplySettingsAsync(
+                WithTheme(service.Current.Settings, "dark"),
+                service.Current.SettingsRevision,
+                "mcp",
+                cancellation.Token);
+            await store.SaveStarted.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+            await cancellation.CancelAsync();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => apply);
+            Assert.Equal(1, service.Current.SettingsRevision);
+            Assert.Equal("system", service.Current.Settings.Application!.Theme);
+        }
+
+        [Fact]
+        public async Task ApplySettingsAsync_UsesOutputSourceWhenOnlyCoordinatorChanged()
+        {
+            var store = new BlockingFailSettingsStore();
+            using var coordinator = new OutputCoordinator(new FakeGateway(), NativeSetupJson.CreateDefault());
+            var service = CreateService(store, coordinator);
+            await service.ReapplyAsync(cancellationToken: TestContext.Current.CancellationToken);
+            var snapshots = new List<ApplicationStateSnapshot>();
+            service.SnapshotChanged += (_, snapshot) => snapshots.Add(snapshot);
+            var apply = service.ApplySettingsAsync(
+                WithTheme(service.Current.Settings, "dark"),
+                service.Current.SettingsRevision,
+                "ui",
+                TestContext.Current.CancellationToken);
+            await store.SaveStarted.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+            await coordinator.ReportAvailabilityAsync(
+                "signalrgb", false, TestContext.Current.CancellationToken);
+            store.AllowSave.TrySetResult();
+
+            Assert.Equal("persistence-failed", (await apply).ErrorCode);
+            Assert.Equal("output", Assert.Single(snapshots).Source);
+        }
+
+        [Fact]
         public async Task OutputCoordinatorAvailabilityAndRecoveryPublishSnapshots()
         {
             var store = new RecordingStore();
@@ -75,23 +248,32 @@ namespace FocusRgb.Core.Tests
 
         private static ApplicationStateService CreateService(
             IApplicationStateStore store,
-            OutputCoordinator? coordinator = null)
+            OutputCoordinator? coordinator = null,
+            SelectionStateDocument? state = null,
+            SelectionReason? reason = null,
+            SelectionRuntimeStatus? runtimeStatus = null)
         {
             var settings = SettingsJson.LoadDefaults().Settings!;
             return new ApplicationStateService(
                 settings,
-                new SelectionStateDocument
-                {
-                    SchemaVersion = 1,
-                    Mode = "manual",
-                    ManualProfile = "default",
-                    LastSelectedProfile = "default",
-                    UpdatedAt = Now
-                },
-                SelectionReason.Manual(),
+                state ?? State("manual", "default", "default"),
+                reason ?? SelectionReason.Manual(),
                 store,
-                coordinator);
+                coordinator,
+                runtimeStatus);
         }
+
+        private static SelectionStateDocument State(
+            string mode,
+            string manualProfile,
+            string lastSelectedProfile) => new()
+            {
+                SchemaVersion = 1,
+                Mode = mode,
+                ManualProfile = manualProfile,
+                LastSelectedProfile = lastSelectedProfile,
+                UpdatedAt = Now
+            };
 
         private static SettingsDocument WithTheme(SettingsDocument settings, string theme) => new()
         {
@@ -112,7 +294,19 @@ namespace FocusRgb.Core.Tests
             AdditionalProperties = settings.AdditionalProperties
         };
 
-        private sealed class RecordingStore : IApplicationStateStore
+        private static SettingsDocument WithoutProfile(SettingsDocument settings, string profileId) => new()
+        {
+            SchemaVersion = settings.SchemaVersion,
+            Application = settings.Application,
+            Plugins = settings.Plugins,
+            Selection = settings.Selection,
+            Profiles = settings.Profiles!.Where(profile => profile.Id != profileId).ToList(),
+            ApplicationGroups = settings.ApplicationGroups,
+            Rules = settings.Rules!.Where(rule => rule.Profile != profileId).ToList(),
+            AdditionalProperties = settings.AdditionalProperties
+        };
+
+        private sealed class RecordingStore(bool failState = false, bool failSettings = false) : IApplicationStateStore
         {
             public int SettingsSaveCount { get; private set; }
 
@@ -121,7 +315,30 @@ namespace FocusRgb.Core.Tests
                 CancellationToken cancellationToken = default)
             {
                 SettingsSaveCount++;
-                return Task.FromResult(SaveResult.Ok());
+                return Task.FromResult(failSettings ? Failure("settings.json") : SaveResult.Ok());
+            }
+
+            public Task<SaveResult> SaveStateAsync(
+                SelectionStateDocument state,
+                SettingsDocument settings,
+                CancellationToken cancellationToken = default) =>
+                Task.FromResult(failState ? Failure("state.json") : SaveResult.Ok());
+        }
+
+        private sealed class BlockingSettingsStore : IApplicationStateStore
+        {
+            public TaskCompletionSource SaveStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            public TaskCompletionSource AllowSave { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            public int SettingsSaveCount { get; private set; }
+
+            public async Task<SaveResult> SaveSettingsAsync(
+                SettingsDocument settings,
+                CancellationToken cancellationToken = default)
+            {
+                SettingsSaveCount++;
+                SaveStarted.TrySetResult();
+                await AllowSave.Task.WaitAsync(cancellationToken);
+                return SaveResult.Ok();
             }
 
             public Task<SaveResult> SaveStateAsync(
@@ -129,6 +346,51 @@ namespace FocusRgb.Core.Tests
                 SettingsDocument settings,
                 CancellationToken cancellationToken = default) => Task.FromResult(SaveResult.Ok());
         }
+
+        private sealed class BlockingFailSettingsStore : IApplicationStateStore
+        {
+            public TaskCompletionSource SaveStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            public TaskCompletionSource AllowSave { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public async Task<SaveResult> SaveSettingsAsync(
+                SettingsDocument settings,
+                CancellationToken cancellationToken = default)
+            {
+                SaveStarted.TrySetResult();
+                await AllowSave.Task.WaitAsync(cancellationToken);
+                return Failure("settings.json");
+            }
+
+            public Task<SaveResult> SaveStateAsync(
+                SelectionStateDocument state,
+                SettingsDocument settings,
+                CancellationToken cancellationToken = default) => Task.FromResult(SaveResult.Ok());
+        }
+
+        private sealed class CancelingSettingsStore : IApplicationStateStore
+        {
+            public TaskCompletionSource SaveStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public async Task<SaveResult> SaveSettingsAsync(
+                SettingsDocument settings,
+                CancellationToken cancellationToken = default)
+            {
+                SaveStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return SaveResult.Ok();
+            }
+
+            public Task<SaveResult> SaveStateAsync(
+                SelectionStateDocument state,
+                SettingsDocument settings,
+                CancellationToken cancellationToken = default) => Task.FromResult(SaveResult.Ok());
+        }
+
+        private static SaveResult Failure(string fileName) => SaveResult.Fail(new PersistenceError
+        {
+            FileName = fileName,
+            Message = "disk unavailable"
+        });
 
         private sealed class FakeGateway : IPluginOutputGateway
         {

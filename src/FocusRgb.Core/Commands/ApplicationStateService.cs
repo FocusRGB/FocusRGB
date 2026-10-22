@@ -174,7 +174,8 @@ namespace FocusRgb.Core.Commands
                     else
                     {
                         var savedCandidate = Clone(candidate);
-                        var nextState = RepairProfileReferences(currentState, savedCandidate, out var repaired);
+                        var nextState = RepairProfileReferences(
+                            currentState, savedCandidate, out var repaired, out var desiredRepaired);
                         if (repaired)
                         {
                             var stateSave = await _store.SaveStateAsync(
@@ -187,11 +188,17 @@ namespace FocusRgb.Core.Commands
                             else
                             {
                                 currentState = nextState;
-                                currentReason = SelectionReason.InvalidStateReset();
+                                if (desiredRepaired)
+                                {
+                                    currentReason = currentState.Mode == "manual"
+                                        ? SelectionReason.Manual()
+                                        : SelectionReason.ObservationPending();
+                                }
                                 lock (_snapshotGate)
                                 {
                                     _selectionState = nextState;
                                     _selectionReason = currentReason;
+                                    _runtimeStatus = ProjectRuntimeStatus(nextState, currentReason, _runtimeStatus);
                                 }
                                 _selectionCommands = new SelectionCommandService(_store, _outputCoordinator);
                                 publish = true;
@@ -331,9 +338,10 @@ namespace FocusRgb.Core.Commands
             lock (_snapshotGate)
             {
                 _commandActive = false;
+                var outputOnly = !publish && _outputChangedDuringCommand;
                 publish |= _outputChangedDuringCommand;
                 _outputChangedDuringCommand = false;
-                return CreateSnapshot(source);
+                return CreateSnapshot(outputOnly ? "output" : source);
             }
         }
 
@@ -350,10 +358,14 @@ namespace FocusRgb.Core.Commands
         private static SelectionStateDocument RepairProfileReferences(
             SelectionStateDocument state,
             SettingsDocument settings,
-            out bool repaired)
+            out bool repaired,
+            out bool desiredRepaired)
         {
             var profileIds = settings.Profiles!.Select(profile => profile.Id!).ToHashSet(StringComparer.Ordinal);
-            repaired = !profileIds.Contains(state.ManualProfile!) || !profileIds.Contains(state.LastSelectedProfile!);
+            var manualRepaired = !profileIds.Contains(state.ManualProfile!);
+            var automaticRepaired = !profileIds.Contains(state.LastSelectedProfile!);
+            repaired = manualRepaired || automaticRepaired;
+            desiredRepaired = state.Mode == "manual" ? manualRepaired : automaticRepaired;
             if (!repaired) return state;
             var replacement = settings.Selection!.DefaultProfile!;
             return new SelectionStateDocument
@@ -364,6 +376,29 @@ namespace FocusRgb.Core.Commands
                 LastSelectedProfile = profileIds.Contains(state.LastSelectedProfile!) ? state.LastSelectedProfile : replacement,
                 UpdatedAt = DateTimeOffset.UtcNow,
                 AdditionalProperties = state.AdditionalProperties
+            };
+        }
+
+        private static SelectionRuntimeStatus ProjectRuntimeStatus(
+            SelectionStateDocument state,
+            SelectionReason reason,
+            SelectionRuntimeStatus? current)
+        {
+            if (current is null) return SelectionCommandService.GetStatus(state, reason);
+            return new SelectionRuntimeStatus
+            {
+                Sequence = current.Sequence,
+                Mode = state.Mode!,
+                Desired = new SelectionDecision
+                {
+                    ProfileId = state.Mode == "manual" ? state.ManualProfile! : state.LastSelectedProfile!,
+                    Reason = reason
+                },
+                Effective = current.Effective,
+                Applied = current.Applied,
+                Pending = current.Pending,
+                Notifications = current.Notifications,
+                AppliedDetail = current.AppliedDetail
             };
         }
 
