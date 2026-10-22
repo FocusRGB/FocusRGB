@@ -14,7 +14,7 @@ namespace FocusRgb.Core.Persistence
         "Design",
         "CA1001:Types that own disposable fields should be disposable",
         Justification = "The process-lifetime semaphore has no unmanaged resource.")]
-    public sealed class LocalStateStore : ISelectionStateStore
+    public sealed class LocalStateStore : IApplicationStateStore
     {
         public const string SettingsFileName = "settings.json";
         public const string SettingsRecoveryFileName = "settings.last-known-good.json";
