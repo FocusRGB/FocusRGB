@@ -403,8 +403,33 @@ namespace FocusRgb.App
                 _mcpState = new McpUiState(true, false, "Local MCP is off; no pipe is listening.");
                 return;
             }
-            StartMcp(loaded.Configuration);
-            _mcpState = new McpUiState(true, true, "Local MCP is on for read-only tools.");
+            var configuration = loaded.Configuration;
+            if (!string.Equals(
+                configuration.ApplicationPath,
+                Environment.ProcessPath,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                var updated = await _mcpConfigurationStore.SetEnabledAsync(true, Environment.ProcessPath);
+                if (!updated.IsSuccess)
+                {
+                    _mcpState = new McpUiState(true, false, $"Local MCP is off: {updated.ErrorMessage}");
+                    AppLog.Write(_mcpState.Message);
+                    return;
+                }
+                configuration = updated.Configuration!;
+            }
+            try
+            {
+                StartMcp(configuration);
+                _mcpState = new McpUiState(true, true, "Local MCP is on for read-only tools.");
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                await _mcpConfigurationStore.SetEnabledAsync(false);
+                _mcpState = new McpUiState(
+                    true, false, $"Local MCP is off because its pipe could not start: {exception.Message}");
+                AppLog.Write(_mcpState.Message);
+            }
         }
 
         private void StartMcp(McpConfiguration configuration)

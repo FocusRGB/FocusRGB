@@ -13,6 +13,7 @@ namespace FocusRgb.LocalMcp
     {
         public const int Version = 1;
         public const int MaximumMessageBytes = 64 * 1024;
+        internal static readonly TimeSpan ReadTimeout = TimeSpan.FromSeconds(1);
 
         public static string PipeName
         {
@@ -87,6 +88,7 @@ namespace FocusRgb.LocalMcp
                 try { await _runTask.ConfigureAwait(false); }
                 catch (OperationCanceledException) { }
                 catch (ObjectDisposedException) { }
+                catch (IOException) { }
             }
             _stopping.Dispose();
         }
@@ -100,9 +102,24 @@ namespace FocusRgb.LocalMcp
                 {
                     await HandleConnectionAsync(cancellationToken).ConfigureAwait(false);
                 }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                }
+                catch (IOException)
+                {
+                }
                 finally
                 {
-                    if (_pipe.IsConnected) _pipe.Disconnect();
+                    try
+                    {
+                        if (_pipe.IsConnected) _pipe.Disconnect();
+                    }
+                    catch (IOException)
+                    {
+                    }
+                    catch (InvalidOperationException)
+                    {
+                    }
                 }
             }
         }
@@ -114,24 +131,25 @@ namespace FocusRgb.LocalMcp
             {
                 AutoFlush = true
             };
-            while (_pipe.IsConnected && !cancellationToken.IsCancellationRequested)
+            using var readTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            readTimeout.CancelAfter(LocalMcpProtocol.ReadTimeout);
+            string? line;
+            try
             {
-                string? line;
-                try
-                {
-                    line = await ReadBoundedLineAsync(reader, cancellationToken).ConfigureAwait(false);
-                }
-                catch (InvalidDataException exception)
-                {
-                    await writer.WriteLineAsync(JsonSerializer.Serialize(
-                        Error(null, "invalid-request", exception.Message))).ConfigureAwait(false);
-                    return;
-                }
-                if (line is null) return;
-                var response = await HandleRequestAsync(line, cancellationToken).ConfigureAwait(false);
-                await writer.WriteLineAsync(JsonSerializer.Serialize(response)).ConfigureAwait(false);
+                line = await ReadBoundedLineAsync(reader, readTimeout.Token).ConfigureAwait(false);
             }
+            catch (InvalidDataException exception)
+            {
+                await writer.WriteLineAsync(JsonSerializer.Serialize(
+                    Error(null, "invalid-request", exception.Message))).ConfigureAwait(false);
+                return;
+            }
+            if (line is null) return;
+            var response = await HandleRequestAsync(line, cancellationToken).ConfigureAwait(false);
+            await writer.WriteLineAsync(JsonSerializer.Serialize(response)).ConfigureAwait(false);
         }
+
+        internal PipeSecurity GetAccessControl() => _pipe.GetAccessControl();
 
         private async Task<LocalMcpResponse> HandleRequestAsync(string json, CancellationToken cancellationToken)
         {
@@ -209,10 +227,17 @@ namespace FocusRgb.LocalMcp
     /// <summary>Connects the stdio adapter to the authenticated app listener after verifying its process.</summary>
     public sealed partial class LocalMcpPipeClient
     {
-        private readonly string _credential;
-        private readonly string _expectedServerPath;
+        private readonly McpConfigurationStore? _configurationStore;
+        private readonly string? _credential;
+        private readonly string? _expectedServerPath;
 
-        public LocalMcpPipeClient(string credential, string expectedServerPath)
+        public LocalMcpPipeClient(McpConfigurationStore configurationStore)
+        {
+            ArgumentNullException.ThrowIfNull(configurationStore);
+            _configurationStore = configurationStore;
+        }
+
+        internal LocalMcpPipeClient(string credential, string expectedServerPath)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(credential);
             ArgumentException.ThrowIfNullOrWhiteSpace(expectedServerPath);
@@ -222,6 +247,7 @@ namespace FocusRgb.LocalMcp
 
         public async Task<JsonElement> QueryAsync(string method, CancellationToken cancellationToken = default)
         {
+            var (credential, expectedServerPath) = await GetConnectionAsync(cancellationToken).ConfigureAwait(false);
             using var pipe = new NamedPipeClientStream(
                 ".", LocalMcpProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
             try
@@ -233,7 +259,7 @@ namespace FocusRgb.LocalMcp
                 throw new InvalidOperationException(
                     "FocusRGB is not running or local MCP is disabled.", exception);
             }
-            VerifyServer(pipe, _expectedServerPath);
+            VerifyServer(pipe, expectedServerPath);
             using var reader = new StreamReader(pipe, new UTF8Encoding(false), false, 4096, leaveOpen: true);
             using var writer = new StreamWriter(pipe, new UTF8Encoding(false), 4096, leaveOpen: true)
             {
@@ -244,7 +270,7 @@ namespace FocusRgb.LocalMcp
             {
                 ProtocolVersion = LocalMcpProtocol.Version,
                 Id = id,
-                Credential = _credential,
+                Credential = credential,
                 Method = method
             })).ConfigureAwait(false);
             var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false)
@@ -255,6 +281,18 @@ namespace FocusRgb.LocalMcp
             if (response.Error is not null)
                 throw new InvalidOperationException($"{response.Error.Code}: {response.Error.Message}");
             return response.Result ?? throw new InvalidDataException("FocusRGB returned no result.");
+        }
+
+        private async Task<(string Credential, string ApplicationPath)> GetConnectionAsync(
+            CancellationToken cancellationToken)
+        {
+            if (_configurationStore is null) return (_credential!, _expectedServerPath!);
+            var loaded = await _configurationStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+            if (!loaded.IsSuccess)
+                throw new InvalidOperationException(loaded.ErrorMessage);
+            if (loaded.Configuration is not { Enabled: true, Credential: not null, ApplicationPath: not null } enabled)
+                throw new InvalidOperationException("Local MCP is disabled in FocusRGB.");
+            return (enabled.Credential, enabled.ApplicationPath);
         }
 
         private static void VerifyServer(NamedPipeClientStream pipe, string expectedPath)

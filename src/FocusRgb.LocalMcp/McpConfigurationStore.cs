@@ -50,6 +50,8 @@ namespace FocusRgb.LocalMcp
                 Credential = credential,
                 ApplicationPath = applicationPath ?? loaded.Configuration?.ApplicationPath
             };
+            var validation = Validate(configuration);
+            if (!validation.IsSuccess) return validation;
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(_path)!);

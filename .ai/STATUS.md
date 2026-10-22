@@ -212,16 +212,17 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 ## Active implementation slice
 
 - Slice: 18 — Local MCP commands
-- State: in progress. PR #113 (application state service) is merged; the default-off local
-  transport and read-only tools are being implemented in PR 2.
+- State: in progress. PR #113 (application state service) is merged; PR #114 contains the
+  default-off local transport and read-only tools and is awaiting current-head re-review.
 - Implemented on `slice/18-application-state-service`: one Core service owns current settings,
   selection state, selection evaluation and revisions; UI and future MCP callers share its
   serialized persistence/output commands. Snapshots include coordinator availability/recovery
   changes. External settings changes notify the UI; dirty drafts are preserved and block saving
   until the user explicitly reloads, while stale writes return a conflict.
 - Verification: PR 1 passed 376/376 tests. PR 2 currently builds with 0 warnings/errors and passes
-  386/386 tests, including config fail-closed, authentication, process-path, malformed-request,
-  first-listener, clean-shutdown, runtime-status, and delayed shutdown-status coverage.
+  390/390 tests, including config fail-closed, authentication, ACL/process-path, malformed-request,
+  connection timeout/recovery, all read tools, first-listener, clean-shutdown, runtime-status, and
+  delayed shutdown-status coverage.
 - External/live evidence: not requested for this service boundary; tests use the existing fake
   output gateway and persisted app-data store.
 - Remaining acceptance: review and merge the PR 2 transport/read tools, followed by approved
@@ -229,7 +230,7 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
   deferred to #112.
 - Current blocker or required product input: none.
 - Uncommitted work to preserve: none.
-- Next action: open PR 2 for Antigravity review after local verification.
+- Next action: obtain Antigravity's current-head re-review and green CI for PR #114.
 - Next slice: 19 — Installed-game discovery, only after Slice 18 is complete.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in

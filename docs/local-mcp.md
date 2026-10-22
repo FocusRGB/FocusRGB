@@ -7,7 +7,8 @@ official `ModelContextProtocol` C# SDK 2.2.0 and MCP protocol version 2026-07-28
 The Settings-page switch is off by default. Its versioned state and random per-install credential
 live in `%LOCALAPPDATA%\FocusRGB\mcp.json`, outside `settings.json`; MCP has no tool that can change
 the switch. Missing, invalid, or disabled configuration means no named pipe is created. The switch
-is hidden on unsupported platforms.
+is hidden on unsupported platforms. A running stdio adapter reloads this file for every tool call,
+so changing the UI switch does not require restarting the MCP host.
 
 ## Tools
 

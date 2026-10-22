@@ -7,6 +7,7 @@ namespace FocusRgb.App.Mcp
     /// <summary>Projects immutable application-owned state for the read-only local MCP boundary.</summary>
     public sealed class McpReadQueryService
     {
+        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
         private readonly ApplicationStateService _state;
         private readonly Func<IReadOnlyList<InstalledPluginInfo>> _plugins;
 
@@ -63,7 +64,7 @@ namespace FocusRgb.App.Mcp
                 },
                 _ => throw new ArgumentException($"Unknown read-only method '{method}'.", nameof(method))
             };
-            return Task.FromResult(JsonSerializer.SerializeToElement(value));
+            return Task.FromResult(JsonSerializer.SerializeToElement(value, JsonOptions));
         }
     }
 }

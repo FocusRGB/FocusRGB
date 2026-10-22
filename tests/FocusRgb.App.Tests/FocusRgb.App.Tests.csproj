@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\FocusRgb.App\FocusRgb.App.csproj" />
     <ProjectReference Include="..\..\src\FocusRgb.LocalMcp\FocusRgb.LocalMcp.csproj" />
+    <ProjectReference Include="..\..\src\FocusRgb.Mcp\FocusRgb.Mcp.csproj" />
     <ProjectReference Include="..\FocusRgb.FakePlugin\FocusRgb.FakePlugin.csproj" />
     <ProjectReference Include="..\FocusRgb.TestSupport\FocusRgb.TestSupport.csproj" />
   </ItemGroup>
