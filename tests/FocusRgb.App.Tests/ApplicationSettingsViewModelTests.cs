@@ -109,19 +109,9 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public async Task ExternalSettingsChange_PreservesDirtyDraftUntilExplicitReload()
+        public async Task ExternalSettingsChange_RefreshesACleanEditor()
         {
-            var store = new LocalStateStore(_directory);
-            var startup = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
-            var service = new ApplicationStateService(
-                startup.Snapshot!.Settings,
-                startup.Snapshot.State,
-                startup.Snapshot.Desired.Reason,
-                store);
-            var viewModel = MainWindowViewModel.CreatePersistent(
-                startup.Snapshot, store, applicationState: service);
-            var originalName = viewModel.ProfileName;
-            viewModel.ProfileName = "Unsaved draft";
+            var (viewModel, service) = await CreateWithServiceAsync();
 
             var changed = WithTheme(service.Current.Settings, "dark");
             var applied = await service.ApplySettingsAsync(
@@ -129,19 +119,73 @@ namespace FocusRgb.App.Tests
                 service.Current.SettingsRevision,
                 "mcp",
                 TestContext.Current.CancellationToken);
-            await viewModel.SaveProfileAsync(TestContext.Current.CancellationToken);
+
+            Assert.True(applied.IsSuccess);
+            Assert.False(viewModel.HasSettingsConflict);
+            Assert.Equal("Dark", viewModel.ApplicationTheme);
+        }
+
+        [Fact]
+        public async Task ExternalProfileRemoval_PreservesDirtyProjectionUntilExplicitReload()
+        {
+            var (viewModel, service) = await CreateWithServiceAsync();
+            var removed = viewModel.Profiles.Single(profile => profile.Id == "movie");
+            viewModel.EditingProfile = removed;
+            viewModel.ProfileName = "Unsaved draft";
+
+            var applied = await service.ApplySettingsAsync(
+                WithoutProfile(service.Current.Settings, "movie"),
+                service.Current.SettingsRevision,
+                "mcp",
+                TestContext.Current.CancellationToken);
 
             Assert.True(applied.IsSuccess);
             Assert.True(viewModel.HasSettingsConflict);
             Assert.Equal("Unsaved draft", viewModel.ProfileName);
             Assert.Contains("Reload", viewModel.ProfileEditorStatus, StringComparison.Ordinal);
-            var persisted = await store.InitializeAsync(
-                Start.AddMinutes(1), TestContext.Current.CancellationToken);
-            Assert.Equal(originalName, persisted.Snapshot!.Settings.Profiles![0].DisplayName);
+            viewModel.CancelProfile();
+            viewModel.EditingProfile = viewModel.Profiles.Single(profile => profile.Id == "music");
+            viewModel.EditingProfile = removed;
+            Assert.Equal("Movie", viewModel.ProfileName);
+
+            var pluginError = await viewModel.SetPluginEnabledAsync(
+                "test-plugin", true, TestContext.Current.CancellationToken);
+            Assert.Contains("Settings changed elsewhere", pluginError, StringComparison.Ordinal);
+
+            var second = await service.ApplySettingsAsync(
+                WithTheme(service.Current.Settings, "dark"),
+                service.Current.SettingsRevision,
+                "mcp",
+                TestContext.Current.CancellationToken);
+            Assert.True(second.IsSuccess);
+            Assert.True(viewModel.HasSettingsConflict);
+            Assert.Contains(viewModel.Profiles, profile => profile.Id == "movie");
+
             viewModel.ReloadSettingsAfterConflict();
             Assert.False(viewModel.HasSettingsConflict);
-            Assert.Equal(originalName, viewModel.ProfileName);
+            Assert.DoesNotContain(viewModel.Profiles, profile => profile.Id == "movie");
             Assert.Equal("Dark", viewModel.ApplicationTheme);
+        }
+
+        [Fact]
+        public async Task ExternalSettingsChange_PreservesNewGroupDraftWithoutASelection()
+        {
+            var (viewModel, service) = await CreateWithServiceAsync();
+            viewModel.EditingApplicationGroup = null;
+            viewModel.ApplicationGroupName = "New group";
+            viewModel.AddDraftExecutable("NewApp.exe");
+
+            var applied = await service.ApplySettingsAsync(
+                WithTheme(service.Current.Settings, "dark"),
+                service.Current.SettingsRevision,
+                "mcp",
+                TestContext.Current.CancellationToken);
+
+            Assert.True(applied.IsSuccess);
+            Assert.True(viewModel.HasSettingsConflict);
+            Assert.Null(viewModel.EditingApplicationGroup);
+            Assert.Equal("New group", viewModel.ApplicationGroupName);
+            Assert.Equal(["NewApp.exe"], viewModel.DraftExecutables);
         }
 
         [Fact]
@@ -185,6 +229,20 @@ namespace FocusRgb.App.Tests
             return (MainWindowViewModel.CreatePersistent(startup.Snapshot!, store), store);
         }
 
+        private async Task<(MainWindowViewModel ViewModel, ApplicationStateService Service)> CreateWithServiceAsync()
+        {
+            var store = new LocalStateStore(_directory);
+            var startup = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(startup.IsSuccess, startup.Error?.Message);
+            var service = new ApplicationStateService(
+                startup.Snapshot!.Settings,
+                startup.Snapshot.State,
+                startup.Snapshot.Desired.Reason,
+                store);
+            return (MainWindowViewModel.CreatePersistent(
+                startup.Snapshot, store, applicationState: service), service);
+        }
+
         private static SettingsDocument WithTheme(SettingsDocument settings, string theme) => new()
         {
             SchemaVersion = settings.SchemaVersion,
@@ -201,6 +259,18 @@ namespace FocusRgb.App.Tests
             Profiles = settings.Profiles,
             ApplicationGroups = settings.ApplicationGroups,
             Rules = settings.Rules,
+            AdditionalProperties = settings.AdditionalProperties
+        };
+
+        private static SettingsDocument WithoutProfile(SettingsDocument settings, string profileId) => new()
+        {
+            SchemaVersion = settings.SchemaVersion,
+            Application = settings.Application,
+            Plugins = settings.Plugins,
+            Selection = settings.Selection,
+            Profiles = settings.Profiles!.Where(profile => profile.Id != profileId).ToList(),
+            ApplicationGroups = settings.ApplicationGroups,
+            Rules = settings.Rules!.Where(rule => rule.Profile != profileId).ToList(),
             AdditionalProperties = settings.AdditionalProperties
         };
 

@@ -15,6 +15,8 @@ namespace FocusRgb.App.ViewModels
     /// <summary>Connects the desktop shell to persisted local selection and profile state.</summary>
     public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
+        private const string SettingsConflictMessage =
+            "Settings changed elsewhere. Reload the saved settings before saving this draft.";
         private bool _isManual = true;
         private readonly ApplicationStateService? _applicationState;
         private readonly IPluginOutputGateway? _pluginGateway;
@@ -508,7 +510,8 @@ namespace FocusRgb.App.ViewModels
             bool enabled,
             CancellationToken cancellationToken = default)
         {
-            if (!BeginSettingsSave()) return "Another settings save is already in progress.";
+            if (!BeginSettingsSave())
+                return HasSettingsConflict ? SettingsConflictMessage : "Another settings save is already in progress.";
             try
             {
                 var enabledIds = _settings.Plugins!.Enabled!.ToHashSet(StringComparer.Ordinal);
@@ -1024,16 +1027,16 @@ namespace FocusRgb.App.ViewModels
             if (settingsChanged)
             {
                 var hasDirtyEditor = HasDirtyEditor();
-                _settings = snapshot.Settings;
-                _settingsRevision = snapshot.SettingsRevision;
-                if (snapshot.Source != "ui" && hasDirtyEditor)
+                if (snapshot.Source != "ui" && (HasSettingsConflict || hasDirtyEditor))
                 {
                     HasSettingsConflict = true;
                     ReportSettingsConflict();
                 }
-                else if (snapshot.Source != "ui")
+                else
                 {
-                    ReloadSettingsProjection();
+                    _settings = snapshot.Settings;
+                    _settingsRevision = snapshot.SettingsRevision;
+                    if (snapshot.Source != "ui") ReloadSettingsProjection();
                 }
             }
 
@@ -1083,9 +1086,14 @@ namespace FocusRgb.App.ViewModels
 
         public void ReloadSettingsAfterConflict()
         {
-            if (!HasSettingsConflict) return;
+            if (!HasSettingsConflict || _applicationState is null) return;
+            var current = _applicationState.Current;
+            _settings = current.Settings;
+            _settingsRevision = current.SettingsRevision;
+            _selectionState = current.SelectionState;
             ReloadSettingsProjection();
             HasSettingsConflict = false;
+            ApplyApplicationSnapshot(current);
             ProfileEditorStatus = "Reloaded the current saved settings; the conflicting draft was discarded.";
             ApplicationGroupEditorStatus = "Reloaded the current saved settings.";
             ApplicationSettingsStatus = "Reloaded the current saved application preferences.";
@@ -1094,20 +1102,20 @@ namespace FocusRgb.App.ViewModels
 
         private bool HasDirtyEditor()
         {
-            var groupDirty = EditingApplicationGroup is not null
-                && (!_settings.ApplicationGroups!.Any(group => group.Id == EditingApplicationGroup.Id)
-                    || ApplicationGroupName != EditingApplicationGroup.DisplayName
-                    || !DraftExecutables.SequenceEqual(EditingApplicationGroup.Executables));
+            var groupDirty = EditingApplicationGroup is null
+                ? !string.IsNullOrWhiteSpace(ApplicationGroupName) || DraftExecutables.Count > 0
+                : !_settings.ApplicationGroups!.Any(group => group.Id == EditingApplicationGroup.Id)
+                  || ApplicationGroupName != EditingApplicationGroup.DisplayName
+                  || !DraftExecutables.SequenceEqual(EditingApplicationGroup.Executables);
             return IsProfileDirty || MappingEditor.IsDirty || IsApplicationSettingsDirty || groupDirty;
         }
 
         private void ReportSettingsConflict()
         {
-            const string message = "Settings changed elsewhere. Reload the saved settings before saving this draft.";
-            ProfileEditorStatus = message;
-            ApplicationGroupEditorStatus = message;
-            ApplicationSettingsStatus = message;
-            MappingEditor.ReportSaveFailure(message);
+            ProfileEditorStatus = SettingsConflictMessage;
+            ApplicationGroupEditorStatus = SettingsConflictMessage;
+            ApplicationSettingsStatus = SettingsConflictMessage;
+            MappingEditor.ReportSaveFailure(SettingsConflictMessage);
         }
 
         private void ReloadSettingsProjection()
