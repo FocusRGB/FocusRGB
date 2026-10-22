@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FocusRgb.Core\FocusRgb.Core.csproj" />
+    <ProjectReference Include="..\FocusRgb.LocalMcp\FocusRgb.LocalMcp.csproj" />
     <ProjectReference Include="..\FocusRgb.Platform.Windows\FocusRgb.Platform.Windows.csproj" />
   </ItemGroup>
 </Project>

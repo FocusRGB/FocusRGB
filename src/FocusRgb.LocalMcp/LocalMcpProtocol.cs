@@ -1,0 +1,276 @@
+using System.Diagnostics;
+using System.IO.Pipes;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Security.Principal;
+using System.Text;
+using System.Text.Json;
+
+namespace FocusRgb.LocalMcp
+{
+    /// <summary>Defines the private app-to-adapter protocol; MCP itself remains on adapter stdio.</summary>
+    public static class LocalMcpProtocol
+    {
+        public const int Version = 1;
+        public const int MaximumMessageBytes = 64 * 1024;
+
+        public static string PipeName
+        {
+            get
+            {
+                var user = WindowsIdentity.GetCurrent().User?.Value
+                    ?? throw new InvalidOperationException("The current Windows user SID is unavailable.");
+                return $"FocusRGB.Mcp.{user}";
+            }
+        }
+    }
+
+    public sealed class LocalMcpRequest
+    {
+        public int ProtocolVersion { get; init; }
+        public string? Id { get; init; }
+        public string? Credential { get; init; }
+        public string? Method { get; init; }
+    }
+
+    public sealed class LocalMcpResponse
+    {
+        public string? Id { get; init; }
+        public JsonElement? Result { get; init; }
+        public LocalMcpError? Error { get; init; }
+    }
+
+    public sealed class LocalMcpError
+    {
+        public required string Code { get; init; }
+        public required string Message { get; init; }
+    }
+
+    /// <summary>Hosts one authenticated, current-user-only named-pipe listener owned by the app.</summary>
+    public sealed class LocalMcpPipeServer : IAsyncDisposable
+    {
+        private readonly byte[] _credential;
+        private readonly Func<string, CancellationToken, Task<JsonElement>> _dispatch;
+        private readonly CancellationTokenSource _stopping = new();
+        private readonly NamedPipeServerStream _pipe;
+        private Task? _runTask;
+
+        public LocalMcpPipeServer(
+            string credential,
+            Func<string, CancellationToken, Task<JsonElement>> dispatch)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(credential);
+            ArgumentNullException.ThrowIfNull(dispatch);
+            _credential = Convert.FromBase64String(credential);
+            _dispatch = dispatch;
+            _pipe = new NamedPipeServerStream(
+                LocalMcpProtocol.PipeName,
+                PipeDirection.InOut,
+                1,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly | PipeOptions.FirstPipeInstance);
+        }
+
+        public Task RunAsync()
+        {
+            if (_runTask is not null) throw new InvalidOperationException("The MCP listener is already running.");
+            _runTask = RunCoreAsync(_stopping.Token);
+            return _runTask;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await _stopping.CancelAsync().ConfigureAwait(false);
+            _pipe.Dispose();
+            if (_runTask is not null)
+            {
+                try { await _runTask.ConfigureAwait(false); }
+                catch (OperationCanceledException) { }
+                catch (ObjectDisposedException) { }
+            }
+            _stopping.Dispose();
+        }
+
+        private async Task RunCoreAsync(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await _pipe.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await HandleConnectionAsync(cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    if (_pipe.IsConnected) _pipe.Disconnect();
+                }
+            }
+        }
+
+        private async Task HandleConnectionAsync(CancellationToken cancellationToken)
+        {
+            using var reader = new StreamReader(_pipe, new UTF8Encoding(false), false, 4096, leaveOpen: true);
+            using var writer = new StreamWriter(_pipe, new UTF8Encoding(false), 4096, leaveOpen: true)
+            {
+                AutoFlush = true
+            };
+            while (_pipe.IsConnected && !cancellationToken.IsCancellationRequested)
+            {
+                string? line;
+                try
+                {
+                    line = await ReadBoundedLineAsync(reader, cancellationToken).ConfigureAwait(false);
+                }
+                catch (InvalidDataException exception)
+                {
+                    await writer.WriteLineAsync(JsonSerializer.Serialize(
+                        Error(null, "invalid-request", exception.Message))).ConfigureAwait(false);
+                    return;
+                }
+                if (line is null) return;
+                var response = await HandleRequestAsync(line, cancellationToken).ConfigureAwait(false);
+                await writer.WriteLineAsync(JsonSerializer.Serialize(response)).ConfigureAwait(false);
+            }
+        }
+
+        private async Task<LocalMcpResponse> HandleRequestAsync(string json, CancellationToken cancellationToken)
+        {
+            LocalMcpRequest? request;
+            try
+            {
+                request = JsonSerializer.Deserialize<LocalMcpRequest>(json);
+            }
+            catch (JsonException)
+            {
+                return Error(null, "invalid-request", "The local request is not valid JSON.");
+            }
+            if (request?.ProtocolVersion != LocalMcpProtocol.Version
+                || string.IsNullOrWhiteSpace(request.Id)
+                || string.IsNullOrWhiteSpace(request.Method))
+                return Error(request?.Id, "invalid-request", "The local request shape or protocol version is invalid.");
+            if (!Authenticate(request.Credential))
+                return Error(request.Id, "unauthorized", "The local MCP credential was rejected.");
+            try
+            {
+                return new LocalMcpResponse
+                {
+                    Id = request.Id,
+                    Result = await _dispatch(request.Method, cancellationToken).ConfigureAwait(false)
+                };
+            }
+            catch (ArgumentException exception)
+            {
+                return Error(request.Id, "method-not-found", exception.Message);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                return Error(request.Id, "internal-error", "FocusRGB could not complete the read query.");
+            }
+        }
+
+        private bool Authenticate(string? supplied)
+        {
+            byte[] bytes;
+            try { bytes = Convert.FromBase64String(supplied ?? string.Empty); }
+            catch (FormatException) { return false; }
+            return bytes.Length == _credential.Length
+                && CryptographicOperations.FixedTimeEquals(bytes, _credential);
+        }
+
+        private static async Task<string?> ReadBoundedLineAsync(
+            StreamReader reader,
+            CancellationToken cancellationToken)
+        {
+            var buffer = new char[1];
+            var result = new StringBuilder();
+            var byteCount = 0;
+            while (await reader.ReadAsync(buffer, cancellationToken).ConfigureAwait(false) != 0)
+            {
+                if (buffer[0] == '\n') return result.ToString().TrimEnd('\r');
+                result.Append(buffer[0]);
+                byteCount += buffer[0] switch { <= '\u007f' => 1, <= '\u07ff' => 2, _ => 3 };
+                if (byteCount > LocalMcpProtocol.MaximumMessageBytes)
+                    throw new InvalidDataException("The local MCP request is too large.");
+            }
+            return result.Length == 0 ? null : result.ToString();
+        }
+
+        private static LocalMcpResponse Error(string? id, string code, string message) => new()
+        {
+            Id = id,
+            Error = new LocalMcpError { Code = code, Message = message }
+        };
+    }
+
+    /// <summary>Connects the stdio adapter to the authenticated app listener after verifying its process.</summary>
+    public sealed partial class LocalMcpPipeClient
+    {
+        private readonly string _credential;
+        private readonly string _expectedServerPath;
+
+        public LocalMcpPipeClient(string credential, string expectedServerPath)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(credential);
+            ArgumentException.ThrowIfNullOrWhiteSpace(expectedServerPath);
+            _credential = credential;
+            _expectedServerPath = Path.GetFullPath(expectedServerPath);
+        }
+
+        public async Task<JsonElement> QueryAsync(string method, CancellationToken cancellationToken = default)
+        {
+            using var pipe = new NamedPipeClientStream(
+                ".", LocalMcpProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+            try
+            {
+                await pipe.ConnectAsync(2000, cancellationToken).ConfigureAwait(false);
+            }
+            catch (TimeoutException exception)
+            {
+                throw new InvalidOperationException(
+                    "FocusRGB is not running or local MCP is disabled.", exception);
+            }
+            VerifyServer(pipe, _expectedServerPath);
+            using var reader = new StreamReader(pipe, new UTF8Encoding(false), false, 4096, leaveOpen: true);
+            using var writer = new StreamWriter(pipe, new UTF8Encoding(false), 4096, leaveOpen: true)
+            {
+                AutoFlush = true
+            };
+            var id = Guid.NewGuid().ToString("N");
+            await writer.WriteLineAsync(JsonSerializer.Serialize(new LocalMcpRequest
+            {
+                ProtocolVersion = LocalMcpProtocol.Version,
+                Id = id,
+                Credential = _credential,
+                Method = method
+            })).ConfigureAwait(false);
+            var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false)
+                ?? throw new IOException("FocusRGB closed the local MCP connection without a response.");
+            var response = JsonSerializer.Deserialize<LocalMcpResponse>(line)
+                ?? throw new InvalidDataException("FocusRGB returned an invalid local MCP response.");
+            if (response.Id != id) throw new InvalidDataException("FocusRGB returned a mismatched response.");
+            if (response.Error is not null)
+                throw new InvalidOperationException($"{response.Error.Code}: {response.Error.Message}");
+            return response.Result ?? throw new InvalidDataException("FocusRGB returned no result.");
+        }
+
+        private static void VerifyServer(NamedPipeClientStream pipe, string expectedPath)
+        {
+            if (!GetNamedPipeServerProcessId(pipe.SafePipeHandle, out var processId))
+                throw new InvalidOperationException("Could not identify the FocusRGB pipe server process.");
+            using var process = Process.GetProcessById(checked((int)processId));
+            var actualPath = process.MainModule?.FileName;
+            if (actualPath is null || !Path.GetFullPath(actualPath).Equals(expectedPath, StringComparison.OrdinalIgnoreCase))
+                throw new UnauthorizedAccessException("The named-pipe server is not the expected FocusRGB executable.");
+        }
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool GetNamedPipeServerProcessId(
+            Microsoft.Win32.SafeHandles.SafePipeHandle pipe,
+            out uint serverProcessId);
+    }
+}
