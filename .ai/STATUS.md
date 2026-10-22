@@ -219,7 +219,7 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
   changes. External settings changes notify the UI; dirty drafts are preserved and block saving
   until the user explicitly reloads, while stale writes return a conflict.
 - Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passes with 0 warnings/errors;
-  `dotnet test FocusRGB.slnx -c Release --no-build --no-restore` passes 366/366 tests.
+  `dotnet test FocusRGB.slnx -c Release --no-build --no-restore` passes 376/376 tests.
 - External/live evidence: not requested for this service boundary; tests use the existing fake
   output gateway and persisted app-data store.
 - Remaining acceptance: merge PR #113 after review, then implement the local MCP transport and
