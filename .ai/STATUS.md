@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-21.
+Updated: 2026-10-22.
 
 ## Completed
 
@@ -211,25 +211,24 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 
 ## Active implementation slice
 
-- Slice: 17 — Stabilize the public SDK and contributor example
-- State: complete. Issues #41, #42, #79, #80 and #84 are closed. Node and Python SDKs are
-  deferred to `FocusRGB-Plugin-SDK#8` after Slice 29.
-- Implemented: FocusRGB owns protocol specs 1.0/1.1, schemas, conformance and internal host types;
-  `FocusRGB-Plugin-SDK` publishes the standalone `FocusRgb.PluginSdk` 1.0 package from nuget.org;
-  SignalRGB consumes it without credentials. Official discovery, cached offline results, safe
-  official/custom installation, per-plugin stop/start, uninstall and release assets are merged.
-- Verification: the latest FocusRGB Release build passes with 0 warnings/errors and 361/361 tests
-  pass on the package-download cleanup branch. SignalRGB builds cleanly and passes the
-  language-neutral conformance probe. Automated checks cover incompatible contracts, package
-  integrity/path safety, offline discovery, isolated lifecycle changes and generated templates.
-- External/live evidence: the owner confirmed that official SignalRGB install, enable/start,
-  visible switching across Default, Programming, Movie and Music, automatic priority and
-  uninstall all passed. This completes the Slice 16 and Slice 17 live gates.
-- Remaining acceptance: none for Slices 16 or 17.
+- Slice: 18 — Local MCP commands
+- State: in progress. PR #113 is the first of the three reviewed implementation units.
+- Implemented on `slice/18-application-state-service`: one Core service owns current settings,
+  selection state, selection evaluation and revisions; UI and future MCP callers share its
+  serialized persistence/output commands. Snapshots include coordinator availability/recovery
+  changes. External settings changes notify the UI; dirty drafts are preserved and block saving
+  until the user explicitly reloads, while stale writes return a conflict.
+- Verification: `dotnet build FocusRGB.slnx -c Release --no-restore` passes with 0 warnings/errors;
+  `dotnet test FocusRGB.slnx -c Release --no-build --no-restore` passes 366/366 tests.
+- External/live evidence: not requested for this service boundary; tests use the existing fake
+  output gateway and persisted app-data store.
+- Remaining acceptance: merge PR #113 after review, then implement the local MCP transport and
+  read-only queries, followed by approved mutating commands. Real-output `previewProfile` remains
+  deferred to #112.
 - Current blocker or required product input: none.
 - Uncommitted work to preserve: none.
-- Next action: start Slice 18 only when the owner requests it.
-- Next slice: 18 — Local MCP commands.
+- Next action: obtain Antigravity review and green CI for PR #113.
+- Next slice: 19 — Installed-game discovery, only after Slice 18 is complete.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
 `global.json`; use `dotnet test --solution …`, not the VSTest form. The App and Windows
@@ -272,9 +271,8 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Slices 16 and 17 are complete. The owner-confirmed live SignalRGB install, four-profile switching,
-automatic priority and uninstall results are recorded in issues #41 and #80; parent #42 is closed.
-Slice 18 is ready but does not start until the owner requests it.
+Review and merge Slice 18 PR #113, then add the local-only MCP transport and read-only query tools
+in the second planned PR. Mutating MCP commands and their approval UI remain isolated in PR 3.
 
 Profile persistence, tray lifecycle, application settings, plugin hosting, coordination, Windows
 observations, application mappings, and the SignalRGB capability investigation are complete.
