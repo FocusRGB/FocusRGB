@@ -109,7 +109,13 @@ namespace FocusRgb.App
                     startup.Snapshot.Desired.Reason);
                 ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
                 var viewModel = MainWindowViewModel.CreatePersistent(
-                    startup.Snapshot, _store, trayAvailable, outputCoordinator, initialOutput, pluginGateway);
+                    startup.Snapshot,
+                    _store,
+                    trayAvailable,
+                    outputCoordinator,
+                    initialOutput,
+                    pluginGateway,
+                    dispatch: action => Dispatcher.UIThread.Post(action));
                 _viewModel = viewModel;
                 pluginGateway.AvailabilityChanged += async (_, change) =>
                 {
@@ -138,8 +144,6 @@ namespace FocusRgb.App
                 };
                 var mainWindow = new MainWindow(viewModel, directory);
                 AttachWindowsSessionEnd(mainWindow);
-                outputCoordinator.StatusChanged += (_, status) =>
-                    Dispatcher.UIThread.Post(() => mainWindow.ApplyOutputStatus(status));
                 _mainWindow = mainWindow;
                 var icon = CreateIcon();
                 mainWindow.Icon = icon;

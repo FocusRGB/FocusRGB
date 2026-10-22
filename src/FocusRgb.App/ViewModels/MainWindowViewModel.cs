@@ -1,14 +1,14 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using FocusRgb.App.Diagnostics;
+using FocusRgb.App.Plugins;
 using FocusRgb.Core.Commands;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
-using FocusRgb.Core.Selection;
 using FocusRgb.Core.Protocol;
-using FocusRgb.App.Diagnostics;
-using FocusRgb.App.Plugins;
+using FocusRgb.Core.Selection;
 
 namespace FocusRgb.App.ViewModels
 {
@@ -16,14 +16,14 @@ namespace FocusRgb.App.ViewModels
     public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         private bool _isManual = true;
-        private readonly LocalStateStore? _settingsStore;
-        private readonly SelectionCommandService? _selectionCommands;
+        private readonly ApplicationStateService? _applicationState;
         private readonly IPluginOutputGateway? _pluginGateway;
         private SettingsDocument _settings;
-        private SelectionEngine _selectionEngine;
         private SelectionStateDocument? _selectionState;
         private SelectionReason _selectionReason = FocusRgb.Core.Selection.SelectionReason.Manual();
         private SelectionRuntimeStatus? _runtimeStatus;
+        private long _settingsRevision;
+        private bool _hasSettingsConflict;
         private string _runtimeStatusMessage = "Preview state; runtime persistence is not connected.";
         private bool _isRuntimeCommandPending;
         private ProfileOptionViewModel _selectedProfile;
@@ -67,9 +67,8 @@ namespace FocusRgb.App.ViewModels
             ProfileOptionViewModel selectedProfile,
             MappingEditorViewModel mappingEditor,
             SettingsDocument settings,
-            LocalStateStore? settingsStore,
             SelectionStateDocument? selectionState,
-            SelectionCommandService? selectionCommands,
+            ApplicationStateService? applicationState,
             IPluginOutputGateway? pluginGateway,
             SelectionReason? selectionReason,
             SelectionRuntimeStatus? runtimeStatus,
@@ -79,15 +78,14 @@ namespace FocusRgb.App.ViewModels
             _selectedProfile = selectedProfile;
             MappingEditor = mappingEditor;
             _settings = settings;
-            _selectionEngine = new SelectionEngine(settings);
-            _settingsStore = settingsStore;
             _selectionState = selectionState;
-            _selectionCommands = selectionCommands;
+            _applicationState = applicationState;
             _pluginGateway = pluginGateway;
             _runtimeStatus = runtimeStatus;
+            _settingsRevision = applicationState?.Current.SettingsRevision ?? 0;
             CanMinimizeToTray = canMinimizeToTray;
             if (selectionReason is not null) _selectionReason = selectionReason;
-            if (selectionCommands is not null)
+            if (applicationState is not null)
                 _runtimeStatusMessage = runtimeStatus?.AppliedDetail ?? "Local runtime is ready; no output integration is connected.";
             EditingProfile = profiles.Count > 0 ? profiles[0] : null;
             EditingApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
@@ -97,7 +95,7 @@ namespace FocusRgb.App.ViewModels
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public ObservableCollection<ProfileOptionViewModel> Profiles { get; }
-        public MappingEditorViewModel MappingEditor { get; }
+        public MappingEditorViewModel MappingEditor { get; private set; }
         public ObservableCollection<ApplicationGroupViewModel> ApplicationGroups => MappingEditor.ApplicationGroups;
         public ObservableCollection<string> DraftExecutables { get; } = [];
         public ObservableCollection<string> DetectedExecutables { get; } = [];
@@ -225,6 +223,11 @@ namespace FocusRgb.App.ViewModels
         public bool HasStartupStatus => !string.IsNullOrWhiteSpace(StartupStatusMessage);
         public bool IsRuntimeCommandPending { get => _isRuntimeCommandPending; private set => Set(ref _isRuntimeCommandPending, value); }
         public bool IsSettingsSavePending => Volatile.Read(ref _settingsSavePending) != 0;
+        public bool HasSettingsConflict
+        {
+            get => _hasSettingsConflict;
+            private set => Set(ref _hasSettingsConflict, value);
+        }
         public bool HasEditingProfile => EditingProfile is not null;
         public bool CanRemoveEditingProfile => EditingProfile is not null && EditingProfile.Id != "default";
         public bool HasEditingApplicationGroup => EditingApplicationGroup is not null;
@@ -321,7 +324,7 @@ namespace FocusRgb.App.ViewModels
         {
             get
             {
-                if (_selectionCommands is null) return $"{SelectedProfile.DisplayName} (preview)";
+                if (_applicationState is null) return $"{SelectedProfile.DisplayName} (preview)";
                 if (_runtimeStatus?.Applied is { } applied
                     && applied.Bindings.Any(binding => binding.Outcome is "applied" or "unverified"))
                 {
@@ -340,7 +343,7 @@ namespace FocusRgb.App.ViewModels
         public string RecoveryNotificationMessage => HasRecoveryNotification
             ? $"Plugin '{_runtimeStatus!.Notifications[0].PluginId}' recovered. Resume current lighting intent?"
             : string.Empty;
-        public string SelectionReason => _selectionCommands is null
+        public string SelectionReason => _applicationState is null
             ? IsManual
                 ? "Manual preview selection; no command was sent."
                 : "Automatic preview mode; waiting for a stable application observation."
@@ -351,37 +354,33 @@ namespace FocusRgb.App.ViewModels
             CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(profile);
-            if (_selectionCommands is null || _selectionState is null)
+            if (_applicationState is null || _selectionState is null)
             {
                 SelectedProfile = profile;
                 return;
             }
 
             await RunRuntimeCommandAsync(
-                () => _selectionCommands.SelectProfileAsync(
-                    _settings,
-                    _selectionState,
+                () => _applicationState.SelectProfileAsync(
                     profile.Id,
                     DateTimeOffset.UtcNow,
-                    cancellationToken),
+                    cancellationToken: cancellationToken),
                 $"Selected {profile.DisplayName} in manual mode.");
         }
 
         public async Task SetModeAsync(bool manual, CancellationToken cancellationToken = default)
         {
-            if (_selectionCommands is null || _selectionState is null)
+            if (_applicationState is null || _selectionState is null)
             {
                 IsManual = manual;
                 return;
             }
 
             await RunRuntimeCommandAsync(
-                () => _selectionCommands.SetModeAsync(
-                    _settings,
-                    _selectionState,
+                () => _applicationState.SetModeAsync(
                     manual ? "manual" : "automatic",
                     DateTimeOffset.UtcNow,
-                    cancellationToken),
+                    cancellationToken: cancellationToken),
                 manual
                     ? "Manual mode saved."
                     : "Automatic mode saved; waiting for an application match.");
@@ -389,19 +388,17 @@ namespace FocusRgb.App.ViewModels
 
         public async Task<bool> SaveRuntimeStateAsync(CancellationToken cancellationToken = default)
         {
-            if (_selectionCommands is null || _selectionState is null) return true;
-            var result = await _selectionCommands.SaveCurrentAsync(
-                _settings,
-                _selectionState,
+            if (_applicationState is null || _selectionState is null) return true;
+            var result = await _applicationState.SaveCurrentAsync(
                 DateTimeOffset.UtcNow,
-                cancellationToken);
+                cancellationToken: cancellationToken);
             if (!result.IsSuccess)
             {
                 RuntimeStatusMessage = $"Could not save before quitting: {result.ErrorMessage}";
                 return false;
             }
 
-            ApplyRuntimeResult(result);
+            ApplyApplicationSnapshot(result.Snapshot);
             RuntimeStatusMessage = "Selection state saved. FocusRGB can quit safely.";
             return true;
         }
@@ -411,7 +408,7 @@ namespace FocusRgb.App.ViewModels
             CancellationToken cancellationToken = default)
         {
             var status = _runtimeStatus;
-            if (_selectionCommands is null || _selectionState is null
+            if (_applicationState is null || _selectionState is null
                 || status is null || status.Notifications.Count == 0)
             {
                 return;
@@ -419,12 +416,10 @@ namespace FocusRgb.App.ViewModels
             var notification = status.Notifications[0];
 
             await RunRuntimeCommandAsync(
-                () => _selectionCommands.RespondToNotificationAsync(
-                    _settings,
-                    _selectionState,
+                () => _applicationState.RespondToNotificationAsync(
                     notification.Id,
                     accept ? "accept" : "decline",
-                    cancellationToken),
+                    cancellationToken: cancellationToken),
                 accept ? "Recovered plugin accepted for current intent." : "Recovered plugin remains inactive.");
         }
 
@@ -452,7 +447,6 @@ namespace FocusRgb.App.ViewModels
                     return false;
                 }
 
-                _settings = candidate;
                 IsApplicationSettingsDirty = false;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShouldMinimizeOnClose)));
                 ApplicationSettingsStatus = SavedStatus("Application preferences saved.");
@@ -525,7 +519,6 @@ namespace FocusRgb.App.ViewModels
                     AdditionalProperties = _settings.Plugins.AdditionalProperties
                 });
                 var error = await SaveCandidateAsync(candidate, cancellationToken);
-                if (error is null) _settings = candidate;
                 return error;
             }
             finally
@@ -608,8 +601,6 @@ namespace FocusRgb.App.ViewModels
                     return;
                 }
 
-                _settings = candidate;
-                await ReapplyOutputAsync(cancellationToken);
                 EditingProfile.DisplayName = name;
                 EditingProfile.EffectName = replacement.Bindings![0].Effect!.DisplayName!;
                 EditingProfile.LayoutName = replacement.Bindings[0].Layout?.DisplayName ?? "Current provider layout";
@@ -646,7 +637,6 @@ namespace FocusRgb.App.ViewModels
                     EffectName = created.Bindings![0].Effect!.DisplayName!,
                     LayoutName = created.Bindings[0].Layout?.DisplayName ?? "Current provider layout"
                 };
-                _settings = candidate;
                 Profiles.Add(profile);
                 EditingProfile = profile;
                 MappingEditor.NewProfile = profile;
@@ -690,18 +680,6 @@ namespace FocusRgb.App.ViewModels
                 var candidate = WithProfiles(_settings.Profiles!
                     .Where(profile => profile.Id != EditingProfile.Id)
                     .ToList());
-                var validationError = ValidateCandidate(candidate);
-                if (validationError is not null)
-                {
-                    ProfileEditorStatus = validationError;
-                    return;
-                }
-                var stateError = await SaveRemovalStateAsync(EditingProfile.Id, candidate, cancellationToken);
-                if (stateError is not null)
-                {
-                    ProfileEditorStatus = stateError;
-                    return;
-                }
                 var error = await SaveCandidateAsync(candidate, cancellationToken);
                 if (error is not null)
                 {
@@ -709,8 +687,6 @@ namespace FocusRgb.App.ViewModels
                     return;
                 }
 
-                _settings = candidate;
-                await ReapplyOutputAsync(cancellationToken);
                 if (ReferenceEquals(SelectedProfile, EditingProfile))
                     SelectedProfile = Profiles.First(profile => !ReferenceEquals(profile, EditingProfile));
                 Profiles.Remove(EditingProfile);
@@ -780,26 +756,25 @@ namespace FocusRgb.App.ViewModels
                 && !DetectedExecutables.Contains(SelectedDetectedExecutable, StringComparer.OrdinalIgnoreCase))
                 SelectedDetectedExecutable = null;
 
-            if (_selectionCommands is null || _selectionState is null || _selectionState.Mode != "automatic") return;
+            if (_applicationState is null || _selectionState is null || _selectionState.Mode != "automatic") return;
             var now = DateTimeOffset.UtcNow;
             if (now < _observationRetryAfter) return;
             var previousState = _selectionState;
             var previousReason = _selectionReason;
-            var result = await _selectionCommands.ObserveAsync(
-                _settings, _selectionState, _selectionEngine, observation, now, cancellationToken);
+            var result = await _applicationState.ObserveAsync(observation, now, cancellationToken);
             if (!result.IsSuccess)
             {
                 RuntimeStatusMessage = result.ErrorMessage!;
                 _observationRetryAfter = now.AddSeconds(10);
                 return;
             }
-            var changed = previousState.UpdatedAt != result.State!.UpdatedAt
-                || previousReason.Kind != result.Status!.Desired.Reason.Kind
-                || previousReason.RuleId != result.Status.Desired.Reason.RuleId;
+            var changed = previousState.UpdatedAt != result.Snapshot.SelectionState.UpdatedAt
+                || previousReason.Kind != result.Snapshot.SelectionReason.Kind
+                || previousReason.RuleId != result.Snapshot.SelectionReason.RuleId;
             if (!changed) return;
             _observationRetryAfter = default;
-            ApplyRuntimeResult(result);
-            RuntimeStatusMessage = result.Status!.AppliedDetail;
+            ApplyApplicationSnapshot(result.Snapshot);
+            RuntimeStatusMessage = result.Snapshot.RuntimeStatus!.AppliedDetail;
         }
 
         public void RemoveDraftExecutable()
@@ -830,8 +805,6 @@ namespace FocusRgb.App.ViewModels
                     return;
                 }
 
-                _settings = candidate;
-                _selectionEngine = new SelectionEngine(candidate);
                 EditingApplicationGroup.DisplayName = name;
                 ReplaceExecutables(EditingApplicationGroup);
                 ApplicationGroupEditorStatus = SavedStatus($"Saved {name}.");
@@ -859,8 +832,6 @@ namespace FocusRgb.App.ViewModels
                 }
 
                 var group = new ApplicationGroupViewModel(id, name, created.Executables!);
-                _settings = candidate;
-                _selectionEngine = new SelectionEngine(candidate);
                 ApplicationGroups.Add(group);
                 EditingApplicationGroup = group;
                 MappingEditor.NewApplicationGroup = group;
@@ -894,8 +865,6 @@ namespace FocusRgb.App.ViewModels
                     ApplicationGroupEditorStatus = error;
                     return;
                 }
-                _settings = candidate;
-                _selectionEngine = new SelectionEngine(candidate);
                 ApplicationGroups.Remove(EditingApplicationGroup);
                 EditingApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
                 MappingEditor.NewApplicationGroup = EditingApplicationGroup;
@@ -920,8 +889,6 @@ namespace FocusRgb.App.ViewModels
                     return;
                 }
 
-                _settings = candidate;
-                _selectionEngine = new SelectionEngine(candidate);
                 MappingEditor.Apply();
             }
             finally
@@ -938,11 +905,11 @@ namespace FocusRgb.App.ViewModels
                 throw new InvalidOperationException("Validated default profiles are unavailable.");
             }
 
-            return Create(result.Settings, null, null, null, null, null, null, canMinimizeToTray: true);
+            return Create(result.Settings, null, null, null, null, null, canMinimizeToTray: true);
         }
 
         public static MainWindowViewModel CreatePreview(SettingsDocument settings)
-            => Create(settings, null, null, null, null, null, null, canMinimizeToTray: true);
+            => Create(settings, null, null, null, null, null, canMinimizeToTray: true);
 
         public static MainWindowViewModel CreatePersistent(
             StartupSnapshot snapshot,
@@ -950,23 +917,34 @@ namespace FocusRgb.App.ViewModels
             bool canMinimizeToTray = true,
             OutputCoordinator? outputCoordinator = null,
             SelectionRuntimeStatus? runtimeStatus = null,
-            IPluginOutputGateway? pluginGateway = null)
+            IPluginOutputGateway? pluginGateway = null,
+            ApplicationStateService? applicationState = null,
+            Action<Action>? dispatch = null)
         {
             ArgumentNullException.ThrowIfNull(snapshot);
             ArgumentNullException.ThrowIfNull(settingsStore);
-            var viewModel = Create(
+            var stateService = applicationState ?? new ApplicationStateService(
                 snapshot.Settings,
-                settingsStore,
                 snapshot.State,
-                new SelectionCommandService(settingsStore, outputCoordinator),
-                pluginGateway,
                 snapshot.Desired.Reason,
-                runtimeStatus,
+                settingsStore,
+                outputCoordinator,
+                runtimeStatus);
+            var current = stateService.Current;
+            var viewModel = Create(
+                current.Settings,
+                current.SelectionState,
+                stateService,
+                pluginGateway,
+                current.SelectionReason,
+                current.RuntimeStatus,
                 canMinimizeToTray);
-            viewModel.IsManual = snapshot.State.Mode == "manual";
+            var notify = dispatch ?? (action => action());
+            stateService.SnapshotChanged += (_, changed) => notify(() => viewModel.ApplyApplicationSnapshot(changed));
+            viewModel.IsManual = current.SelectionState.Mode == "manual";
             var selectedId = viewModel.IsManual
-                ? snapshot.State.ManualProfile
-                : snapshot.State.LastSelectedProfile;
+                ? current.SelectionState.ManualProfile
+                : current.SelectionState.LastSelectedProfile;
             viewModel.SelectedProfile = viewModel.Profiles.Single(profile => profile.Id == selectedId);
             viewModel.StartupStatusMessage = $"Settings loaded from {snapshot.SettingsSource}.";
             foreach (var recovery in snapshot.Recoveries)
@@ -981,9 +959,8 @@ namespace FocusRgb.App.ViewModels
 
         private static MainWindowViewModel Create(
             SettingsDocument settings,
-            LocalStateStore? settingsStore,
             SelectionStateDocument? selectionState,
-            SelectionCommandService? selectionCommands,
+            ApplicationStateService? applicationState,
             IPluginOutputGateway? pluginGateway,
             SelectionReason? selectionReason,
             SelectionRuntimeStatus? runtimeStatus,
@@ -996,19 +973,7 @@ namespace FocusRgb.App.ViewModels
                 throw new ArgumentException("Preview requires validated settings.", nameof(settings));
             }
 
-            var profiles = new ObservableCollection<ProfileOptionViewModel>(settingsProfiles.Select(profile =>
-            {
-                var binding = profile.Bindings!.FirstOrDefault();
-                return new ProfileOptionViewModel
-                {
-                    Id = profile.Id!,
-                    DisplayName = profile.DisplayName!,
-                    EffectName = binding?.Effect?.DisplayName ?? "No effect",
-                    LayoutName = binding is null
-                        ? "No layout"
-                        : binding.Layout?.DisplayName ?? "Current provider layout"
-                };
-            }));
+            var profiles = new ObservableCollection<ProfileOptionViewModel>(CreateProfileOptions(settingsProfiles));
             var defaultId = settings.Selection!.DefaultProfile;
             var selectedProfile = profiles.Single(profile => profile.Id == defaultId);
             var mappingEditor = MappingEditorViewModel.Create(settings, profiles);
@@ -1017,9 +982,8 @@ namespace FocusRgb.App.ViewModels
                 selectedProfile,
                 mappingEditor,
                 settings,
-                settingsStore,
                 selectionState,
-                selectionCommands,
+                applicationState,
                 pluginGateway,
                 selectionReason,
                 runtimeStatus,
@@ -1027,7 +991,7 @@ namespace FocusRgb.App.ViewModels
         }
 
         private async Task RunRuntimeCommandAsync(
-            Func<Task<SelectionCommandResult>> command,
+            Func<Task<ApplicationCommandResult>> command,
             string successMessage)
         {
             if (IsRuntimeCommandPending) return;
@@ -1044,8 +1008,8 @@ namespace FocusRgb.App.ViewModels
                     return;
                 }
 
-                ApplyRuntimeResult(result);
-                RuntimeStatusMessage = result.Status!.AppliedDetail;
+                ApplyApplicationSnapshot(result.Snapshot);
+                RuntimeStatusMessage = result.Snapshot.RuntimeStatus!.AppliedDetail;
             }
             finally
             {
@@ -1053,31 +1017,41 @@ namespace FocusRgb.App.ViewModels
             }
         }
 
-        private void ApplyRuntimeResult(SelectionCommandResult result)
+        public void ApplyApplicationSnapshot(ApplicationStateSnapshot snapshot)
         {
-            var modeChanged = _isManual != (result.Status!.Mode == "manual");
-            _selectionState = result.State!;
-            if (_runtimeStatus is not null && result.Status.Sequence < _runtimeStatus.Sequence) return;
-            _selectionReason = result.Status.Desired.Reason;
-            _runtimeStatus = result.Status;
-            _isManual = result.Status.Mode == "manual";
-            if (modeChanged) _selectionEngine = new SelectionEngine(_settings);
-            _selectedProfile = Profiles.Single(profile => profile.Id == result.Status.Desired.ProfileId);
+            ArgumentNullException.ThrowIfNull(snapshot);
+            var settingsChanged = snapshot.SettingsRevision > _settingsRevision;
+            if (settingsChanged)
+            {
+                var hasDirtyEditor = HasDirtyEditor();
+                _settings = snapshot.Settings;
+                _settingsRevision = snapshot.SettingsRevision;
+                if (snapshot.Source != "ui" && hasDirtyEditor)
+                {
+                    HasSettingsConflict = true;
+                    ReportSettingsConflict();
+                }
+                else if (snapshot.Source != "ui")
+                {
+                    ReloadSettingsProjection();
+                }
+            }
+
+            _selectionState = snapshot.SelectionState;
+            if (snapshot.RuntimeStatus is null
+                || _runtimeStatus is not null && snapshot.RuntimeStatus.Sequence < _runtimeStatus.Sequence)
+            {
+                return;
+            }
+            _selectionReason = snapshot.SelectionReason;
+            _runtimeStatus = snapshot.RuntimeStatus;
+            _isManual = snapshot.RuntimeStatus.Mode == "manual";
+            var selected = Profiles.FirstOrDefault(profile => profile.Id == snapshot.RuntimeStatus.Desired.ProfileId);
+            if (selected is not null) _selectedProfile = selected;
+            RuntimeStatusMessage = snapshot.RuntimeStatus.AppliedDetail;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsManual)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAutomatic)));
             NotifyStateChanged(nameof(SelectedProfile));
-        }
-
-        public void ApplyOutputStatus(SelectionRuntimeStatus status)
-        {
-            ArgumentNullException.ThrowIfNull(status);
-            if (_runtimeStatus is not null && status.Sequence < _runtimeStatus.Sequence) return;
-            _runtimeStatus = status;
-            _selectionReason = status.Desired.Reason;
-            RuntimeStatusMessage = status.AppliedDetail;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AppliedProfileName)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasRecoveryNotification)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RecoveryNotificationMessage)));
         }
 
         private static string DescribeReason(SelectionReason reason) => reason.Kind switch
@@ -1106,6 +1080,77 @@ namespace FocusRgb.App.ViewModels
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasRecoveryNotification)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RecoveryNotificationMessage)));
         }
+
+        public void ReloadSettingsAfterConflict()
+        {
+            if (!HasSettingsConflict) return;
+            ReloadSettingsProjection();
+            HasSettingsConflict = false;
+            ProfileEditorStatus = "Reloaded the current saved settings; the conflicting draft was discarded.";
+            ApplicationGroupEditorStatus = "Reloaded the current saved settings.";
+            ApplicationSettingsStatus = "Reloaded the current saved application preferences.";
+            MappingEditor.ReportSaveFailure("Reloaded the current saved mappings.");
+        }
+
+        private bool HasDirtyEditor()
+        {
+            var groupDirty = EditingApplicationGroup is not null
+                && (!_settings.ApplicationGroups!.Any(group => group.Id == EditingApplicationGroup.Id)
+                    || ApplicationGroupName != EditingApplicationGroup.DisplayName
+                    || !DraftExecutables.SequenceEqual(EditingApplicationGroup.Executables));
+            return IsProfileDirty || MappingEditor.IsDirty || IsApplicationSettingsDirty || groupDirty;
+        }
+
+        private void ReportSettingsConflict()
+        {
+            const string message = "Settings changed elsewhere. Reload the saved settings before saving this draft.";
+            ProfileEditorStatus = message;
+            ApplicationGroupEditorStatus = message;
+            ApplicationSettingsStatus = message;
+            MappingEditor.ReportSaveFailure(message);
+        }
+
+        private void ReloadSettingsProjection()
+        {
+            var editingProfileId = EditingProfile?.Id;
+            var editingGroupId = EditingApplicationGroup?.Id;
+            var profiles = CreateProfileOptions(_settings.Profiles!);
+            Profiles.Clear();
+            foreach (var profile in profiles) Profiles.Add(profile);
+            MappingEditor = MappingEditorViewModel.Create(_settings, Profiles);
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MappingEditor)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ApplicationGroups)));
+
+            var selectedId = _selectionState?.Mode == "manual"
+                ? _selectionState.ManualProfile
+                : _selectionState?.LastSelectedProfile;
+            _selectedProfile = Profiles.FirstOrDefault(profile => profile.Id == selectedId)
+                ?? Profiles.Single(profile => profile.Id == _settings.Selection!.DefaultProfile);
+            _editingProfile = null;
+            _editingApplicationGroup = null;
+            IsProfileDirty = false;
+            IsApplicationSettingsDirty = false;
+            EditingProfile = Profiles.FirstOrDefault(profile => profile.Id == editingProfileId) ?? Profiles[0];
+            EditingApplicationGroup = ApplicationGroups.FirstOrDefault(group => group.Id == editingGroupId)
+                ?? ApplicationGroups.FirstOrDefault();
+            LoadApplicationSettings();
+            NotifyStateChanged(nameof(SelectedProfile));
+        }
+
+        private static IEnumerable<ProfileOptionViewModel> CreateProfileOptions(
+            IEnumerable<ProfileSettings> profiles) => profiles.Select(profile =>
+            {
+                var binding = profile.Bindings!.FirstOrDefault();
+                return new ProfileOptionViewModel
+                {
+                    Id = profile.Id!,
+                    DisplayName = profile.DisplayName!,
+                    EffectName = binding?.Effect?.DisplayName ?? "No effect",
+                    LayoutName = binding is null
+                        ? "No layout"
+                        : binding.Layout?.DisplayName ?? "Current provider layout"
+                };
+            });
 
         private void ReplaceExecutables(ApplicationGroupViewModel group)
         {
@@ -1416,14 +1461,22 @@ namespace FocusRgb.App.ViewModels
             SettingsDocument candidate,
             CancellationToken cancellationToken)
         {
-            var validationError = ValidateCandidate(candidate);
-            if (validationError is not null) return validationError;
             _settingsSaveWarning = null;
-            if (_settingsStore is null) return null;
-            var result = await _settingsStore.SaveSettingsAsync(candidate, cancellationToken);
+            if (_applicationState is null)
+            {
+                var validationError = ValidateCandidate(candidate);
+                if (validationError is not null) return validationError;
+                _settings = candidate;
+                return null;
+            }
+
+            var result = await _applicationState.ApplySettingsAsync(
+                candidate, _settingsRevision, "ui", cancellationToken);
             if (result.Warning is not null)
                 _settingsSaveWarning = $"{result.Warning.FileName}: {result.Warning.Message}";
-            return result.IsSuccess ? null : $"{result.Error!.FileName}: {result.Error.Message}";
+            if (!result.IsSuccess) return result.ErrorMessage;
+            ApplyApplicationSnapshot(result.Snapshot);
+            return null;
         }
 
         private string SavedStatus(string message) => _settingsSaveWarning is null
@@ -1432,10 +1485,10 @@ namespace FocusRgb.App.ViewModels
 
         public async Task ReapplyOutputAsync(CancellationToken cancellationToken = default)
         {
-            if (_selectionCommands is null || _selectionState is null) return;
-            var result = await _selectionCommands.ReapplyAsync(
-                _settings, _selectionState, _selectionReason, cancellationToken);
-            ApplyRuntimeResult(result);
+            if (_applicationState is null || _selectionState is null) return;
+            var result = await _applicationState.ReapplyAsync(cancellationToken: cancellationToken);
+            if (result.IsSuccess) ApplyApplicationSnapshot(result.Snapshot);
+            else RuntimeStatusMessage = result.ErrorMessage!;
         }
 
         private static string? ValidateCandidate(SettingsDocument candidate)
@@ -1448,6 +1501,11 @@ namespace FocusRgb.App.ViewModels
 
         private bool BeginSettingsSave()
         {
+            if (HasSettingsConflict)
+            {
+                ReportSettingsConflict();
+                return false;
+            }
             if (Interlocked.CompareExchange(ref _settingsSavePending, 1, 0) != 0) return false;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSettingsSavePending)));
             return true;
@@ -1457,36 +1515,6 @@ namespace FocusRgb.App.ViewModels
         {
             Interlocked.Exchange(ref _settingsSavePending, 0);
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSettingsSavePending)));
-        }
-
-        private async Task<string?> SaveRemovalStateAsync(
-            string removedProfileId,
-            SettingsDocument candidate,
-            CancellationToken cancellationToken)
-        {
-            if (_settingsStore is null || _selectionState is null) return null;
-            if (_selectionState.ManualProfile != removedProfileId
-                && _selectionState.LastSelectedProfile != removedProfileId)
-                return null;
-
-            var replacementId = candidate.Selection!.DefaultProfile!;
-            var replacement = new SelectionStateDocument
-            {
-                SchemaVersion = _selectionState.SchemaVersion,
-                Mode = _selectionState.Mode,
-                ManualProfile = _selectionState.ManualProfile == removedProfileId
-                    ? replacementId
-                    : _selectionState.ManualProfile,
-                LastSelectedProfile = _selectionState.LastSelectedProfile == removedProfileId
-                    ? replacementId
-                    : _selectionState.LastSelectedProfile,
-                UpdatedAt = DateTimeOffset.UtcNow,
-                AdditionalProperties = _selectionState.AdditionalProperties
-            };
-            var result = await _settingsStore.SaveStateAsync(replacement, candidate, cancellationToken);
-            if (!result.IsSuccess) return $"{result.Error!.FileName}: {result.Error.Message}";
-            _selectionState = replacement;
-            return null;
         }
 
         private bool SetProfileDraft<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)

@@ -1,5 +1,6 @@
 using FocusRgb.App.Diagnostics;
 using FocusRgb.App.ViewModels;
+using FocusRgb.Core.Commands;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Persistence;
 using FocusRgb.TestSupport;
@@ -108,6 +109,42 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task ExternalSettingsChange_PreservesDirtyDraftUntilExplicitReload()
+        {
+            var store = new LocalStateStore(_directory);
+            var startup = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            var service = new ApplicationStateService(
+                startup.Snapshot!.Settings,
+                startup.Snapshot.State,
+                startup.Snapshot.Desired.Reason,
+                store);
+            var viewModel = MainWindowViewModel.CreatePersistent(
+                startup.Snapshot, store, applicationState: service);
+            var originalName = viewModel.ProfileName;
+            viewModel.ProfileName = "Unsaved draft";
+
+            var changed = WithTheme(service.Current.Settings, "dark");
+            var applied = await service.ApplySettingsAsync(
+                changed,
+                service.Current.SettingsRevision,
+                "mcp",
+                TestContext.Current.CancellationToken);
+            await viewModel.SaveProfileAsync(TestContext.Current.CancellationToken);
+
+            Assert.True(applied.IsSuccess);
+            Assert.True(viewModel.HasSettingsConflict);
+            Assert.Equal("Unsaved draft", viewModel.ProfileName);
+            Assert.Contains("Reload", viewModel.ProfileEditorStatus, StringComparison.Ordinal);
+            var persisted = await store.InitializeAsync(
+                Start.AddMinutes(1), TestContext.Current.CancellationToken);
+            Assert.Equal(originalName, persisted.Snapshot!.Settings.Profiles![0].DisplayName);
+            viewModel.ReloadSettingsAfterConflict();
+            Assert.False(viewModel.HasSettingsConflict);
+            Assert.Equal(originalName, viewModel.ProfileName);
+            Assert.Equal("Dark", viewModel.ApplicationTheme);
+        }
+
+        [Fact]
         public void DiagnosticExport_ExcludesProfileMappingAndPathContent()
         {
             var viewModel = MainWindowViewModel.CreatePreview();
@@ -147,6 +184,25 @@ namespace FocusRgb.App.Tests
             Assert.True(startup.IsSuccess, startup.Error?.Message);
             return (MainWindowViewModel.CreatePersistent(startup.Snapshot!, store), store);
         }
+
+        private static SettingsDocument WithTheme(SettingsDocument settings, string theme) => new()
+        {
+            SchemaVersion = settings.SchemaVersion,
+            Application = new ApplicationSettings
+            {
+                CloseButtonBehavior = settings.Application!.CloseButtonBehavior,
+                StartMinimized = settings.Application.StartMinimized,
+                Theme = theme,
+                VerboseLogging = settings.Application.VerboseLogging,
+                AdditionalProperties = settings.Application.AdditionalProperties
+            },
+            Plugins = settings.Plugins,
+            Selection = settings.Selection,
+            Profiles = settings.Profiles,
+            ApplicationGroups = settings.ApplicationGroups,
+            Rules = settings.Rules,
+            AdditionalProperties = settings.AdditionalProperties
+        };
 
         public void Dispose()
         {

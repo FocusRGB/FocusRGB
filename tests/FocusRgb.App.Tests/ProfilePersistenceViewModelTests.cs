@@ -369,7 +369,6 @@ namespace FocusRgb.App.Tests
             var pushedNewerStatus = false;
             coordinator.StatusChanged += (_, status) =>
             {
-                viewModel.ApplyOutputStatus(status);
                 if (pushedNewerStatus) return;
                 pushedNewerStatus = true;
                 coordinator.ApplyAsync(

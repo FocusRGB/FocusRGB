@@ -77,8 +77,6 @@ namespace FocusRgb.App
 
         public void ReportUnexpectedError(string message) => ViewModel.ReportUnexpectedError(message);
 
-        public void ApplyOutputStatus(SelectionRuntimeStatus status) => ViewModel.ApplyOutputStatus(status);
-
         public async Task<bool> PrepareQuitAsync(CancellationToken cancellationToken = default) =>
             await ViewModel.SaveRuntimeStateAsync(cancellationToken);
 
@@ -405,6 +403,9 @@ namespace FocusRgb.App
             ViewModel.CancelApplicationSettings();
             (Application.Current as App)?.ApplyTheme(ViewModel.SavedApplicationTheme);
         }
+
+        private void ReloadSettings_OnClick(object? sender, RoutedEventArgs e) =>
+            ViewModel.ReloadSettingsAfterConflict();
 
         private void OpenSettingsFolder_OnClick(object? sender, RoutedEventArgs e) =>
             OpenFolder(_dataDirectory, "Opened the settings folder.");
