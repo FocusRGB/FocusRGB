@@ -305,7 +305,8 @@ static async Task RunFakePluginAsync(
                             new { id = "provider.effect.catalog", support = "supported" },
                             new { id = "provider.effect.select", support = "supported" },
                             new { id = "provider.selection.observe", support = "supported" },
-                            new { id = "provider.layout.catalog", support = "unsupported" }
+                            new { id = "provider.layout.catalog", support = "unsupported" },
+                            new { id = "game.catalog", support = "supported" }
                         }
                     };
                     break;
@@ -320,8 +321,9 @@ static async Task RunFakePluginAsync(
                     };
                     break;
                 case Protocol.CatalogList:
-                    result = parameters.GetProperty("kind").GetString() == "effect"
-                        ? new
+                    result = parameters.GetProperty("kind").GetString() switch
+                    {
+                        "effect" => new
                         {
                             support = "supported",
                             refreshedAt = DateTimeOffset.UnixEpoch,
@@ -330,8 +332,24 @@ static async Task RunFakePluginAsync(
                                 new { resourceId = "fake-aurora", displayName = catalogName, available = true }
                             },
                             reason = (object?)null
-                        }
-                        : new
+                        },
+                        "game" => new
+                        {
+                            support = "supported",
+                            refreshedAt = DateTimeOffset.UnixEpoch,
+                            items = new[]
+                            {
+                                new
+                                {
+                                    resourceId = "fake-game",
+                                    displayName = "Fake Game",
+                                    available = true,
+                                    game = new { executables = new[] { "FakeGame.exe" } }
+                                }
+                            },
+                            reason = (object?)null
+                        },
+                        _ => new
                         {
                             support = "unsupported",
                             refreshedAt = (DateTimeOffset?)null,
@@ -341,7 +359,8 @@ static async Task RunFakePluginAsync(
                                 code = "capability-unsupported",
                                 message = "The fake plugin does not provide layouts."
                             }
-                        };
+                        }
+                    };
                     break;
                 case Protocol.BindingApply:
                     currentEffect = CloneOptional(parameters, "effect");
@@ -414,7 +433,7 @@ static async Task RunFakePluginAsync(
 
 internal static class Protocol
 {
-    public const string ContractVersion = "1.1";
+    public const string ContractVersion = "1.2";
     public const string Initialize = "initialize";
     public const string StatusGet = "status/get";
     public const string CatalogList = "catalog/list";

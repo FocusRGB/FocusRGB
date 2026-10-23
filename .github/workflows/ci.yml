@@ -25,10 +25,15 @@ jobs:
       - name: Restore
         run: dotnet restore FocusRGB.slnx
       - name: Build
-        run: dotnet build FocusRGB.slnx -c Release --no-restore
+        run: dotnet build FocusRGB.slnx -c Release --no-restore --disable-build-servers
       - name: Test
+        env:
+          MSBUILDDISABLENODEREUSE: 1
         run: dotnet test --solution FocusRGB.slnx -c Release --no-build
       - name: Verify language-neutral plugin conformance
         run: |
           python sdk/conformance/plugin-conformance.py --plugin-id python-example -- python sdk/examples/python-plugin/plugin.py
           python sdk/conformance/plugin-conformance.py --plugin-id fake-output -- dotnet build/artifacts/bin/FocusRgb.FakePlugin/release/FocusRgb.FakePlugin.dll
+      - name: Stop .NET build servers
+        if: always()
+        run: dotnet build-server shutdown

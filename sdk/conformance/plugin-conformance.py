@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive a plugin executable through the FocusRGB 1.0 protocol using only Python's standard library."""
+"""Drive a plugin executable through the FocusRGB 1.2 protocol using only Python's standard library."""
 
 import argparse
 import json
@@ -114,7 +114,7 @@ def run(plugin_id: str, timeout: float, command: list[str]) -> None:
     session = Session(command, timeout)
     try:
         initialized = session.call(1, "initialize", {
-            "contractVersion": "1.0",
+            "contractVersion": "1.2",
             "host": {"name": "FocusRGB Conformance", "version": "1.0.0"},
         })
         if require_string(initialized.get("pluginId"), "initialize.pluginId") != plugin_id:
@@ -155,6 +155,35 @@ def run(plugin_id: str, timeout: float, command: list[str]) -> None:
             raise ProtocolError("catalog result has invalid support or items")
 
         next_id = 4
+        if support_by_id.get("game.catalog") in {"supported", "unverified"}:
+            games = session.call(next_id, "catalog/list", {"kind": "game"})
+            next_id += 1
+            game_support = require_string(games.get("support"), "game catalog.support")
+            game_items = games.get("items")
+            if game_support not in SUPPORT or not isinstance(game_items, list):
+                raise ProtocolError("game catalog result has invalid support or items")
+            for index, item in enumerate(game_items):
+                if not isinstance(item, dict):
+                    raise ProtocolError(f"game catalog item {index} must be an object")
+                require_string(item.get("resourceId"), f"game catalog item {index}.resourceId")
+                require_string(item.get("displayName"), f"game catalog item {index}.displayName")
+                if not isinstance(item.get("available"), bool):
+                    raise ProtocolError(f"game catalog item {index}.available must be a boolean")
+                game = item.get("game")
+                if not isinstance(game, dict) or set(game) != {"executables"}:
+                    raise ProtocolError(f"game catalog item {index}.game must contain only executables")
+                executables = game.get("executables")
+                if not isinstance(executables, list):
+                    raise ProtocolError(f"game catalog item {index}.game.executables must be an array")
+                checked = []
+                for executable in executables:
+                    name = require_string(executable, f"game catalog item {index}.game.executables[]")
+                    if "/" in name or "\\" in name:
+                        raise ProtocolError("game catalog executables must be file names, not paths")
+                    checked.append(name)
+                if len(checked) != len(set(checked)):
+                    raise ProtocolError("game catalog executables must be unique")
+
         items = catalog["items"]
         can_apply = support_by_id.get("provider.effect.select") in {"supported", "unverified"}
         if catalog_support == "supported" and items and can_apply:
@@ -193,7 +222,7 @@ def run(plugin_id: str, timeout: float, command: list[str]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the FocusRGB plugin protocol 1.0 conformance probe.")
+    parser = argparse.ArgumentParser(description="Run the FocusRGB plugin protocol 1.2 conformance probe.")
     parser.add_argument("--plugin-id", required=True)
     parser.add_argument("--timeout", type=float, default=5)
     parser.add_argument("command", nargs=argparse.REMAINDER)

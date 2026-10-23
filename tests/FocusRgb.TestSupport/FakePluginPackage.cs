@@ -17,7 +17,7 @@ namespace FocusRgb.TestSupport
             EntryPoint = entryPoint,
             OperatingSystems = [OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "macos" : "linux"],
             Architectures = [System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()],
-            Roles = ["output"],
+            Roles = ["output", "discovery"],
             Resources = [],
             License = "MIT"
         };
