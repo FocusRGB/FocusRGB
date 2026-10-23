@@ -39,7 +39,9 @@ namespace FocusRgb.App
         private McpConfigurationStore? _mcpConfigurationStore;
         private LocalMcpPipeServer? _mcpServer;
         private McpReadQueryService? _mcpQueries;
+        private McpCommandService? _mcpCommands;
         private McpUiState _mcpState = McpUiState.Unavailable;
+        private NativeMenuItem? _reviewMcpRequestMenuItem;
         private CancellationTokenSource? _pluginStartupCancellation;
         private Task? _pluginStartupTask;
         private CancellationTokenSource? _observationCancellation;
@@ -137,6 +139,9 @@ namespace FocusRgb.App
                     stateService,
                     () => _pluginInventory.List(
                         stateService.Current.Settings.Plugins!.Enabled!, _plugins?.Entries ?? []));
+                _mcpCommands = new McpCommandService(stateService, _mcpQueries);
+                _mcpCommands.ApprovalRequested += McpCommands_OnApprovalRequested;
+                _mcpCommands.ApprovalCleared += McpCommands_OnApprovalCleared;
                 await InitializeMcpAsync();
                 pluginGateway.AvailabilityChanged += async (_, change) =>
                 {
@@ -174,7 +179,14 @@ namespace FocusRgb.App
                     _trayIcon = CreateTrayIcon(mainWindow, icon);
                     TrayIcon.SetIcons(this, new TrayIcons { _trayIcon });
                 }
+                if (_mcpCommands.Pending is { } pendingApproval)
+                    McpCommands_OnApprovalRequested(_mcpCommands, pendingApproval);
                 mainWindow.ExitRequested += (_, _) => RequestQuit();
+                mainWindow.McpApprovalDecided += (_, decision) =>
+                {
+                    if (decision.Approved) _mcpCommands?.Approve(decision.ApprovalId);
+                    else _mcpCommands?.Decline(decision.ApprovalId);
+                };
                 mainWindow.HiddenToTray += (_, _) =>
                 {
                     if (_trayIcon is not null)
@@ -261,6 +273,7 @@ namespace FocusRgb.App
                 return _mcpState = McpUiState.Unavailable;
             if (!enabled)
             {
+                _mcpCommands?.DeclinePending();
                 await StopMcpAsync();
                 var disabled = await _mcpConfigurationStore.SetEnabledAsync(
                     false, cancellationToken: cancellationToken);
@@ -276,7 +289,7 @@ namespace FocusRgb.App
             try
             {
                 StartMcp(saved.Configuration!);
-                return _mcpState = new McpUiState(true, true, "Local MCP is on for read-only tools.");
+                return _mcpState = new McpUiState(true, true, "Local MCP is on for reads and approval-gated commands.");
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
@@ -303,10 +316,14 @@ namespace FocusRgb.App
         {
             var show = new NativeMenuItem("Show FocusRGB");
             show.Click += (_, _) => mainWindow.ShowFromTray();
+            var reviewMcp = new NativeMenuItem("Review MCP request") { IsEnabled = false };
+            reviewMcp.Click += (_, _) => ReviewMcpApprovalFromTray();
+            _reviewMcpRequestMenuItem = reviewMcp;
             var quit = new NativeMenuItem("Quit");
             quit.Click += (_, _) => RequestQuit();
             var menu = new NativeMenu();
             menu.Items.Add(show);
+            menu.Items.Add(reviewMcp);
             menu.Items.Add(new NativeMenuItemSeparator());
             menu.Items.Add(quit);
             var trayIcon = new TrayIcon
@@ -421,7 +438,7 @@ namespace FocusRgb.App
             try
             {
                 StartMcp(configuration);
-                _mcpState = new McpUiState(true, true, "Local MCP is on for read-only tools.");
+                _mcpState = new McpUiState(true, true, "Local MCP is on for reads and approval-gated commands.");
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
@@ -435,7 +452,7 @@ namespace FocusRgb.App
         private void StartMcp(McpConfiguration configuration)
         {
             if (_mcpServer is not null) return;
-            _mcpServer = new LocalMcpPipeServer(configuration.Credential!, _mcpQueries!.QueryAsync);
+            _mcpServer = new LocalMcpPipeServer(configuration.Credential!, _mcpCommands!.DispatchAsync);
             _ = _mcpServer.RunAsync().ContinueWith(
                 task => AppLog.Write($"Local MCP listener stopped unexpectedly: {task.Exception?.GetBaseException().Message}"),
                 CancellationToken.None,
@@ -445,9 +462,36 @@ namespace FocusRgb.App
 
         private async Task StopMcpAsync()
         {
+            _mcpCommands?.DeclinePending();
             if (_mcpServer is null) return;
             await _mcpServer.DisposeAsync();
             _mcpServer = null;
+        }
+
+        private void McpCommands_OnApprovalRequested(object? sender, McpApprovalRequest request) =>
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_reviewMcpRequestMenuItem is not null) _reviewMcpRequestMenuItem.IsEnabled = true;
+                if (_trayIcon is not null) _trayIcon.ToolTipText = "FocusRGB: MCP approval requested.";
+                if (_mainWindow?.IsVisible == true) _mainWindow.ShowMcpApproval(request, openedFromTray: false);
+            });
+
+        private void McpCommands_OnApprovalCleared(object? sender, EventArgs e) =>
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_reviewMcpRequestMenuItem is not null) _reviewMcpRequestMenuItem.IsEnabled = false;
+                _mainWindow?.ClearMcpApproval();
+                if (_trayIcon is not null)
+                    _trayIcon.ToolTipText = _mainWindow?.IsVisible == true
+                        ? "FocusRGB"
+                        : "FocusRGB is running in the system tray.";
+            });
+
+        private void ReviewMcpApprovalFromTray()
+        {
+            if (_mainWindow is null || _mcpCommands?.Pending is not { } pending) return;
+            _mainWindow.ShowFromTray();
+            _mainWindow.ShowMcpApproval(pending, openedFromTray: true);
         }
 
         private void StartApplicationObservation(MainWindowViewModel viewModel)
