@@ -55,7 +55,6 @@ selection commands require explicit, single-use approval in the app.
   architecture records in Issues #26–#55 and Milestones #1–#5.
 - [Plugin protocol](sdk/spec/plugin-protocol.md): normative language-neutral process-plugin 1.2
   transport, lifecycle, messages, and compatibility policy.
-- [Agent instructions](.ai/AGENTS.md): architecture boundaries, workflow, and local conventions.
 
 Changes reach `develop` through reviewed pull requests. Planning, workflow history, slice status,
 and architecture decisions are maintained in GitHub Issues, Milestones, and the project board.
