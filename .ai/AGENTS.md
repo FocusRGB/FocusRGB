@@ -60,6 +60,9 @@ Preserve Windows CRLF working-tree endings from `.gitattributes` and `core.autoc
 generated output under `../build/`; never commit it. Match `.editorconfig`: block-scoped namespaces,
 braces always, `_camelCase` private fields, sealed classes by default, and cancellation-aware async
 methods. Use xUnit, descriptive `Method_Result_WhenCondition` names, and hand-written fakes.
+Pass `--disable-build-servers` to `dotnet build`; for Microsoft Testing Platform runs set
+`MSBUILDDISABLENODEREUSE=1` because CLI build-server switches reach the test executables. Then run
+`dotnet build-server shutdown` and verify no `dotnet` or `FocusRgb*` test processes remain.
 
 The code graph is workspace-wide at the workspace folder's `build/graphify-out/` (the parent of
 this clone; see the workspace `AGENTS.md`). Query from the workspace folder, or from the repository
