@@ -32,7 +32,9 @@ namespace FocusRgb.LocalMcp
         public int ProtocolVersion { get; init; }
         public string? Id { get; init; }
         public string? Credential { get; init; }
+        public string? ClientName { get; init; }
         public string? Method { get; init; }
+        public JsonElement? Parameters { get; init; }
     }
 
     public sealed class LocalMcpResponse
@@ -52,14 +54,14 @@ namespace FocusRgb.LocalMcp
     public sealed class LocalMcpPipeServer : IAsyncDisposable
     {
         private readonly byte[] _credential;
-        private readonly Func<string, CancellationToken, Task<JsonElement>> _dispatch;
+        private readonly Func<LocalMcpRequest, CancellationToken, Task<JsonElement>> _dispatch;
         private readonly CancellationTokenSource _stopping = new();
         private readonly NamedPipeServerStream _pipe;
         private Task? _runTask;
 
         public LocalMcpPipeServer(
             string credential,
-            Func<string, CancellationToken, Task<JsonElement>> dispatch)
+            Func<LocalMcpRequest, CancellationToken, Task<JsonElement>> dispatch)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(credential);
             ArgumentNullException.ThrowIfNull(dispatch);
@@ -154,8 +156,31 @@ namespace FocusRgb.LocalMcp
                 return;
             }
             if (line is null) return;
-            var response = await HandleRequestAsync(line, cancellationToken).ConfigureAwait(false);
+            using var dispatchCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var disconnect = CancelOnDisconnectAsync(reader, dispatchCancellation);
+            var response = await HandleRequestAsync(line, dispatchCancellation.Token).ConfigureAwait(false);
+            await dispatchCancellation.CancelAsync().ConfigureAwait(false);
+            await disconnect.ConfigureAwait(false);
             await writer.WriteLineAsync(JsonSerializer.Serialize(response)).ConfigureAwait(false);
+        }
+
+        private static async Task CancelOnDisconnectAsync(
+            StreamReader reader,
+            CancellationTokenSource dispatchCancellation)
+        {
+            try
+            {
+                var buffer = new char[1];
+                if (await reader.ReadAsync(buffer, dispatchCancellation.Token).ConfigureAwait(false) == 0)
+                    await dispatchCancellation.CancelAsync().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (IOException)
+            {
+                await dispatchCancellation.CancelAsync().ConfigureAwait(false);
+            }
         }
 
         internal PipeSecurity GetAccessControl() => _pipe.GetAccessControl();
@@ -182,7 +207,7 @@ namespace FocusRgb.LocalMcp
                 return new LocalMcpResponse
                 {
                     Id = request.Id,
-                    Result = await _dispatch(request.Method, cancellationToken).ConfigureAwait(false)
+                    Result = await _dispatch(request, cancellationToken).ConfigureAwait(false)
                 };
             }
             catch (ArgumentException exception)
@@ -195,7 +220,7 @@ namespace FocusRgb.LocalMcp
             }
             catch (Exception)
             {
-                return Error(request.Id, "internal-error", "FocusRGB could not complete the read query.");
+                return Error(request.Id, "internal-error", "FocusRGB could not complete the local MCP request.");
             }
         }
 
@@ -236,6 +261,7 @@ namespace FocusRgb.LocalMcp
     /// <summary>Connects the stdio adapter to the authenticated app listener after verifying its process.</summary>
     public sealed partial class LocalMcpPipeClient
     {
+        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
         private readonly McpConfigurationStore? _configurationStore;
         private readonly string? _credential;
         private readonly string? _expectedServerPath;
@@ -255,6 +281,19 @@ namespace FocusRgb.LocalMcp
         }
 
         public async Task<JsonElement> QueryAsync(string method, CancellationToken cancellationToken = default)
+            => await RequestAsync(method, null, cancellationToken).ConfigureAwait(false);
+
+        public async Task<JsonElement> RequestAsync(
+            string method,
+            object? parameters,
+            CancellationToken cancellationToken = default)
+            => await RequestAsync(method, parameters, "FocusRgb.Mcp", cancellationToken).ConfigureAwait(false);
+
+        public async Task<JsonElement> RequestAsync(
+            string method,
+            object? parameters,
+            string clientName,
+            CancellationToken cancellationToken = default)
         {
             var (credential, expectedServerPath) = await GetConnectionAsync(cancellationToken).ConfigureAwait(false);
             using var pipe = new NamedPipeClientStream(
@@ -280,7 +319,9 @@ namespace FocusRgb.LocalMcp
                 ProtocolVersion = LocalMcpProtocol.Version,
                 Id = id,
                 Credential = credential,
-                Method = method
+                ClientName = clientName,
+                Method = method,
+                Parameters = parameters is null ? null : JsonSerializer.SerializeToElement(parameters, JsonOptions)
             })).ConfigureAwait(false);
             var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false)
                 ?? throw new IOException("FocusRGB closed the local MCP connection without a response.");

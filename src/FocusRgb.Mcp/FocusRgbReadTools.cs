@@ -5,7 +5,7 @@ using ModelContextProtocol.Server;
 
 namespace FocusRgb.Mcp
 {
-    /// <summary>Exposes read-only application-owned queries over MCP 2026-07-28.</summary>
+    /// <summary>Exposes application-owned queries and approval-gated commands over MCP 2026-07-28.</summary>
     [McpServerToolType]
     public sealed class FocusRgbReadTools(LocalMcpPipeClient client)
     {
@@ -43,5 +43,71 @@ namespace FocusRgb.Mcp
         [Description("Explains why the current profile was selected and what output is effective.")]
         public Task<JsonElement> ExplainActiveSelectionAsync(CancellationToken cancellationToken) =>
             client.QueryAsync("explainActiveSelection", cancellationToken);
+
+        [McpServerTool(Name = "selectProfile")]
+        [Description("Requests approval to select a saved profile and enter manual mode.")]
+        public Task<JsonElement> SelectProfileAsync(
+            string profile,
+            McpServer server,
+            CancellationToken cancellationToken) =>
+            client.RequestAsync("selectProfile", new { profile }, ClientName(server), cancellationToken);
+
+        [McpServerTool(Name = "setMode")]
+        [Description("Requests approval to switch FocusRGB between manual and automatic selection.")]
+        public Task<JsonElement> SetModeAsync(
+            string mode,
+            McpServer server,
+            CancellationToken cancellationToken) =>
+            client.RequestAsync("setMode", new { mode }, ClientName(server), cancellationToken);
+
+        [McpServerTool(Name = "applySettings")]
+        [Description("Requests approval to validate and apply a complete settings document at the expected revision.")]
+        public Task<JsonElement> ApplySettingsAsync(
+            JsonElement settings,
+            long expectedRevision,
+            McpServer server,
+            CancellationToken cancellationToken) =>
+            client.RequestAsync("applySettings", new { settings, expectedRevision }, ClientName(server), cancellationToken);
+
+        [McpServerTool(Name = "respondToNotification")]
+        [Description("Requests approval to accept or decline a runtime recovery notification.")]
+        public Task<JsonElement> RespondToNotificationAsync(
+            string id,
+            string response,
+            McpServer server,
+            CancellationToken cancellationToken) =>
+            client.RequestAsync("respondToNotification", new { id, response }, ClientName(server), cancellationToken);
+
+        [McpServerTool(Name = "upsertProfile")]
+        [Description("Requests approval to add or replace one complete profile at the expected settings revision.")]
+        public Task<JsonElement> UpsertProfileAsync(
+            JsonElement profile,
+            long expectedRevision,
+            McpServer server,
+            CancellationToken cancellationToken) =>
+            client.RequestAsync("upsertProfile", new { profile, expectedRevision }, ClientName(server), cancellationToken);
+
+        [McpServerTool(Name = "upsertApplicationGroup")]
+        [Description("Requests approval to add or replace one application group at the expected settings revision.")]
+        public Task<JsonElement> UpsertApplicationGroupAsync(
+            JsonElement applicationGroup,
+            long expectedRevision,
+            McpServer server,
+            CancellationToken cancellationToken) =>
+            client.RequestAsync(
+                "upsertApplicationGroup", new { applicationGroup, expectedRevision }, ClientName(server), cancellationToken);
+
+        [McpServerTool(Name = "reorderMappings")]
+        [Description("Requests approval to replace mapping priority order using every mapping ID exactly once.")]
+        public Task<JsonElement> ReorderMappingsAsync(
+            string[] mappingIds,
+            long expectedRevision,
+            McpServer server,
+            CancellationToken cancellationToken) =>
+            client.RequestAsync("reorderMappings", new { mappingIds, expectedRevision }, ClientName(server), cancellationToken);
+
+        private static string ClientName(McpServer server) => server.ClientInfo is { } clientInfo
+            ? $"{clientInfo.Name} {clientInfo.Version}"
+            : "Unknown MCP client";
     }
 }

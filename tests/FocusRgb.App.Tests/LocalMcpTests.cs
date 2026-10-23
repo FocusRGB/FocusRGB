@@ -63,7 +63,7 @@ namespace FocusRgb.App.Tests
             var credential = Credential();
             await using var server = new LocalMcpPipeServer(
                 credential,
-                (method, _) => Task.FromResult(JsonSerializer.SerializeToElement(new { method })));
+                (request, _) => Task.FromResult(JsonSerializer.SerializeToElement(new { method = request.Method })));
             _ = server.RunAsync();
             var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!);
 
@@ -97,7 +97,9 @@ namespace FocusRgb.App.Tests
                 }
             ]);
             var credential = Credential();
-            await using var server = new LocalMcpPipeServer(credential, queries.QueryAsync);
+            await using var server = new LocalMcpPipeServer(
+                credential,
+                (request, cancellationToken) => queries.QueryAsync(request.Method!, cancellationToken));
             _ = server.RunAsync();
             var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!);
             var tools = new FocusRgbReadTools(client);
@@ -205,7 +207,7 @@ namespace FocusRgb.App.Tests
             var credential = Credential();
             await using var server = new LocalMcpPipeServer(
                 credential,
-                (method, _) => Task.FromResult(JsonSerializer.SerializeToElement(method)));
+                (request, _) => Task.FromResult(JsonSerializer.SerializeToElement(request.Method)));
             _ = server.RunAsync();
             using (var disconnected = new NamedPipeClientStream(
                 ".", LocalMcpProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous))
