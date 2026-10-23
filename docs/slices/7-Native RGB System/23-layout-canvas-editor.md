@@ -1,9 +1,0 @@
-# 23 — Layout canvas editor
-
-[← All implementation slices](../../implementation-slices.md)
-
-Depends on: 07, 21. Scope: assign/unassign devices, move/rotate/stretch/compress, direct-only
-participation, persistence, and existing preview controls.
-Acceptance: monitor-only layout excludes wall strips; changing inclusion updates the offline preview sink;
-editing keeps hardware LED counts unchanged. Check pointer and keyboard interaction. Native
-preview remains local and requires neither SignalRGB nor live WLED.

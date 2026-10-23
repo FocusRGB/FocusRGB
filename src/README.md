@@ -1,7 +1,9 @@
 # FocusRGB source
 
-Application source for FocusRGB, created by slice 01 in `../docs/implementation-slices.md`.
-The solution file is `../FocusRGB.slnx`.
+Application source for FocusRGB. Delivery status is tracked on the
+[project board](https://github.com/orgs/FocusRGB/projects/1), with archived plans indexed by
+[issue #83](https://github.com/FocusRGB/FocusRGB/issues/83). The solution file is
+`../FocusRGB.slnx`; the normative plugin contract is `../sdk/spec/plugin-protocol.md`.
 
 | Project | Purpose | May reference |
 |---|---|---|

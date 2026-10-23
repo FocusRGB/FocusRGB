@@ -8,8 +8,8 @@ using FocusRgb.TestSupport;
 namespace FocusRgb.Core.Tests
 {
     /// <summary>
-    /// Guards the source boundaries in docs/implementation-slices.md: Core stays portable and
-    /// never references platform, application, or provider projects. A failure
+    /// Guards the repository source boundaries: Core stays portable and never references
+    /// platform, application, or provider projects. A failure
     /// here means a dependency leaked into the portable layer, not that the test is flaky.
     /// </summary>
     public sealed class DependencyBoundaryTests
