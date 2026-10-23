@@ -44,31 +44,21 @@ customizable; the core and UI have no dependency on either provider's implementa
 
 Native layouts will support a 2D placement canvas, stacked device groups, and device exclusion.
 Game effects can combine canvas animation, semantic zones, and direct key/LED mappings.
-An optional Windows-only [local MCP adapter](docs/local-mcp.md) now exposes read-only application
-state; mutating commands remain approval-gated Slice 18 work.
+The optional Windows-only `FocusRgb.Mcp.exe` adapter is off by default and can be enabled only from
+the app's Settings page. It exposes read tools through a local authenticated pipe; settings and
+selection commands require explicit, single-use approval in the app.
 
 ## Start here
 
-- [Current status](.ai/STATUS.md): completed work, active slice, and next action.
-- [Implementation slices](docs/implementation-slices.md): compact status index linking to each
-  slice's dependency, scope, acceptance checks, and shared start/resume prompts.
-- [App brief](docs/app-brief.md): product requirements and user decisions.
-- [Application settings](docs/application-settings.md): implemented desktop lifecycle, appearance,
-  diagnostics, ownership boundaries, and defaults.
-- [Local MCP](docs/local-mcp.md): default-off transport, read-only tools, and security boundary.
-- [Minimal contract](docs/minimal-contract.md): frozen settings, state, status, command,
-  and plugin protocol shapes for the first implementation goal.
+- [Project board](https://github.com/orgs/FocusRGB/projects/1): current delivery status and planning.
+- [Archived-document index](https://github.com/FocusRGB/FocusRGB/issues/83): links to the slice and
+  architecture records in Issues #26–#55 and Milestones #1–#5.
 - [Plugin protocol](sdk/spec/plugin-protocol.md): normative language-neutral process-plugin 1.1
   transport, lifecycle, messages, and compatibility policy.
-- [Plugin architecture](docs/plugin-architecture.md): integration contracts, selection,
-  rendering authority, fallback, and layouts.
-- [Delivery plan](docs/focus-profiles-plan.md): product goals and acceptance gates.
-- [Integration evidence](docs/integration-evidence.md): dated observations and unverified capabilities.
+- [Agent instructions](.ai/AGENTS.md): architecture boundaries, workflow, and local conventions.
 
-Changes reach `develop` (the default branch) through pull requests; see the
-[Git workflow](docs/git-workflow.md). For AI-assisted development, follow the [agent instructions](.ai/AGENTS.md) and
-[handoff guide](.ai/README.md). Use the [slice checkpoint template](.ai/SLICE-HANDOFF.md)
-to preserve progress when switching models or reaching a session limit.
+Changes reach `develop` through reviewed pull requests. Planning, workflow history, slice status,
+and architecture decisions are maintained in GitHub Issues, Milestones, and the project board.
 
 ## Repository conventions
 
@@ -101,8 +91,7 @@ tests/
   FocusRgb.Core.Tests/         xUnit; dependency-boundary and core tests
   FocusRgb.FakePlugin/         executable plugin protocol fixture
 tools/                         screen colour test
-docs/                          brief, architecture, contract, slices, workflow
-.ai/                           shared AI instructions, status, handoff
+.ai/                           compressed repository agent instructions
 build/                         generated output (git-ignored)
 ```
 
@@ -120,8 +109,8 @@ Package versions are pinned centrally in `Directory.Packages.props`. CI runs the
 and tests for every pull request and for pushes to `develop` and `main`.
 
 Generated builds, packages, reports, caches, and tool artifacts belong under the Git-ignored
-`build/` directory. Maintained source and documentation stay outside it. Generated Graphify
-data lives at `build/graphify-out/` and is optional for development.
+`build/` directory. Maintained source stays outside it. Generated Graphify data lives at
+`build/graphify-out/` and is optional for development.
 
 ## License
 

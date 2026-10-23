@@ -78,6 +78,19 @@ namespace FocusRgb.Core.Commands
                 source,
                 cancellationToken);
 
+        public Task<ApplicationCommandResult> SelectProfileAsync(
+            string profileId,
+            DateTimeOffset now,
+            long expectedRevision,
+            string source,
+            CancellationToken cancellationToken = default) =>
+            RunSelectionCommandAsync(
+                (settings, state) => _selectionCommands.SelectProfileAsync(
+                    settings, state, profileId, now, cancellationToken),
+                source,
+                cancellationToken,
+                expectedRevision: expectedRevision);
+
         public Task<ApplicationCommandResult> SetModeAsync(
             string mode,
             DateTimeOffset now,
@@ -88,6 +101,19 @@ namespace FocusRgb.Core.Commands
                     settings, state, mode, now, cancellationToken),
                 source,
                 cancellationToken);
+
+        public Task<ApplicationCommandResult> SetModeAsync(
+            string mode,
+            DateTimeOffset now,
+            long expectedRevision,
+            string source,
+            CancellationToken cancellationToken = default) =>
+            RunSelectionCommandAsync(
+                (settings, state) => _selectionCommands.SetModeAsync(
+                    settings, state, mode, now, cancellationToken),
+                source,
+                cancellationToken,
+                expectedRevision: expectedRevision);
 
         public Task<ApplicationCommandResult> SaveCurrentAsync(
             DateTimeOffset now,
@@ -109,6 +135,19 @@ namespace FocusRgb.Core.Commands
                     settings, state, notificationId, response, cancellationToken),
                 source,
                 cancellationToken);
+
+        public Task<ApplicationCommandResult> RespondToNotificationAsync(
+            string notificationId,
+            string response,
+            long expectedRevision,
+            string source,
+            CancellationToken cancellationToken = default) =>
+            RunSelectionCommandAsync(
+                (settings, state) => _selectionCommands.RespondToNotificationAsync(
+                    settings, state, notificationId, response, cancellationToken),
+                source,
+                cancellationToken,
+                expectedRevision: expectedRevision);
 
         public Task<ApplicationCommandResult> ReapplyAsync(
             string source = "ui",
@@ -258,11 +297,13 @@ namespace FocusRgb.Core.Commands
             Func<SettingsDocument, SelectionStateDocument, Task<SelectionCommandResult>> command,
             string source,
             CancellationToken cancellationToken,
-            bool publishUnchanged = true)
+            bool publishUnchanged = true,
+            long? expectedRevision = null)
         {
             await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             ApplicationStateSnapshot snapshot;
             SelectionCommandResult? result = null;
+            string? conflictMessage = null;
             var publish = false;
             BeginCommand();
             try
@@ -275,15 +316,20 @@ namespace FocusRgb.Core.Commands
                     settings = _settings;
                     state = _selectionState;
                     reason = _selectionReason;
+                    if (expectedRevision is not null && expectedRevision != _settingsRevision)
+                        conflictMessage = $"Settings revision {expectedRevision} is stale; current revision is {_settingsRevision}.";
                 }
-                result = await command(settings, state).ConfigureAwait(false);
-                if (result.IsSuccess)
+                if (conflictMessage is null)
                 {
-                    ApplySelectionResult(result);
-                    publish = publishUnchanged
-                        || state.UpdatedAt != result.State!.UpdatedAt
-                        || reason.Kind != result.Status!.Desired.Reason.Kind
-                        || reason.RuleId != result.Status.Desired.Reason.RuleId;
+                    result = await command(settings, state).ConfigureAwait(false);
+                    if (result.IsSuccess)
+                    {
+                        ApplySelectionResult(result);
+                        publish = publishUnchanged
+                            || state.UpdatedAt != result.State!.UpdatedAt
+                            || reason.Kind != result.Status!.Desired.Reason.Kind
+                            || reason.RuleId != result.Status.Desired.Reason.RuleId;
+                    }
                 }
             }
             finally
@@ -293,6 +339,8 @@ namespace FocusRgb.Core.Commands
             }
 
             if (publish) SnapshotChanged?.Invoke(this, snapshot);
+            if (conflictMessage is not null)
+                return ApplicationCommandResult.Fail(snapshot, "conflict", conflictMessage);
             return result!.IsSuccess
                 ? ApplicationCommandResult.Ok(snapshot)
                 : ApplicationCommandResult.Fail(snapshot, result.ErrorCode!, result.ErrorMessage!);

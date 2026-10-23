@@ -9,6 +9,7 @@ using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using FocusRgb.App.Diagnostics;
+using FocusRgb.App.Mcp;
 using FocusRgb.App.Plugins;
 using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Commands;
@@ -24,6 +25,8 @@ namespace FocusRgb.App
         private bool _allowClose;
         private bool _exitRequested;
         private bool _pluginsLoaded;
+        private string? _mcpApprovalId;
+        private bool _hideAfterMcpApproval;
 
         public MainWindow()
             : this(MainWindowViewModel.CreatePreview(), null)
@@ -48,6 +51,7 @@ namespace FocusRgb.App
 
         public event EventHandler? ExitRequested;
         public event EventHandler? HiddenToTray;
+        public event EventHandler<McpApprovalDecisionEventArgs>? McpApprovalDecided;
 
         private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
 
@@ -57,6 +61,28 @@ namespace FocusRgb.App
             Show();
             WindowState = WindowState.Normal;
             Activate();
+        }
+
+        public void ShowMcpApproval(McpApprovalRequest request, bool openedFromTray)
+        {
+            _mcpApprovalId = request.Id;
+            _hideAfterMcpApproval = openedFromTray;
+            McpApprovalDetailsText.Text = $"Reported client: {request.ClientName}. Requests {request.Method}. Expires {request.ExpiresAt.LocalDateTime:t}.";
+            McpApprovalSummaryText.Text = request.Summary;
+            McpApprovalPanel.IsVisible = true;
+        }
+
+        public void ClearMcpApproval()
+        {
+            _mcpApprovalId = null;
+            McpApprovalPanel.IsVisible = false;
+            var hide = _hideAfterMcpApproval && IsVisible;
+            _hideAfterMcpApproval = false;
+            if (!hide) return;
+            ShowInTaskbar = false;
+            Hide();
+            ViewModel.NotifyWindowHidden();
+            HiddenToTray?.Invoke(this, EventArgs.Empty);
         }
 
         public void NotifyStartedMinimized() => ViewModel.NotifyWindowHidden();
@@ -88,6 +114,7 @@ namespace FocusRgb.App
         private void MainWindow_OnClosing(object? sender, WindowClosingEventArgs e)
         {
             if (_allowClose) return;
+            DeclineMcpApproval();
             e.Cancel = true;
             if (ViewModel.ShouldMinimizeOnClose)
             {
@@ -101,6 +128,21 @@ namespace FocusRgb.App
                 _exitRequested = true;
                 ExitRequested?.Invoke(this, EventArgs.Empty);
             }
+        }
+
+        private void ApproveMcpApproval_OnClick(object? sender, RoutedEventArgs e) => DecideMcpApproval(true);
+
+        private void DeclineMcpApproval_OnClick(object? sender, RoutedEventArgs e) => DecideMcpApproval(false);
+
+        private void DeclineMcpApproval()
+        {
+            if (_mcpApprovalId is not null) DecideMcpApproval(false);
+        }
+
+        private void DecideMcpApproval(bool approved)
+        {
+            if (_mcpApprovalId is not { } id) return;
+            McpApprovalDecided?.Invoke(this, new McpApprovalDecisionEventArgs(id, approved));
         }
 
         private async void SelectedProfile_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -358,6 +400,12 @@ namespace FocusRgb.App
 
         private readonly record struct PluginInstallChoice(bool Confirmed, bool Enable);
         private sealed record ConfirmationWindow(Window Window);
+
+        public sealed class McpApprovalDecisionEventArgs(string approvalId, bool approved) : EventArgs
+        {
+            public string ApprovalId { get; } = approvalId;
+            public bool Approved { get; } = approved;
+        }
 
         private async void ManualMode_OnClick(object? sender, RoutedEventArgs e)
         {
