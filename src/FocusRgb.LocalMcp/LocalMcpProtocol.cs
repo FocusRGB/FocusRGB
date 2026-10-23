@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
@@ -64,12 +65,20 @@ namespace FocusRgb.LocalMcp
             ArgumentNullException.ThrowIfNull(dispatch);
             _credential = Convert.FromBase64String(credential);
             _dispatch = dispatch;
-            _pipe = new NamedPipeServerStream(
+            var user = WindowsIdentity.GetCurrent().User
+                ?? throw new InvalidOperationException("The current Windows user SID is unavailable.");
+            var security = new PipeSecurity();
+            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            security.AddAccessRule(new PipeAccessRule(user, PipeAccessRights.FullControl, AccessControlType.Allow));
+            _pipe = NamedPipeServerStreamAcl.Create(
                 LocalMcpProtocol.PipeName,
                 PipeDirection.InOut,
                 1,
                 PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly | PipeOptions.FirstPipeInstance);
+                PipeOptions.Asynchronous | PipeOptions.FirstPipeInstance,
+                4096,
+                4096,
+                security);
         }
 
         public Task RunAsync()

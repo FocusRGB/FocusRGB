@@ -25,10 +25,10 @@ launch processes, install plugins, change output, or preview profiles.
 
 ## Local security boundary
 
-The adapter talks to the running app through a per-user Windows named pipe. The app creates the
-pipe with `CurrentUserOnly` and `FirstPipeInstance`, accepts a bounded private protocol, and checks
-the random credential before dispatch. The adapter verifies both the pipe server process ID and
-its full executable path before sending the credential. Disabling MCP closes the listener and its
+The adapter talks to the running app through a per-user Windows named pipe. The app creates a
+protected ACL containing only the current user SID, uses `FirstPipeInstance`, accepts a bounded
+private protocol, and checks the random credential before dispatch. The adapter verifies both the
+pipe server process ID and its full executable path before sending the credential. Disabling MCP closes the listener and its
 active connection.
 
 This protects against other OS users and accidental clients. It is not a privilege boundary from
