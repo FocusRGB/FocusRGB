@@ -605,6 +605,54 @@ namespace FocusRgb.App.Tests
             Assert.Equal("plugin-exited", change.ReasonCode);
         }
 
+        [Fact]
+        public async Task Gateway_ListsGames_OnlyWhenCapabilityWasNegotiated()
+        {
+            var started = await StartAsync();
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+            var handshake = Assert.IsType<InitializeResult>(started.Handshake);
+            var gateway = new PluginRuntimeGateway([
+                PluginRuntimeEntry.Ok("fake-output", client, handshake)]);
+
+            var catalog = await gateway.ListGameCatalogAsync(
+                "fake-output", TestContext.Current.CancellationToken);
+
+            Assert.True(catalog.IsSuccess, catalog.ErrorMessage);
+            var game = Assert.Single(catalog.Value!.Items);
+            Assert.Equal("fake-game", game.ResourceId);
+            Assert.Equal(["FakeGame.exe"], game.Game!.Executables);
+
+            gateway.Attach([PluginRuntimeEntry.Ok("unverified-games", client,
+                handshake with
+                {
+                    Capabilities = handshake.Capabilities.Select(capability =>
+                        capability.Id == "game.catalog"
+                            ? new PluginCapability
+                            {
+                                Id = capability.Id,
+                                Support = "unverified",
+                                Reason = capability.Reason
+                            }
+                            : capability).ToArray()
+                })]);
+            var unverified = await gateway.ListGameCatalogAsync(
+                "unverified-games", TestContext.Current.CancellationToken);
+            Assert.True(unverified.IsSuccess, unverified.ErrorMessage);
+
+            gateway.Attach([PluginRuntimeEntry.Ok("without-games", client,
+                handshake with
+                {
+                    Capabilities = handshake.Capabilities
+                        .Where(capability => capability.Id != "game.catalog").ToArray()
+                })]);
+            var rejected = await gateway.ListGameCatalogAsync(
+                "without-games", TestContext.Current.CancellationToken);
+
+            Assert.False(rejected.IsSuccess);
+            Assert.Equal("capability-unsupported", rejected.ErrorCode);
+        }
+
         private static Task<PluginStartResult> StartAsync(params string[] arguments)
             => StartAsync(TestContext.Current.CancellationToken, arguments);
 

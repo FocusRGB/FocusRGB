@@ -54,6 +54,22 @@ namespace FocusRgb.App.Plugins
                 : new PluginGatewayResult<PluginCatalogResult>(result.ErrorCode!, result.ErrorMessage!);
         }
 
+        public Task<PluginGatewayResult<PluginCatalogResult>> ListGameCatalogAsync(
+            string pluginId,
+            CancellationToken cancellationToken = default)
+        {
+            var capabilities = GetCapabilities(pluginId);
+            if (capabilities is null) return Task.FromResult(Missing<PluginCatalogResult>(pluginId));
+            var capability = capabilities.SingleOrDefault(item => item.Id == "game.catalog");
+            if (capability?.Support is not ("supported" or "unverified"))
+            {
+                return Task.FromResult(new PluginGatewayResult<PluginCatalogResult>(
+                    capability?.Reason?.Code ?? "capability-unsupported",
+                    capability?.Reason?.Message ?? $"Plugin '{pluginId}' does not provide a game catalog."));
+            }
+            return ListCatalogAsync(pluginId, "game", cancellationToken);
+        }
+
         public async Task<PluginGatewayResult<BindingApplyResult>> ApplyBindingAsync(
             string pluginId,
             BindingApplyParameters parameters,

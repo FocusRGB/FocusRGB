@@ -102,7 +102,7 @@ namespace FocusRgb.Core.Protocol
         public required string DisplayName { get; init; }
     }
 
-    /// <summary>Requests either an effect or layout catalog.</summary>
+    /// <summary>Requests an effect, layout, or installed-game catalog.</summary>
     public sealed class CatalogListParameters
     {
         public required string Kind { get; init; }
@@ -124,6 +124,13 @@ namespace FocusRgb.Core.Protocol
         public required string DisplayName { get; init; }
         public required bool Available { get; init; }
         public PluginReason? Reason { get; init; }
+        public PluginGameCatalogMetadata? Game { get; init; }
+    }
+
+    /// <summary>Lists executable file names that identify one installed game without exposing paths.</summary>
+    public sealed class PluginGameCatalogMetadata
+    {
+        public required IReadOnlyList<string> Executables { get; init; }
     }
 
     /// <summary>Describes the provider-managed or explicit device scope for one binding.</summary>

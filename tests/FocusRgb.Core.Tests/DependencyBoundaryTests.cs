@@ -71,7 +71,7 @@ namespace FocusRgb.Core.Tests
 
         [Fact]
         public void ContractVersion_MatchesStableProtocol() =>
-            Assert.Equal("1.1", ContractVersion.Current);
+            Assert.Equal("1.2", ContractVersion.Current);
 
         [Theory]
         [InlineData("plugin-manifest.schema.json")]
@@ -82,7 +82,7 @@ namespace FocusRgb.Core.Tests
                 Path.Combine(RepositoryPaths.Root, "sdk", "spec", fileName)));
 
             Assert.Equal(
-                $"https://raw.githubusercontent.com/FocusRGB/FocusRGB/spec-v1.1.0/sdk/spec/{fileName}",
+                $"https://raw.githubusercontent.com/FocusRGB/FocusRGB/spec-v1.2.0/sdk/spec/{fileName}",
                 schema.RootElement.GetProperty("$id").GetString());
         }
 
@@ -119,6 +119,7 @@ namespace FocusRgb.Core.Tests
             { typeof(CatalogListParameters), "catalogListParameters" },
             { typeof(PluginCatalogResult), "pluginCatalogResult" },
             { typeof(PluginCatalogItem), "pluginCatalogItem" },
+            { typeof(PluginGameCatalogMetadata), "pluginGameCatalogMetadata" },
             { typeof(PluginDeviceScope), "pluginDeviceScope" },
             { typeof(BindingApplyParameters), "bindingApplyParameters" },
             { typeof(BindingApplyResult), "bindingApplyResult" },
@@ -181,6 +182,25 @@ namespace FocusRgb.Core.Tests
                 .GetProperty("then").GetProperty("properties").GetProperty("contractVersion")
                 .GetProperty("pattern").GetString());
             Assert.Equal(typeof(string), typeof(PluginManifest).GetProperty(nameof(PluginManifest.Runtime))!.PropertyType);
+        }
+
+        [Fact]
+        public void GameCatalogSchema_RequiresUniqueExecutableFileNames()
+        {
+            using var schema = JsonDocument.Parse(File.ReadAllText(
+                Path.Combine(RepositoryPaths.Root, "sdk", "spec", "plugin-protocol.schema.json")));
+            var definitions = schema.RootElement.GetProperty("$defs");
+            var kinds = definitions.GetProperty("catalogListParameters").GetProperty("properties")
+                .GetProperty("kind").GetProperty("enum").EnumerateArray()
+                .Select(item => item.GetString());
+            var executables = definitions
+                .GetProperty("pluginGameCatalogMetadata").GetProperty("properties")
+                .GetProperty("executables");
+
+            Assert.Contains("game", kinds);
+            Assert.True(executables.GetProperty("uniqueItems").GetBoolean());
+            Assert.Equal(1, executables.GetProperty("items").GetProperty("minLength").GetInt32());
+            Assert.Equal("^[^/\\\\]+$", executables.GetProperty("items").GetProperty("pattern").GetString());
         }
 
         [Fact]

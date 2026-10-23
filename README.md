@@ -53,7 +53,7 @@ selection commands require explicit, single-use approval in the app.
 - [Project board](https://github.com/orgs/FocusRGB/projects/1): current delivery status and planning.
 - [Archived-document index](https://github.com/FocusRGB/FocusRGB/issues/83): links to the slice and
   architecture records in Issues #26–#55 and Milestones #1–#5.
-- [Plugin protocol](sdk/spec/plugin-protocol.md): normative language-neutral process-plugin 1.1
+- [Plugin protocol](sdk/spec/plugin-protocol.md): normative language-neutral process-plugin 1.2
   transport, lifecycle, messages, and compatibility policy.
 - [Agent instructions](.ai/AGENTS.md): architecture boundaries, workflow, and local conventions.
 

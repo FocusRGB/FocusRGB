@@ -7,9 +7,9 @@ namespace FocusRgb.Core.Protocol
     public static class ContractVersion
     {
         public const int Major = 1;
-        public const int Minor = 1;
+        public const int Minor = 2;
 
-        /// <summary>Wire form sent in the <c>initialize</c> handshake, e.g. "1.1".</summary>
+        /// <summary>Wire form sent in the <c>initialize</c> handshake, e.g. "1.2".</summary>
         public static string Current => $"{Major}.{Minor}";
     }
 }

@@ -1,4 +1,4 @@
-# FocusRGB plugin protocol 1.1
+# FocusRGB plugin protocol 1.2
 
 This document is the normative, language-neutral contract between the FocusRGB host and a
 plugin process. The JSON schemas beside this document are normative machine-readable
@@ -69,10 +69,18 @@ resource reference contains an opaque provider `resourceId` when known and a req
 
 ### `catalog/list`
 
-Parameters contain `kind`, currently `effect` or `layout`. The result contains `support`, an
+Parameters contain `kind`, currently `effect`, `layout`, or `game`. The result contains `support`, an
 optional `refreshedAt`, `items[]`, and an optional `reason`. Each item has a stable `resourceId`,
 `displayName`, `available`, and an optional reason. Unsupported enumeration returns
 `support: "unsupported"`; it must not fabricate items.
+
+Game catalog items also contain `game { executables[] }`. Each executable is a non-empty file
+name, not a path, and is unique within the item; Windows providers use names including the
+`.exe` suffix. An empty list is valid when a provider knows the game but cannot identify its
+processes. Game identity is the `(pluginId, resourceId)` pair; display names are not identifiers.
+The host calls `catalog/list` with `kind: "game"` only after `initialize` reports the
+`game.catalog` capability as `supported` or `unverified`. An absent or `unsupported` capability
+means the host must not make the call.
 
 ### `binding/apply`
 
@@ -163,13 +171,14 @@ Contract versions are `major.minor`; package versions are semantic `major.minor.
   a version it supports and must not require behavior newer than the host's offered minor.
 - Contract 1.1 adds the optional manifest `runtime` field. Runner plugins must declare contract
   1.1 or later; direct executable plugins may continue to declare 1.0.
+- Contract 1.2 adds the optional `game.catalog` capability and `game` catalog item metadata.
 - Patch releases change implementation or documentation without changing the wire contract.
 - Stable 1.x fields and methods are not removed before 2.0. Deprecations remain supported for at
   least the rest of the current major and are documented before removal.
 - Unknown optional capabilities are ignored. Required behavior is invoked only after capability
   negotiation, leaving room for game events and native frame output in later 1.x versions.
 
-The 1.1 schema `$id`s resolve to the immutable `spec-v1.1.0` tag. Every future released schema
+The 1.2 schema `$id`s resolve to the immutable `spec-v1.2.0` tag. Every future released schema
 must likewise resolve to its protocol release tag, using
 `https://raw.githubusercontent.com/FocusRGB/FocusRGB/spec-vX.Y.Z/sdk/spec/<schema-name>`.
 
@@ -180,8 +189,8 @@ transport above, validates initialization, implements every capability it report
 cancellation and shutdown, keeps logs off standard output, and agrees with
 [`plugin-protocol.schema.json`](plugin-protocol.schema.json).
 
-The language-neutral runner checks the successful initialize, status, catalog, apply, release,
-and shutdown lifecycle. The repository's host and SDK tests separately cover package
+The language-neutral runner checks the successful initialize, status, declared game catalog,
+effect catalog, apply, release, and shutdown lifecycle. The repository's host and SDK tests separately cover package
 reproducibility, an external package consumer, manifest and handshake incompatibility, malformed
 and oversized messages, timeouts, cancellation, concurrent calls, process exit, stderr/stdout
 separation, and shutdown. Schema/type drift tests fail when the normative schemas, method
