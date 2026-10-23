@@ -51,7 +51,7 @@ and acceptance criteria. GitHub issues track execution and milestones group cohe
 | 15 | [#43 — External SignalRGB plugin repository](https://github.com/FocusRGB/FocusRGB/issues/43) | v0.3.0-alpha.1 | Completed |
 | 16 | [#41 — SignalRGB acceptance gate](https://github.com/FocusRGB/FocusRGB/issues/41) | v0.3.0-alpha.1 | Completed; owner-confirmed live output gate passed |
 | 17 | [#42 — Stabilize the public SDK and contributor example](https://github.com/FocusRGB/FocusRGB/issues/42) | v0.4.0-alpha.1 | Completed; SDK, discovery/install and live package gate passed |
-| 18 | [#45 — Local MCP commands](https://github.com/FocusRGB/FocusRGB/issues/45) | v0.4.0-alpha.1 | Planned |
+| 18 | [#45 — Local MCP commands](https://github.com/FocusRGB/FocusRGB/issues/45) | v0.4.0-alpha.1 | In progress; PRs 1–2 merged, approval-gated commands in review |
 | 19 | [#44 — Installed game catalog and assignments](https://github.com/FocusRGB/FocusRGB/issues/44) | v0.4.0-alpha.1 | Planned |
 | 20 | [#48 — One game API adapter](https://github.com/FocusRGB/FocusRGB/issues/48) | v0.4.0-alpha.1 | Planned |
 | 21 | [#46 — Placement model and offline renderer](https://github.com/FocusRGB/FocusRGB/issues/46) | v0.5.0-alpha.1 | Planned |

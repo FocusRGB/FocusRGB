@@ -1,6 +1,6 @@
 # Current status
 
-Updated: 2026-10-22.
+Updated: 2026-10-23.
 
 ## Completed
 
@@ -212,25 +212,32 @@ no live settings, effects, layouts, devices, registry values, services, or tasks
 ## Active implementation slice
 
 - Slice: 18 — Local MCP commands
-- State: in progress. PR #113 (application state service) is merged; PR #114 contains the
-  default-off local transport and read-only tools and is awaiting current-head re-review.
+- State: in progress. PR #113 (application state service) and PR #114 (default-off local
+  transport and read-only tools) are merged. PR 3 is being implemented on
+  `slice/18-local-mcp-approved-commands`.
 - Implemented on `slice/18-application-state-service`: one Core service owns current settings,
   selection state, selection evaluation and revisions; UI and future MCP callers share its
   serialized persistence/output commands. Snapshots include coordinator availability/recovery
   changes. External settings changes notify the UI; dirty drafts are preserved and block saving
   until the user explicitly reloads, while stale writes return a conflict.
-- Verification: PR 1 passed 376/376 tests. PR 2 currently builds with 0 warnings/errors and passes
+- PR 3 adds selection/settings tools over the shared state service, readable in-app approval,
+  exact payload/client/revision binding, one pending request, expiry and decline cool-down, tray
+  review without automatic-selection disruption, and disconnect-safe completion rules. Targeted
+  profile/group and mapping tools build complete revision-checked settings documents. Real-output
+  preview remains deferred to #112.
+- Verification: PR 1 passed 376/376 tests. Merged PR 2 built with 0 warnings/errors and passed
   390/390 tests, including config fail-closed, authentication, ACL/process-path, malformed-request,
   connection timeout/recovery, all read tools, first-listener, clean-shutdown, runtime-status, and
-  delayed shutdown-status coverage.
+  delayed shutdown-status coverage. PR 3 builds with 0 warnings/errors and the full suite passes
+  397/397 tests, including approval concurrency, revision recheck, readable summaries, targeted
+  edits, expiry, decline cool-down, and client-disconnect behavior.
 - External/live evidence: not requested for this service boundary; tests use the existing fake
   output gateway and persisted app-data store.
-- Remaining acceptance: review and merge the PR 2 transport/read tools, followed by approved
-  mutating commands in PR 3. Real-output `previewProfile` remains
-  deferred to #112.
+- Remaining acceptance: finish full verification, open PR 3, and pass review for approved mutating
+  commands. Real-output `previewProfile` remains deferred to #112.
 - Current blocker or required product input: none.
-- Uncommitted work to preserve: none.
-- Next action: obtain Antigravity's current-head re-review and green CI for PR #114.
+- Uncommitted work to preserve: PR 3 implementation on `slice/18-local-mcp-approved-commands`.
+- Next action: open PR 3 and request Antigravity review after CI passes.
 - Next slice: 19 — Installed-game discovery, only after Slice 18 is complete.
 
 Toolchain notes: `xunit.v3` 4.x requires the Microsoft Testing Platform runner, enabled in
@@ -274,8 +281,8 @@ exact catalog match; SignalRGB bindings use a
 
 ## Next step
 
-Review and merge Slice 18 PR 2 for the local-only MCP transport and read-only query tools.
-Mutating MCP commands and their approval UI remain isolated in PR 3.
+Finish and review Slice 18 PR 3 for approval-gated settings and selection commands. Do not begin
+Slice 19 until Slice 18 acceptance is complete.
 
 Profile persistence, tray lifecycle, application settings, plugin hosting, coordination, Windows
 observations, application mappings, and the SignalRGB capability investigation are complete.

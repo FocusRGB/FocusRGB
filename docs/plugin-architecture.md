@@ -273,7 +273,7 @@ application authority; provider-owned SignalRGB rendering remains authoritative.
 The Windows app exposes an optional local MCP adapter over the same query and command services
 used by the UI; it must not edit profile files directly or bypass validation,
 mapping-order arbitration, plugin capability checks, or ownership transitions. Read tools list
-profiles, groups, ordered mappings, plugins, configured device scopes and runtime status. A later
+profiles, groups, ordered mappings, plugins, configured device scopes and runtime status. The
 approval-gated set can enter or leave manual mode, reorder mappings, and update settings. Real-output
 profile preview is deferred to issue #112. Loading executable
 plugins, deleting data, or changing persistent hardware ownership requires explicit user
