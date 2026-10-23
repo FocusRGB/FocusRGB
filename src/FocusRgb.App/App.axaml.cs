@@ -7,10 +7,13 @@ using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using FocusRgb.App.Diagnostics;
+using FocusRgb.App.Mcp;
 using FocusRgb.App.Plugins;
 using FocusRgb.App.ViewModels;
+using FocusRgb.Core.Commands;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
+using FocusRgb.LocalMcp;
 using FocusRgb.Platform.Windows;
 
 namespace FocusRgb.App
@@ -33,6 +36,10 @@ namespace FocusRgb.App
         private readonly HttpClient _pluginDiscoveryHttpClient = new();
         private readonly HttpClient _pluginDownloadHttpClient = new() { Timeout = Timeout.InfiniteTimeSpan };
         private OutputCoordinator? _outputCoordinator;
+        private McpConfigurationStore? _mcpConfigurationStore;
+        private LocalMcpPipeServer? _mcpServer;
+        private McpReadQueryService? _mcpQueries;
+        private McpUiState _mcpState = McpUiState.Unavailable;
         private CancellationTokenSource? _pluginStartupCancellation;
         private Task? _pluginStartupTask;
         private CancellationTokenSource? _observationCancellation;
@@ -107,6 +114,13 @@ namespace FocusRgb.App
                     startup.Snapshot.Settings,
                     startup.Snapshot.State,
                     startup.Snapshot.Desired.Reason);
+                var stateService = new ApplicationStateService(
+                    startup.Snapshot.Settings,
+                    startup.Snapshot.State,
+                    startup.Snapshot.Desired.Reason,
+                    _store,
+                    outputCoordinator,
+                    initialOutput);
                 ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
                 var viewModel = MainWindowViewModel.CreatePersistent(
                     startup.Snapshot,
@@ -115,8 +129,15 @@ namespace FocusRgb.App
                     outputCoordinator,
                     initialOutput,
                     pluginGateway,
+                    applicationState: stateService,
                     dispatch: action => Dispatcher.UIThread.Post(action));
                 _viewModel = viewModel;
+                _mcpConfigurationStore = new McpConfigurationStore(directory);
+                _mcpQueries = new McpReadQueryService(
+                    stateService,
+                    () => _pluginInventory.List(
+                        stateService.Current.Settings.Plugins!.Enabled!, _plugins?.Entries ?? []));
+                await InitializeMcpAsync();
                 pluginGateway.AvailabilityChanged += async (_, change) =>
                 {
                     if (_shutdownApproved) return;
@@ -230,6 +251,40 @@ namespace FocusRgb.App
             _pluginDownloadHttpClient.Dispose();
         }
 
+        public McpUiState McpState => _mcpState;
+
+        public async Task<McpUiState> SetMcpEnabledAsync(
+            bool enabled,
+            CancellationToken cancellationToken = default)
+        {
+            if (!OperatingSystem.IsWindows() || _mcpConfigurationStore is null || _mcpQueries is null)
+                return _mcpState = McpUiState.Unavailable;
+            if (!enabled)
+            {
+                await StopMcpAsync();
+                var disabled = await _mcpConfigurationStore.SetEnabledAsync(
+                    false, cancellationToken: cancellationToken);
+                return _mcpState = disabled.IsSuccess
+                    ? new McpUiState(true, false, "Local MCP is off; no pipe is listening.")
+                    : new McpUiState(true, false, disabled.ErrorMessage!);
+            }
+
+            var saved = await _mcpConfigurationStore.SetEnabledAsync(
+                true, Environment.ProcessPath, cancellationToken);
+            if (!saved.IsSuccess)
+                return _mcpState = new McpUiState(true, false, saved.ErrorMessage!);
+            try
+            {
+                StartMcp(saved.Configuration!);
+                return _mcpState = new McpUiState(true, true, "Local MCP is on for read-only tools.");
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                await _mcpConfigurationStore.SetEnabledAsync(false, cancellationToken: cancellationToken);
+                return _mcpState = new McpUiState(true, false, $"Could not start local MCP: {exception.Message}");
+            }
+        }
+
         public void ShowMainWindow()
         {
             if (_mainWindow is not null)
@@ -293,6 +348,7 @@ namespace FocusRgb.App
 
         private async Task StopPluginsAsync()
         {
+            await StopMcpAsync();
             _observationCancellation?.Cancel();
             if (_observationTask is { } observationTask)
             {
@@ -326,6 +382,72 @@ namespace FocusRgb.App
             }
             _outputCoordinator?.Dispose();
             _outputCoordinator = null;
+        }
+
+        private async Task InitializeMcpAsync()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                _mcpState = McpUiState.Unavailable;
+                return;
+            }
+            var loaded = await _mcpConfigurationStore!.LoadAsync();
+            if (!loaded.IsSuccess)
+            {
+                _mcpState = new McpUiState(true, false, $"Local MCP is off: {loaded.ErrorMessage}");
+                AppLog.Write(_mcpState.Message);
+                return;
+            }
+            if (!loaded.Configuration!.Enabled)
+            {
+                _mcpState = new McpUiState(true, false, "Local MCP is off; no pipe is listening.");
+                return;
+            }
+            var configuration = loaded.Configuration;
+            if (!string.Equals(
+                configuration.ApplicationPath,
+                Environment.ProcessPath,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                var updated = await _mcpConfigurationStore.SetEnabledAsync(true, Environment.ProcessPath);
+                if (!updated.IsSuccess)
+                {
+                    _mcpState = new McpUiState(true, false, $"Local MCP is off: {updated.ErrorMessage}");
+                    AppLog.Write(_mcpState.Message);
+                    return;
+                }
+                configuration = updated.Configuration!;
+            }
+            try
+            {
+                StartMcp(configuration);
+                _mcpState = new McpUiState(true, true, "Local MCP is on for read-only tools.");
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                await _mcpConfigurationStore.SetEnabledAsync(false);
+                _mcpState = new McpUiState(
+                    true, false, $"Local MCP is off because its pipe could not start: {exception.Message}");
+                AppLog.Write(_mcpState.Message);
+            }
+        }
+
+        private void StartMcp(McpConfiguration configuration)
+        {
+            if (_mcpServer is not null) return;
+            _mcpServer = new LocalMcpPipeServer(configuration.Credential!, _mcpQueries!.QueryAsync);
+            _ = _mcpServer.RunAsync().ContinueWith(
+                task => AppLog.Write($"Local MCP listener stopped unexpectedly: {task.Exception?.GetBaseException().Message}"),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
+        }
+
+        private async Task StopMcpAsync()
+        {
+            if (_mcpServer is null) return;
+            await _mcpServer.DisposeAsync();
+            _mcpServer = null;
         }
 
         private void StartApplicationObservation(MainWindowViewModel viewModel)
@@ -825,5 +947,11 @@ namespace FocusRgb.App
             using var stream = AssetLoader.Open(new Uri("avares://FocusRGB/Assets/focusrgb.ico"));
             return new WindowIcon(stream);
         }
+    }
+
+    public sealed record McpUiState(bool IsAvailable, bool IsEnabled, string Message)
+    {
+        public static McpUiState Unavailable { get; } = new(
+            false, false, "Local MCP is available on Windows only.");
     }
 }

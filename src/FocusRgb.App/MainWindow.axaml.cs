@@ -43,6 +43,7 @@ namespace FocusRgb.App
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "FocusRGB");
             Closing += MainWindow_OnClosing;
+            Opened += (_, _) => UpdateMcpControls();
         }
 
         public event EventHandler? ExitRequested;
@@ -396,6 +397,33 @@ namespace FocusRgb.App
         {
             if (sender is ComboBox { SelectedItem: string theme })
                 (Application.Current as App)?.ApplyTheme(theme);
+        }
+
+        private async void McpEnabled_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (Application.Current is not App app) return;
+            McpEnabledCheckBox.IsEnabled = false;
+            try
+            {
+                var state = await app.SetMcpEnabledAsync(McpEnabledCheckBox.IsChecked == true);
+                UpdateMcpControls(state);
+            }
+            catch (Exception exception)
+            {
+                McpStatusText.Text = $"Could not change local MCP: {exception.Message}";
+                UpdateMcpControls(app.McpState);
+            }
+        }
+
+        private void UpdateMcpControls() =>
+            UpdateMcpControls((Application.Current as App)?.McpState ?? McpUiState.Unavailable);
+
+        private void UpdateMcpControls(McpUiState state)
+        {
+            McpEnabledCheckBox.IsVisible = state.IsAvailable;
+            McpEnabledCheckBox.IsEnabled = state.IsAvailable;
+            McpEnabledCheckBox.IsChecked = state.IsEnabled;
+            McpStatusText.Text = state.Message;
         }
 
         private void CancelApplicationSettings_OnClick(object? sender, RoutedEventArgs e)

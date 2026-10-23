@@ -393,6 +393,7 @@ namespace FocusRgb.App.ViewModels
             if (_applicationState is null || _selectionState is null) return true;
             var result = await _applicationState.SaveCurrentAsync(
                 DateTimeOffset.UtcNow,
+                source: "shutdown",
                 cancellationToken: cancellationToken);
             if (!result.IsSuccess)
             {
@@ -1051,7 +1052,8 @@ namespace FocusRgb.App.ViewModels
             _isManual = snapshot.RuntimeStatus.Mode == "manual";
             var selected = Profiles.FirstOrDefault(profile => profile.Id == snapshot.RuntimeStatus.Desired.ProfileId);
             if (selected is not null) _selectedProfile = selected;
-            RuntimeStatusMessage = snapshot.RuntimeStatus.AppliedDetail;
+            if (snapshot.Source != "shutdown")
+                RuntimeStatusMessage = snapshot.RuntimeStatus.AppliedDetail;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsManual)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAutomatic)));
             NotifyStateChanged(nameof(SelectedProfile));

@@ -44,7 +44,8 @@ customizable; the core and UI have no dependency on either provider's implementa
 
 Native layouts will support a 2D placement canvas, stacked device groups, and device exclusion.
 Game effects can combine canvas animation, semantic zones, and direct key/LED mappings.
-A local MCP interface is planned for controlling the same commands used by the UI.
+An optional Windows-only [local MCP adapter](docs/local-mcp.md) now exposes read-only application
+state; mutating commands remain approval-gated Slice 18 work.
 
 ## Start here
 
@@ -54,6 +55,7 @@ A local MCP interface is planned for controlling the same commands used by the U
 - [App brief](docs/app-brief.md): product requirements and user decisions.
 - [Application settings](docs/application-settings.md): implemented desktop lifecycle, appearance,
   diagnostics, ownership boundaries, and defaults.
+- [Local MCP](docs/local-mcp.md): default-off transport, read-only tools, and security boundary.
 - [Minimal contract](docs/minimal-contract.md): frozen settings, state, status, command,
   and plugin protocol shapes for the first implementation goal.
 - [Plugin protocol](sdk/spec/plugin-protocol.md): normative language-neutral process-plugin 1.1
@@ -92,6 +94,8 @@ src/
   FocusRgb.Core/               net10.0, host protocol, profiles, selection, and persistence
   FocusRgb.Platform.Windows/   net10.0-windows, focus/process detection
   FocusRgb.App/                net10.0-windows, Avalonia shell (FocusRGB.exe)
+  FocusRgb.LocalMcp/           private authenticated named-pipe transport
+  FocusRgb.Mcp/                official-SDK stdio MCP adapter (FocusRgb.Mcp.exe)
 tests/
   FocusRgb.App.Tests/          xUnit; UI-facing preview-state tests
   FocusRgb.Core.Tests/         xUnit; dependency-boundary and core tests

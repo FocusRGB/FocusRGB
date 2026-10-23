@@ -1,5 +1,6 @@
 using FocusRgb.App.Plugins;
 using FocusRgb.App.ViewModels;
+using FocusRgb.Core.Commands;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
@@ -401,6 +402,29 @@ namespace FocusRgb.App.Tests
 
             Assert.False(failed);
             Assert.True(retried);
+            Assert.Contains("quit safely", viewModel.RuntimeStatusMessage, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task SaveRuntimeStateAsync_DelayedSnapshotDoesNotOverwriteSafeQuitMessage()
+        {
+            var store = Store();
+            var startup = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            var service = new ApplicationStateService(
+                startup.Snapshot!.Settings,
+                startup.Snapshot.State,
+                startup.Snapshot.Desired.Reason,
+                store);
+            var notifications = new List<Action>();
+            var viewModel = MainWindowViewModel.CreatePersistent(
+                startup.Snapshot,
+                store,
+                applicationState: service,
+                dispatch: notifications.Add);
+
+            Assert.True(await viewModel.SaveRuntimeStateAsync(TestContext.Current.CancellationToken));
+            Assert.Single(notifications)();
+
             Assert.Contains("quit safely", viewModel.RuntimeStatusMessage, StringComparison.OrdinalIgnoreCase);
         }
 

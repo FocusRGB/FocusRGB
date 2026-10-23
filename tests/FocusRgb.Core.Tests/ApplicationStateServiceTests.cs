@@ -12,6 +12,17 @@ namespace FocusRgb.Core.Tests
         private static readonly DateTimeOffset Now = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
 
         [Fact]
+        public void Current_PopulatesRuntimeStatusWithoutAnOutputCoordinator()
+        {
+            var service = CreateService(new RecordingStore());
+
+            var current = service.Current;
+
+            Assert.NotNull(current.RuntimeStatus);
+            Assert.Equal("default", current.RuntimeStatus.Desired.ProfileId);
+        }
+
+        [Fact]
         public async Task ApplySettingsAsync_RejectsAStaleRevision()
         {
             var store = new RecordingStore();
