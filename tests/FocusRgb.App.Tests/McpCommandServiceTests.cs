@@ -64,6 +64,33 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task Pipe_ServesReadAndBusyWriteWhileApprovalIsPending()
+        {
+            var (_, commands) = await CreateAsync();
+            McpApprovalRequest? approval = null;
+            commands.ApprovalRequested += (_, request) => approval = request;
+            var credential = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+            await using var server = new LocalMcpPipeServer(credential, commands.DispatchAsync);
+            _ = server.RunAsync();
+            var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!);
+            var pending = client.RequestAsync(
+                "selectProfile", new { profile = "movie" }, TestContext.Current.CancellationToken);
+            await WaitForAsync(() => approval is not null);
+
+            var status = await client.QueryAsync("getStatus", TestContext.Current.CancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+            var concurrent = await client.RequestAsync(
+                    "setMode", new { mode = "automatic" }, TestContext.Current.CancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+            commands.Decline(approval!.Id);
+            var declined = await pending;
+
+            Assert.Equal("manual", status.GetProperty("selectionState").GetProperty("mode").GetString());
+            Assert.Equal("busy", concurrent.GetProperty("error").GetProperty("code").GetString());
+            Assert.Equal("approval-declined", declined.GetProperty("error").GetProperty("code").GetString());
+        }
+
+        [Fact]
         public async Task ApplySettings_ShowsReadableBoundSummary_AndReturnsSharedStatus()
         {
             var (state, commands) = await CreateAsync();
@@ -85,6 +112,70 @@ namespace FocusRgb.App.Tests
             Assert.True(result.GetProperty("ok").GetBoolean());
             Assert.Equal(2, result.GetProperty("status").GetProperty("settingsRevision").GetInt64());
             Assert.Equal("dark", state.Current.Settings.Application!.Theme);
+        }
+
+        [Fact]
+        public async Task ApplySettings_SummarizesRuleEditsWithoutReordering()
+        {
+            var (state, commands) = await CreateAsync();
+            McpApprovalRequest? approval = null;
+            commands.ApprovalRequested += (_, request) => approval = request;
+            var candidate = Clone(state.Current.Settings);
+            var rule = candidate.Rules![0];
+            candidate.Rules[0] = new RuleSettings
+            {
+                Id = rule.Id,
+                ApplicationGroup = "music",
+                Profile = "music",
+                Match = rule.Match,
+                Eligibility = rule.Eligibility == "while-running" ? "while-focused" : "while-running",
+                Priority = rule.Priority,
+                Enabled = rule.Enabled != true,
+                AdditionalProperties = rule.AdditionalProperties
+            };
+            var task = commands.DispatchAsync(
+                Request("applySettings", new
+                {
+                    settings = candidate,
+                    expectedRevision = state.Current.SettingsRevision
+                }),
+                TestContext.Current.CancellationToken);
+            await WaitForAsync(() => approval is not null);
+
+            Assert.Contains($"changed mappings: {rule.Id}", approval!.Summary, StringComparison.Ordinal);
+            commands.Decline(approval.Id);
+            await task;
+        }
+
+        [Fact]
+        public async Task ApplySettings_RejectsPluginEnablementChanges()
+        {
+            var (state, commands) = await CreateAsync();
+            var originalEnabled = state.Current.Settings.Plugins!.Enabled!.ToArray();
+            var candidate = Clone(state.Current.Settings);
+            candidate = new SettingsDocument
+            {
+                SchemaVersion = candidate.SchemaVersion,
+                Application = candidate.Application,
+                Plugins = new PluginSettings { Enabled = [.. candidate.Plugins!.Enabled!, "other-plugin"] },
+                Selection = candidate.Selection,
+                Profiles = candidate.Profiles,
+                ApplicationGroups = candidate.ApplicationGroups,
+                Rules = candidate.Rules,
+                AdditionalProperties = candidate.AdditionalProperties
+            };
+
+            var result = await commands.DispatchAsync(
+                Request("applySettings", new
+                {
+                    settings = candidate,
+                    expectedRevision = state.Current.SettingsRevision
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("plugin-changes-not-allowed", result.GetProperty("error").GetProperty("code").GetString());
+            Assert.Equal(originalEnabled, state.Current.Settings.Plugins!.Enabled);
+            Assert.Null(commands.Pending);
         }
 
         [Fact]
@@ -263,6 +354,9 @@ namespace FocusRgb.App.Tests
             Rules = settings.Rules,
             AdditionalProperties = settings.AdditionalProperties
         };
+
+        private static SettingsDocument Clone(SettingsDocument settings) =>
+            SettingsJson.Load(SettingsJson.Serialize(settings)).Settings!;
 
         private static async Task WaitForAsync(Func<bool> condition)
         {

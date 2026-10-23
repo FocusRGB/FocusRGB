@@ -473,7 +473,7 @@ namespace FocusRgb.App
             {
                 if (_reviewMcpRequestMenuItem is not null) _reviewMcpRequestMenuItem.IsEnabled = true;
                 if (_trayIcon is not null) _trayIcon.ToolTipText = "FocusRGB: MCP approval requested.";
-                if (_mainWindow?.IsVisible == true) _mainWindow.ShowMcpApproval(request, openedFromTray: false);
+                _mainWindow?.ShowMcpApproval(request, openedFromTray: false);
             });
 
         private void McpCommands_OnApprovalCleared(object? sender, EventArgs e) =>

@@ -290,6 +290,10 @@ namespace FocusRgb.App.Mcp
             ApplicationStateSnapshot snapshot,
             long expectedRevision)
         {
+            if (Json(snapshot.Settings.Plugins) != Json(candidate.Plugins))
+                throw new McpCommandException(
+                    "plugin-changes-not-allowed",
+                    "Plugin enablement can be changed only in the FocusRGB app.");
             var errors = SettingsValidator.Validate(candidate);
             if (errors.Count > 0)
                 throw new McpCommandException("invalid-settings", FormatErrors(errors));
@@ -312,6 +316,11 @@ namespace FocusRgb.App.Mcp
             AddNamedChanges(changes, "application groups", current.ApplicationGroups!, candidate.ApplicationGroups!, item => item.Id!, item => item.DisplayName!);
             if (!currentRules.Select(rule => rule.Id).SequenceEqual(candidateRules.Select(rule => rule.Id)))
                 changes.Add($"mapping order: {Names(currentRules.Select(rule => rule.Id))} -> {Names(candidateRules.Select(rule => rule.Id))}");
+            var changedRules = candidateRules
+                .Where(rule => currentRules.SingleOrDefault(item => item.Id == rule.Id) is { } previous
+                    && Json(previous) != Json(rule))
+                .Select(rule => rule.Id!);
+            AddList(changes, "changed mappings", changedRules);
             foreach (var profile in candidateProfiles)
             {
                 var previous = currentProfiles.SingleOrDefault(item => item.Id == profile.Id);
@@ -323,8 +332,6 @@ namespace FocusRgb.App.Mcp
             }
             if (Json(current.Application) != Json(candidate.Application))
                 changes.Add("application preferences changed");
-            if (Json(current.Plugins) != Json(candidate.Plugins))
-                changes.Add("plugin enablement changed");
             if (Json(current.Selection) != Json(candidate.Selection))
                 changes.Add("selection preferences changed");
             return changes.Count == 0 ? "Apply a settings document with no detected changes." : string.Join(Environment.NewLine, changes);

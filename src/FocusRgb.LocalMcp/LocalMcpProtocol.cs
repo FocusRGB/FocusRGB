@@ -53,10 +53,15 @@ namespace FocusRgb.LocalMcp
     /// <summary>Hosts one authenticated, current-user-only named-pipe listener owned by the app.</summary>
     public sealed class LocalMcpPipeServer : IAsyncDisposable
     {
+        private const int MaximumServerInstances = 4;
         private readonly byte[] _credential;
         private readonly Func<LocalMcpRequest, CancellationToken, Task<JsonElement>> _dispatch;
         private readonly CancellationTokenSource _stopping = new();
-        private readonly NamedPipeServerStream _pipe;
+        private readonly SemaphoreSlim _connectionSlots = new(MaximumServerInstances, MaximumServerInstances);
+        private readonly PipeSecurity _security;
+        private readonly NamedPipeServerStream _firstPipe;
+        private readonly object _pipeGate = new();
+        private NamedPipeServerStream? _acceptingPipe;
         private Task? _runTask;
 
         public LocalMcpPipeServer(
@@ -69,18 +74,10 @@ namespace FocusRgb.LocalMcp
             _dispatch = dispatch;
             var user = WindowsIdentity.GetCurrent().User
                 ?? throw new InvalidOperationException("The current Windows user SID is unavailable.");
-            var security = new PipeSecurity();
-            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
-            security.AddAccessRule(new PipeAccessRule(user, PipeAccessRights.FullControl, AccessControlType.Allow));
-            _pipe = NamedPipeServerStreamAcl.Create(
-                LocalMcpProtocol.PipeName,
-                PipeDirection.InOut,
-                1,
-                PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous | PipeOptions.FirstPipeInstance,
-                4096,
-                4096,
-                security);
+            _security = new PipeSecurity();
+            _security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            _security.AddAccessRule(new PipeAccessRule(user, PipeAccessRights.FullControl, AccessControlType.Allow));
+            _firstPipe = CreatePipe(firstInstance: true);
         }
 
         public Task RunAsync()
@@ -93,7 +90,8 @@ namespace FocusRgb.LocalMcp
         public async ValueTask DisposeAsync()
         {
             await _stopping.CancelAsync().ConfigureAwait(false);
-            _pipe.Dispose();
+            lock (_pipeGate) _acceptingPipe?.Dispose();
+            _firstPipe.Dispose();
             if (_runTask is not null)
             {
                 try { await _runTask.ConfigureAwait(false); }
@@ -102,43 +100,101 @@ namespace FocusRgb.LocalMcp
                 catch (IOException) { }
             }
             _stopping.Dispose();
+            _connectionSlots.Dispose();
         }
 
         private async Task RunCoreAsync(CancellationToken cancellationToken)
         {
-            while (!cancellationToken.IsCancellationRequested)
+            var first = true;
+            var connections = new List<Task>();
+            try
             {
-                await _pipe.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    connections.RemoveAll(task => task.IsCompleted);
+                    await _connectionSlots.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    NamedPipeServerStream? pipe = null;
+                    try
+                    {
+                        pipe = first ? _firstPipe : CreatePipe(firstInstance: false);
+                        first = false;
+                        lock (_pipeGate) _acceptingPipe = pipe;
+                        await pipe.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        pipe?.Dispose();
+                        _connectionSlots.Release();
+                        break;
+                    }
+                    catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        _connectionSlots.Release();
+                        break;
+                    }
+                    catch (IOException)
+                    {
+                        pipe?.Dispose();
+                        _connectionSlots.Release();
+                        if (cancellationToken.IsCancellationRequested) break;
+                        continue;
+                    }
+                    finally
+                    {
+                        lock (_pipeGate)
+                        {
+                            if (ReferenceEquals(_acceptingPipe, pipe)) _acceptingPipe = null;
+                        }
+                    }
+                    connections.Add(ProcessConnectionAsync(pipe, cancellationToken));
+                }
+            }
+            finally
+            {
+                await Task.WhenAll(connections).ConfigureAwait(false);
+            }
+        }
+
+        private async Task ProcessConnectionAsync(
+            NamedPipeServerStream pipe,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await HandleConnectionAsync(pipe, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (IOException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            finally
+            {
                 try
                 {
-                    await HandleConnectionAsync(cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-                {
+                    if (pipe.IsConnected) pipe.Disconnect();
                 }
                 catch (IOException)
                 {
                 }
-                finally
+                catch (InvalidOperationException)
                 {
-                    try
-                    {
-                        if (_pipe.IsConnected) _pipe.Disconnect();
-                    }
-                    catch (IOException)
-                    {
-                    }
-                    catch (InvalidOperationException)
-                    {
-                    }
                 }
+                pipe.Dispose();
+                _connectionSlots.Release();
             }
         }
 
-        private async Task HandleConnectionAsync(CancellationToken cancellationToken)
+        private async Task HandleConnectionAsync(
+            NamedPipeServerStream pipe,
+            CancellationToken cancellationToken)
         {
-            using var reader = new StreamReader(_pipe, new UTF8Encoding(false), false, 4096, leaveOpen: true);
-            using var writer = new StreamWriter(_pipe, new UTF8Encoding(false), 4096, leaveOpen: true)
+            using var reader = new StreamReader(pipe, new UTF8Encoding(false), false, 4096, leaveOpen: true);
+            using var writer = new StreamWriter(pipe, new UTF8Encoding(false), 4096, leaveOpen: true)
             {
                 AutoFlush = true
             };
@@ -183,7 +239,17 @@ namespace FocusRgb.LocalMcp
             }
         }
 
-        internal PipeSecurity GetAccessControl() => _pipe.GetAccessControl();
+        internal PipeSecurity GetAccessControl() => _firstPipe.GetAccessControl();
+
+        private NamedPipeServerStream CreatePipe(bool firstInstance) => NamedPipeServerStreamAcl.Create(
+            LocalMcpProtocol.PipeName,
+            PipeDirection.InOut,
+            MaximumServerInstances,
+            PipeTransmissionMode.Byte,
+            PipeOptions.Asynchronous | (firstInstance ? PipeOptions.FirstPipeInstance : PipeOptions.None),
+            4096,
+            4096,
+            _security);
 
         private async Task<LocalMcpResponse> HandleRequestAsync(string json, CancellationToken cancellationToken)
         {

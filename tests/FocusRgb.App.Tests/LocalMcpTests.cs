@@ -179,9 +179,11 @@ namespace FocusRgb.App.Tests
                 (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true)));
             _ = first.RunAsync();
 
-            Assert.Throws<IOException>(() => new LocalMcpPipeServer(
+            var error = Record.Exception(() => new LocalMcpPipeServer(
                 Credential(),
                 (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true))));
+
+            Assert.True(error is IOException or UnauthorizedAccessException, error?.ToString());
         }
 
         [Fact]

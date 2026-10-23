@@ -76,8 +76,9 @@ namespace FocusRgb.App
         {
             _mcpApprovalId = null;
             McpApprovalPanel.IsVisible = false;
-            if (!_hideAfterMcpApproval) return;
+            var hide = _hideAfterMcpApproval && IsVisible;
             _hideAfterMcpApproval = false;
+            if (!hide) return;
             ShowInTaskbar = false;
             Hide();
             ViewModel.NotifyWindowHidden();
