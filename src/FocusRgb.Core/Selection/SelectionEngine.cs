@@ -10,6 +10,7 @@ namespace FocusRgb.Core.Selection
         private static readonly StringComparer ExecutableComparer = StringComparer.OrdinalIgnoreCase;
 
         private readonly SettingsDocument _settings;
+        private readonly IReadOnlyDictionary<GameIdentity, GameCatalogEntry> _games;
         private readonly TimeProvider _timeProvider;
         private string? _stableForeground;
         private string? _pendingForeground;
@@ -19,6 +20,14 @@ namespace FocusRgb.Core.Selection
         private SelectionMode? _lastMode;
 
         public SelectionEngine(SettingsDocument settings, TimeProvider? timeProvider = null)
+            : this(settings, GameCatalogJson.CreateDefault(), timeProvider)
+        {
+        }
+
+        public SelectionEngine(
+            SettingsDocument settings,
+            GameCatalogDocument gameCatalog,
+            TimeProvider? timeProvider = null)
         {
             var errors = SettingsValidator.Validate(settings);
             if (errors.Count > 0)
@@ -27,6 +36,10 @@ namespace FocusRgb.Core.Selection
             }
 
             _settings = SettingsJson.Load(SettingsJson.Serialize(settings)).Settings!;
+            if (GameCatalogJson.Validate(gameCatalog).Count > 0)
+                throw new ArgumentException("Selection requires a validated game catalog.", nameof(gameCatalog));
+            _games = GameCatalogJson.Load(GameCatalogJson.Serialize(gameCatalog)).Catalog!.Games!
+                .ToDictionary(game => new GameIdentity(game.Launcher!, game.Id!));
             _timeProvider = timeProvider ?? TimeProvider.System;
         }
 
@@ -59,7 +72,8 @@ namespace FocusRgb.Core.Selection
             UpdateStableForeground(observation.ForegroundExecutable);
 
             var running = new HashSet<string>(
-                observation.RunningExecutables.Where(name => !string.IsNullOrWhiteSpace(name)),
+                observation.RunningExecutables.Where(name => !string.IsNullOrWhiteSpace(name)
+                    && !_settings.Selection!.IgnoredExecutables!.Contains(name, ExecutableComparer)),
                 ExecutableComparer);
 
             var winner = _settings.Rules!
@@ -102,8 +116,7 @@ namespace FocusRgb.Core.Selection
 
         private bool IsEligible(RuleSettings rule, HashSet<string> running)
         {
-            var executables = _settings.ApplicationGroups!
-                .FirstOrDefault(group => group.Id == rule.ApplicationGroup)?.Executables;
+            var executables = ResolveExecutables(rule);
             if (rule.Enabled != true || executables is not { Count: > 0 })
             {
                 return false;
@@ -117,6 +130,28 @@ namespace FocusRgb.Core.Selection
             return _stableForeground is not null
                 && running.Contains(_stableForeground)
                 && executables.Contains(_stableForeground, ExecutableComparer);
+        }
+
+        private IReadOnlyCollection<string>? ResolveExecutables(RuleSettings rule)
+        {
+            if (rule.ApplicationGroup is not null)
+            {
+                return _settings.ApplicationGroups!
+                    .FirstOrDefault(group => group.Id == rule.ApplicationGroup)?.Executables;
+            }
+
+            var game = rule.Match?.Game;
+            if (game is null) return null;
+            if (game.Launcher == "*" && game.Id == "*")
+            {
+                return _games.Values
+                    .SelectMany(entry => entry.Executables ?? [])
+                    .Distinct(ExecutableComparer)
+                    .ToArray();
+            }
+            return _games.TryGetValue(new GameIdentity(game.Launcher!, game.Id!), out var entry)
+                ? entry.Executables
+                : null;
         }
 
         private void UpdateStableForeground(string? foreground)

@@ -36,6 +36,18 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public void Load_RejectsPluginIdReservedForManualGames()
+        {
+            WritePackage(Manifest() with { Id = "manual" }, "manual");
+
+            var result = PluginPackage.Load(_directory, "manual");
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("manifest-invalid", result.ErrorCode);
+            Assert.Contains("reserved", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
         public void Load_RejectsInvalidEntryPointPath()
         {
             var manifest = Manifest() with { EntryPoint = "bad\0path.exe" };
@@ -268,9 +280,9 @@ namespace FocusRgb.App.Tests
             _tempDirectory.Dispose();
         }
 
-        private string WritePackage(ManifestData manifest)
+        private string WritePackage(ManifestData manifest, string packageId = "fake-output")
         {
-            var package = Path.Combine(_directory, "fake-output");
+            var package = Path.Combine(_directory, packageId);
             Directory.CreateDirectory(package);
             File.WriteAllText(Path.Combine(package, "fake.dll"), string.Empty);
             File.WriteAllText(Path.Combine(package, PluginPackage.ManifestFileName),

@@ -83,6 +83,10 @@ namespace FocusRgb.Core.Configuration
                 {
                     var pluginId = document.Plugins.Enabled[i];
                     Id(pluginId, $"plugins.enabled[{i}]");
+                    if (pluginId == GameCatalogJson.ManualLauncher)
+                    {
+                        Error($"plugins.enabled[{i}]", $"'{GameCatalogJson.ManualLauncher}' is reserved for manual games");
+                    }
                     if (pluginId is not null && !enabled.Add(pluginId))
                     {
                         Error($"plugins.enabled[{i}]", "duplicate plugin ID '" + pluginId + "'");
@@ -276,6 +280,12 @@ namespace FocusRgb.Core.Configuration
                     {
                         Required(rule.Match.Game.Launcher, path + ".match.game.launcher");
                         Required(rule.Match.Game.Id, path + ".match.game.id");
+                        var launcherWildcard = rule.Match.Game.Launcher == "*";
+                        var idWildcard = rule.Match.Game.Id == "*";
+                        if (launcherWildcard != idWildcard)
+                        {
+                            Error(path + ".match.game", "only the (*, *) matcher may use wildcards");
+                        }
                     }
                     if (rule.ApplicationGroup is null && rule.Match?.Game is null)
                     {

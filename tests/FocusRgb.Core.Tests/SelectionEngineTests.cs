@@ -240,6 +240,77 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("music", decision.ProfileId);
         }
 
+        [Fact]
+        public void Select_UsesOrdinalGameIdentityAndKeepsGenericRuleBelowExactRule()
+        {
+            var settings = GameSettings(
+                GameRule("epic-game", "movie", "while-running", "epic", "570"),
+                GameRule("any-game", "music", "while-running", "*", "*"));
+            var catalog = Catalog(
+                Game("steam", "570", "Same title", false, "Dota.exe"),
+                Game("epic", "570", "Same title", true, "Fortnite.exe"));
+            var engine = new SelectionEngine(settings, catalog);
+
+            var steam = engine.Select(SelectionMode.Automatic, "default",
+                Observation("Dota.exe", "Dota.exe"), Start);
+            var epic = engine.Select(SelectionMode.Automatic, "default",
+                Observation("Fortnite.exe", "Fortnite.exe"), Start.AddSeconds(1));
+
+            Assert.Equal("music", steam.ProfileId);
+            Assert.Equal("any-game", steam.Reason.RuleId);
+            Assert.Equal("movie", epic.ProfileId);
+            Assert.Equal("epic-game", epic.Reason.RuleId);
+        }
+
+        [Fact]
+        public void Select_UsesCachedGameExecutables_WhenDiscoveryIsUnavailable()
+        {
+            var engine = new SelectionEngine(
+                GameSettings(GameRule("offline-game", "movie", "while-running", "steam", "570")),
+                Catalog(Game("steam", "570", "Offline game", false, "Dota.exe")));
+
+            var decision = engine.Select(SelectionMode.Automatic, "default",
+                Observation("DOTA.EXE", "dota.exe"), Start);
+
+            Assert.Equal("movie", decision.ProfileId);
+        }
+
+        [Fact]
+        public void Select_GameFocusRequiresObservedForegroundAndHonorsIgnoredExecutables()
+        {
+            var settings = GameSettings(GameRule("focused-game", "movie", "while-focused", "steam", "570"));
+            settings = new SettingsDocument
+            {
+                SchemaVersion = settings.SchemaVersion,
+                Application = settings.Application,
+                Plugins = settings.Plugins,
+                Selection = new SelectionSettings
+                {
+                    DefaultProfile = settings.Selection!.DefaultProfile,
+                    Unmatched = settings.Selection.Unmatched,
+                    DebounceMs = settings.Selection.DebounceMs,
+                    IgnoredExecutables = [.. settings.Selection.IgnoredExecutables!, "IgnoredGame.exe"]
+                },
+                Profiles = settings.Profiles,
+                ApplicationGroups = settings.ApplicationGroups,
+                Rules = settings.Rules
+            };
+            var clock = new TestTimeProvider();
+            var engine = new SelectionEngine(settings, Catalog(
+                Game("steam", "570", "Game", true, "Game.exe", "IgnoredGame.exe")), clock);
+
+            engine.Select(SelectionMode.Automatic, "default",
+                Observation("explorer.exe", "Game.exe", "explorer.exe"), Start);
+            clock.Advance(TimeSpan.FromSeconds(2));
+            var background = engine.Select(SelectionMode.Automatic, "default",
+                Observation("explorer.exe", "Game.exe", "explorer.exe"), Start.AddSeconds(2));
+            var ignored = engine.Select(SelectionMode.Automatic, "default",
+                Observation("IgnoredGame.exe", "IgnoredGame.exe"), Start.AddSeconds(3));
+
+            Assert.Equal("default", background.ProfileId);
+            Assert.Equal("default", ignored.ProfileId);
+        }
+
         private static SettingsDocument Settings(params RuleSettings[] rules)
         {
             var settings = SettingsJson.LoadDefaults().Settings!;
@@ -262,6 +333,50 @@ namespace FocusRgb.Core.Tests
             }));
             return settings;
         }
+
+        private static SettingsDocument GameSettings(params RuleSettings[] rules)
+        {
+            var settings = SettingsJson.LoadDefaults().Settings!;
+            settings.Rules!.Clear();
+            settings.Rules.AddRange(rules);
+            return settings;
+        }
+
+        private static RuleSettings GameRule(
+            string id,
+            string profile,
+            string eligibility,
+            string launcher,
+            string gameId) => new()
+            {
+                Id = id,
+                Profile = profile,
+                Match = new ApplicationMatch { Game = new GameMatch { Launcher = launcher, Id = gameId } },
+                Eligibility = eligibility,
+                Enabled = true
+            };
+
+        private static GameCatalogDocument Catalog(params GameCatalogEntry[] games) => new()
+        {
+            SchemaVersion = GameCatalogJson.CurrentSchemaVersion,
+            Games = [.. games]
+        };
+
+        private static GameCatalogEntry Game(
+            string launcher,
+            string id,
+            string displayName,
+            bool available,
+            params string[] executables) => new()
+            {
+                Launcher = launcher,
+                Id = id,
+                DisplayName = displayName,
+                Executables = [.. executables],
+                Available = available,
+                UnavailableReason = available ? null : "Discovery plugin offline.",
+                LastRefreshedAt = Start
+            };
 
         private static RuleSettings Rule(
             string id,
