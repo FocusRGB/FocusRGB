@@ -559,6 +559,17 @@ namespace FocusRgb.App
         private async void RemoveApplicationGroup_OnClick(object? sender, RoutedEventArgs e) =>
             await RunUiActionAsync(() => ViewModel.RemoveApplicationGroupAsync());
 
+        private void NewManualGame_OnClick(object? sender, RoutedEventArgs e) =>
+            ViewModel.StartNewManualGame();
+        private void AddManualGameExecutable_OnClick(object? sender, RoutedEventArgs e) =>
+            ViewModel.AddManualGameExecutable();
+        private void RemoveGameExecutable_OnClick(object? sender, RoutedEventArgs e) =>
+            ViewModel.RemoveDraftGameExecutable();
+        private async void SaveManualGame_OnClick(object? sender, RoutedEventArgs e) =>
+            await RunUiActionAsync(() => ViewModel.SaveManualGameAsync());
+        private async void RemoveManualGame_OnClick(object? sender, RoutedEventArgs e) =>
+            await RunUiActionAsync(() => ViewModel.RemoveManualGameAsync());
+
         private void SaveMappingAs_OnClick(object? sender, RoutedEventArgs e) =>
             ViewModel.MappingEditor.SaveMappingAs();
 

@@ -122,7 +122,8 @@ namespace FocusRgb.App
                     startup.Snapshot.Desired.Reason,
                     _store,
                     outputCoordinator,
-                    initialOutput);
+                    initialOutput,
+                    startup.Snapshot.GameCatalog);
                 ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
                 var viewModel = MainWindowViewModel.CreatePersistent(
                     startup.Snapshot,
@@ -154,6 +155,9 @@ namespace FocusRgb.App
                             change.ReasonCode,
                             change.Message);
                         await Dispatcher.UIThread.InvokeAsync(() => UpdateIntegrationStatuses(viewModel));
+                        var gameCatalog = await pluginGateway.ListGameCatalogAsync(change.PluginId);
+                        await await Dispatcher.UIThread.InvokeAsync<Task>(
+                            () => viewModel.RefreshGameCatalogAsync(change.PluginId, gameCatalog));
                         if (change.ReasonCode is "plugin-exited" or "timeout"
                             && !_pluginPackageChanges.ContainsKey(change.PluginId))
                         {
@@ -213,6 +217,11 @@ namespace FocusRgb.App
                         UpdateInstalledPlugins(viewModel);
                         await viewModel.ReapplyOutputAsync();
                         await viewModel.RefreshProfileResourcesAsync();
+                        foreach (var entry in _plugins.Entries.Where(entry => entry.IsRunning))
+                        {
+                            var gameCatalog = await pluginGateway.ListGameCatalogAsync(entry.PluginId);
+                            await viewModel.RefreshGameCatalogAsync(entry.PluginId, gameCatalog);
+                        }
                         foreach (var entry in _plugins.Entries.Where(entry => !entry.IsRunning))
                             _ = RestartPluginAsync(packagesDirectory, entry.PluginId, pluginGateway, viewModel, outputCoordinator);
                     }

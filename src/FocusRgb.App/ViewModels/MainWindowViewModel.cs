@@ -21,6 +21,7 @@ namespace FocusRgb.App.ViewModels
         private readonly ApplicationStateService? _applicationState;
         private readonly IPluginOutputGateway? _pluginGateway;
         private SettingsDocument _settings;
+        private GameCatalogDocument _gameCatalog;
         private SelectionStateDocument? _selectionState;
         private SelectionReason _selectionReason = FocusRgb.Core.Selection.SelectionReason.Manual();
         private SelectionRuntimeStatus? _runtimeStatus;
@@ -31,6 +32,7 @@ namespace FocusRgb.App.ViewModels
         private ProfileOptionViewModel _selectedProfile;
         private ProfileOptionViewModel? _editingProfile;
         private ApplicationGroupViewModel? _editingApplicationGroup;
+        private GameCatalogItemViewModel? _editingGame;
         private string _profileName = "";
         private string _profileEffect = "";
         private string _profileLayout = "";
@@ -61,6 +63,10 @@ namespace FocusRgb.App.ViewModels
         private bool _loadingApplicationSettings;
         private string _applicationSettingsStatus = "Application preferences match the saved values.";
         private string _pluginsStatus = "Open this page to load official plugins.";
+        private string _gameName = "";
+        private string _manualGameExecutable = "";
+        private string? _selectedGameExecutable;
+        private string _gameEditorStatus = "Manual and discovered games are stored locally.";
         private string _customPluginGitHubUrl = "";
         private int _pluginActionPending;
 
@@ -69,6 +75,7 @@ namespace FocusRgb.App.ViewModels
             ProfileOptionViewModel selectedProfile,
             MappingEditorViewModel mappingEditor,
             SettingsDocument settings,
+            GameCatalogDocument gameCatalog,
             SelectionStateDocument? selectionState,
             ApplicationStateService? applicationState,
             IPluginOutputGateway? pluginGateway,
@@ -80,6 +87,7 @@ namespace FocusRgb.App.ViewModels
             _selectedProfile = selectedProfile;
             MappingEditor = mappingEditor;
             _settings = settings;
+            _gameCatalog = gameCatalog;
             _selectionState = selectionState;
             _applicationState = applicationState;
             _pluginGateway = pluginGateway;
@@ -91,6 +99,8 @@ namespace FocusRgb.App.ViewModels
                 _runtimeStatusMessage = runtimeStatus?.AppliedDetail ?? "Local runtime is ready; no output integration is connected.";
             EditingProfile = profiles.Count > 0 ? profiles[0] : null;
             EditingApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
+            ReloadGameProjection();
+            EditingGame = Games.FirstOrDefault(game => game.IsManual);
             LoadApplicationSettings();
         }
 
@@ -99,7 +109,9 @@ namespace FocusRgb.App.ViewModels
         public ObservableCollection<ProfileOptionViewModel> Profiles { get; }
         public MappingEditorViewModel MappingEditor { get; private set; }
         public ObservableCollection<ApplicationGroupViewModel> ApplicationGroups => MappingEditor.ApplicationGroups;
+        public ObservableCollection<GameCatalogItemViewModel> Games { get; } = [];
         public ObservableCollection<string> DraftExecutables { get; } = [];
+        public ObservableCollection<string> DraftGameExecutables { get; } = [];
         public ObservableCollection<string> DetectedExecutables { get; } = [];
         public ObservableCollection<string> IntegrationStatuses { get; } = ["No plugins configured."];
         public ObservableCollection<OfficialPluginItemViewModel> OfficialPlugins { get; } = [];
@@ -150,6 +162,22 @@ namespace FocusRgb.App.ViewModels
                     foreach (var executable in value.Executables) DraftExecutables.Add(executable);
                 SelectedDraftExecutable = null;
                 if (discarded) ApplicationGroupEditorStatus = "Unsaved application-group changes were discarded when the selection changed.";
+            }
+        }
+
+        public GameCatalogItemViewModel? EditingGame
+        {
+            get => _editingGame;
+            set
+            {
+                if (!Set(ref _editingGame, value)) return;
+                GameName = value?.DisplayName ?? "";
+                DraftGameExecutables.Clear();
+                if (value is not null)
+                    foreach (var executable in value.Executables) DraftGameExecutables.Add(executable);
+                SelectedGameExecutable = null;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanEditGame)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanRemoveGame)));
             }
         }
 
@@ -215,6 +243,12 @@ namespace FocusRgb.App.ViewModels
         public bool IsProfileDirty { get => _isProfileDirty; private set => Set(ref _isProfileDirty, value); }
         public int ProfilePreviewRevision { get; private set; }
         public string ApplicationGroupName { get => _applicationGroupName; set => Set(ref _applicationGroupName, value); }
+        public string GameName { get => _gameName; set => Set(ref _gameName, value); }
+        public string ManualGameExecutable { get => _manualGameExecutable; set => Set(ref _manualGameExecutable, value); }
+        public string? SelectedGameExecutable { get => _selectedGameExecutable; set => Set(ref _selectedGameExecutable, value); }
+        public string GameEditorStatus { get => _gameEditorStatus; private set => Set(ref _gameEditorStatus, value); }
+        public bool CanEditGame => EditingGame is null || EditingGame.IsManual;
+        public bool CanRemoveGame => EditingGame?.IsManual == true;
         public string? SelectedDraftExecutable { get => _selectedDraftExecutable; set => Set(ref _selectedDraftExecutable, value); }
         public string? SelectedDetectedExecutable { get => _selectedDetectedExecutable; set => Set(ref _selectedDetectedExecutable, value); }
         public string ManualExecutable { get => _manualExecutable; set => Set(ref _manualExecutable, value); }
@@ -788,6 +822,190 @@ namespace FocusRgb.App.ViewModels
             SelectedDraftExecutable = null;
         }
 
+        public void StartNewManualGame()
+        {
+            EditingGame = null;
+            GameEditorStatus = "Enter a name and at least one Windows executable, then save.";
+        }
+
+        public bool AddDraftGameExecutable(string path)
+        {
+            var executable = Path.GetFileName(path);
+            if (string.IsNullOrWhiteSpace(executable)
+                || !executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                GameEditorStatus = "Enter a Windows executable name ending in .exe.";
+                return false;
+            }
+            if (!DraftGameExecutables.Contains(executable, StringComparer.OrdinalIgnoreCase))
+                DraftGameExecutables.Add(executable);
+            return true;
+        }
+
+        public void AddManualGameExecutable()
+        {
+            if (AddDraftGameExecutable(ManualGameExecutable)) ManualGameExecutable = "";
+        }
+
+        public void RemoveDraftGameExecutable()
+        {
+            if (SelectedGameExecutable is null) return;
+            DraftGameExecutables.Remove(SelectedGameExecutable);
+            SelectedGameExecutable = null;
+        }
+
+        public async Task SaveManualGameAsync(CancellationToken cancellationToken = default)
+        {
+            if (!CanEditGame || !BeginSettingsSave()) return;
+            try
+            {
+                var name = RequiredName(GameName, "Manual game");
+                var id = EditingGame?.Id ?? UniqueId(
+                    name,
+                    _gameCatalog.Games!
+                        .Where(game => game.Launcher == GameCatalogJson.ManualLauncher)
+                        .Select(game => game.Id!));
+                var existing = _gameCatalog.Games!.FirstOrDefault(game =>
+                    game.Launcher == GameCatalogJson.ManualLauncher && game.Id == id);
+                var saved = new GameCatalogEntry
+                {
+                    Launcher = GameCatalogJson.ManualLauncher,
+                    Id = id,
+                    DisplayName = name,
+                    Executables = [.. DraftGameExecutables],
+                    Available = true,
+                    AdditionalProperties = existing?.AdditionalProperties
+                };
+                var candidate = new GameCatalogDocument
+                {
+                    SchemaVersion = _gameCatalog.SchemaVersion,
+                    Games = existing is null
+                        ? [.. _gameCatalog.Games!, saved]
+                        : _gameCatalog.Games!.Select(game =>
+                            game.Launcher == GameCatalogJson.ManualLauncher && game.Id == id ? saved : game).ToList(),
+                    AdditionalProperties = _gameCatalog.AdditionalProperties
+                };
+                var error = await SaveGameCatalogCandidateAsync(candidate, cancellationToken);
+                if (error is not null)
+                {
+                    GameEditorStatus = error;
+                    return;
+                }
+                MappingEditor.UpsertGameTarget(saved);
+                ReloadGameProjection();
+                EditingGame = Games.Single(game => game.Launcher == GameCatalogJson.ManualLauncher && game.Id == id);
+                GameEditorStatus = $"Saved {name}.";
+            }
+            finally
+            {
+                EndSettingsSave();
+            }
+        }
+
+        public async Task RemoveManualGameAsync(CancellationToken cancellationToken = default)
+        {
+            if (EditingGame?.IsManual != true || !BeginSettingsSave()) return;
+            try
+            {
+                var launcher = EditingGame.Launcher;
+                var id = EditingGame.Id;
+                if (MappingEditor.AppliedMappings.Any(mapping =>
+                        mapping.GameLauncher == launcher && mapping.GameId == id)
+                    || MappingEditor.Mappings.Any(mapping =>
+                        mapping.SelectedTarget.GameLauncher == launcher && mapping.SelectedTarget.GameId == id))
+                {
+                    GameEditorStatus = "Remove mappings that use this game first.";
+                    return;
+                }
+                var removed = EditingGame.DisplayName;
+                var candidate = new GameCatalogDocument
+                {
+                    SchemaVersion = _gameCatalog.SchemaVersion,
+                    Games = _gameCatalog.Games!.Where(game =>
+                        game.Launcher != launcher || game.Id != id).ToList(),
+                    AdditionalProperties = _gameCatalog.AdditionalProperties
+                };
+                var error = await SaveGameCatalogCandidateAsync(candidate, cancellationToken);
+                if (error is not null)
+                {
+                    GameEditorStatus = error;
+                    return;
+                }
+                MappingEditor.RemoveGameTarget(launcher, id);
+                ReloadGameProjection();
+                EditingGame = Games.FirstOrDefault(game => game.IsManual);
+                GameEditorStatus = $"Removed {removed}.";
+            }
+            finally
+            {
+                EndSettingsSave();
+            }
+        }
+
+        public async Task RefreshGameCatalogAsync(
+            string launcher,
+            PluginGatewayResult<PluginCatalogResult> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (_applicationState is null || launcher == GameCatalogJson.ManualLauncher) return;
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                var current = _applicationState.Current;
+                var retained = current.GameCatalog.Games!
+                    .Where(game => game.Launcher != launcher)
+                    .ToList();
+                if (result.IsSuccess && result.Value!.Support is "supported" or "unverified")
+                {
+                    var refreshedAt = result.Value.RefreshedAt ?? DateTimeOffset.UtcNow;
+                    retained.AddRange(result.Value.Items.Where(item => item.Game is not null).Select(item =>
+                        new GameCatalogEntry
+                        {
+                            Launcher = launcher,
+                            Id = item.ResourceId,
+                            DisplayName = item.DisplayName,
+                            Executables = [.. item.Game!.Executables],
+                            Available = item.Available,
+                            UnavailableReason = item.Reason?.Message,
+                            LastRefreshedAt = refreshedAt
+                        }));
+                }
+                else
+                {
+                    var reason = result.IsSuccess
+                        ? result.Value!.Reason?.Message ?? "Game discovery is unavailable."
+                        : result.ErrorMessage!;
+                    retained.AddRange(current.GameCatalog.Games!
+                        .Where(game => game.Launcher == launcher)
+                        .Select(game => new GameCatalogEntry
+                        {
+                            Launcher = game.Launcher,
+                            Id = game.Id,
+                            DisplayName = game.DisplayName,
+                            Executables = game.Executables,
+                            Available = false,
+                            UnavailableReason = reason,
+                            LastRefreshedAt = game.LastRefreshedAt,
+                            AdditionalProperties = game.AdditionalProperties
+                        }));
+                }
+                var candidate = new GameCatalogDocument
+                {
+                    SchemaVersion = GameCatalogJson.CurrentSchemaVersion,
+                    Games = retained,
+                    AdditionalProperties = current.GameCatalog.AdditionalProperties
+                };
+                var saved = await _applicationState.ApplyGameCatalogAsync(
+                    candidate, current.SettingsRevision, "catalog", cancellationToken);
+                if (saved.IsSuccess) return;
+                if (saved.ErrorCode != "conflict")
+                {
+                    GameEditorStatus = saved.ErrorMessage!;
+                    return;
+                }
+            }
+            GameEditorStatus = "Game catalog changed concurrently; discovery will retry later.";
+        }
+
         public async Task SaveApplicationGroupAsync(CancellationToken cancellationToken = default)
         {
             if (EditingApplicationGroup is null) return;
@@ -837,8 +1055,8 @@ namespace FocusRgb.App.ViewModels
 
                 var group = new ApplicationGroupViewModel(id, name, created.Executables!);
                 ApplicationGroups.Add(group);
+                MappingEditor.AddApplicationGroupTarget(group);
                 EditingApplicationGroup = group;
-                MappingEditor.NewApplicationGroup = group;
                 ApplicationGroupEditorStatus = SavedStatus($"Saved {name} as a new group.");
             }
             finally
@@ -854,7 +1072,8 @@ namespace FocusRgb.App.ViewModels
             try
             {
                 if (MappingEditor.AppliedMappings.Any(mapping => mapping.ApplicationGroupId == EditingApplicationGroup.Id)
-                    || MappingEditor.Mappings.Any(mapping => mapping.SelectedApplicationGroup.Id == EditingApplicationGroup.Id))
+                    || MappingEditor.Mappings.Any(mapping =>
+                        mapping.SelectedTarget.ApplicationGroupId == EditingApplicationGroup.Id))
                 {
                     ApplicationGroupEditorStatus = "Remove mappings that use this application group first.";
                     return;
@@ -869,9 +1088,10 @@ namespace FocusRgb.App.ViewModels
                     ApplicationGroupEditorStatus = error;
                     return;
                 }
+                var removedId = EditingApplicationGroup.Id;
                 ApplicationGroups.Remove(EditingApplicationGroup);
+                MappingEditor.RemoveApplicationGroupTarget(removedId);
                 EditingApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
-                MappingEditor.NewApplicationGroup = EditingApplicationGroup;
                 ApplicationGroupEditorStatus = SavedStatus($"Removed {removed}.");
             }
             finally
@@ -909,11 +1129,24 @@ namespace FocusRgb.App.ViewModels
                 throw new InvalidOperationException("Validated default profiles are unavailable.");
             }
 
-            return Create(result.Settings, null, null, null, null, null, canMinimizeToTray: true);
+            return Create(
+                result.Settings,
+                GameCatalogJson.CreateDefault(),
+                null, null, null, null, null,
+                canMinimizeToTray: true);
         }
 
         public static MainWindowViewModel CreatePreview(SettingsDocument settings)
-            => Create(settings, null, null, null, null, null, canMinimizeToTray: true);
+            => Create(
+                settings,
+                GameCatalogJson.CreateDefault(),
+                null, null, null, null, null,
+                canMinimizeToTray: true);
+
+        public static MainWindowViewModel CreatePreview(
+            SettingsDocument settings,
+            GameCatalogDocument gameCatalog)
+            => Create(settings, gameCatalog, null, null, null, null, null, canMinimizeToTray: true);
 
         public static MainWindowViewModel CreatePersistent(
             StartupSnapshot snapshot,
@@ -933,10 +1166,12 @@ namespace FocusRgb.App.ViewModels
                 snapshot.Desired.Reason,
                 settingsStore,
                 outputCoordinator,
-                runtimeStatus);
+                runtimeStatus,
+                snapshot.GameCatalog);
             var current = stateService.Current;
             var viewModel = Create(
                 current.Settings,
+                current.GameCatalog,
                 current.SelectionState,
                 stateService,
                 pluginGateway,
@@ -963,6 +1198,7 @@ namespace FocusRgb.App.ViewModels
 
         private static MainWindowViewModel Create(
             SettingsDocument settings,
+            GameCatalogDocument gameCatalog,
             SelectionStateDocument? selectionState,
             ApplicationStateService? applicationState,
             IPluginOutputGateway? pluginGateway,
@@ -971,7 +1207,9 @@ namespace FocusRgb.App.ViewModels
             bool canMinimizeToTray)
         {
             ArgumentNullException.ThrowIfNull(settings);
+            ArgumentNullException.ThrowIfNull(gameCatalog);
             if (SettingsValidator.Validate(settings).Count > 0
+                || GameCatalogJson.Validate(gameCatalog).Count > 0
                 || settings.Profiles is not { Count: > 0 } settingsProfiles)
             {
                 throw new ArgumentException("Preview requires validated settings.", nameof(settings));
@@ -980,12 +1218,13 @@ namespace FocusRgb.App.ViewModels
             var profiles = new ObservableCollection<ProfileOptionViewModel>(CreateProfileOptions(settingsProfiles));
             var defaultId = settings.Selection!.DefaultProfile;
             var selectedProfile = profiles.Single(profile => profile.Id == defaultId);
-            var mappingEditor = MappingEditorViewModel.Create(settings, profiles);
+            var mappingEditor = MappingEditorViewModel.Create(settings, profiles, gameCatalog);
             return new MainWindowViewModel(
                 profiles,
                 selectedProfile,
                 mappingEditor,
                 settings,
+                gameCatalog,
                 selectionState,
                 applicationState,
                 pluginGateway,
@@ -1036,6 +1275,7 @@ namespace FocusRgb.App.ViewModels
                 else
                 {
                     _settings = snapshot.Settings;
+                    _gameCatalog = snapshot.GameCatalog;
                     _settingsRevision = snapshot.SettingsRevision;
                     if (snapshot.Source != "ui") ReloadSettingsProjection();
                 }
@@ -1091,6 +1331,7 @@ namespace FocusRgb.App.ViewModels
             if (!HasSettingsConflict || _applicationState is null) return;
             var current = _applicationState.Current;
             _settings = current.Settings;
+            _gameCatalog = current.GameCatalog;
             _settingsRevision = current.SettingsRevision;
             _selectionState = current.SelectionState;
             ReloadSettingsProjection();
@@ -1098,6 +1339,7 @@ namespace FocusRgb.App.ViewModels
             ApplyApplicationSnapshot(current);
             ProfileEditorStatus = "Reloaded the current saved settings; the conflicting draft was discarded.";
             ApplicationGroupEditorStatus = "Reloaded the current saved settings.";
+            GameEditorStatus = "Reloaded the current saved game catalog.";
             ApplicationSettingsStatus = "Reloaded the current saved application preferences.";
             MappingEditor.ReportSaveFailure("Reloaded the current saved mappings.");
         }
@@ -1109,7 +1351,11 @@ namespace FocusRgb.App.ViewModels
                 : !_settings.ApplicationGroups!.Any(group => group.Id == EditingApplicationGroup.Id)
                   || ApplicationGroupName != EditingApplicationGroup.DisplayName
                   || !DraftExecutables.SequenceEqual(EditingApplicationGroup.Executables);
-            return IsProfileDirty || MappingEditor.IsDirty || IsApplicationSettingsDirty || groupDirty;
+            var gameDirty = CanEditGame && (EditingGame is null
+                ? !string.IsNullOrWhiteSpace(GameName) || DraftGameExecutables.Count > 0
+                : GameName != EditingGame.DisplayName
+                  || !DraftGameExecutables.SequenceEqual(EditingGame.Executables));
+            return IsProfileDirty || MappingEditor.IsDirty || IsApplicationSettingsDirty || groupDirty || gameDirty;
         }
 
         private void ReportSettingsConflict()
@@ -1117,6 +1363,7 @@ namespace FocusRgb.App.ViewModels
             ProfileEditorStatus = SettingsConflictMessage;
             ApplicationGroupEditorStatus = SettingsConflictMessage;
             ApplicationSettingsStatus = SettingsConflictMessage;
+            GameEditorStatus = SettingsConflictMessage;
             MappingEditor.ReportSaveFailure(SettingsConflictMessage);
         }
 
@@ -1127,9 +1374,10 @@ namespace FocusRgb.App.ViewModels
             var profiles = CreateProfileOptions(_settings.Profiles!);
             Profiles.Clear();
             foreach (var profile in profiles) Profiles.Add(profile);
-            MappingEditor = MappingEditorViewModel.Create(_settings, Profiles);
+            MappingEditor = MappingEditorViewModel.Create(_settings, Profiles, _gameCatalog);
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MappingEditor)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ApplicationGroups)));
+            ReloadGameProjection();
 
             var selectedId = _selectionState?.Mode == "manual"
                 ? _selectionState.ManualProfile
@@ -1145,6 +1393,22 @@ namespace FocusRgb.App.ViewModels
                 ?? ApplicationGroups.FirstOrDefault();
             LoadApplicationSettings();
             NotifyStateChanged(nameof(SelectedProfile));
+        }
+
+        private void ReloadGameProjection()
+        {
+            GameIdentity? selected = EditingGame is null
+                ? null
+                : new GameIdentity(EditingGame.Launcher, EditingGame.Id);
+            Games.Clear();
+            foreach (var game in _gameCatalog.Games!
+                .OrderBy(game => game.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(game => game.Launcher, StringComparer.Ordinal)
+                .ThenBy(game => game.Id, StringComparer.Ordinal))
+                Games.Add(new GameCatalogItemViewModel(game));
+            if (selected is not null)
+                EditingGame = Games.FirstOrDefault(game =>
+                    game.Launcher == selected.Value.Launcher && game.Id == selected.Value.Id);
         }
 
         private static IEnumerable<ProfileOptionViewModel> CreateProfileOptions(
@@ -1485,6 +1749,34 @@ namespace FocusRgb.App.ViewModels
             if (result.Warning is not null)
                 _settingsSaveWarning = $"{result.Warning.FileName}: {result.Warning.Message}";
             if (!result.IsSuccess) return result.ErrorMessage;
+            ApplyApplicationSnapshot(result.Snapshot);
+            return null;
+        }
+
+        private async Task<string?> SaveGameCatalogCandidateAsync(
+            GameCatalogDocument candidate,
+            CancellationToken cancellationToken)
+        {
+            if (_applicationState is null)
+            {
+                var errors = GameCatalogJson.Validate(candidate);
+                if (errors.Count > 0)
+                    return string.Join("; ", errors.Select(error => $"{error.Path}: {error.Message}"));
+                _gameCatalog = candidate;
+                return null;
+            }
+
+            var result = await _applicationState.ApplyGameCatalogAsync(
+                candidate, _settingsRevision, "ui", cancellationToken);
+            if (!result.IsSuccess)
+            {
+                if (result.ErrorCode == "conflict")
+                {
+                    HasSettingsConflict = true;
+                    ReportSettingsConflict();
+                }
+                return result.ErrorMessage;
+            }
             ApplyApplicationSnapshot(result.Snapshot);
             return null;
         }

@@ -129,7 +129,7 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public void GameOnlyRule_IsPreservedWithoutProjectingAnApplicationMapping()
+        public void GameRule_IsFirstClassAndPreservesUnknownFields()
         {
             var root = JsonNode.Parse(SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!))!;
             root["rules"]!.AsArray().Add(JsonNode.Parse("""
@@ -140,11 +140,30 @@ namespace FocusRgb.App.Tests
             var editor = MainWindowViewModel.CreatePreview(settings).MappingEditor;
             var saved = editor.CreateRuleSettings();
 
-            Assert.Equal(3, editor.Mappings.Count);
+            Assert.Equal(4, editor.Mappings.Count);
+            var projected = editor.Mappings.Single(mapping => mapping.Id == "steam-game");
+            Assert.Equal("steam", projected.SelectedTarget.GameLauncher);
+            Assert.Equal("570", projected.SelectedTarget.GameId);
             var game = Assert.Single(saved, rule => rule.Id == "steam-game");
             Assert.Equal("570", game.Match!.Game!.Id);
             Assert.False(game.Enabled);
             Assert.Equal(1, game.AdditionalProperties!["future"].GetInt32());
+        }
+
+        [Fact]
+        public void GameAndApplicationRules_ShareOneOrderedEditor()
+        {
+            var root = JsonNode.Parse(SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!))!;
+            root["rules"]!.AsArray().Insert(1, JsonNode.Parse("""
+                {"id":"any-game","profile":"movie","match":{"game":{"launcher":"*","id":"*"}},"eligibility":"while-running","enabled":true}
+                """));
+            var editor = MainWindowViewModel.CreatePreview(
+                SettingsJson.Load(root.ToJsonString()).Settings!).MappingEditor;
+
+            editor.Move(editor.Mappings.Single(mapping => mapping.Id == "any-game"), -1);
+
+            Assert.Equal(["any-game", "programming", "movie", "music"],
+                editor.CreateRuleSettings().Select(rule => rule.Id));
         }
 
         [Fact]
