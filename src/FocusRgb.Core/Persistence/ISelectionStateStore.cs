@@ -9,6 +9,11 @@ namespace FocusRgb.Core.Persistence
         Task<SaveResult> SaveSettingsAsync(
             SettingsDocument settings,
             CancellationToken cancellationToken = default);
+
+        /// <summary>Atomically saves the validated app-owned game catalog.</summary>
+        Task<SaveResult> SaveGameCatalogAsync(
+            GameCatalogDocument catalog,
+            CancellationToken cancellationToken = default);
     }
 
     /// <summary>Persists validated selection intent for shared UI and future MCP commands.</summary>

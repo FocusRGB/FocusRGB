@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Protocol;
 
 namespace FocusRgb.App.Plugins
@@ -115,6 +116,8 @@ namespace FocusRgb.App.Plugins
             if (manifest is null || manifest.SchemaVersion != 1) return "Only manifest schema version 1 is supported.";
             if (expectedId is not null && manifest.Id != expectedId || !IsId(manifest.Id))
                 return "Manifest ID does not match the enabled package ID.";
+            if (manifest.Id == GameCatalogJson.ManualLauncher)
+                return $"Plugin ID '{GameCatalogJson.ManualLauncher}' is reserved for manual games.";
             if (!TryExactVersion(manifest.Version)) return "Plugin version must contain three numeric parts.";
             if (!IsContractCompatible(manifest.ContractVersion, ContractVersion.Major, ContractVersion.Minor))
                 return "Plugin contract version is incompatible.";

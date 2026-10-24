@@ -8,7 +8,7 @@ using FocusRgb.Core.Selection;
 namespace FocusRgb.Core.Persistence
 {
     /// <summary>
-    /// Stores the three local documents atomically in a caller-selected cross-platform directory.
+    /// Stores the app-owned local documents atomically in a caller-selected cross-platform directory.
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Design",
@@ -20,6 +20,7 @@ namespace FocusRgb.Core.Persistence
         public const string SettingsRecoveryFileName = "settings.last-known-good.json";
         public const string StateFileName = "state.json";
         public const string NativeSetupFileName = "native-setup.json";
+        public const string GameCatalogFileName = "games.json";
 
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates =
             new(StringComparer.OrdinalIgnoreCase);
@@ -67,12 +68,20 @@ namespace FocusRgb.Core.Persistence
                     return StartupResult.Fail(nativeResult.Error!);
                 }
 
+                currentFile = GameCatalogFileName;
+                var gameResult = await LoadGameCatalogAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
+                if (!gameResult.IsSuccess)
+                {
+                    return StartupResult.Fail(gameResult.Error!);
+                }
+
                 var state = stateResult.State!;
                 return StartupResult.Ok(new StartupSnapshot
                 {
                     Settings = settings,
                     State = state,
                     NativeSetup = nativeResult.NativeSetup!,
+                    GameCatalog = gameResult.Catalog!,
                     SettingsSource = settingsResult.Source!,
                     Desired = new SelectionDecision
                     {
@@ -90,6 +99,35 @@ namespace FocusRgb.Core.Persistence
             {
                 _gate.Release();
             }
+        }
+
+        /// <summary>Saves the cached and manually entered game catalog.</summary>
+        public async Task<SaveResult> SaveGameCatalogAsync(
+            GameCatalogDocument catalog,
+            CancellationToken cancellationToken = default)
+        {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return await SaveGameCatalogCoreAsync(catalog, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        private async Task<SaveResult> SaveGameCatalogCoreAsync(
+            GameCatalogDocument catalog,
+            CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(catalog);
+            var errors = GameCatalogJson.Validate(catalog);
+            if (errors.Count > 0) return Invalid(GameCatalogFileName, errors);
+            return await SerializeAndWriteAsync(
+                GameCatalogFileName,
+                () => GameCatalogJson.Serialize(catalog),
+                cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>Saves validated user settings without changing selection or native fallback files.</summary>
@@ -349,6 +387,35 @@ namespace FocusRgb.Core.Persistence
                 : NativeStartupResult.Fail(result.Error!);
         }
 
+        private async Task<GameCatalogStartupResult> LoadGameCatalogAsync(
+            DateTimeOffset now,
+            List<RecoveryNotice> recoveries,
+            CancellationToken cancellationToken)
+        {
+            var path = PathFor(GameCatalogFileName);
+            if (!File.Exists(path))
+            {
+                var initial = GameCatalogJson.CreateDefault();
+                var save = await SaveGameCatalogCoreAsync(initial, cancellationToken).ConfigureAwait(false);
+                return save.IsSuccess
+                    ? GameCatalogStartupResult.Ok(initial)
+                    : GameCatalogStartupResult.Fail(save.Error!);
+            }
+
+            var json = await ReadAllTextAsync(GameCatalogFileName, cancellationToken).ConfigureAwait(false);
+            var loaded = GameCatalogJson.Load(json);
+            if (loaded.IsSuccess) return GameCatalogStartupResult.Ok(loaded.Catalog!);
+            if (HasUnsupportedVersion(json, GameCatalogJson.CurrentSchemaVersion))
+                return GameCatalogStartupResult.Fail(InvalidDocument(GameCatalogFileName, loaded.Errors));
+
+            recoveries.Add(ArchiveInvalid(GameCatalogFileName, "corrupt", now, loaded.Errors));
+            var replacement = GameCatalogJson.CreateDefault();
+            var result = await SaveGameCatalogCoreAsync(replacement, cancellationToken).ConfigureAwait(false);
+            return result.IsSuccess
+                ? GameCatalogStartupResult.Ok(replacement)
+                : GameCatalogStartupResult.Fail(result.Error!);
+        }
+
         private async Task<SaveResult> SerializeAndWriteAsync(
             string fileName,
             Func<string> serialize,
@@ -490,7 +557,10 @@ namespace FocusRgb.Core.Persistence
 
         private void CleanupTemporaryFiles()
         {
-            foreach (var fileName in new[] { SettingsFileName, SettingsRecoveryFileName, StateFileName, NativeSetupFileName })
+            foreach (var fileName in new[]
+            {
+                SettingsFileName, SettingsRecoveryFileName, StateFileName, NativeSetupFileName, GameCatalogFileName
+            })
             {
                 foreach (var path in Directory.EnumerateFiles(_directory, $".{fileName}.*.tmp"))
                 {
@@ -594,6 +664,15 @@ namespace FocusRgb.Core.Persistence
                 NativeSetup = nativeSetup
             };
             public static NativeStartupResult Fail(PersistenceError error) => new() { Error = error };
+        }
+
+        private sealed class GameCatalogStartupResult
+        {
+            public bool IsSuccess => Catalog is not null;
+            public GameCatalogDocument? Catalog { get; private init; }
+            public PersistenceError? Error { get; private init; }
+            public static GameCatalogStartupResult Ok(GameCatalogDocument catalog) => new() { Catalog = catalog };
+            public static GameCatalogStartupResult Fail(PersistenceError error) => new() { Error = error };
         }
     }
 }

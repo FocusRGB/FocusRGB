@@ -102,7 +102,7 @@
           <Grid Grid.Row="1" IsVisible="{Binding IsAutomatic}" RowDefinitions="Auto,*,Auto" RowSpacing="14">
             <Grid ColumnDefinitions="*,Auto">
               <StackPanel>
-                <TextBlock Text="Application mappings" FontSize="22" FontWeight="SemiBold" />
+                <TextBlock Text="Application and game mappings" FontSize="22" FontWeight="SemiBold" />
                 <TextBlock Text="Top row has highest priority. Drag rows or use the arrow buttons." Opacity="0.7" />
               </StackPanel>
               <CheckBox Grid.Column="1" Content="Live preview" IsChecked="{Binding MappingEditor.LivePreview}" VerticalAlignment="Center" />
@@ -119,7 +119,7 @@
                               DragDrop.Drop="MappingRow_OnDrop">
                           <TextBlock Text="{Binding Position}" VerticalAlignment="Center" Opacity="0.55" />
                           <StackPanel Grid.Column="1" Spacing="2">
-                            <TextBlock Text="{Binding SelectedApplicationGroup.DisplayName}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding SelectedTarget.DisplayName}" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding SelectedProfile.DisplayName}" FontSize="12" Opacity="0.65" />
                           </StackPanel>
                           <StackPanel Grid.Column="2" Classes="row-actions" Orientation="Horizontal" Spacing="3">
@@ -138,10 +138,10 @@
                 </ListBox>
                 <StackPanel Grid.Row="1" Spacing="6">
                   <TextBlock Text="Create mapping" FontWeight="SemiBold" />
-                  <ComboBox ItemsSource="{Binding ApplicationGroups}" SelectedItem="{Binding MappingEditor.NewApplicationGroup}"
-                            AutomationProperties.Name="New mapping application group"
-                            PlaceholderText="No application groups available">
-                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ApplicationGroupViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
+                  <ComboBox ItemsSource="{Binding MappingEditor.Targets}" SelectedItem="{Binding MappingEditor.NewTarget}"
+                            AutomationProperties.Name="New mapping target"
+                            PlaceholderText="No mapping targets available">
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:MappingTargetViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                   </ComboBox>
                   <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding MappingEditor.NewProfile}"
                             AutomationProperties.Name="New mapping profile"
@@ -157,10 +157,10 @@
                     <DataTemplate x:DataType="vm:MappingEditorItemViewModel">
                       <StackPanel Spacing="10">
                         <TextBlock Text="Mapping details" FontSize="18" FontWeight="SemiBold" />
-                        <TextBlock Text="Application group" FontWeight="SemiBold" />
-                        <ComboBox ItemsSource="{Binding ApplicationGroups}" SelectedItem="{Binding SelectedApplicationGroup}"
-                                  AutomationProperties.Name="Mapping application group">
-                          <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ApplicationGroupViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
+                        <TextBlock Text="Application or game" FontWeight="SemiBold" />
+                        <ComboBox ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}"
+                                  AutomationProperties.Name="Mapping application or game">
+                          <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:MappingTargetViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
                         <TextBlock Text="Profile" FontWeight="SemiBold" />
                         <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"
@@ -291,6 +291,56 @@
               </StackPanel>
             </Border>
             <TextBlock Text="{Binding ApplicationGroupEditorStatus}" Opacity="0.7" />
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="Games">
+        <ScrollViewer>
+          <StackPanel Margin="28,16" Spacing="16" MaxWidth="720" HorizontalAlignment="Stretch">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel>
+                <TextBlock Text="Games" FontSize="26" FontWeight="SemiBold" />
+                <TextBlock Text="Discovered executables are cached so mappings keep working while a discovery plugin is offline."
+                           Opacity="0.7" TextWrapping="Wrap" />
+              </StackPanel>
+              <Button Grid.Column="1" Content="New manual game" Click="NewManualGame_OnClick" />
+            </Grid>
+            <ComboBox ItemsSource="{Binding Games}" SelectedItem="{Binding EditingGame}"
+                      AutomationProperties.Name="Game to inspect or edit"
+                      PlaceholderText="No games have been added or discovered">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:GameCatalogItemViewModel">
+                  <StackPanel>
+                    <TextBlock Text="{Binding DisplayLabel}" />
+                    <TextBlock Text="{Binding Status}" FontSize="11" Opacity="0.65" />
+                  </StackPanel>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Text="{Binding EditingGame.Status}" Opacity="0.7" TextWrapping="Wrap" />
+            <Border IsVisible="{Binding CanEditGame}" Padding="16" CornerRadius="8"
+                    BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+              <StackPanel Spacing="10">
+                <TextBox Text="{Binding GameName}" AutomationProperties.Name="Manual game name"
+                         PlaceholderText="Game name" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <TextBox Text="{Binding ManualGameExecutable}"
+                           AutomationProperties.Name="Manual game executable"
+                           PlaceholderText="Game.exe" />
+                  <Button Grid.Column="1" Content="Add executable" Click="AddManualGameExecutable_OnClick" />
+                </Grid>
+                <ListBox ItemsSource="{Binding DraftGameExecutables}"
+                         SelectedItem="{Binding SelectedGameExecutable}"
+                         AutomationProperties.Name="Manual game executables" MinHeight="70" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="Remove executable" Click="RemoveGameExecutable_OnClick" />
+                  <Button Content="Save" Click="SaveManualGame_OnClick" />
+                  <Button Content="Remove game" Click="RemoveManualGame_OnClick" IsEnabled="{Binding CanRemoveGame}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <TextBlock Text="{Binding GameEditorStatus}" Opacity="0.7" TextWrapping="Wrap" />
           </StackPanel>
         </ScrollViewer>
       </TabItem>

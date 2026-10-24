@@ -85,6 +85,45 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public void AddGameMappings_GeneratesValidIdsForWildcardAndOpaqueTargets()
+        {
+            var settings = SettingsJson.LoadDefaults().Settings!;
+            var opaqueId = "APP_ID:" + new string('X', 100) + ".release";
+            var catalog = new GameCatalogDocument
+            {
+                SchemaVersion = GameCatalogJson.CurrentSchemaVersion,
+                Games =
+                [
+                    new GameCatalogEntry
+                    {
+                        Launcher = "steam",
+                        Id = opaqueId,
+                        DisplayName = "Opaque game",
+                        Executables = ["Game.exe"],
+                        Available = true,
+                        LastRefreshedAt = DateTimeOffset.UtcNow
+                    }
+                ]
+            };
+            var editor = MainWindowViewModel.CreatePreview(settings, catalog).MappingEditor;
+            editor.NewProfile = editor.Profiles.Single(profile => profile.Id == "movie");
+
+            editor.NewTarget = editor.Targets.Single(target =>
+                target.GameLauncher == "*" && target.GameId == "*");
+            editor.SaveMappingAs();
+            editor.NewTarget = editor.Targets.Single(target => target.GameId == opaqueId);
+            editor.SaveMappingAs();
+
+            var generated = editor.Mappings.TakeLast(2).Select(mapping => mapping.Id).ToList();
+            Assert.All(generated, id =>
+            {
+                Assert.Matches("^[a-z0-9][a-z0-9-]{0,63}$", id);
+                Assert.InRange(id.Length, 1, 64);
+            });
+            Assert.StartsWith("any-game-", generated[0], StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void MoveBefore_UsesInsertionPosition()
         {
             var editor = MainWindowViewModel.CreatePreview().MappingEditor;
@@ -129,7 +168,7 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public void GameOnlyRule_IsPreservedWithoutProjectingAnApplicationMapping()
+        public void GameRule_IsFirstClassAndPreservesUnknownFields()
         {
             var root = JsonNode.Parse(SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!))!;
             root["rules"]!.AsArray().Add(JsonNode.Parse("""
@@ -140,11 +179,30 @@ namespace FocusRgb.App.Tests
             var editor = MainWindowViewModel.CreatePreview(settings).MappingEditor;
             var saved = editor.CreateRuleSettings();
 
-            Assert.Equal(3, editor.Mappings.Count);
+            Assert.Equal(4, editor.Mappings.Count);
+            var projected = editor.Mappings.Single(mapping => mapping.Id == "steam-game");
+            Assert.Equal("steam", projected.SelectedTarget.GameLauncher);
+            Assert.Equal("570", projected.SelectedTarget.GameId);
             var game = Assert.Single(saved, rule => rule.Id == "steam-game");
             Assert.Equal("570", game.Match!.Game!.Id);
             Assert.False(game.Enabled);
             Assert.Equal(1, game.AdditionalProperties!["future"].GetInt32());
+        }
+
+        [Fact]
+        public void GameAndApplicationRules_ShareOneOrderedEditor()
+        {
+            var root = JsonNode.Parse(SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!))!;
+            root["rules"]!.AsArray().Insert(1, JsonNode.Parse("""
+                {"id":"any-game","profile":"movie","match":{"game":{"launcher":"*","id":"*"}},"eligibility":"while-running","enabled":true}
+                """));
+            var editor = MainWindowViewModel.CreatePreview(
+                SettingsJson.Load(root.ToJsonString()).Settings!).MappingEditor;
+
+            editor.Move(editor.Mappings.Single(mapping => mapping.Id == "any-game"), -1);
+
+            Assert.Equal(["any-game", "programming", "movie", "music"],
+                editor.CreateRuleSettings().Select(rule => rule.Id));
         }
 
         [Fact]

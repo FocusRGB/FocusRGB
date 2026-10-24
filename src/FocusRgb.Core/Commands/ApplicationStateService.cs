@@ -17,6 +17,7 @@ namespace FocusRgb.Core.Commands
         private readonly object _snapshotGate = new();
         private SelectionCommandService _selectionCommands;
         private SettingsDocument _settings;
+        private GameCatalogDocument _gameCatalog;
         private SelectionStateDocument _selectionState;
         private SelectionReason _selectionReason;
         private SelectionEngine _selectionEngine;
@@ -31,7 +32,8 @@ namespace FocusRgb.Core.Commands
             SelectionReason selectionReason,
             IApplicationStateStore store,
             OutputCoordinator? outputCoordinator = null,
-            SelectionRuntimeStatus? runtimeStatus = null)
+            SelectionRuntimeStatus? runtimeStatus = null,
+            GameCatalogDocument? gameCatalog = null)
         {
             ArgumentNullException.ThrowIfNull(settings);
             ArgumentNullException.ThrowIfNull(selectionState);
@@ -41,13 +43,16 @@ namespace FocusRgb.Core.Commands
                 .Concat(StateJson.Validate(selectionState))
                 .Concat(StateJson.ValidateProfileReferences(selectionState, settings))
                 .ToList();
+            gameCatalog ??= GameCatalogJson.CreateDefault();
+            errors.AddRange(GameCatalogJson.Validate(gameCatalog));
             if (errors.Count > 0)
                 throw new ArgumentException(FormatErrors(errors), nameof(settings));
 
             _settings = Clone(settings);
+            _gameCatalog = Clone(gameCatalog);
             _selectionState = Clone(selectionState);
             _selectionReason = selectionReason;
-            _selectionEngine = new SelectionEngine(_settings);
+            _selectionEngine = new SelectionEngine(_settings, _gameCatalog);
             _store = store;
             _outputCoordinator = outputCoordinator;
             _runtimeStatus = runtimeStatus
@@ -263,7 +268,7 @@ namespace FocusRgb.Core.Commands
                                     _settings = savedCandidate;
                                     _selectionState = currentState;
                                     _selectionReason = currentReason;
-                                    _selectionEngine = new SelectionEngine(savedCandidate);
+                                    _selectionEngine = new SelectionEngine(savedCandidate, _gameCatalog);
                                     _settingsRevision++;
                                 }
                                 var reapplied = await _selectionCommands.ReapplyAsync(
@@ -290,6 +295,74 @@ namespace FocusRgb.Core.Commands
             if (publish) SnapshotChanged?.Invoke(this, snapshot);
             return errorCode is null
                 ? ApplicationCommandResult.Ok(snapshot, warning)
+                : ApplicationCommandResult.Fail(snapshot, errorCode, errorMessage!);
+        }
+
+        /// <summary>Validates and saves the app-owned game catalog under the shared revision gate.</summary>
+        public async Task<ApplicationCommandResult> ApplyGameCatalogAsync(
+            GameCatalogDocument candidate,
+            long expectedRevision,
+            string source,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(candidate);
+            ArgumentException.ThrowIfNullOrWhiteSpace(source);
+            await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            ApplicationStateSnapshot snapshot;
+            string? errorCode = null;
+            string? errorMessage = null;
+            var publish = false;
+            BeginCommand();
+            try
+            {
+                lock (_snapshotGate)
+                {
+                    if (expectedRevision != _settingsRevision)
+                    {
+                        errorCode = "conflict";
+                        errorMessage = $"Settings revision {expectedRevision} is stale; current revision is {_settingsRevision}.";
+                    }
+                }
+                if (errorCode is null)
+                {
+                    var validation = GameCatalogJson.Validate(candidate);
+                    if (validation.Count > 0)
+                    {
+                        errorCode = "invalid-game-catalog";
+                        errorMessage = FormatErrors(validation);
+                    }
+                    else
+                    {
+                        var savedCandidate = Clone(candidate);
+                        var save = await _store.SaveGameCatalogAsync(savedCandidate, cancellationToken)
+                            .ConfigureAwait(false);
+                        if (!save.IsSuccess)
+                        {
+                            errorCode = "persistence-failed";
+                            errorMessage = $"{save.Error!.FileName}: {save.Error.Message}";
+                        }
+                        else
+                        {
+                            lock (_snapshotGate)
+                            {
+                                _gameCatalog = savedCandidate;
+                                _selectionEngine = new SelectionEngine(_settings, savedCandidate);
+                                _settingsRevision++;
+                            }
+                            publish = true;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                snapshot = EndCommand(source, ref publish);
+                _commandGate.Release();
+            }
+
+            if (publish) SnapshotChanged?.Invoke(this, snapshot);
+            return errorCode is null
+                ? ApplicationCommandResult.Ok(snapshot)
                 : ApplicationCommandResult.Fail(snapshot, errorCode, errorMessage!);
         }
 
@@ -398,6 +471,7 @@ namespace FocusRgb.Core.Commands
         private ApplicationStateSnapshot CreateSnapshot(string source) => new()
         {
             Settings = Clone(_settings),
+            GameCatalog = Clone(_gameCatalog),
             SelectionState = Clone(_selectionState),
             SelectionReason = _selectionReason,
             RuntimeStatus = _runtimeStatus,
@@ -464,6 +538,12 @@ namespace FocusRgb.Core.Commands
             return result.State ?? throw new InvalidOperationException("Validated selection state could not be copied.");
         }
 
+        private static GameCatalogDocument Clone(GameCatalogDocument catalog)
+        {
+            var result = GameCatalogJson.Load(GameCatalogJson.Serialize(catalog));
+            return result.Catalog ?? throw new InvalidOperationException("Validated game catalog could not be copied.");
+        }
+
         private static string FormatErrors(IEnumerable<ConfigurationError> errors) =>
             string.Join("; ", errors.Select(error => $"{error.Path}: {error.Message}"));
     }
@@ -472,6 +552,7 @@ namespace FocusRgb.Core.Commands
     public sealed class ApplicationStateSnapshot
     {
         public required SettingsDocument Settings { get; init; }
+        public required GameCatalogDocument GameCatalog { get; init; }
         public required SelectionStateDocument SelectionState { get; init; }
         public required SelectionReason SelectionReason { get; init; }
         public SelectionRuntimeStatus? RuntimeStatus { get; init; }

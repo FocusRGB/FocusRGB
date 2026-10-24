@@ -5,7 +5,7 @@ using FocusRgb.Core.Configuration;
 
 namespace FocusRgb.App.ViewModels
 {
-    /// <summary>Owns ordered mapping drafts and their reusable application groups.</summary>
+    /// <summary>Owns one ordered draft of application and launcher-scoped game mappings.</summary>
     public sealed class MappingEditorViewModel : INotifyPropertyChanged
     {
         private IReadOnlyList<MappingSnapshot> _appliedMappings;
@@ -13,22 +13,24 @@ namespace FocusRgb.App.ViewModels
         private bool _isDirty;
         private bool _livePreview;
         private MappingEditorItemViewModel? _selectedMapping;
-        private ApplicationGroupViewModel? _newApplicationGroup;
+        private MappingTargetViewModel? _newTarget;
         private ProfileOptionViewModel? _newProfile;
         private string _previewStatus = "No preview changes.";
 
         private MappingEditorViewModel(
             IReadOnlyList<ProfileOptionViewModel> profiles,
             ObservableCollection<ApplicationGroupViewModel> applicationGroups,
+            ObservableCollection<MappingTargetViewModel> targets,
             IReadOnlyList<MappingSnapshot> mappings,
             IReadOnlyList<RuleSettings> sourceRules)
         {
             Profiles = profiles;
             ApplicationGroups = applicationGroups;
+            Targets = targets;
             _appliedMappings = mappings;
             _sourceRules = sourceRules;
             Mappings = [];
-            NewApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
+            NewTarget = Targets.FirstOrDefault();
             NewProfile = Profiles.Count > 0 ? Profiles[0] : null;
             RestoreDraft(mappings);
         }
@@ -36,13 +38,19 @@ namespace FocusRgb.App.ViewModels
         public event PropertyChangedEventHandler? PropertyChanged;
         public IReadOnlyList<ProfileOptionViewModel> Profiles { get; }
         public ObservableCollection<ApplicationGroupViewModel> ApplicationGroups { get; }
+        public ObservableCollection<MappingTargetViewModel> Targets { get; }
         public ObservableCollection<MappingEditorItemViewModel> Mappings { get; }
         public IReadOnlyList<MappingSnapshot> AppliedMappings => _appliedMappings;
         public int PreviewRevision { get; private set; }
         public int AppliedRevision { get; private set; }
 
         public MappingEditorItemViewModel? SelectedMapping { get => _selectedMapping; set => Set(ref _selectedMapping, value); }
-        public ApplicationGroupViewModel? NewApplicationGroup { get => _newApplicationGroup; set => Set(ref _newApplicationGroup, value); }
+        public MappingTargetViewModel? NewTarget { get => _newTarget; set => Set(ref _newTarget, value); }
+        public ApplicationGroupViewModel? NewApplicationGroup
+        {
+            get => NewTarget?.ApplicationGroup;
+            set => NewTarget = value is null ? null : Targets.Single(target => target.ApplicationGroup == value);
+        }
         public ProfileOptionViewModel? NewProfile { get => _newProfile; set => Set(ref _newProfile, value); }
 
         public bool LivePreview
@@ -59,17 +67,36 @@ namespace FocusRgb.App.ViewModels
         public bool IsDirty { get => _isDirty; private set => Set(ref _isDirty, value); }
         public string PreviewStatus { get => _previewStatus; private set => Set(ref _previewStatus, value); }
 
-        public static MappingEditorViewModel Create(SettingsDocument settings, IReadOnlyList<ProfileOptionViewModel> profiles)
+        public static MappingEditorViewModel Create(
+            SettingsDocument settings,
+            IReadOnlyList<ProfileOptionViewModel> profiles,
+            GameCatalogDocument? gameCatalog = null)
         {
             ArgumentNullException.ThrowIfNull(settings);
+            gameCatalog ??= GameCatalogJson.CreateDefault();
             var groups = new ObservableCollection<ApplicationGroupViewModel>(settings.ApplicationGroups!.Select(group =>
                 new ApplicationGroupViewModel(group.Id!, group.DisplayName!, group.Executables!)));
-            var snapshots = settings.Rules!.Where(rule => rule.ApplicationGroup is not null).Select(rule =>
+            var targets = new ObservableCollection<MappingTargetViewModel>(groups.Select(MappingTargetViewModel.ForApplication));
+            targets.Add(MappingTargetViewModel.ForGame("*", "*", "Any known game"));
+            foreach (var game in gameCatalog.Games!
+                .OrderBy(game => game.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(game => game.Launcher, StringComparer.Ordinal)
+                .ThenBy(game => game.Id, StringComparer.Ordinal))
             {
-                var profile = profiles.Single(item => item.Id == rule.Profile);
-                return new MappingSnapshot(rule.Id!, rule.ApplicationGroup!, profile.Id, rule.Eligibility!);
-            }).ToList();
-            return new MappingEditorViewModel(profiles, groups, snapshots, settings.Rules!);
+                targets.Add(MappingTargetViewModel.ForGame(
+                    game.Launcher!, game.Id!, $"{game.DisplayName} ({game.Launcher})"));
+            }
+            var rules = settings.Rules!;
+            foreach (var game in rules.Select(rule => rule.Match?.Game).Where(game => game is not null))
+            {
+                if (!targets.Any(target => target.GameLauncher == game!.Launcher && target.GameId == game.Id))
+                    targets.Add(MappingTargetViewModel.ForGame(
+                        game!.Launcher!, game.Id!, $"Missing game ({game.Launcher}:{game.Id})"));
+            }
+            var snapshots = rules.Select(rule => new MappingSnapshot(
+                rule.Id!, rule.ApplicationGroup, rule.Match?.Game?.Launcher, rule.Match?.Game?.Id,
+                profiles.Single(item => item.Id == rule.Profile).Id, rule.Eligibility!)).ToList();
+            return new MappingEditorViewModel(profiles, groups, targets, snapshots, rules);
         }
 
         public ApplicationGroupViewModel AddApplicationGroup()
@@ -79,24 +106,112 @@ namespace FocusRgb.App.ViewModels
             while (ApplicationGroups.Any(group => group.Id == id)) id = $"application-group-{++number}";
             var group = new ApplicationGroupViewModel(id, $"Application Group {number}", []);
             ApplicationGroups.Add(group);
-            NewApplicationGroup = group;
+            AddApplicationGroupTarget(group);
             return group;
+        }
+
+        public void AddApplicationGroupTarget(ApplicationGroupViewModel group)
+        {
+            var target = MappingTargetViewModel.ForApplication(group);
+            Targets.Insert(Math.Max(0, ApplicationGroups.Count - 1), target);
+            NewTarget = target;
+        }
+
+        public void RemoveApplicationGroupTarget(string id)
+        {
+            var target = Targets.FirstOrDefault(item => item.ApplicationGroupId == id);
+            if (target is not null) Targets.Remove(target);
+            if (ReferenceEquals(NewTarget, target)) NewTarget = Targets.FirstOrDefault();
+        }
+
+        public void UpsertGameTarget(GameCatalogEntry game)
+        {
+            var existing = Targets.FirstOrDefault(target =>
+                target.GameLauncher == game.Launcher && target.GameId == game.Id);
+            var replacement = MappingTargetViewModel.ForGame(
+                game.Launcher!, game.Id!, $"{game.DisplayName} ({game.Launcher})");
+            if (existing is null)
+            {
+                Targets.Add(replacement);
+                return;
+            }
+            ReplaceGameTarget(existing, replacement);
+        }
+
+        public void RemoveGameTarget(string launcher, string id)
+        {
+            var target = Targets.FirstOrDefault(item => item.GameLauncher == launcher && item.GameId == id);
+            if (target is null) return;
+            Targets.Remove(target);
+            if (ReferenceEquals(NewTarget, target)) NewTarget = Targets.FirstOrDefault();
+        }
+
+        public void SynchronizeGameTargets(GameCatalogDocument catalog)
+        {
+            var known = catalog.Games!
+                .Select(game => new GameIdentity(game.Launcher!, game.Id!))
+                .ToHashSet();
+            foreach (var game in catalog.Games!) UpsertGameTarget(game);
+            foreach (var target in Targets.Where(target => target.IsGame
+                && target.GameLauncher != "*"
+                && !known.Contains(new GameIdentity(target.GameLauncher!, target.GameId!))).ToList())
+            {
+                if (Mappings.Any(mapping => mapping.SelectedTarget.GameLauncher == target.GameLauncher
+                    && mapping.SelectedTarget.GameId == target.GameId))
+                {
+                    ReplaceGameTarget(target, MappingTargetViewModel.ForGame(
+                        target.GameLauncher!, target.GameId!,
+                        $"Missing game ({target.GameLauncher}:{target.GameId})"));
+                }
+                else
+                {
+                    RemoveGameTarget(target.GameLauncher!, target.GameId!);
+                }
+            }
         }
 
         public void SaveMappingAs()
         {
-            if (NewApplicationGroup is null || NewProfile is null) return;
-            var baseId = $"{NewApplicationGroup.Id}-{NewProfile.Id}";
+            if (NewTarget is null || NewProfile is null) return;
+            var targetId = NewTarget.ApplicationGroupId
+                ?? (NewTarget.GameLauncher == "*" && NewTarget.GameId == "*"
+                    ? "any-game"
+                    : $"{NewTarget.GameLauncher}-{NewTarget.GameId}");
+            var baseId = NormalizeRuleId($"{targetId}-{NewProfile.Id}");
             var id = baseId;
             var suffix = 2;
             while (_sourceRules.Any(rule => rule.Id == id) || Mappings.Any(mapping => mapping.Id == id))
-                id = $"{baseId}-{suffix++}";
-            var item = new MappingEditorItemViewModel(this,
-                new MappingSnapshot(id, NewApplicationGroup.Id, NewProfile.Id, "while-focused"));
+            {
+                var ending = $"-{suffix++}";
+                id = baseId[..Math.Min(baseId.Length, 64 - ending.Length)].TrimEnd('-') + ending;
+            }
+            var item = new MappingEditorItemViewModel(this, new MappingSnapshot(
+                id, NewTarget.ApplicationGroupId, NewTarget.GameLauncher, NewTarget.GameId,
+                NewProfile.Id, "while-focused"));
             Mappings.Add(item);
             UpdatePositions();
             SelectedMapping = item;
             NotifyDraftChanged();
+        }
+
+        private static string NormalizeRuleId(string value)
+        {
+            var normalized = new string(value.ToLowerInvariant().Select(character =>
+                char.IsAsciiLetterOrDigit(character) ? character : '-').ToArray());
+            while (normalized.Contains("--", StringComparison.Ordinal))
+                normalized = normalized.Replace("--", "-", StringComparison.Ordinal);
+            normalized = normalized.Trim('-');
+            if (normalized.Length == 0) normalized = "game-mapping";
+            return normalized.Length > 56 ? normalized[..56].TrimEnd('-') : normalized;
+        }
+
+        private void ReplaceGameTarget(MappingTargetViewModel existing, MappingTargetViewModel replacement)
+        {
+            var index = Targets.IndexOf(existing);
+            Targets[index] = replacement;
+            foreach (var mapping in Mappings.Where(mapping => ReferenceEquals(mapping.SelectedTarget, existing)))
+                mapping.SelectedTarget = replacement;
+            if (ReferenceEquals(NewTarget, existing)) NewTarget = replacement;
         }
 
         public void Remove(MappingEditorItemViewModel item)
@@ -119,49 +234,30 @@ namespace FocusRgb.App.ViewModels
             UpdatePreview($"Saved {_appliedMappings.Count} mappings.");
         }
 
-        public List<RuleSettings> CreateRuleSettings()
+        public List<RuleSettings> CreateRuleSettings() => Mappings.Select(mapping =>
         {
-            var edited = Mappings.Select(mapping =>
+            var snapshot = mapping.CreateSnapshot();
+            var source = _sourceRules.FirstOrDefault(rule => rule.Id == snapshot.Id);
+            return new RuleSettings
             {
-                var source = _sourceRules.FirstOrDefault(rule => rule.Id == mapping.Id);
-                return new RuleSettings
+                Id = snapshot.Id,
+                ApplicationGroup = snapshot.ApplicationGroupId,
+                Profile = snapshot.ProfileId,
+                Eligibility = snapshot.Eligibility,
+                Enabled = source?.Enabled ?? true,
+                Match = snapshot.GameLauncher is null ? null : new ApplicationMatch
                 {
-                    Id = mapping.Id,
-                    ApplicationGroup = mapping.SelectedApplicationGroup.Id,
-                    Profile = mapping.SelectedProfile.Id,
-                    Eligibility = mapping.Eligibility,
-                    Enabled = source?.Enabled ?? true,
-                    Match = source?.Match,
-                    AdditionalProperties = source?.AdditionalProperties
-                };
-            }).ToList();
-            var editedIds = edited.Select(rule => rule.Id!).ToHashSet(StringComparer.Ordinal);
-            var hiddenBefore = new Dictionary<string, List<RuleSettings>>(StringComparer.Ordinal);
-            var trailing = new List<RuleSettings>();
-            for (var index = 0; index < _sourceRules.Count; index++)
-            {
-                var source = _sourceRules[index];
-                if (source.ApplicationGroup is not null) continue;
-                var anchor = _sourceRules.Skip(index + 1)
-                    .FirstOrDefault(rule => rule.ApplicationGroup is not null && editedIds.Contains(rule.Id!));
-                if (anchor is null)
-                {
-                    trailing.Add(source);
-                    continue;
-                }
-                if (!hiddenBefore.TryGetValue(anchor.Id!, out var hidden))
-                    hiddenBefore[anchor.Id!] = hidden = [];
-                hidden.Add(source);
-            }
-            var result = new List<RuleSettings>(_sourceRules.Count + edited.Count);
-            foreach (var rule in edited)
-            {
-                if (hiddenBefore.TryGetValue(rule.Id!, out var hidden)) result.AddRange(hidden);
-                result.Add(rule);
-            }
-            result.AddRange(trailing);
-            return result;
-        }
+                    Game = new GameMatch
+                    {
+                        Launcher = snapshot.GameLauncher,
+                        Id = snapshot.GameId,
+                        AdditionalProperties = source?.Match?.Game?.AdditionalProperties
+                    },
+                    AdditionalProperties = source?.Match?.AdditionalProperties
+                },
+                AdditionalProperties = source?.AdditionalProperties
+            };
+        }).ToList();
 
         public void Cancel()
         {
@@ -184,30 +280,8 @@ namespace FocusRgb.App.ViewModels
             NotifyDraftChanged();
         }
 
-        public void MoveBefore(MappingEditorItemViewModel item, MappingEditorItemViewModel target)
-        {
-            var oldIndex = Mappings.IndexOf(item);
-            var targetIndex = Mappings.IndexOf(target);
-            if (oldIndex < 0 || targetIndex < 0 || oldIndex == targetIndex) return;
-            var newIndex = oldIndex < targetIndex ? targetIndex - 1 : targetIndex;
-            if (oldIndex == newIndex) return;
-            Mappings.Move(oldIndex, newIndex);
-            UpdatePositions();
-            NotifyDraftChanged();
-        }
-
-        public void MoveAfter(MappingEditorItemViewModel item, MappingEditorItemViewModel target)
-        {
-            var oldIndex = Mappings.IndexOf(item);
-            var targetIndex = Mappings.IndexOf(target);
-            if (oldIndex < 0 || targetIndex < 0 || oldIndex == targetIndex) return;
-            var newIndex = oldIndex < targetIndex ? targetIndex : targetIndex + 1;
-            if (oldIndex == newIndex) return;
-            Mappings.Move(oldIndex, newIndex);
-            UpdatePositions();
-            NotifyDraftChanged();
-        }
-
+        public void MoveBefore(MappingEditorItemViewModel item, MappingEditorItemViewModel target) => MoveRelative(item, target, false);
+        public void MoveAfter(MappingEditorItemViewModel item, MappingEditorItemViewModel target) => MoveRelative(item, target, true);
         public void MoveSelected(int offset) { if (SelectedMapping is not null) Move(SelectedMapping, offset); }
 
         internal void NotifyDraftChanged()
@@ -217,6 +291,20 @@ namespace FocusRgb.App.ViewModels
                 ? LivePreview ? "Draft preview updated in the editor; output is sent after Save." : "Draft changes are waiting for Save."
                 : "Draft matches the last saved mappings.";
             if (LivePreview) { PreviewRevision++; OnPropertyChanged(nameof(PreviewRevision)); }
+        }
+
+        private void MoveRelative(MappingEditorItemViewModel item, MappingEditorItemViewModel target, bool after)
+        {
+            var oldIndex = Mappings.IndexOf(item);
+            var targetIndex = Mappings.IndexOf(target);
+            if (oldIndex < 0 || targetIndex < 0 || oldIndex == targetIndex) return;
+            var newIndex = oldIndex < targetIndex
+                ? targetIndex - (after ? 0 : 1)
+                : targetIndex + (after ? 1 : 0);
+            if (oldIndex == newIndex) return;
+            Mappings.Move(oldIndex, newIndex);
+            UpdatePositions();
+            NotifyDraftChanged();
         }
 
         private void RestoreDraft(IReadOnlyList<MappingSnapshot> snapshots)
