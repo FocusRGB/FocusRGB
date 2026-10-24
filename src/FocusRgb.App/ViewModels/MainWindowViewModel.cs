@@ -830,6 +830,7 @@ namespace FocusRgb.App.ViewModels
 
         public bool AddDraftGameExecutable(string path)
         {
+            if (!CanEditGame) return false;
             var executable = Path.GetFileName(path);
             if (string.IsNullOrWhiteSpace(executable)
                 || !executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
@@ -847,9 +848,15 @@ namespace FocusRgb.App.ViewModels
             if (AddDraftGameExecutable(ManualGameExecutable)) ManualGameExecutable = "";
         }
 
+        public void AddDetectedGameExecutable()
+        {
+            if (SelectedDetectedExecutable is not null)
+                AddDraftGameExecutable(SelectedDetectedExecutable);
+        }
+
         public void RemoveDraftGameExecutable()
         {
-            if (SelectedGameExecutable is null) return;
+            if (!CanEditGame || SelectedGameExecutable is null) return;
             DraftGameExecutables.Remove(SelectedGameExecutable);
             SelectedGameExecutable = null;
         }
