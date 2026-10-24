@@ -237,6 +237,44 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public async Task ApplyGameCatalogAsync_UsesSharedRevisionAndRejectsStaleWriter()
+        {
+            var store = new RecordingStore();
+            var service = CreateService(store);
+            var revision = service.Current.SettingsRevision;
+            var candidate = ManualCatalog("first-game", "First.exe");
+
+            var saved = await service.ApplyGameCatalogAsync(
+                candidate, revision, "ui", TestContext.Current.CancellationToken);
+            candidate.Games!.Clear();
+            var stale = await service.ApplyGameCatalogAsync(
+                ManualCatalog("second-game", "Second.exe"), revision, "ui",
+                TestContext.Current.CancellationToken);
+
+            Assert.True(saved.IsSuccess);
+            Assert.Equal(2, saved.Snapshot.SettingsRevision);
+            Assert.Equal("conflict", stale.ErrorCode);
+            Assert.Equal(1, store.GameCatalogSaveCount);
+            Assert.Equal("first-game", Assert.Single(service.Current.GameCatalog.Games!).Id);
+        }
+
+        [Fact]
+        public async Task ApplyGameCatalogAsync_PersistenceFailureLeavesCatalogAndRevisionUntouched()
+        {
+            var service = CreateService(new RecordingStore(failGameCatalog: true));
+
+            var result = await service.ApplyGameCatalogAsync(
+                ManualCatalog("local-game", "Local.exe"),
+                service.Current.SettingsRevision,
+                "ui",
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("persistence-failed", result.ErrorCode);
+            Assert.Equal(1, result.Snapshot.SettingsRevision);
+            Assert.Empty(result.Snapshot.GameCatalog.Games!);
+        }
+
+        [Fact]
         public async Task OutputCoordinatorAvailabilityAndRecoveryPublishSnapshots()
         {
             var store = new RecordingStore();
@@ -317,9 +355,29 @@ namespace FocusRgb.Core.Tests
             AdditionalProperties = settings.AdditionalProperties
         };
 
-        private sealed class RecordingStore(bool failState = false, bool failSettings = false) : IApplicationStateStore
+        private static GameCatalogDocument ManualCatalog(string id, string executable) => new()
+        {
+            SchemaVersion = GameCatalogJson.CurrentSchemaVersion,
+            Games =
+            [
+                new GameCatalogEntry
+                {
+                    Launcher = GameCatalogJson.ManualLauncher,
+                    Id = id,
+                    DisplayName = id,
+                    Executables = [executable],
+                    Available = true
+                }
+            ]
+        };
+
+        private sealed class RecordingStore(
+            bool failState = false,
+            bool failSettings = false,
+            bool failGameCatalog = false) : IApplicationStateStore
         {
             public int SettingsSaveCount { get; private set; }
+            public int GameCatalogSaveCount { get; private set; }
 
             public Task<SaveResult> SaveSettingsAsync(
                 SettingsDocument settings,
@@ -334,6 +392,14 @@ namespace FocusRgb.Core.Tests
                 SettingsDocument settings,
                 CancellationToken cancellationToken = default) =>
                 Task.FromResult(failState ? Failure("state.json") : SaveResult.Ok());
+
+            public Task<SaveResult> SaveGameCatalogAsync(
+                GameCatalogDocument catalog,
+                CancellationToken cancellationToken = default)
+            {
+                GameCatalogSaveCount++;
+                return Task.FromResult(failGameCatalog ? Failure("games.json") : SaveResult.Ok());
+            }
         }
 
         private sealed class BlockingSettingsStore : IApplicationStateStore
@@ -356,6 +422,10 @@ namespace FocusRgb.Core.Tests
                 SelectionStateDocument state,
                 SettingsDocument settings,
                 CancellationToken cancellationToken = default) => Task.FromResult(SaveResult.Ok());
+
+            public Task<SaveResult> SaveGameCatalogAsync(
+                GameCatalogDocument catalog,
+                CancellationToken cancellationToken = default) => Task.FromResult(SaveResult.Ok());
         }
 
         private sealed class BlockingFailSettingsStore : IApplicationStateStore
@@ -376,6 +446,10 @@ namespace FocusRgb.Core.Tests
                 SelectionStateDocument state,
                 SettingsDocument settings,
                 CancellationToken cancellationToken = default) => Task.FromResult(SaveResult.Ok());
+
+            public Task<SaveResult> SaveGameCatalogAsync(
+                GameCatalogDocument catalog,
+                CancellationToken cancellationToken = default) => Task.FromResult(SaveResult.Ok());
         }
 
         private sealed class CancelingSettingsStore : IApplicationStateStore
@@ -394,6 +468,10 @@ namespace FocusRgb.Core.Tests
             public Task<SaveResult> SaveStateAsync(
                 SelectionStateDocument state,
                 SettingsDocument settings,
+                CancellationToken cancellationToken = default) => Task.FromResult(SaveResult.Ok());
+
+            public Task<SaveResult> SaveGameCatalogAsync(
+                GameCatalogDocument catalog,
                 CancellationToken cancellationToken = default) => Task.FromResult(SaveResult.Ok());
         }
 

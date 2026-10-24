@@ -28,6 +28,7 @@ namespace FocusRgb.Core.Tests
             Assert.True(File.Exists(PathFor(LocalStateStore.SettingsRecoveryFileName)));
             Assert.True(File.Exists(PathFor(LocalStateStore.StateFileName)));
             Assert.True(File.Exists(PathFor(LocalStateStore.NativeSetupFileName)));
+            Assert.True(File.Exists(PathFor(LocalStateStore.GameCatalogFileName)));
         }
 
         [Fact]
@@ -499,6 +500,51 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("music", json["lastSelectedProfile"]!.GetValue<string>());
             Assert.Null(json["applied"]);
             Assert.Null(json["output"]);
+        }
+
+        [Fact]
+        public async Task GameCatalog_SaveAndRestart_PreservesLauncherScopedManualEntry()
+        {
+            var store = Store();
+            await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            var catalog = new GameCatalogDocument
+            {
+                SchemaVersion = GameCatalogJson.CurrentSchemaVersion,
+                Games =
+                [
+                    new GameCatalogEntry
+                    {
+                        Launcher = GameCatalogJson.ManualLauncher,
+                        Id = "local-game",
+                        DisplayName = "Local game",
+                        Executables = ["Local.exe"],
+                        Available = true
+                    }
+                ]
+            };
+
+            var saved = await store.SaveGameCatalogAsync(catalog, TestContext.Current.CancellationToken);
+            var restarted = await Store().InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(saved.IsSuccess);
+            Assert.Equal("local-game", Assert.Single(restarted.Snapshot!.GameCatalog.Games!).Id);
+        }
+
+        [Fact]
+        public async Task GameCatalog_CorruptFile_IsArchivedAndReplacedWithoutChangingSettings()
+        {
+            var store = Store();
+            var first = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(
+                PathFor(LocalStateStore.GameCatalogFileName), "{", TestContext.Current.CancellationToken);
+
+            var restarted = await Store().InitializeAsync(
+                Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess);
+            Assert.Empty(restarted.Snapshot!.GameCatalog.Games!);
+            Assert.Equal(first.Snapshot!.Settings.Profiles!.Count, restarted.Snapshot.Settings.Profiles!.Count);
+            Assert.Single(Directory.GetFiles(_directory, "games.json.corrupt-*"));
         }
 
         public void Dispose()
