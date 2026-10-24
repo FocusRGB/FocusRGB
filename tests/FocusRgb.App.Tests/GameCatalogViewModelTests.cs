@@ -1,8 +1,10 @@
 using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Commands;
+using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
 using FocusRgb.Core.Protocol;
+using FocusRgb.Core.Selection;
 using FocusRgb.TestSupport;
 
 namespace FocusRgb.App.Tests
@@ -131,6 +133,51 @@ namespace FocusRgb.App.Tests
             var cached = Assert.Single(viewModel.Games);
             Assert.False(cached.Available);
             Assert.Contains("not running", cached.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task ManualGame_AddsSelectedDetectedExecutable()
+        {
+            var viewModel = MainWindowViewModel.CreatePreview();
+            viewModel.StartNewManualGame();
+            await viewModel.ObserveApplicationsAsync(new ApplicationObservation
+            {
+                RunningExecutables = ["Game.exe", "Other.exe"]
+            }, TestContext.Current.CancellationToken);
+            viewModel.SelectedDetectedExecutable = "Game.exe";
+
+            viewModel.AddDetectedGameExecutable();
+
+            Assert.Equal(["Game.exe"], viewModel.DraftGameExecutables);
+        }
+
+        [Fact]
+        public void DiscoveredGame_ExposesCachedExecutablesButRejectsDraftChanges()
+        {
+            var viewModel = MainWindowViewModel.CreatePreview(
+                SettingsJson.LoadDefaults().Settings!,
+                new GameCatalogDocument
+                {
+                    SchemaVersion = GameCatalogJson.CurrentSchemaVersion,
+                    Games =
+                    [
+                        new GameCatalogEntry
+                        {
+                            Launcher = "steam",
+                            Id = "570",
+                            DisplayName = "Dota 2",
+                            Executables = ["Dota.exe"],
+                            Available = true,
+                            LastRefreshedAt = Start
+                        }
+                    ]
+                });
+            viewModel.EditingGame = Assert.Single(viewModel.Games);
+
+            Assert.False(viewModel.CanEditGame);
+            Assert.Equal(["Dota.exe"], viewModel.DraftGameExecutables);
+            Assert.False(viewModel.AddDraftGameExecutable("Other.exe"));
+            Assert.Equal(["Dota.exe"], viewModel.DraftGameExecutables);
         }
 
         private async Task<(MainWindowViewModel ViewModel, ApplicationStateService Service)> CreateAsync()

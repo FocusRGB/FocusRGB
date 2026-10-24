@@ -561,6 +561,19 @@ namespace FocusRgb.App
 
         private void NewManualGame_OnClick(object? sender, RoutedEventArgs e) =>
             ViewModel.StartNewManualGame();
+        private async void BrowseGameExecutable_OnClick(object? sender, RoutedEventArgs e)
+        {
+            var files = await RunUiActionAsync(() => StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Add Windows game executables",
+                AllowMultiple = true,
+                FileTypeFilter = [new FilePickerFileType("Windows executable") { Patterns = ["*.exe"] }]
+            }));
+            if (files is null) return;
+            foreach (var file in files) ViewModel.AddDraftGameExecutable(file.Name);
+        }
+        private void AddDetectedGameExecutable_OnClick(object? sender, RoutedEventArgs e) =>
+            ViewModel.AddDetectedGameExecutable();
         private void AddManualGameExecutable_OnClick(object? sender, RoutedEventArgs e) =>
             ViewModel.AddManualGameExecutable();
         private void RemoveGameExecutable_OnClick(object? sender, RoutedEventArgs e) =>
