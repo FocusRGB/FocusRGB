@@ -13,6 +13,7 @@ using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Commands;
 using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
+using FocusRgb.Core.Protocol;
 using FocusRgb.LocalMcp;
 using FocusRgb.Platform.Windows;
 
@@ -594,6 +595,11 @@ namespace FocusRgb.App
                 await Dispatcher.UIThread.InvokeAsync(() => UpdateIntegrationStatuses(viewModel));
                 if (entry.IsRunning)
                     await coordinator.ReportAvailabilityAsync(entry.PluginId, true);
+                await RefreshManagedGameCatalogAsync(
+                    viewModel,
+                    pluginId,
+                    cancellationToken => gateway.ListGameCatalogAsync(pluginId, cancellationToken),
+                    CancellationToken.None);
                 retry = !entry.IsRunning;
                 if (retry && attempt < 3)
                     AppLog.Write($"Plugin {pluginId} failed to restart; another attempt will be made.");
@@ -867,6 +873,9 @@ namespace FocusRgb.App
             if (_outputCoordinator is not null)
                 await _outputCoordinator.ReportAvailabilityAsync(
                     pluginId, false, "plugin-package-change", "The plugin is being changed.", cancellationToken);
+            if (_viewModel is not null)
+                await RefreshManagedGameCatalogAsync(
+                    _viewModel, pluginId, null, cancellationToken);
             _pluginGateway?.Detach(pluginId);
             await runtime.StopAsync(pluginId, cancellationToken);
         }
@@ -881,7 +890,26 @@ namespace FocusRgb.App
             _pluginGateway?.Attach([entry]);
             if (entry.IsRunning && _outputCoordinator is not null)
                 await _outputCoordinator.ReportAvailabilityAsync(pluginId, true, cancellationToken: cancellationToken);
+            if (_viewModel is not null && _pluginGateway is not null)
+                await RefreshManagedGameCatalogAsync(
+                    _viewModel,
+                    pluginId,
+                    token => _pluginGateway.ListGameCatalogAsync(pluginId, token),
+                    cancellationToken);
             return entry;
+        }
+
+        internal static async Task RefreshManagedGameCatalogAsync(
+            MainWindowViewModel viewModel,
+            string pluginId,
+            Func<CancellationToken, Task<PluginGatewayResult<PluginCatalogResult>>>? load,
+            CancellationToken cancellationToken)
+        {
+            var result = load is null
+                ? new PluginGatewayResult<PluginCatalogResult>(
+                    "plugin-stopped", "The discovery plugin is not running.")
+                : await load(cancellationToken);
+            await viewModel.RefreshGameCatalogAsync(pluginId, result, cancellationToken);
         }
 
         private void UpdatePluginViews()

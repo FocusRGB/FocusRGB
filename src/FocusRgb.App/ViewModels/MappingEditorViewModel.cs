@@ -135,11 +135,7 @@ namespace FocusRgb.App.ViewModels
                 Targets.Add(replacement);
                 return;
             }
-            var index = Targets.IndexOf(existing);
-            Targets[index] = replacement;
-            foreach (var mapping in Mappings.Where(mapping => ReferenceEquals(mapping.SelectedTarget, existing)))
-                mapping.SelectedTarget = replacement;
-            if (ReferenceEquals(NewTarget, existing)) NewTarget = replacement;
+            ReplaceGameTarget(existing, replacement);
         }
 
         public void RemoveGameTarget(string launcher, string id)
@@ -150,15 +146,45 @@ namespace FocusRgb.App.ViewModels
             if (ReferenceEquals(NewTarget, target)) NewTarget = Targets.FirstOrDefault();
         }
 
+        public void SynchronizeGameTargets(GameCatalogDocument catalog)
+        {
+            var known = catalog.Games!
+                .Select(game => new GameIdentity(game.Launcher!, game.Id!))
+                .ToHashSet();
+            foreach (var game in catalog.Games!) UpsertGameTarget(game);
+            foreach (var target in Targets.Where(target => target.IsGame
+                && target.GameLauncher != "*"
+                && !known.Contains(new GameIdentity(target.GameLauncher!, target.GameId!))).ToList())
+            {
+                if (Mappings.Any(mapping => mapping.SelectedTarget.GameLauncher == target.GameLauncher
+                    && mapping.SelectedTarget.GameId == target.GameId))
+                {
+                    ReplaceGameTarget(target, MappingTargetViewModel.ForGame(
+                        target.GameLauncher!, target.GameId!,
+                        $"Missing game ({target.GameLauncher}:{target.GameId})"));
+                }
+                else
+                {
+                    RemoveGameTarget(target.GameLauncher!, target.GameId!);
+                }
+            }
+        }
+
         public void SaveMappingAs()
         {
             if (NewTarget is null || NewProfile is null) return;
-            var targetId = NewTarget.ApplicationGroupId ?? $"{NewTarget.GameLauncher}-{NewTarget.GameId}";
-            var baseId = $"{targetId}-{NewProfile.Id}";
+            var targetId = NewTarget.ApplicationGroupId
+                ?? (NewTarget.GameLauncher == "*" && NewTarget.GameId == "*"
+                    ? "any-game"
+                    : $"{NewTarget.GameLauncher}-{NewTarget.GameId}");
+            var baseId = NormalizeRuleId($"{targetId}-{NewProfile.Id}");
             var id = baseId;
             var suffix = 2;
             while (_sourceRules.Any(rule => rule.Id == id) || Mappings.Any(mapping => mapping.Id == id))
-                id = $"{baseId}-{suffix++}";
+            {
+                var ending = $"-{suffix++}";
+                id = baseId[..Math.Min(baseId.Length, 64 - ending.Length)].TrimEnd('-') + ending;
+            }
             var item = new MappingEditorItemViewModel(this, new MappingSnapshot(
                 id, NewTarget.ApplicationGroupId, NewTarget.GameLauncher, NewTarget.GameId,
                 NewProfile.Id, "while-focused"));
@@ -166,6 +192,26 @@ namespace FocusRgb.App.ViewModels
             UpdatePositions();
             SelectedMapping = item;
             NotifyDraftChanged();
+        }
+
+        private static string NormalizeRuleId(string value)
+        {
+            var normalized = new string(value.ToLowerInvariant().Select(character =>
+                char.IsAsciiLetterOrDigit(character) ? character : '-').ToArray());
+            while (normalized.Contains("--", StringComparison.Ordinal))
+                normalized = normalized.Replace("--", "-", StringComparison.Ordinal);
+            normalized = normalized.Trim('-');
+            if (normalized.Length == 0) normalized = "game-mapping";
+            return normalized.Length > 56 ? normalized[..56].TrimEnd('-') : normalized;
+        }
+
+        private void ReplaceGameTarget(MappingTargetViewModel existing, MappingTargetViewModel replacement)
+        {
+            var index = Targets.IndexOf(existing);
+            Targets[index] = replacement;
+            foreach (var mapping in Mappings.Where(mapping => ReferenceEquals(mapping.SelectedTarget, existing)))
+                mapping.SelectedTarget = replacement;
+            if (ReferenceEquals(NewTarget, existing)) NewTarget = replacement;
         }
 
         public void Remove(MappingEditorItemViewModel item)

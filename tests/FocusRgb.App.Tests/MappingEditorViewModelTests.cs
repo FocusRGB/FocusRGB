@@ -85,6 +85,45 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public void AddGameMappings_GeneratesValidIdsForWildcardAndOpaqueTargets()
+        {
+            var settings = SettingsJson.LoadDefaults().Settings!;
+            var opaqueId = "APP_ID:" + new string('X', 100) + ".release";
+            var catalog = new GameCatalogDocument
+            {
+                SchemaVersion = GameCatalogJson.CurrentSchemaVersion,
+                Games =
+                [
+                    new GameCatalogEntry
+                    {
+                        Launcher = "steam",
+                        Id = opaqueId,
+                        DisplayName = "Opaque game",
+                        Executables = ["Game.exe"],
+                        Available = true,
+                        LastRefreshedAt = DateTimeOffset.UtcNow
+                    }
+                ]
+            };
+            var editor = MainWindowViewModel.CreatePreview(settings, catalog).MappingEditor;
+            editor.NewProfile = editor.Profiles.Single(profile => profile.Id == "movie");
+
+            editor.NewTarget = editor.Targets.Single(target =>
+                target.GameLauncher == "*" && target.GameId == "*");
+            editor.SaveMappingAs();
+            editor.NewTarget = editor.Targets.Single(target => target.GameId == opaqueId);
+            editor.SaveMappingAs();
+
+            var generated = editor.Mappings.TakeLast(2).Select(mapping => mapping.Id).ToList();
+            Assert.All(generated, id =>
+            {
+                Assert.Matches("^[a-z0-9][a-z0-9-]{0,63}$", id);
+                Assert.InRange(id.Length, 1, 64);
+            });
+            Assert.StartsWith("any-game-", generated[0], StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void MoveBefore_UsesInsertionPosition()
         {
             var editor = MainWindowViewModel.CreatePreview().MappingEditor;

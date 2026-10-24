@@ -951,6 +951,14 @@ namespace FocusRgb.App.ViewModels
             for (var attempt = 0; attempt < 2; attempt++)
             {
                 var current = _applicationState.Current;
+                var launcherGames = current.GameCatalog.Games!
+                    .Where(game => game.Launcher == launcher)
+                    .ToList();
+                if ((!result.IsSuccess || result.Value!.Support is not ("supported" or "unverified"))
+                    && launcherGames.Count == 0)
+                {
+                    return;
+                }
                 var retained = current.GameCatalog.Games!
                     .Where(game => game.Launcher != launcher)
                     .ToList();
@@ -974,8 +982,7 @@ namespace FocusRgb.App.ViewModels
                     var reason = result.IsSuccess
                         ? result.Value!.Reason?.Message ?? "Game discovery is unavailable."
                         : result.ErrorMessage!;
-                    retained.AddRange(current.GameCatalog.Games!
-                        .Where(game => game.Launcher == launcher)
+                    retained.AddRange(launcherGames
                         .Select(game => new GameCatalogEntry
                         {
                             Launcher = game.Launcher,
@@ -994,6 +1001,7 @@ namespace FocusRgb.App.ViewModels
                     Games = retained,
                     AdditionalProperties = current.GameCatalog.AdditionalProperties
                 };
+                if (GameCatalogJson.Serialize(candidate) == GameCatalogJson.Serialize(current.GameCatalog)) return;
                 var saved = await _applicationState.ApplyGameCatalogAsync(
                     candidate, current.SettingsRevision, "catalog", cancellationToken);
                 if (saved.IsSuccess) return;
@@ -1266,18 +1274,28 @@ namespace FocusRgb.App.ViewModels
             var settingsChanged = snapshot.SettingsRevision > _settingsRevision;
             if (settingsChanged)
             {
-                var hasDirtyEditor = HasDirtyEditor();
-                if (snapshot.Source != "ui" && (HasSettingsConflict || hasDirtyEditor))
+                if (snapshot.Source == "catalog")
                 {
-                    HasSettingsConflict = true;
-                    ReportSettingsConflict();
+                    _gameCatalog = snapshot.GameCatalog;
+                    if (!HasSettingsConflict) _settingsRevision = snapshot.SettingsRevision;
+                    MappingEditor.SynchronizeGameTargets(_gameCatalog);
+                    ReloadGameProjection(preserveManualDraft: true);
                 }
                 else
                 {
-                    _settings = snapshot.Settings;
-                    _gameCatalog = snapshot.GameCatalog;
-                    _settingsRevision = snapshot.SettingsRevision;
-                    if (snapshot.Source != "ui") ReloadSettingsProjection();
+                    var hasDirtyEditor = HasDirtyEditor();
+                    if (snapshot.Source != "ui" && (HasSettingsConflict || hasDirtyEditor))
+                    {
+                        HasSettingsConflict = true;
+                        ReportSettingsConflict();
+                    }
+                    else
+                    {
+                        _settings = snapshot.Settings;
+                        _gameCatalog = snapshot.GameCatalog;
+                        _settingsRevision = snapshot.SettingsRevision;
+                        if (snapshot.Source != "ui") ReloadSettingsProjection();
+                    }
                 }
             }
 
@@ -1395,8 +1413,12 @@ namespace FocusRgb.App.ViewModels
             NotifyStateChanged(nameof(SelectedProfile));
         }
 
-        private void ReloadGameProjection()
+        private void ReloadGameProjection(bool preserveManualDraft = false)
         {
+            var preserveDraft = preserveManualDraft && EditingGame?.IsManual == true;
+            var draftName = GameName;
+            var draftExecutables = DraftGameExecutables.ToList();
+            var selectedExecutable = SelectedGameExecutable;
             GameIdentity? selected = EditingGame is null
                 ? null
                 : new GameIdentity(EditingGame.Launcher, EditingGame.Id);
@@ -1409,6 +1431,13 @@ namespace FocusRgb.App.ViewModels
             if (selected is not null)
                 EditingGame = Games.FirstOrDefault(game =>
                     game.Launcher == selected.Value.Launcher && game.Id == selected.Value.Id);
+            if (preserveDraft)
+            {
+                GameName = draftName;
+                DraftGameExecutables.Clear();
+                foreach (var executable in draftExecutables) DraftGameExecutables.Add(executable);
+                SelectedGameExecutable = selectedExecutable;
+            }
         }
 
         private static IEnumerable<ProfileOptionViewModel> CreateProfileOptions(
