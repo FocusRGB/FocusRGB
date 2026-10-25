@@ -346,7 +346,7 @@ namespace FocusRgb.Core.Commands
                             lock (_snapshotGate)
                             {
                                 _gameCatalog = savedCandidate;
-                                _selectionEngine = new SelectionEngine(_settings, savedCandidate);
+                                _selectionEngine.UpdateGameCatalog(savedCandidate);
                                 _settingsRevision++;
                             }
                             publish = true;

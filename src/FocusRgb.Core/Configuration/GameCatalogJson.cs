@@ -41,6 +41,23 @@ namespace FocusRgb.Core.Configuration
             Games = []
         };
 
+        /// <summary>Compares selection-relevant cache content, ignoring discovery timestamps and item order.</summary>
+        public static bool HasSameContent(GameCatalogDocument left, GameCatalogDocument right) =>
+            Content(left) == Content(right);
+
+        private static string Content(GameCatalogDocument document) => JsonSerializer.Serialize(new
+        {
+            document.SchemaVersion,
+            document.AdditionalProperties,
+            Games = document.Games!.OrderBy(game => game.Launcher, StringComparer.Ordinal)
+                .ThenBy(game => game.Id, StringComparer.Ordinal).Select(game => new
+                {
+                    game.Launcher, game.Id, game.DisplayName, game.Available,
+                    game.UnavailableReason, game.AdditionalProperties,
+                    Executables = game.Executables!.Order(StringComparer.OrdinalIgnoreCase)
+                })
+        }, ConfigurationJson.Options);
+
         public static IReadOnlyList<ConfigurationError> Validate(GameCatalogDocument? document)
         {
             var errors = new List<ConfigurationError>();
@@ -77,10 +94,14 @@ namespace FocusRgb.Core.Configuration
                 Required(game.Id, path + ".id", errors);
                 Required(game.DisplayName, path + ".displayName", errors);
                 if (game.Launcher == "*" || game.Id == "*")
+                {
                     errors.Add(new ConfigurationError { Path = path, Message = "wildcards are reserved for rules" });
+                }
                 if (game.Launcher is not null && game.Id is not null
                     && !identities.Add(new GameIdentity(game.Launcher, game.Id)))
+                {
                     errors.Add(new ConfigurationError { Path = path, Message = "duplicate ordinal game identity" });
+                }
                 if (game.Executables is null)
                 {
                     errors.Add(new ConfigurationError { Path = path + ".executables", Message = "required array" });
@@ -88,32 +109,48 @@ namespace FocusRgb.Core.Configuration
                 else
                 {
                     if (game.Launcher == ManualLauncher && game.Executables.Count == 0)
+                    {
                         errors.Add(new ConfigurationError
                         {
                             Path = path + ".executables",
                             Message = "manual games require at least one executable"
                         });
+                    }
                     var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     for (var executableIndex = 0; executableIndex < game.Executables.Count; executableIndex++)
                     {
                         var executable = game.Executables[executableIndex];
                         var executablePath = $"{path}.executables[{executableIndex}]";
                         if (string.IsNullOrWhiteSpace(executable))
+                        {
                             errors.Add(new ConfigurationError { Path = executablePath, Message = "required non-empty file name" });
+                        }
                         else if (executable.Contains('/') || executable.Contains('\\'))
+                        {
                             errors.Add(new ConfigurationError { Path = executablePath, Message = "must be a file name, not a path" });
+                        }
                         else if (!executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        {
                             errors.Add(new ConfigurationError { Path = executablePath, Message = "must end in .exe" });
+                        }
                         else if (!names.Add(executable))
+                        {
                             errors.Add(new ConfigurationError { Path = executablePath, Message = "duplicate executable name" });
+                        }
                     }
                 }
                 if (game.Available is null)
+                {
                     errors.Add(new ConfigurationError { Path = path + ".available", Message = "required boolean" });
+                }
                 if (game.Launcher == ManualLauncher && game.LastRefreshedAt is not null)
+                {
                     errors.Add(new ConfigurationError { Path = path + ".lastRefreshedAt", Message = "must be null for manual games" });
+                }
                 if (game.Launcher != ManualLauncher && game.LastRefreshedAt is null)
+                {
                     errors.Add(new ConfigurationError { Path = path + ".lastRefreshedAt", Message = "required for discovered games" });
+                }
             }
             return errors;
         }
@@ -121,7 +158,9 @@ namespace FocusRgb.Core.Configuration
         private static void Required(string? value, string path, List<ConfigurationError> errors)
         {
             if (string.IsNullOrWhiteSpace(value))
+            {
                 errors.Add(new ConfigurationError { Path = path, Message = "required non-empty string" });
+            }
         }
     }
 
