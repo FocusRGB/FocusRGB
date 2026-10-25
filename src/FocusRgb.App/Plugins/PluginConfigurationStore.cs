@@ -9,6 +9,7 @@ namespace FocusRgb.App.Plugins
         public const string SchemaFileName = "focusrgb-settings.schema.json";
         public const string SettingsFileName = "settings.json";
         private const int MaximumSchemaBytes = 256 * 1024;
+        private const int MaximumSettingsBytes = 1024 * 1024;
         private readonly string _packagesDirectory;
         private readonly string _dataDirectory;
         private readonly SemaphoreSlim _writeGate = new(1, 1);
@@ -36,6 +37,8 @@ namespace FocusRgb.App.Plugins
                     pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
                 if (File.Exists(path))
                 {
+                    if (new FileInfo(path).Length > MaximumSettingsBytes)
+                        return PluginConfigurationLoadResult.Fail("The plugin settings file is too large.");
                     var saved = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
                         File.ReadAllText(path), PluginJsonOptions) ?? [];
                     foreach (var value in saved) values[value.Key] = value.Value;
@@ -58,6 +61,8 @@ namespace FocusRgb.App.Plugins
             CancellationToken cancellationToken = default)
         {
             _ = PackageDirectory(pluginId);
+            var schemaError = ValidateSchema(schema);
+            if (schemaError is not null) return schemaError;
             var validation = Validate(schema, values);
             if (validation is not null) return validation;
             await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -143,7 +148,8 @@ namespace FocusRgb.App.Plugins
         {
             if (schema?.SchemaVersion != 1) return "Only plugin settings schema version 1 is supported.";
             if (schema.Description?.Length > 512) return "The plugin settings description is too long.";
-            if (schema.Fields.Count is < 1 or > 64) return "A plugin settings schema must contain 1 to 64 fields.";
+            if (schema.Fields is not { Count: >= 1 and <= 64 }) return "A plugin settings schema must contain 1 to 64 fields.";
+            if (schema.Fields.Any(field => field is null)) return "Plugin settings fields must be objects.";
             if (schema.Fields.Select(field => field.Id).Distinct(StringComparer.Ordinal).Count() != schema.Fields.Count)
                 return "Plugin setting IDs must be unique.";
             foreach (var field in schema.Fields)
@@ -153,6 +159,7 @@ namespace FocusRgb.App.Plugins
                 if (field.Description?.Length > 512) return $"Description for '{field.Id}' is too long.";
                 if (field.Type is not ("string" or "integer" or "number" or "boolean" or "json"))
                     return $"Plugin setting '{field.Id}' has an unsupported type.";
+                if (field.Minimum > field.Maximum) return $"Plugin setting '{field.Id}' has an inverted range.";
                 var error = ValidateValue(field, field.Default);
                 if (error is not null) return $"Default {error}";
             }
@@ -174,6 +181,8 @@ namespace FocusRgb.App.Plugins
             if (!validType) return $"Plugin setting '{field.Id}' must be {field.Type}.";
             if (value.ValueKind == JsonValueKind.String && value.GetString()!.Length > 4096)
                 return $"Plugin setting '{field.Id}' is too long.";
+            if (value.GetRawText().Length > 8192)
+                return $"Plugin setting '{field.Id}' exceeds its size limit.";
             if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var numeric)
                 && (field.Minimum is { } minimum && numeric < minimum
                     || field.Maximum is { } maximum && numeric > maximum))
@@ -190,7 +199,7 @@ namespace FocusRgb.App.Plugins
             return Path.Combine(_packagesDirectory, pluginId);
         }
 
-        private static bool IsId(string value) => value.Length is >= 1 and <= 64
+        private static bool IsId(string? value) => value is { Length: >= 1 and <= 64 }
             && value[0] is >= 'a' and <= 'z' or >= '0' and <= '9'
             && value.All(character => character is >= 'a' and <= 'z' or >= '0' and <= '9' or '-');
 

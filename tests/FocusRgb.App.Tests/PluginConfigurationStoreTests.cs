@@ -68,6 +68,20 @@ namespace FocusRgb.App.Tests
             Assert.Contains("Unknown plugin setting", result.Error, StringComparison.Ordinal);
         }
 
+        [Theory]
+        [InlineData("{\"schemaVersion\":1,\"fields\":null}")]
+        [InlineData("{\"schemaVersion\":1,\"fields\":[null]}")]
+        [InlineData("{\"schemaVersion\":1,\"fields\":[{\"id\":null,\"displayName\":\"Name\",\"type\":\"string\",\"default\":\"\"}]}")]
+        public void CanConfigure_RejectsNullSchemaMembersWithoutThrowing(string json)
+        {
+            var packages = Path.Combine(_temporaryDirectory.Path, "plugins");
+            Directory.CreateDirectory(Path.Combine(packages, "example"));
+            File.WriteAllText(Path.Combine(packages, "example", PluginConfigurationStore.SchemaFileName), json);
+            using var store = new PluginConfigurationStore(packages, Path.Combine(_temporaryDirectory.Path, "data"));
+
+            Assert.False(store.CanConfigure("example"));
+        }
+
         public void Dispose() => _temporaryDirectory.Dispose();
 
         internal static string SchemaJson() =>
