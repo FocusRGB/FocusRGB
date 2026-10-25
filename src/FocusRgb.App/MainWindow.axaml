@@ -304,7 +304,10 @@
                 <TextBlock Text="Discovered executables are cached so mappings keep working while a discovery plugin is offline."
                            Opacity="0.7" TextWrapping="Wrap" />
               </StackPanel>
-              <Button Grid.Column="1" Content="New manual game" Click="NewManualGame_OnClick" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Content="Refresh games" Click="RefreshGames_OnClick" />
+                <Button Content="New manual game" Click="NewManualGame_OnClick" />
+              </StackPanel>
             </Grid>
             <ComboBox ItemsSource="{Binding Games}" SelectedItem="{Binding EditingGame}"
                       AutomationProperties.Name="Game to inspect or edit"

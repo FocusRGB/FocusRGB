@@ -164,6 +164,23 @@ namespace FocusRgb.App
         private async void RefreshPlugins_OnClick(object? sender, RoutedEventArgs e) =>
             await LoadPluginsAsync(refresh: true);
 
+        private async void RefreshGames_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (Application.Current is not App app || !ViewModel.BeginPluginAction()) return;
+            try
+            {
+                await app.RefreshGameCatalogsAsync();
+            }
+            catch (Exception exception)
+            {
+                ViewModel.ReportUnexpectedError($"Could not refresh games: {exception.Message}");
+            }
+            finally
+            {
+                ViewModel.EndPluginAction();
+            }
+        }
+
         private async Task LoadPluginsAsync(bool refresh)
         {
             if (Application.Current is not App app || !ViewModel.BeginPluginAction()) return;
