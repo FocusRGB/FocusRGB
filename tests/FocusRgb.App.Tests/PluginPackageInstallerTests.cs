@@ -254,6 +254,21 @@ namespace FocusRgb.App.Tests
             _temporaryDirectory.Dispose();
         }
 
+        [Fact]
+        public async Task StageOfficialAsync_RejectsVerifiedManifestPermissionsThatDifferFromConsent()
+        {
+            var archive = CreatePackage(resources: ["filesystem.read"]);
+            var (manifest, checksums) = CreateReleaseMetadata(archive, ManifestJson(resources: ["filesystem.read"]));
+            var installer = new PluginPackageInstaller(PackagesDirectory);
+
+            var result = await installer.StageOfficialAsync(Listing(), archive, manifest, checksums,
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("listing-mismatch", result.ErrorCode);
+            Assert.Contains("consent", result.ErrorMessage, StringComparison.Ordinal);
+        }
+
         private string CreatePackage(
             string? extraEntry = null,
             bool symbolicLink = false,
