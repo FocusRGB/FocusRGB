@@ -1,9 +1,13 @@
 using System.Security.Cryptography;
+using System.IO.Pipes;
+using System.Text;
 using System.Text.Json;
 using FocusRgb.App.Mcp;
 using FocusRgb.Core.Commands;
 using FocusRgb.Core.Configuration;
+using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
+using FocusRgb.Core.Protocol;
 using FocusRgb.LocalMcp;
 
 namespace FocusRgb.App.Tests
@@ -179,6 +183,123 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task ApplySettings_RejectsApprovalSummaryControlCharacters()
+        {
+            var (state, commands) = await CreateAsync();
+            var candidate = Clone(state.Current.Settings);
+            var profile = candidate.Profiles![0];
+            candidate.Profiles[0] = new ProfileSettings
+            {
+                Id = profile.Id,
+                DisplayName = "Trusted\nForged approval line",
+                Bindings = profile.Bindings,
+                Fallback = profile.Fallback,
+                AdditionalProperties = profile.AdditionalProperties
+            };
+
+            var result = await commands.DispatchAsync(Request("applySettings", new
+            {
+                settings = candidate,
+                expectedRevision = state.Current.SettingsRevision
+            }), TestContext.Current.CancellationToken);
+
+            Assert.Equal("invalid-settings", result.GetProperty("error").GetProperty("code").GetString());
+            Assert.Null(commands.Pending);
+        }
+
+        [Fact]
+        public async Task ReorderMappings_RejectsNonStringIdsAsInvalidParameters()
+        {
+            var (state, commands) = await CreateAsync();
+
+            var result = await commands.DispatchAsync(Request("reorderMappings", new
+            {
+                mappingIds = new object[] { 1, "movie", "music" },
+                expectedRevision = state.Current.SettingsRevision
+            }), TestContext.Current.CancellationToken);
+
+            Assert.Equal("invalid-parameters", result.GetProperty("error").GetProperty("code").GetString());
+        }
+
+        [Fact]
+        public async Task Approval_SanitizesClientName_AndRejectsDuplicateOrStaleDecisions()
+        {
+            var (_, commands) = await CreateAsync();
+            McpApprovalRequest? approval = null;
+            commands.ApprovalRequested += (_, request) => approval = request;
+            var request = Request("selectProfile", new { profile = "movie" });
+            request = new LocalMcpRequest
+            {
+                ProtocolVersion = request.ProtocolVersion,
+                Id = request.Id,
+                ClientName = "Trusted\nForged approval line",
+                Method = request.Method,
+                Parameters = request.Parameters
+            };
+            var pending = commands.DispatchAsync(request, TestContext.Current.CancellationToken);
+            await WaitForAsync(() => approval is not null);
+
+            Assert.DoesNotContain('\n', approval!.ClientName);
+            Assert.False(commands.Approve("stale"));
+            Assert.True(commands.Decline(approval.Id));
+            Assert.False(commands.Decline(approval.Id));
+            Assert.Equal("approval-declined",
+                (await pending).GetProperty("error").GetProperty("code").GetString());
+        }
+
+        [Fact]
+        public async Task DeclinePending_ClearsRequestWithoutApplyingIt()
+        {
+            var (state, commands) = await CreateAsync();
+            var pending = commands.DispatchAsync(
+                Request("selectProfile", new { profile = "movie" }),
+                TestContext.Current.CancellationToken);
+            await WaitForAsync(() => commands.Pending is not null);
+
+            commands.DeclinePending();
+            var result = await pending;
+
+            Assert.Equal("approval-declined", result.GetProperty("error").GetProperty("code").GetString());
+            Assert.Null(commands.Pending);
+            Assert.Equal("default", state.Current.SelectionState.ManualProfile);
+        }
+
+        [Fact]
+        public async Task RespondToNotification_UsesTheSameApprovalPathOverMcp()
+        {
+            var store = new LocalStateStore(_directory);
+            var startup = await store.InitializeAsync(
+                new DateTimeOffset(2026, 10, 23, 12, 0, 0, TimeSpan.Zero),
+                TestContext.Current.CancellationToken);
+            using var coordinator = new OutputCoordinator(new RecoveryGateway(), NativeSetupJson.CreateDefault());
+            var state = new ApplicationStateService(
+                startup.Snapshot!.Settings,
+                startup.Snapshot.State,
+                startup.Snapshot.Desired.Reason,
+                store,
+                coordinator);
+            var commands = new McpCommandService(state, new McpReadQueryService(state, () => []));
+            await state.ReapplyAsync(cancellationToken: TestContext.Current.CancellationToken);
+            await coordinator.ReportAvailabilityAsync(
+                "signalrgb", false, TestContext.Current.CancellationToken);
+            await coordinator.ReportAvailabilityAsync(
+                "signalrgb", true, TestContext.Current.CancellationToken);
+            var notification = Assert.Single(state.Current.RuntimeStatus!.Notifications);
+            var pending = commands.DispatchAsync(Request("respondToNotification", new
+            {
+                id = notification.Id,
+                response = "decline"
+            }), TestContext.Current.CancellationToken);
+            await WaitForAsync(() => commands.Pending is not null);
+
+            commands.Approve(commands.Pending!.Id);
+            var result = await pending;
+
+            Assert.True(result.GetProperty("ok").GetBoolean());
+            Assert.Empty(state.Current.RuntimeStatus!.Notifications);
+        }
+
+        [Fact]
         public async Task ReorderMappings_UsesCompleteCandidateAndPreservesRequestedOrder()
         {
             var (state, commands) = await CreateAsync();
@@ -240,7 +361,7 @@ namespace FocusRgb.App.Tests
                 TestContext.Current.CancellationToken);
             await WaitForAsync(() => approval is not null);
 
-            Assert.Contains("changed profiles: Cinema", approval!.Summary, StringComparison.Ordinal);
+            Assert.Contains("changed profiles: \"Cinema\"", approval!.Summary, StringComparison.Ordinal);
             Assert.Contains("effect/layout", approval.Summary, StringComparison.Ordinal);
             commands.Approve(approval.Id);
             Assert.True((await profileTask).GetProperty("ok").GetBoolean());
@@ -263,7 +384,7 @@ namespace FocusRgb.App.Tests
                 TestContext.Current.CancellationToken);
             await WaitForAsync(() => approval is not null);
 
-            Assert.Contains("changed application groups: Cinema apps", approval!.Summary, StringComparison.Ordinal);
+            Assert.Contains("changed application groups: \"Cinema apps\"", approval!.Summary, StringComparison.Ordinal);
             commands.Approve(approval.Id);
             Assert.True((await groupTask).GetProperty("ok").GetBoolean());
             Assert.Equal("Cinema", state.Current.Settings.Profiles!.Single(profile => profile.Id == "movie").DisplayName);
@@ -285,6 +406,24 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task Approval_AppliesAcceptedDecisionWhenTimeoutWinsTheAwaitRace()
+        {
+            var (state, _) = await CreateAsync();
+            var clock = new RacingTimeoutProvider();
+            var commands = new McpCommandService(state, new McpReadQueryService(state, () => []), clock);
+            McpApprovalRequest? approval = null;
+            commands.ApprovalRequested += (_, request) => approval = request;
+            clock.AfterTimeout = () => Assert.True(commands.Approve(approval!.Id));
+
+            var result = await commands.DispatchAsync(Request("selectProfile", new { profile = "movie" }),
+                TestContext.Current.CancellationToken);
+
+            Assert.True(result.GetProperty("ok").GetBoolean());
+            Assert.Equal("movie", state.Current.SelectionState.ManualProfile);
+            Assert.False(commands.Approve(approval!.Id));
+        }
+
+        [Fact]
         public async Task PipeDisconnect_DeclinesPendingApprovalWithoutSideEffects()
         {
             var (state, commands) = await CreateAsync();
@@ -301,6 +440,43 @@ namespace FocusRgb.App.Tests
 
             await cancellation.CancelAsync();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => request);
+            await WaitForAsync(() => commands.Pending is null);
+
+            Assert.Equal("default", state.Current.SelectionState.ManualProfile);
+        }
+
+        [Fact]
+        public async Task PipeDisconnect_AfterExtraClientByteStillDeclinesPendingApproval()
+        {
+            var (state, commands) = await CreateAsync();
+            var approvalSeen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            commands.ApprovalRequested += (_, _) => approvalSeen.TrySetResult();
+            var credential = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+            await using var server = new LocalMcpPipeServer(credential, commands.DispatchAsync);
+            _ = server.RunAsync();
+            using (var pipe = new NamedPipeClientStream(
+                ".", LocalMcpProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous))
+            {
+                await pipe.ConnectAsync(TestContext.Current.CancellationToken);
+                using var writer = new StreamWriter(pipe, new UTF8Encoding(false), leaveOpen: true)
+                {
+                    AutoFlush = true
+                };
+                var request = Request("selectProfile", new { profile = "movie" });
+                request = new LocalMcpRequest
+                {
+                    ProtocolVersion = request.ProtocolVersion,
+                    Id = request.Id,
+                    Credential = credential,
+                    ClientName = request.ClientName,
+                    Method = request.Method,
+                    Parameters = request.Parameters
+                };
+                await writer.WriteLineAsync(JsonSerializer.Serialize(request));
+                await writer.WriteAsync("x");
+                await writer.FlushAsync(TestContext.Current.CancellationToken);
+                await approvalSeen.Task.WaitAsync(TestContext.Current.CancellationToken);
+            }
             await WaitForAsync(() => commands.Pending is null);
 
             Assert.Equal("default", state.Current.SelectionState.ManualProfile);
@@ -369,6 +545,68 @@ namespace FocusRgb.App.Tests
         public void Dispose()
         {
             if (Directory.Exists(_directory)) Directory.Delete(_directory, true);
+        }
+
+        private sealed class RacingTimeoutProvider : TimeProvider
+        {
+            public Action? AfterTimeout { get; set; }
+
+            public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+            {
+                callback(state);
+                AfterTimeout!();
+                return new CompletedTimer();
+            }
+
+            private sealed class CompletedTimer : ITimer
+            {
+                public bool Change(TimeSpan dueTime, TimeSpan period) => false;
+                public void Dispose() { }
+                public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+            }
+        }
+
+        private sealed class RecoveryGateway : IPluginOutputGateway
+        {
+            public IReadOnlyList<PluginCapability>? GetCapabilities(string pluginId) =>
+            [
+                new PluginCapability { Id = "provider.effect.catalog", Support = "supported" },
+                new PluginCapability { Id = "provider.effect.select", Support = "supported" },
+                new PluginCapability { Id = "provider.layout.select", Support = "supported" }
+            ];
+
+            public Task<PluginGatewayResult<PluginCatalogResult>> ListCatalogAsync(
+                string pluginId,
+                string kind,
+                CancellationToken cancellationToken = default) => Task.FromResult(
+                    new PluginGatewayResult<PluginCatalogResult>(new PluginCatalogResult
+                    {
+                        Support = "supported",
+                        Items =
+                        [
+                            new PluginCatalogItem
+                            {
+                                ResourceId = "resolved",
+                                DisplayName = "Resolved",
+                                Available = true
+                            }
+                        ]
+                    }));
+
+            public Task<PluginGatewayResult<BindingApplyResult>> ApplyBindingAsync(
+                string pluginId,
+                BindingApplyParameters parameters,
+                CancellationToken cancellationToken = default) => Task.FromResult(
+                    new PluginGatewayResult<BindingApplyResult>(new BindingApplyResult { Outcome = "applied" }));
+
+            public Task<PluginGatewayResult<BindingReleaseResult>> ReleaseBindingAsync(
+                string pluginId,
+                BindingReleaseParameters parameters,
+                CancellationToken cancellationToken = default) => Task.FromResult(
+                    new PluginGatewayResult<BindingReleaseResult>(new BindingReleaseResult
+                    {
+                        Outcome = "nothing-to-release"
+                    }));
         }
     }
 }

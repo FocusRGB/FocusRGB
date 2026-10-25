@@ -55,5 +55,6 @@ namespace FocusRgb.App.ViewModels
         public bool HasUpdate => AvailableRelease is not null;
         public string? AvailableVersion => AvailableRelease?.Version;
         public string UpdateText => $"Update to v{AvailableVersion}";
+        public bool CanConfigure => Plugin.HasConfiguration && Plugin.Error is null;
     }
 }

@@ -35,6 +35,7 @@ namespace FocusRgb.App
         private PluginPackageDownloader? _pluginDownloader;
         private PluginPackageCache? _pluginPackageCache;
         private PluginInventory? _pluginInventory;
+        private PluginConfigurationStore? _pluginConfigurationStore;
         private readonly HttpClient _pluginDiscoveryHttpClient = new();
         private readonly HttpClient _pluginDownloadHttpClient = new() { Timeout = Timeout.InfiniteTimeSpan };
         private OutputCoordinator? _outputCoordinator;
@@ -120,6 +121,8 @@ namespace FocusRgb.App
                     AppLog.Write($"Plugin cache cleanup warning: {exception.Message}");
                 }
                 _pluginInventory = new PluginInventory(packagesDirectory);
+                _pluginConfigurationStore = new PluginConfigurationStore(
+                    packagesDirectory, Path.Combine(directory, "plugin-data"));
                 var enabledPluginIds = startup.Snapshot.Settings.Plugins!.Enabled!.ToArray();
                 var outputCoordinator = new OutputCoordinator(pluginGateway, startup.Snapshot.NativeSetup);
                 _outputCoordinator = outputCoordinator;
@@ -279,6 +282,7 @@ namespace FocusRgb.App
         {
             _pluginDiscovery?.Dispose();
             _pluginInventory?.Dispose();
+            _pluginConfigurationStore?.Dispose();
             _pluginDiscoveryHttpClient.Dispose();
             _pluginDownloadHttpClient.Dispose();
         }
@@ -313,7 +317,6 @@ namespace FocusRgb.App
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
-                await _mcpConfigurationStore.SetEnabledAsync(false, cancellationToken: cancellationToken);
                 return _mcpState = new McpUiState(true, false, $"Could not start local MCP: {exception.Message}");
             }
         }
@@ -462,7 +465,6 @@ namespace FocusRgb.App
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
-                await _mcpConfigurationStore.SetEnabledAsync(false);
                 _mcpState = new McpUiState(
                     true, false, $"Local MCP is off because its pipe could not start: {exception.Message}");
                 AppLog.Write(_mcpState.Message);
@@ -692,6 +694,17 @@ namespace FocusRgb.App
             UpdateInstalledPlugins(_viewModel);
         }
 
+        public async Task RefreshGameCatalogsAsync(CancellationToken cancellationToken = default)
+        {
+            if (_viewModel is null || _pluginGateway is null
+                || await GetPluginRuntimeAsync() is not { } runtime) return;
+            foreach (var entry in runtime.Entries.Where(entry => entry.IsRunning))
+            {
+                var catalog = await _pluginGateway.ListGameCatalogAsync(entry.PluginId, cancellationToken);
+                await _viewModel.RefreshGameCatalogAsync(entry.PluginId, catalog, cancellationToken);
+            }
+        }
+
         public Task<PluginArchiveResult> InspectCustomPluginAsync(
             string archivePath,
             CancellationToken cancellationToken = default) =>
@@ -790,6 +803,55 @@ namespace FocusRgb.App
                 if (saveError is null) return PluginManagementResult.Ok($"Disabled {pluginId}.");
                 if (hadEntry) await StartManagedPluginAsync(runtime, pluginId, cancellationToken);
                 return PluginManagementResult.Fail(saveError);
+            }
+            finally
+            {
+                _pluginPackageChanges.TryRemove(pluginId, out _);
+                UpdatePluginViews();
+            }
+        }
+
+        public PluginConfigurationLoadResult LoadPluginConfiguration(string pluginId) =>
+            _pluginConfigurationStore?.Load(pluginId)
+            ?? PluginConfigurationLoadResult.Fail("Plugin configuration is not ready.");
+
+        public async Task<PluginManagementResult> SavePluginConfigurationAsync(
+            string pluginId,
+            PluginConfigurationSchema schema,
+            IReadOnlyDictionary<string, System.Text.Json.JsonElement> values,
+            CancellationToken cancellationToken = default)
+        {
+            if (_pluginConfigurationStore is null || await GetPluginRuntimeAsync() is not { } runtime)
+                return PluginManagementResult.Fail("Plugin configuration is not ready.");
+            if (!_pluginPackageChanges.TryAdd(pluginId, 0))
+                return PluginManagementResult.Fail($"Plugin '{pluginId}' already has an action in progress.");
+            var wasRunning = runtime.Entries.Any(entry => entry.PluginId == pluginId && entry.IsRunning);
+            var stopped = false;
+            try
+            {
+                if (wasRunning)
+                {
+                    await StopManagedPluginAsync(runtime, pluginId, cancellationToken);
+                    stopped = true;
+                }
+                var error = await _pluginConfigurationStore.SaveAsync(
+                    pluginId, schema, values, cancellationToken);
+                if (error is not null)
+                {
+                    if (wasRunning) await StartManagedPluginAsync(runtime, pluginId, cancellationToken);
+                    return PluginManagementResult.Fail(error);
+                }
+                if (!wasRunning) return PluginManagementResult.Ok($"Saved settings for {pluginId}.");
+                var restarted = await StartManagedPluginAsync(runtime, pluginId, cancellationToken);
+                return restarted.IsRunning
+                    ? PluginManagementResult.Ok($"Saved settings and restarted {pluginId}.")
+                    : PluginManagementResult.Fail(
+                        $"Saved settings, but {pluginId} did not restart: {restarted.ErrorMessage}");
+            }
+            catch (OperationCanceledException) when (stopped)
+            {
+                await StartManagedPluginAsync(runtime, pluginId, CancellationToken.None);
+                throw;
             }
             finally
             {

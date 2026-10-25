@@ -1,6 +1,7 @@
 using System.Text.Json;
 using FocusRgb.App.Plugins;
 using FocusRgb.Core.Commands;
+using FocusRgb.LocalMcp;
 
 namespace FocusRgb.App.Mcp
 {
@@ -62,7 +63,7 @@ namespace FocusRgb.App.Mcp
                     pending = snapshot.RuntimeStatus.Pending,
                     detail = snapshot.RuntimeStatus.AppliedDetail
                 },
-                _ => throw new ArgumentException($"Unknown read-only method '{method}'.", nameof(method))
+                _ => throw new LocalMcpMethodNotFoundException($"Unknown read-only method '{method}'.")
             };
             return Task.FromResult(JsonSerializer.SerializeToElement(value, JsonOptions));
         }

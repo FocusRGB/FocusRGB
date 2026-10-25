@@ -90,11 +90,16 @@ tests/
   FocusRgb.Core.Tests/         xUnit; dependency-boundary and core tests
   FocusRgb.FakePlugin/         executable plugin protocol fixture
 tools/                         screen colour test
-.ai/                           compressed repository agent instructions
 build/                         generated output (git-ignored)
 ```
 
 ## Build and test
+
+Game rules use cached executable names, including while discovery is offline. Common crash
+handlers and installers never trigger game rules. A name shared by several catalog games cannot
+identify a specific game and is ignored for exact-game rules. Refresh games on the Games tab to
+request updated catalogs from running discovery plugins; malformed entries are skipped individually.
+`games.last-known-good.json` protects cached and manual game entries during recovery.
 
 Requires the .NET SDK pinned in `global.json` (10.0.401 or a later 10.0 feature band).
 
@@ -110,6 +115,15 @@ and tests for every pull request and for pushes to `develop` and `main`.
 Generated builds, packages, reports, caches, and tool artifacts belong under the Git-ignored
 `build/` directory. Maintained source stays outside it. Generated Graphify data lives at
 `build/graphify-out/` and is optional for development.
+
+## Plugin configuration
+
+An installed plugin opts into the generic settings window by placing
+`focusrgb-settings.schema.json` beside its manifest. Schema version 1 declares 1–64 flat fields
+with an `id`, `displayName`, `type` (`string`, `integer`, `number`, `boolean`, or `json`) and
+`default`; schema/field `description`, `minimum`, and `maximum` are optional. FocusRGB validates and stores the
+opaque values in `%LOCALAPPDATA%\FocusRGB\plugin-data\<plugin-id>\settings.json`, then restarts a
+running plugin. The plugin receives that directory through `FOCUSRGB_PLUGIN_DATA_DIRECTORY`.
 
 ## License
 

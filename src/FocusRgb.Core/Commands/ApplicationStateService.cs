@@ -222,6 +222,7 @@ namespace FocusRgb.Core.Commands
                         var savedCandidate = Clone(candidate);
                         var nextState = RepairProfileReferences(
                             currentState, savedCandidate, out var repaired, out var desiredRepaired);
+                        var stateWasSaved = false;
                         if (repaired)
                         {
                             var stateSave = await _store.SaveStateAsync(
@@ -233,36 +234,50 @@ namespace FocusRgb.Core.Commands
                             }
                             else
                             {
-                                currentState = nextState;
-                                if (desiredRepaired)
-                                {
-                                    currentReason = currentState.Mode == "manual"
-                                        ? SelectionReason.Manual()
-                                        : SelectionReason.ObservationPending();
-                                }
-                                lock (_snapshotGate)
-                                {
-                                    _selectionState = nextState;
-                                    _selectionReason = currentReason;
-                                    _runtimeStatus = ProjectRuntimeStatus(nextState, currentReason, _runtimeStatus);
-                                }
-                                _selectionCommands = new SelectionCommandService(_store, _outputCoordinator);
-                                publish = true;
+                                stateWasSaved = true;
                             }
                         }
 
                         if (errorCode is null)
                         {
-                            var save = await _store.SaveSettingsAsync(savedCandidate, cancellationToken)
-                                .ConfigureAwait(false);
+                            SaveResult save;
+                            try
+                            {
+                                save = await _store.SaveSettingsAsync(savedCandidate, cancellationToken)
+                                    .ConfigureAwait(false);
+                            }
+                            catch (OperationCanceledException) when (stateWasSaved)
+                            {
+                                await _store.SaveStateAsync(
+                                    currentState, currentSettings, CancellationToken.None).ConfigureAwait(false);
+                                throw;
+                            }
                             if (!save.IsSuccess)
                             {
                                 errorCode = "persistence-failed";
                                 errorMessage = $"{save.Error!.FileName}: {save.Error.Message}";
+                                if (stateWasSaved)
+                                {
+                                    var rollback = await _store.SaveStateAsync(
+                                        currentState, currentSettings, CancellationToken.None).ConfigureAwait(false);
+                                    if (!rollback.IsSuccess)
+                                        errorMessage += $" State rollback failed: {rollback.Error!.Message}";
+                                }
                             }
                             else
                             {
                                 warning = save.Warning;
+                                if (stateWasSaved)
+                                {
+                                    currentState = nextState;
+                                    if (desiredRepaired)
+                                    {
+                                        currentReason = currentState.Mode == "manual"
+                                            ? SelectionReason.Manual()
+                                            : SelectionReason.ObservationPending();
+                                    }
+                                    _selectionCommands = new SelectionCommandService(_store, _outputCoordinator);
+                                }
                                 lock (_snapshotGate)
                                 {
                                     _settings = savedCandidate;
@@ -346,7 +361,7 @@ namespace FocusRgb.Core.Commands
                             lock (_snapshotGate)
                             {
                                 _gameCatalog = savedCandidate;
-                                _selectionEngine = new SelectionEngine(_settings, savedCandidate);
+                                _selectionEngine.UpdateGameCatalog(savedCandidate);
                                 _settingsRevision++;
                             }
                             publish = true;

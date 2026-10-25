@@ -180,6 +180,46 @@ namespace FocusRgb.App.Tests
             Assert.Equal(["Sample.exe"], viewModel.DraftGameExecutables);
         }
 
+        [Fact]
+        public async Task CatalogRefresh_SkipsInvalidItemAndKeepsValidItems()
+        {
+            var (viewModel, service) = await CreateAsync();
+            var valid = Assert.Single(SupportedCatalog().Value!.Items);
+            var catalog = new PluginCatalogResult
+            {
+                Support = "supported", RefreshedAt = Start,
+                Items = [valid, new PluginCatalogItem
+                {
+                    ResourceId = "invalid", DisplayName = "Invalid", Available = true,
+                    Game = new PluginGameCatalogMetadata { Executables = ["no-extension"] }
+                }]
+            };
+
+            await viewModel.RefreshGameCatalogAsync("example", new PluginGatewayResult<PluginCatalogResult>(catalog),
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(valid.ResourceId, Assert.Single(service.Current.GameCatalog.Games!).Id);
+            Assert.Contains("Skipped 1", viewModel.GameEditorStatus, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task CatalogRefresh_IgnoresTimestampOnlyChanges()
+        {
+            var (viewModel, service) = await CreateAsync();
+            await viewModel.RefreshGameCatalogAsync("example", SupportedCatalog(), TestContext.Current.CancellationToken);
+            var revision = service.Current.SettingsRevision;
+            var updated = new PluginCatalogResult
+            {
+                Support = "supported", RefreshedAt = Start.AddMinutes(1),
+                Items = SupportedCatalog().Value!.Items
+            };
+
+            await viewModel.RefreshGameCatalogAsync("example", new PluginGatewayResult<PluginCatalogResult>(updated),
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(revision, service.Current.SettingsRevision);
+        }
+
         private async Task<(MainWindowViewModel ViewModel, ApplicationStateService Service)> CreateAsync()
         {
             var store = new LocalStateStore(_tempDirectory.Path);

@@ -311,6 +311,42 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("default", ignored.ProfileId);
         }
 
+        [Fact]
+        public void Select_DoesNotUseSharedOrHelperExecutablesForSpecificGameRules()
+        {
+            var engine = new SelectionEngine(GameSettings(
+                GameRule("first", "movie", "while-running", "example", "first"),
+                GameRule("second", "music", "while-running", "example", "second")),
+                Catalog(Game("example", "first", "First", true, "shared.exe", "UnityCrashHandler64.exe", "First.exe"),
+                    Game("example", "second", "Second", true, "shared.exe", "Second.exe")));
+
+            var shared = engine.Select(SelectionMode.Automatic, "default",
+                Observation(null, "shared.exe", "UnityCrashHandler64.exe"), Start);
+            var second = engine.Select(SelectionMode.Automatic, "default",
+                Observation(null, "shared.exe", "Second.exe"), Start);
+
+            Assert.Equal("default", shared.ProfileId);
+            Assert.Equal("music", second.ProfileId);
+        }
+
+        [Fact]
+        public void UpdateGameCatalog_PreservesPendingFocusDebounce()
+        {
+            var clock = new TestTimeProvider();
+            var catalog = Catalog(Game("example", "sample", "Gáme", true, "Gáme.exe"));
+            var engine = new SelectionEngine(GameSettings(
+                GameRule("focused", "movie", "while-focused", "example", "sample")), catalog, clock);
+            var observation = Observation("Gáme.exe", "Gáme.exe");
+            engine.Select(SelectionMode.Automatic, "default", observation, Start);
+            clock.Advance(TimeSpan.FromSeconds(1));
+
+            engine.UpdateGameCatalog(catalog);
+            clock.Advance(TimeSpan.FromSeconds(1));
+            var selected = engine.Select(SelectionMode.Automatic, "default", observation, Start.AddSeconds(2));
+
+            Assert.Equal("movie", selected.ProfileId);
+        }
+
         private static SettingsDocument Settings(params RuleSettings[] rules)
         {
             var settings = SettingsJson.LoadDefaults().Settings!;

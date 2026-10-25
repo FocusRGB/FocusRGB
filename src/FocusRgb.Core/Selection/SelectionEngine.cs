@@ -10,7 +10,8 @@ namespace FocusRgb.Core.Selection
         private static readonly StringComparer ExecutableComparer = StringComparer.OrdinalIgnoreCase;
 
         private readonly SettingsDocument _settings;
-        private readonly IReadOnlyDictionary<GameIdentity, GameCatalogEntry> _games;
+        private IReadOnlyDictionary<GameIdentity, GameCatalogEntry> _games = new Dictionary<GameIdentity, GameCatalogEntry>();
+        private HashSet<string> _ambiguousExecutables = new(ExecutableComparer);
         private readonly TimeProvider _timeProvider;
         private string? _stableForeground;
         private string? _pendingForeground;
@@ -36,11 +37,22 @@ namespace FocusRgb.Core.Selection
             }
 
             _settings = SettingsJson.Load(SettingsJson.Serialize(settings)).Settings!;
+            UpdateGameCatalog(gameCatalog);
+            _timeProvider = timeProvider ?? TimeProvider.System;
+        }
+
+        /// <summary>Updates cached identities while retaining the current foreground debounce.</summary>
+        public void UpdateGameCatalog(GameCatalogDocument gameCatalog)
+        {
             if (GameCatalogJson.Validate(gameCatalog).Count > 0)
+            {
                 throw new ArgumentException("Selection requires a validated game catalog.", nameof(gameCatalog));
+            }
             _games = GameCatalogJson.Load(GameCatalogJson.Serialize(gameCatalog)).Catalog!.Games!
                 .ToDictionary(game => new GameIdentity(game.Launcher!, game.Id!));
-            _timeProvider = timeProvider ?? TimeProvider.System;
+            _ambiguousExecutables = _games.Values.SelectMany(game => game.Executables!)
+                .GroupBy(name => name, ExecutableComparer).Where(group => group.Count() > 1)
+                .Select(group => group.Key).ToHashSet(ExecutableComparer);
         }
 
         /// <summary>Evaluates one observation at the supplied time and returns only desired profile state.</summary>
@@ -141,18 +153,31 @@ namespace FocusRgb.Core.Selection
             }
 
             var game = rule.Match?.Game;
-            if (game is null) return null;
+            if (game is null)
+            {
+                return null;
+            }
             if (game.Launcher == "*" && game.Id == "*")
             {
                 return _games.Values
                     .SelectMany(entry => entry.Executables ?? [])
+                    .Where(IsGameExecutable)
                     .Distinct(ExecutableComparer)
                     .ToArray();
             }
             return _games.TryGetValue(new GameIdentity(game.Launcher!, game.Id!), out var entry)
-                ? entry.Executables
+                ? entry.Executables!.Where(name => IsGameExecutable(name) && !_ambiguousExecutables.Contains(name)).ToArray()
                 : null;
         }
+
+        private static bool IsGameExecutable(string name) =>
+            !name.StartsWith("UnityCrashHandler", StringComparison.OrdinalIgnoreCase)
+            && !name.StartsWith("CrashReportClient", StringComparison.OrdinalIgnoreCase)
+            && !name.StartsWith("vc_redist", StringComparison.OrdinalIgnoreCase)
+            && !name.StartsWith("vcredist", StringComparison.OrdinalIgnoreCase)
+            && !name.Equals("crashpad_handler.exe", StringComparison.OrdinalIgnoreCase)
+            && !name.Equals("setup.exe", StringComparison.OrdinalIgnoreCase)
+            && !name.Equals("dxsetup.exe", StringComparison.OrdinalIgnoreCase);
 
         private void UpdateStableForeground(string? foreground)
         {

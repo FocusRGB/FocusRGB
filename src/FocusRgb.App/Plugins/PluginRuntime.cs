@@ -171,7 +171,9 @@ namespace FocusRgb.App.Plugins
             if (!package.IsSuccess)
                 return PluginRuntimeEntry.Fail(pluginId, package.ErrorCode!, package.ErrorMessage!);
             var started = await PluginProcessClient.StartAsync(
-                package.Launch!, package.Manifest!, cancellationToken).ConfigureAwait(false);
+                package.Launch!, package.Manifest!,
+                Path.Combine(Path.GetDirectoryName(Path.GetFullPath(packagesDirectory))!,
+                    "plugin-data", pluginId), cancellationToken).ConfigureAwait(false);
             return started.IsSuccess
                 ? PluginRuntimeEntry.Ok(pluginId, started.Client!, started.Handshake!)
                 : PluginRuntimeEntry.Fail(pluginId, started.ErrorCode!, started.ErrorMessage!);
