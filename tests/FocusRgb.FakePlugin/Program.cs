@@ -45,6 +45,14 @@ if (pidFile is not null)
     File.Move(pendingPidFile, pidFile, overwrite: true);
 }
 
+var dataDirectoryFile = ReadStringOption(args, "--data-directory-file");
+if (dataDirectoryFile is not null)
+{
+    await File.WriteAllTextAsync(
+        dataDirectoryFile,
+        Environment.GetEnvironmentVariable("FOCUSRGB_PLUGIN_DATA_DIRECTORY") ?? string.Empty);
+}
+
 var rawResponse = ReadStringOption(args, "--invalid-response");
 if (args.Contains("--null-capabilities", StringComparer.Ordinal)) rawResponse = "null-capabilities";
 if (args.Contains("--stall-after-initialize", StringComparer.Ordinal)) rawResponse = "stalled-stdin";

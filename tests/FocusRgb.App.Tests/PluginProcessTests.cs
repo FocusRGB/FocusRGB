@@ -48,6 +48,27 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task StartAsync_ExposesHostManagedPluginDataDirectory()
+        {
+            await using var temporary = new TempDirectory(nameof(StartAsync_ExposesHostManagedPluginDataDirectory));
+            var recorded = Path.Combine(temporary.Path, "data-directory.txt");
+            var dataDirectory = Path.Combine(temporary.Path, "plugin-data", "fake-output");
+            var launch = new PluginLaunchSpec
+            {
+                FileName = "dotnet",
+                Arguments = [RepositoryPaths.FakePlugin, "--data-directory-file", recorded]
+            };
+
+            var started = await PluginProcessClient.StartAsync(
+                launch, Manifest(), dataDirectory, TestContext.Current.CancellationToken);
+
+            Assert.True(started.IsSuccess, started.ErrorMessage);
+            await using var client = started.Client!;
+            Assert.Equal(Path.GetFullPath(dataDirectory), await File.ReadAllTextAsync(
+                recorded, TestContext.Current.CancellationToken));
+        }
+
+        [Fact]
         public async Task StartAsync_RejectsLegacyContract()
         {
             var started = await StartAsync(Manifest("0.1"), "--contract-version", "0.1");
