@@ -21,6 +21,7 @@ namespace FocusRgb.Core.Persistence
         public const string StateFileName = "state.json";
         public const string NativeSetupFileName = "native-setup.json";
         public const string GameCatalogFileName = "games.json";
+        public const string GameCatalogRecoveryFileName = "games.last-known-good.json";
 
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates =
             new(StringComparer.OrdinalIgnoreCase);
@@ -124,10 +125,14 @@ namespace FocusRgb.Core.Persistence
             ArgumentNullException.ThrowIfNull(catalog);
             var errors = GameCatalogJson.Validate(catalog);
             if (errors.Count > 0) return Invalid(GameCatalogFileName, errors);
-            return await SerializeAndWriteAsync(
+            var saved = await SerializeAndWriteAsync(
                 GameCatalogFileName,
                 () => GameCatalogJson.Serialize(catalog),
                 cancellationToken).ConfigureAwait(false);
+            if (!saved.IsSuccess) return saved;
+            var recovery = await SerializeAndWriteAsync(GameCatalogRecoveryFileName,
+                () => GameCatalogJson.Serialize(catalog), cancellationToken).ConfigureAwait(false);
+            return recovery.IsSuccess ? SaveResult.Ok() : SaveResult.Ok(recovery.Error);
         }
 
         /// <summary>Saves validated user settings without changing selection or native fallback files.</summary>
@@ -395,6 +400,8 @@ namespace FocusRgb.Core.Persistence
             var path = PathFor(GameCatalogFileName);
             if (!File.Exists(path))
             {
+                var recovered = await RecoverGameCatalogAsync(recoveries, cancellationToken).ConfigureAwait(false);
+                if (recovered is not null) return recovered;
                 var initial = GameCatalogJson.CreateDefault();
                 var save = await SaveGameCatalogCoreAsync(initial, cancellationToken).ConfigureAwait(false);
                 return save.IsSuccess
@@ -404,16 +411,53 @@ namespace FocusRgb.Core.Persistence
 
             var json = await ReadAllTextAsync(GameCatalogFileName, cancellationToken).ConfigureAwait(false);
             var loaded = GameCatalogJson.Load(json);
-            if (loaded.IsSuccess) return GameCatalogStartupResult.Ok(loaded.Catalog!);
+            if (loaded.IsSuccess)
+            {
+                var refreshed = await SerializeAndWriteAsync(GameCatalogRecoveryFileName,
+                    () => GameCatalogJson.Serialize(loaded.Catalog!), cancellationToken).ConfigureAwait(false);
+                if (!refreshed.IsSuccess)
+                {
+                    recoveries.Add(new RecoveryNotice
+                    {
+                        FileName = GameCatalogRecoveryFileName,
+                        Message = $"Could not refresh the game catalog recovery copy: {refreshed.Error!.Message}"
+                    });
+                }
+                return GameCatalogStartupResult.Ok(loaded.Catalog!);
+            }
             if (HasUnsupportedVersion(json, GameCatalogJson.CurrentSchemaVersion))
                 return GameCatalogStartupResult.Fail(InvalidDocument(GameCatalogFileName, loaded.Errors));
 
             recoveries.Add(ArchiveInvalid(GameCatalogFileName, "corrupt", now, loaded.Errors));
+            var recovery = await RecoverGameCatalogAsync(recoveries, cancellationToken).ConfigureAwait(false);
+            if (recovery is not null) return recovery;
             var replacement = GameCatalogJson.CreateDefault();
             var result = await SaveGameCatalogCoreAsync(replacement, cancellationToken).ConfigureAwait(false);
             return result.IsSuccess
                 ? GameCatalogStartupResult.Ok(replacement)
                 : GameCatalogStartupResult.Fail(result.Error!);
+        }
+
+        private async Task<GameCatalogStartupResult?> RecoverGameCatalogAsync(
+            List<RecoveryNotice> recoveries,
+            CancellationToken cancellationToken)
+        {
+            if (!File.Exists(PathFor(GameCatalogRecoveryFileName))) return null;
+            var json = await ReadAllTextAsync(GameCatalogRecoveryFileName, cancellationToken).ConfigureAwait(false);
+            var loaded = GameCatalogJson.Load(json);
+            if (!loaded.IsSuccess)
+            {
+                return GameCatalogStartupResult.Fail(InvalidDocument(GameCatalogRecoveryFileName, loaded.Errors));
+            }
+            var restored = await SerializeAndWriteAsync(GameCatalogFileName,
+                () => GameCatalogJson.Serialize(loaded.Catalog!), cancellationToken).ConfigureAwait(false);
+            if (!restored.IsSuccess) return GameCatalogStartupResult.Fail(restored.Error!);
+            recoveries.Add(new RecoveryNotice
+            {
+                FileName = GameCatalogFileName,
+                Message = "Restored game catalog from its last-known-good copy."
+            });
+            return GameCatalogStartupResult.Ok(loaded.Catalog!);
         }
 
         private async Task<SaveResult> SerializeAndWriteAsync(
@@ -559,7 +603,8 @@ namespace FocusRgb.Core.Persistence
         {
             foreach (var fileName in new[]
             {
-                SettingsFileName, SettingsRecoveryFileName, StateFileName, NativeSetupFileName, GameCatalogFileName
+                SettingsFileName, SettingsRecoveryFileName, StateFileName, NativeSetupFileName, GameCatalogFileName,
+                GameCatalogRecoveryFileName
             })
             {
                 foreach (var path in Directory.EnumerateFiles(_directory, $".{fileName}.*.tmp"))

@@ -547,6 +547,39 @@ namespace FocusRgb.Core.Tests
             Assert.Single(Directory.GetFiles(_directory, "games.json.corrupt-*"));
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GameCatalog_RestoresManualGamesWhenCurrentFileIsMissingOrCorrupt(bool missing)
+        {
+            var store = new LocalStateStore(_directory);
+            await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            var catalog = new GameCatalogDocument
+            {
+                SchemaVersion = 1,
+                Games = [new GameCatalogEntry
+                {
+                    Launcher = "manual", Id = "local-game", DisplayName = "Local", Available = true,
+                    Executables = ["Local.exe"]
+                }]
+            };
+            Assert.True((await store.SaveGameCatalogAsync(catalog, TestContext.Current.CancellationToken)).IsSuccess);
+            if (missing)
+            {
+                File.Delete(PathFor(LocalStateStore.GameCatalogFileName));
+            }
+            else
+            {
+                await File.WriteAllTextAsync(PathFor(LocalStateStore.GameCatalogFileName), "{",
+                    TestContext.Current.CancellationToken);
+            }
+
+            var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess, restarted.Error?.Message);
+            Assert.Equal("local-game", Assert.Single(restarted.Snapshot!.GameCatalog.Games!).Id);
+        }
+
         public void Dispose()
         {
             _tempDirectory.Dispose();
