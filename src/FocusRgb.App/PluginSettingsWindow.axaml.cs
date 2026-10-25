@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -21,17 +22,19 @@ namespace FocusRgb.App
         public PluginSettingsWindow(
             InstalledPluginInfo plugin,
             PluginConfigurationSchema schema,
-            IReadOnlyDictionary<string, JsonElement> values) : this()
+            IReadOnlyDictionary<string, JsonElement> values,
+            IReadOnlyList<string>? notices = null) : this()
         {
             ArgumentNullException.ThrowIfNull(plugin);
             ArgumentNullException.ThrowIfNull(schema);
             ArgumentNullException.ThrowIfNull(values);
             _schema = schema;
-            this.FindControl<TextBlock>("PluginNameText")!.Text = plugin.DisplayName;
+            this.FindControl<TextBlock>("PluginNameText")!.Text = SafeDisplayText(plugin.DisplayName);
             this.FindControl<TextBlock>("PluginDetailsText")!.Text =
                 $"{plugin.Id} · {plugin.Version ?? "unknown version"}"
-                + (string.IsNullOrWhiteSpace(schema.Description) ? string.Empty : $"\n{schema.Description}");
+                + (string.IsNullOrWhiteSpace(schema.Description) ? string.Empty : $"\n{SafeDisplayText(schema.Description)}");
             Populate(values);
+            this.FindControl<TextBlock>("StatusText")!.Text = string.Join(Environment.NewLine, notices ?? []);
         }
 
         internal IReadOnlyDictionary<string, JsonElement>? CollectValues()
@@ -47,7 +50,7 @@ namespace FocusRgb.App
                 catch (Exception exception) when (exception is FormatException or JsonException)
                 {
                     this.FindControl<TextBlock>("StatusText")!.Text =
-                        $"{field.DisplayName}: {exception.Message}";
+                        $"{SafeDisplayText(field.DisplayName)}: {exception.Message}";
                     return null;
                 }
             }
@@ -64,9 +67,9 @@ namespace FocusRgb.App
             foreach (var field in _schema!.Fields)
             {
                 var group = new StackPanel { Spacing = 4 };
-                group.Children.Add(new TextBlock { Text = field.DisplayName, FontWeight = Avalonia.Media.FontWeight.SemiBold });
+                group.Children.Add(new TextBlock { Text = SafeDisplayText(field.DisplayName), FontWeight = Avalonia.Media.FontWeight.SemiBold });
                 if (!string.IsNullOrWhiteSpace(field.Description))
-                    group.Children.Add(new TextBlock { Text = field.Description, Opacity = 0.7, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+                    group.Children.Add(new TextBlock { Text = SafeDisplayText(field.Description), Opacity = 0.7, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
                 var editor = CreateEditor(field, values[field.Id]);
                 editor.Name = $"PluginSetting_{field.Id}";
                 group.Children.Add(editor);
@@ -95,8 +98,12 @@ namespace FocusRgb.App
             return field.Type switch
             {
                 "string" => JsonSerializer.SerializeToElement(text),
-                "integer" => JsonSerializer.SerializeToElement(long.Parse(text, NumberStyles.Integer, CultureInfo.InvariantCulture)),
-                "number" => JsonSerializer.SerializeToElement(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                "integer" when long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var integer)
+                    => JsonSerializer.SerializeToElement(integer),
+                "integer" => throw new FormatException("Enter a whole number within the 64-bit integer range."),
+                "number" when double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+                    && double.IsFinite(number) => JsonSerializer.SerializeToElement(number),
+                "number" => throw new FormatException("Enter a finite number."),
                 "json" => JsonDocument.Parse(text).RootElement.Clone(),
                 _ => throw new FormatException("Unsupported field type.")
             };
@@ -105,6 +112,19 @@ namespace FocusRgb.App
         private static string ValueText(JsonElement value) => value.ValueKind == JsonValueKind.String
             ? value.GetString()!
             : value.GetRawText();
+
+        private static string SafeDisplayText(string text)
+        {
+            var safe = new StringBuilder(text.Length);
+            foreach (var rune in text.EnumerateRunes())
+            {
+                if (Rune.GetUnicodeCategory(rune) is not (UnicodeCategory.Control or UnicodeCategory.Format))
+                {
+                    safe.Append(rune.ToString());
+                }
+            }
+            return safe.ToString();
+        }
 
         private void Reset_OnClick(object? sender, RoutedEventArgs e)
         {

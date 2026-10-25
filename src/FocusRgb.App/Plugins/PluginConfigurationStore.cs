@@ -35,18 +35,31 @@ namespace FocusRgb.App.Plugins
                 var path = SettingsPath(pluginId);
                 var values = Defaults(schema!).ToDictionary(
                     pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+                var notices = new List<string>();
                 if (File.Exists(path))
                 {
                     if (new FileInfo(path).Length > MaximumSettingsBytes)
                         return PluginConfigurationLoadResult.Fail("The plugin settings file is too large.");
                     var saved = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
                         File.ReadAllText(path), PluginJsonOptions) ?? [];
-                    foreach (var value in saved) values[value.Key] = value.Value;
+                    var fields = schema!.Fields.ToDictionary(field => field.Id, StringComparer.Ordinal);
+                    foreach (var value in saved)
+                    {
+                        if (!fields.TryGetValue(value.Key, out var field))
+                        {
+                            notices.Add("Dropped a saved setting that is no longer declared by the plugin.");
+                        }
+                        else if (ValidateValue(field, value.Value) is not null)
+                        {
+                            notices.Add($"Restored the default for invalid saved setting '{field.Id}'. Save to keep the repaired settings.");
+                        }
+                        else
+                        {
+                            values[value.Key] = value.Value;
+                        }
+                    }
                 }
-                var validation = Validate(schema!, values);
-                return validation is null
-                    ? PluginConfigurationLoadResult.Ok(schema!, values)
-                    : PluginConfigurationLoadResult.Fail(validation);
+                return PluginConfigurationLoadResult.Ok(schema!, values, notices);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
             {
@@ -233,11 +246,13 @@ namespace FocusRgb.App.Plugins
         public PluginConfigurationSchema? Schema { get; private init; }
         public IReadOnlyDictionary<string, JsonElement>? Values { get; private init; }
         public string? Error { get; private init; }
+        public IReadOnlyList<string> Notices { get; private init; } = [];
         public bool IsSuccess => Schema is not null && Values is not null;
 
         public static PluginConfigurationLoadResult Ok(
             PluginConfigurationSchema schema,
-            IReadOnlyDictionary<string, JsonElement> values) => new() { Schema = schema, Values = values };
+            IReadOnlyDictionary<string, JsonElement> values,
+            IReadOnlyList<string>? notices = null) => new() { Schema = schema, Values = values, Notices = notices ?? [] };
 
         public static PluginConfigurationLoadResult Fail(string error) => new() { Error = error };
     }

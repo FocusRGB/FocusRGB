@@ -51,7 +51,7 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
-        public void Load_RejectsUnknownPersistedValues()
+        public void Load_DropsObsoleteValuesAndKeepsValidFields()
         {
             var packages = Path.Combine(_temporaryDirectory.Path, "plugins");
             var data = Path.Combine(_temporaryDirectory.Path, "plugin-data");
@@ -64,8 +64,37 @@ namespace FocusRgb.App.Tests
 
             var result = store.Load("example");
 
-            Assert.False(result.IsSuccess);
-            Assert.Contains("Unknown plugin setting", result.Error, StringComparison.Ordinal);
+            Assert.True(result.IsSuccess, result.Error);
+            Assert.False(result.Values!.ContainsKey("unexpected"));
+            Assert.Equal(3000, result.Values["port"].GetInt32());
+            Assert.Single(result.Notices);
+        }
+
+        [Theory]
+        [InlineData("\"not-a-port\"")]
+        [InlineData("999999")]
+        public async Task Load_RepairsInvalidSavedValuesAndAllowsResaving(string invalidPort)
+        {
+            var packages = Path.Combine(_temporaryDirectory.Path, "plugins");
+            var data = Path.Combine(_temporaryDirectory.Path, "plugin-data");
+            Directory.CreateDirectory(Path.Combine(packages, "example"));
+            Directory.CreateDirectory(Path.Combine(data, "example"));
+            File.WriteAllText(Path.Combine(packages, "example", PluginConfigurationStore.SchemaFileName), SchemaJson());
+            var savedPath = Path.Combine(data, "example", PluginConfigurationStore.SettingsFileName);
+            var savedJson = "{\"port\":" + invalidPort + ",\"enabled\":false}";
+            File.WriteAllText(savedPath, savedJson);
+            using var store = new PluginConfigurationStore(packages, data);
+
+            var loaded = store.Load("example");
+
+            Assert.True(loaded.IsSuccess, loaded.Error);
+            Assert.Equal(3000, loaded.Values!["port"].GetInt32());
+            Assert.False(loaded.Values["enabled"].GetBoolean());
+            Assert.Single(loaded.Notices);
+            Assert.Equal(savedJson, File.ReadAllText(savedPath));
+            Assert.Null(await store.SaveAsync("example", loaded.Schema!, loaded.Values,
+                TestContext.Current.CancellationToken));
+            Assert.Empty(store.Load("example").Notices);
         }
 
         [Theory]

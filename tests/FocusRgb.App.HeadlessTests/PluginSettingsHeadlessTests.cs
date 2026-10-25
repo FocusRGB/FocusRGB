@@ -2,6 +2,7 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
+using Avalonia.Interactivity;
 using FocusRgb.App.Plugins;
 using FocusRgb.App.ViewModels;
 
@@ -76,6 +77,74 @@ namespace FocusRgb.App.HeadlessTests
                     control => control.Name == "PluginSetting_enabled");
                 Assert.NotNull(window.FindControl<Button>("SaveButton"));
                 Assert.NotNull(window.FindControl<Button>("ResetButton"));
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+
+        [AvaloniaFact]
+        public void Save_ShowsValidationErrorForNonFiniteNumbersAndIntegerOverflow()
+        {
+            foreach (var (type, input) in new[]
+            {
+                ("number", "NaN"), ("number", "Infinity"), ("number", "-Infinity"),
+                ("number", "1e999"), ("integer", "9223372036854775808"),
+                ("integer", "-9223372036854775809")
+            })
+            {
+                var schema = new PluginConfigurationSchema
+                {
+                    SchemaVersion = 1,
+                    Fields = [new PluginConfigurationField
+                    {
+                        Id = "value", DisplayName = "Value", Type = type,
+                        Default = JsonSerializer.SerializeToElement(1)
+                    }]
+                };
+                var window = new PluginSettingsWindow(Plugin("example", true), schema,
+                    PluginConfigurationStore.Defaults(schema));
+                window.Show();
+                try
+                {
+                    window.GetLogicalDescendants().OfType<TextBox>()
+                        .Single(box => box.Name == "PluginSetting_value").Text = input;
+
+                    window.FindControl<Button>("SaveButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+                    Assert.True(window.IsVisible);
+                    Assert.Contains("Value:", window.FindControl<TextBlock>("StatusText")!.Text, StringComparison.Ordinal);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            }
+        }
+
+        [AvaloniaFact]
+        public void SettingsWindow_SanitizesPluginDisplayTextAndShowsRepairNotice()
+        {
+            var schema = new PluginConfigurationSchema
+            {
+                SchemaVersion = 1, Description = "Description\n\u202e\u200b",
+                Fields = [new PluginConfigurationField
+                {
+                    Id = "value", DisplayName = "Name\u202e\u200b\t", Description = "Help\u2066\u200b\r",
+                    Type = "string", Default = JsonSerializer.SerializeToElement("")
+                }]
+            };
+            var window = new PluginSettingsWindow(Plugin("example", true), schema,
+                PluginConfigurationStore.Defaults(schema), ["Restored invalid saved settings."]);
+            window.Show();
+            try
+            {
+                Assert.EndsWith("Description", window.FindControl<TextBlock>("PluginDetailsText")!.Text, StringComparison.Ordinal);
+                var texts = window.GetLogicalDescendants().OfType<TextBlock>().Select(block => block.Text).ToArray();
+                Assert.Contains("Name", texts);
+                Assert.Contains("Help", texts);
+                Assert.Contains("Restored invalid saved settings.", texts);
             }
             finally
             {
