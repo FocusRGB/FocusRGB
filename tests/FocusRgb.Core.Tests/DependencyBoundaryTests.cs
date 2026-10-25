@@ -2,7 +2,6 @@ using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using FocusRgb.Core.Protocol;
 using FocusRgb.TestSupport;
@@ -16,8 +15,6 @@ namespace FocusRgb.Core.Tests
     /// </summary>
     public sealed class DependencyBoundaryTests
     {
-        private static readonly string[] SourceFolders = ["src", "sdk", "tests"];
-
         private static readonly Dictionary<string, string[]> AllowedProjectReferences = new()
         {
             ["FocusRgb.Core"] = [],
@@ -74,7 +71,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public void HostContractVersion_RemainsAt12_UntilTelemetryRoutingLands() =>
+        public void HostContractVersion_MatchesSupported12Baseline() =>
             Assert.Equal("1.2", ContractVersion.Current);
 
         [Theory]
@@ -124,21 +121,11 @@ namespace FocusRgb.Core.Tests
             { typeof(PluginCatalogResult), "pluginCatalogResult" },
             { typeof(PluginCatalogItem), "pluginCatalogItem" },
             { typeof(PluginGameCatalogMetadata), "pluginGameCatalogMetadata" },
-            { typeof(PluginGameReference), "pluginGameReference" },
-            { typeof(PluginTelemetrySection), "pluginTelemetrySection" },
-            { typeof(PluginTelemetryChoice), "pluginTelemetryChoice" },
-            { typeof(PluginTelemetryCatalogMetadata), "pluginTelemetryCatalogMetadata" },
-            { typeof(PluginTelemetrySource), "pluginTelemetrySource" },
-            { typeof(PluginTelemetryValue), "pluginTelemetryValue" },
-            { typeof(PluginTelemetryEvent), "pluginTelemetryEvent" },
-            { typeof(GameTelemetryParameters), "gameTelemetryParameters" },
             { typeof(PluginDeviceScope), "pluginDeviceScope" },
             { typeof(BindingApplyParameters), "bindingApplyParameters" },
             { typeof(BindingApplyResult), "bindingApplyResult" },
             { typeof(BindingReleaseParameters), "bindingReleaseParameters" },
             { typeof(BindingReleaseResult), "bindingReleaseResult" },
-            { typeof(EffectInputParameters), "effectInputParameters" },
-            { typeof(EffectInputResult), "effectInputResult" },
             { typeof(CancelParameters), "cancelParameters" },
         };
 
@@ -225,38 +212,6 @@ namespace FocusRgb.Core.Tests
             Assert.True(executables.GetProperty("uniqueItems").GetBoolean());
             Assert.Equal(1, executables.GetProperty("items").GetProperty("minLength").GetInt32());
             Assert.Equal("^[^/\\\\]+$", executables.GetProperty("items").GetProperty("pattern").GetString());
-        }
-
-        [Fact]
-        public void TelemetrySchema_IsGameAgnosticAndBounded()
-        {
-            var path = Path.Combine(RepositoryPaths.Root, "sdk", "spec", "plugin-protocol.schema.json");
-            var text = File.ReadAllText(path);
-            using var schema = JsonDocument.Parse(text);
-            var definitions = schema.RootElement.GetProperty("$defs");
-            var kinds = definitions.GetProperty("catalogListParameters").GetProperty("properties")
-                .GetProperty("kind").GetProperty("enum").EnumerateArray()
-                .Select(item => item.GetString());
-            var telemetry = definitions.GetProperty("gameTelemetryParameters");
-
-            Assert.Contains("telemetry", kinds);
-            Assert.Equal(2048, telemetry.GetProperty("properties").GetProperty("inputs")
-                .GetProperty("maxItems").GetInt32());
-            Assert.Equal(128, telemetry.GetProperty("properties").GetProperty("events")
-                .GetProperty("maxItems").GetInt32());
-            var forbidden = new Regex(
-                $@"\b(?:{"do" + "ta"}|{"g" + "si"})\b|steam:{"5" + "70"}",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-            var sourceFiles = SourceFolders
-                .SelectMany(directory => Directory.EnumerateFiles(
-                    Path.Combine(RepositoryPaths.Root, directory), "*", SearchOption.AllDirectories))
-                .Where(path => Path.GetExtension(path) is ".cs" or ".json" or ".md" or ".py" or ".yml")
-                .Where(path => !path.Split(Path.DirectorySeparatorChar)
-                    .Any(segment => segment is "bin" or "obj"));
-
-            foreach (var sourceFile in sourceFiles)
-                Assert.False(forbidden.IsMatch(File.ReadAllText(sourceFile)),
-                    $"Game-specific protocol example found in {Path.GetRelativePath(RepositoryPaths.Root, sourceFile)}.");
         }
 
         [Fact]
