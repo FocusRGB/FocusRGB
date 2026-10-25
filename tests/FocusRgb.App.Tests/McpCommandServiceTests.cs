@@ -5,7 +5,9 @@ using System.Text.Json;
 using FocusRgb.App.Mcp;
 using FocusRgb.Core.Commands;
 using FocusRgb.Core.Configuration;
+using FocusRgb.Core.Coordination;
 using FocusRgb.Core.Persistence;
+using FocusRgb.Core.Protocol;
 using FocusRgb.LocalMcp;
 
 namespace FocusRgb.App.Tests
@@ -246,6 +248,58 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task DeclinePending_ClearsRequestWithoutApplyingIt()
+        {
+            var (state, commands) = await CreateAsync();
+            var pending = commands.DispatchAsync(
+                Request("selectProfile", new { profile = "movie" }),
+                TestContext.Current.CancellationToken);
+            await WaitForAsync(() => commands.Pending is not null);
+
+            commands.DeclinePending();
+            var result = await pending;
+
+            Assert.Equal("approval-declined", result.GetProperty("error").GetProperty("code").GetString());
+            Assert.Null(commands.Pending);
+            Assert.Equal("default", state.Current.SelectionState.ManualProfile);
+        }
+
+        [Fact]
+        public async Task RespondToNotification_UsesTheSameApprovalPathOverMcp()
+        {
+            var store = new LocalStateStore(_directory);
+            var startup = await store.InitializeAsync(
+                new DateTimeOffset(2026, 10, 23, 12, 0, 0, TimeSpan.Zero),
+                TestContext.Current.CancellationToken);
+            using var coordinator = new OutputCoordinator(new RecoveryGateway(), NativeSetupJson.CreateDefault());
+            var state = new ApplicationStateService(
+                startup.Snapshot!.Settings,
+                startup.Snapshot.State,
+                startup.Snapshot.Desired.Reason,
+                store,
+                coordinator);
+            var commands = new McpCommandService(state, new McpReadQueryService(state, () => []));
+            await state.ReapplyAsync(cancellationToken: TestContext.Current.CancellationToken);
+            await coordinator.ReportAvailabilityAsync(
+                "signalrgb", false, TestContext.Current.CancellationToken);
+            await coordinator.ReportAvailabilityAsync(
+                "signalrgb", true, TestContext.Current.CancellationToken);
+            var notification = Assert.Single(state.Current.RuntimeStatus!.Notifications);
+            var pending = commands.DispatchAsync(Request("respondToNotification", new
+            {
+                id = notification.Id,
+                response = "decline"
+            }), TestContext.Current.CancellationToken);
+            await WaitForAsync(() => commands.Pending is not null);
+
+            commands.Approve(commands.Pending!.Id);
+            var result = await pending;
+
+            Assert.True(result.GetProperty("ok").GetBoolean());
+            Assert.Empty(state.Current.RuntimeStatus!.Notifications);
+        }
+
+        [Fact]
         public async Task ReorderMappings_UsesCompleteCandidateAndPreservesRequestedOrder()
         {
             var (state, commands) = await CreateAsync();
@@ -473,6 +527,49 @@ namespace FocusRgb.App.Tests
         public void Dispose()
         {
             if (Directory.Exists(_directory)) Directory.Delete(_directory, true);
+        }
+
+        private sealed class RecoveryGateway : IPluginOutputGateway
+        {
+            public IReadOnlyList<PluginCapability>? GetCapabilities(string pluginId) =>
+            [
+                new PluginCapability { Id = "provider.effect.catalog", Support = "supported" },
+                new PluginCapability { Id = "provider.effect.select", Support = "supported" },
+                new PluginCapability { Id = "provider.layout.select", Support = "supported" }
+            ];
+
+            public Task<PluginGatewayResult<PluginCatalogResult>> ListCatalogAsync(
+                string pluginId,
+                string kind,
+                CancellationToken cancellationToken = default) => Task.FromResult(
+                    new PluginGatewayResult<PluginCatalogResult>(new PluginCatalogResult
+                    {
+                        Support = "supported",
+                        Items =
+                        [
+                            new PluginCatalogItem
+                            {
+                                ResourceId = "resolved",
+                                DisplayName = "Resolved",
+                                Available = true
+                            }
+                        ]
+                    }));
+
+            public Task<PluginGatewayResult<BindingApplyResult>> ApplyBindingAsync(
+                string pluginId,
+                BindingApplyParameters parameters,
+                CancellationToken cancellationToken = default) => Task.FromResult(
+                    new PluginGatewayResult<BindingApplyResult>(new BindingApplyResult { Outcome = "applied" }));
+
+            public Task<PluginGatewayResult<BindingReleaseResult>> ReleaseBindingAsync(
+                string pluginId,
+                BindingReleaseParameters parameters,
+                CancellationToken cancellationToken = default) => Task.FromResult(
+                    new PluginGatewayResult<BindingReleaseResult>(new BindingReleaseResult
+                    {
+                        Outcome = "nothing-to-release"
+                    }));
         }
     }
 }
