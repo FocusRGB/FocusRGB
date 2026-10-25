@@ -74,6 +74,24 @@ namespace FocusRgb.Core.Tests
         }
 
         [Theory]
+        [InlineData("profiles.0.displayName")]
+        [InlineData("applicationGroups.0.displayName")]
+        [InlineData("profiles.0.bindings.0.effect.displayName")]
+        public void Load_RejectsControlCharactersAndOversizedDisplayNames(string field)
+        {
+            var withControl = Defaults();
+            Set(withControl, field, JsonValue.Create("Trusted\nForged approval line"));
+            AssertError(withControl, field.Replace(".0.", "[0].", StringComparison.Ordinal)
+                .Replace("profiles.0", "profiles[0]", StringComparison.Ordinal)
+                .Replace("applicationGroups.0", "applicationGroups[0]", StringComparison.Ordinal)
+                .Replace("bindings.0", "bindings[0]", StringComparison.Ordinal));
+
+            var oversized = Defaults();
+            Set(oversized, field, JsonValue.Create(new string('x', 129)));
+            Assert.False(SettingsJson.Load(oversized.ToJsonString()).IsSuccess);
+        }
+
+        [Theory]
         [InlineData("schemaVersion", "schemaVersion")]
         [InlineData("application", "application")]
         [InlineData("application.startMinimized", "application.startMinimized")]

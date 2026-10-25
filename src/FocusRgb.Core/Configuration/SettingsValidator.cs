@@ -14,6 +14,13 @@ namespace FocusRgb.Core.Configuration
                     Error(path, "required non-empty string");
                 }
             }
+            void DisplayName(string? value, string path)
+            {
+                Required(value, path);
+                if (value is null) return;
+                if (value.Length > 128) Error(path, "must be 128 characters or fewer");
+                if (value.Any(char.IsControl)) Error(path, "must not contain control characters");
+            }
             void Id(string? value, string path)
             {
                 if (!IsId(value))
@@ -35,10 +42,15 @@ namespace FocusRgb.Core.Configuration
                     Error(path, "required for provider authority");
                     return;
                 }
-                Required(value.DisplayName, path + ".displayName");
+                DisplayName(value.DisplayName, path + ".displayName");
                 if (value.ResourceId is not null && string.IsNullOrWhiteSpace(value.ResourceId))
                 {
                     Error(path + ".resourceId", "must be null or a non-empty opaque ID");
+                }
+                else if (value.ResourceId is { } resourceId
+                    && (resourceId.Length > 512 || resourceId.Any(char.IsControl)))
+                {
+                    Error(path + ".resourceId", "must be 512 characters or fewer without control characters");
                 }
             }
 
@@ -110,7 +122,7 @@ namespace FocusRgb.Core.Configuration
                         continue;
                     }
                     Id(profile.Id, path + ".id");
-                    Required(profile.DisplayName, path + ".displayName");
+                    DisplayName(profile.DisplayName, path + ".displayName");
                     if (profile.Id is not null && !profiles.TryAdd(profile.Id, profile))
                     {
                         Error(path + ".id", "duplicate profile ID '" + profile.Id + "'");
@@ -217,7 +229,7 @@ namespace FocusRgb.Core.Configuration
                         continue;
                     }
                     Id(group.Id, path + ".id");
-                    Required(group.DisplayName, path + ".displayName");
+                    DisplayName(group.DisplayName, path + ".displayName");
                     ValidateNames(group.Executables, path + ".executables", true, Error);
                     if (group.Executables is not null)
                     {

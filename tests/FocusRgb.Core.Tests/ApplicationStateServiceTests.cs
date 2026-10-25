@@ -168,7 +168,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public async Task ApplySettingsAsync_KeepsRuntimeConsistentWhenSettingsFailAfterStateRepair()
+        public async Task ApplySettingsAsync_RollsBackStateWhenSettingsFailAfterStateRepair()
         {
             var state = State("manual", "movie", "movie");
             var reason = SelectionReason.Manual();
@@ -187,9 +187,10 @@ namespace FocusRgb.Core.Tests
 
             Assert.Equal("persistence-failed", result.ErrorCode);
             Assert.Equal(1, result.Snapshot.SettingsRevision);
-            Assert.Equal("default", result.Snapshot.SelectionState.ManualProfile);
-            Assert.Equal("default", result.Snapshot.RuntimeStatus!.Desired.ProfileId);
+            Assert.Equal("movie", result.Snapshot.SelectionState.ManualProfile);
+            Assert.Equal("movie", result.Snapshot.RuntimeStatus!.Desired.ProfileId);
             Assert.Contains(result.Snapshot.Settings.Profiles!, profile => profile.Id == "movie");
+            Assert.Equal(2, store.StateSaveCount);
         }
 
         [Fact]
@@ -378,6 +379,7 @@ namespace FocusRgb.Core.Tests
         {
             public int SettingsSaveCount { get; private set; }
             public int GameCatalogSaveCount { get; private set; }
+            public int StateSaveCount { get; private set; }
 
             public Task<SaveResult> SaveSettingsAsync(
                 SettingsDocument settings,
@@ -390,8 +392,11 @@ namespace FocusRgb.Core.Tests
             public Task<SaveResult> SaveStateAsync(
                 SelectionStateDocument state,
                 SettingsDocument settings,
-                CancellationToken cancellationToken = default) =>
-                Task.FromResult(failState ? Failure("state.json") : SaveResult.Ok());
+                CancellationToken cancellationToken = default)
+            {
+                StateSaveCount++;
+                return Task.FromResult(failState ? Failure("state.json") : SaveResult.Ok());
+            }
 
             public Task<SaveResult> SaveGameCatalogAsync(
                 GameCatalogDocument catalog,
