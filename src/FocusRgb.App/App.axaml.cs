@@ -33,6 +33,7 @@ namespace FocusRgb.App
         private OfficialPluginDiscovery? _pluginDiscovery;
         private PluginPackageInstaller? _pluginInstaller;
         private PluginPackageDownloader? _pluginDownloader;
+        private PluginPackageCache? _pluginPackageCache;
         private PluginInventory? _pluginInventory;
         private readonly HttpClient _pluginDiscoveryHttpClient = new();
         private readonly HttpClient _pluginDownloadHttpClient = new() { Timeout = Timeout.InfiniteTimeSpan };
@@ -109,6 +110,7 @@ namespace FocusRgb.App
                 _pluginInstaller = new PluginPackageInstaller(packagesDirectory);
                 _pluginDownloader = new PluginPackageDownloader(
                     _pluginDownloadHttpClient, Path.Combine(directory, "plugin-downloads"));
+                _pluginPackageCache = new PluginPackageCache(Path.Combine(directory, "cache", "plugin-packages"));
                 _pluginInventory = new PluginInventory(packagesDirectory);
                 var enabledPluginIds = startup.Snapshot.Settings.Plugins!.Enabled!.ToArray();
                 var outputCoordinator = new OutputCoordinator(pluginGateway, startup.Snapshot.NativeSetup);
@@ -678,7 +680,7 @@ namespace FocusRgb.App
         {
             if (_pluginDiscovery is null || _viewModel is null) return;
             var catalog = await _pluginDiscovery.DiscoverAsync(refresh, cancellationToken);
-            _viewModel.SetOfficialPlugins(catalog);
+            _viewModel.SetOfficialPlugins(catalog, listing => _pluginPackageCache?.Contains(listing) == true);
             UpdateInstalledPlugins(_viewModel);
         }
 
@@ -699,9 +701,11 @@ namespace FocusRgb.App
             bool enable,
             CancellationToken cancellationToken = default)
         {
-            if (_pluginDownloader is null || _pluginInstaller is null)
+            if (_pluginPackageCache is null || _pluginInstaller is null)
                 return PluginManagementResult.Fail("Plugin management is not ready.");
-            using var download = await _pluginDownloader.DownloadOfficialAsync(listing, cancellationToken);
+            using var download = _pluginPackageCache.Open(listing);
+            if (download is null)
+                return PluginManagementResult.Fail("Download this release before installing it.");
             var staged = await _pluginInstaller.StageOfficialAsync(
                 listing, download.ArchivePath, download.ManifestPath!, download.ChecksumsPath!, cancellationToken);
             if (!staged.IsSuccess)
@@ -715,6 +719,17 @@ namespace FocusRgb.App
             {
                 _pluginInstaller.Discard(staged.StagedPackage!);
             }
+        }
+
+        public async Task<PluginManagementResult> DownloadOfficialPluginAsync(
+            OfficialPluginListing listing,
+            CancellationToken cancellationToken = default)
+        {
+            if (_pluginPackageCache is null || _pluginDownloader is null || _pluginInstaller is null)
+                return PluginManagementResult.Fail("Plugin management is not ready.");
+            await _pluginPackageCache.DownloadAsync(listing, _pluginDownloader, _pluginInstaller, cancellationToken);
+            _viewModel?.RefreshPluginLists();
+            return PluginManagementResult.Ok($"Downloaded and verified {listing.Id} {listing.Version}. Choose Install to continue.");
         }
 
         public async Task<PluginManagementResult> InstallCustomPluginAsync(
