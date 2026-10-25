@@ -5,9 +5,10 @@ namespace FocusRgb.App.ViewModels
     /// <summary>Presents one official catalog entry without losing its verified release metadata.</summary>
     public sealed class OfficialPluginItemViewModel
     {
-        public OfficialPluginItemViewModel(OfficialPluginListing listing)
+        public OfficialPluginItemViewModel(OfficialPluginListing listing, bool isCached = false)
         {
             Listing = listing;
+            IsCached = isCached;
         }
 
         public OfficialPluginListing Listing { get; }
@@ -24,14 +25,20 @@ namespace FocusRgb.App.ViewModels
             ? "Compatible with this system"
             : "Incompatible with this operating system or architecture";
         public bool CanInstall => Listing.IsCompatible;
+        public bool IsCached { get; }
+        public string ActionText => IsCached ? "Install" : "Download";
     }
 
     /// <summary>Presents one local plugin folder and its recorded install origin.</summary>
     public sealed class InstalledPluginItemViewModel
     {
-        public InstalledPluginItemViewModel(InstalledPluginInfo plugin)
+        public InstalledPluginItemViewModel(InstalledPluginInfo plugin, OfficialPluginListing? available = null)
         {
             Plugin = plugin;
+            AvailableRelease = plugin.IsOfficial && available?.IsCompatible == true
+                && System.Version.TryParse(plugin.Version, out var installedVersion)
+                && System.Version.TryParse(available.Version, out var availableVersion)
+                && availableVersion > installedVersion ? available : null;
         }
 
         public InstalledPluginInfo Plugin { get; }
@@ -44,5 +51,9 @@ namespace FocusRgb.App.ViewModels
             : Plugin.IsRunning ? "Running" : Plugin.IsEnabled ? "Enabled, not running" : "Disabled";
         public bool CanEnable => !Plugin.IsEnabled && Plugin.Error is null;
         public bool CanDisable => Plugin.IsEnabled;
+        public OfficialPluginListing? AvailableRelease { get; }
+        public bool HasUpdate => AvailableRelease is not null;
+        public string? AvailableVersion => AvailableRelease?.Version;
+        public string UpdateText => $"Update to v{AvailableVersion}";
     }
 }
