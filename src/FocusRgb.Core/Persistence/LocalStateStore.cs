@@ -400,7 +400,7 @@ namespace FocusRgb.Core.Persistence
             var path = PathFor(GameCatalogFileName);
             if (!File.Exists(path))
             {
-                var recovered = await RecoverGameCatalogAsync(recoveries, cancellationToken).ConfigureAwait(false);
+                var recovered = await RecoverGameCatalogAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
                 if (recovered is not null) return recovered;
                 var initial = GameCatalogJson.CreateDefault();
                 var save = await SaveGameCatalogCoreAsync(initial, cancellationToken).ConfigureAwait(false);
@@ -429,7 +429,7 @@ namespace FocusRgb.Core.Persistence
                 return GameCatalogStartupResult.Fail(InvalidDocument(GameCatalogFileName, loaded.Errors));
 
             recoveries.Add(ArchiveInvalid(GameCatalogFileName, "corrupt", now, loaded.Errors));
-            var recovery = await RecoverGameCatalogAsync(recoveries, cancellationToken).ConfigureAwait(false);
+            var recovery = await RecoverGameCatalogAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
             if (recovery is not null) return recovery;
             var replacement = GameCatalogJson.CreateDefault();
             var result = await SaveGameCatalogCoreAsync(replacement, cancellationToken).ConfigureAwait(false);
@@ -439,6 +439,7 @@ namespace FocusRgb.Core.Persistence
         }
 
         private async Task<GameCatalogStartupResult?> RecoverGameCatalogAsync(
+            DateTimeOffset now,
             List<RecoveryNotice> recoveries,
             CancellationToken cancellationToken)
         {
@@ -447,7 +448,8 @@ namespace FocusRgb.Core.Persistence
             var loaded = GameCatalogJson.Load(json);
             if (!loaded.IsSuccess)
             {
-                return GameCatalogStartupResult.Fail(InvalidDocument(GameCatalogRecoveryFileName, loaded.Errors));
+                recoveries.Add(ArchiveInvalid(GameCatalogRecoveryFileName, "corrupt", now, loaded.Errors));
+                return null;
             }
             var restored = await SerializeAndWriteAsync(GameCatalogFileName,
                 () => GameCatalogJson.Serialize(loaded.Catalog!), cancellationToken).ConfigureAwait(false);
