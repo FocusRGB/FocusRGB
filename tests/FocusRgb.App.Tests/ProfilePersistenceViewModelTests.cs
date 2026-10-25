@@ -316,7 +316,7 @@ namespace FocusRgb.App.Tests
             var restarted = await store.InitializeAsync(Start.AddMinutes(3), TestContext.Current.CancellationToken);
             Assert.True(restarted.IsSuccess, restarted.Error?.Message);
             Assert.Contains(restarted.Snapshot!.Settings.Profiles!, profile => profile.Id == temporaryId);
-            Assert.Equal("default", restarted.Snapshot.State.ManualProfile);
+            Assert.Equal(temporaryId, restarted.Snapshot.State.ManualProfile);
             Assert.Contains(LocalStateStore.SettingsFileName, viewModel.ProfileEditorStatus, StringComparison.Ordinal);
         }
 
