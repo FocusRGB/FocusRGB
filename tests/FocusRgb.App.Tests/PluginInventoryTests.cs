@@ -38,6 +38,21 @@ namespace FocusRgb.App.Tests
             Assert.False(Assert.Single(inventory.List([], [])).IsOfficial);
         }
 
+        [Fact]
+        public async Task List_ReportsConfigurationOnlyForValidDeclaredSchema()
+        {
+            await FakePluginPackage.CreateAsync(
+                _temporaryDirectory.Path, TestContext.Current.CancellationToken);
+            var package = Path.Combine(_temporaryDirectory.Path, "fake-output");
+            var inventory = new PluginInventory(_temporaryDirectory.Path);
+            Assert.False(Assert.Single(inventory.List([], [])).HasConfiguration);
+
+            File.WriteAllText(Path.Combine(package, PluginConfigurationStore.SchemaFileName),
+                PluginConfigurationStoreTests.SchemaJson());
+
+            Assert.True(Assert.Single(inventory.List([], [])).HasConfiguration);
+        }
+
         public void Dispose() => _temporaryDirectory.Dispose();
     }
 }

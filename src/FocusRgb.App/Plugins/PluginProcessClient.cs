@@ -89,7 +89,14 @@ namespace FocusRgb.App.Plugins
         public static async Task<PluginStartResult> StartAsync(
             PluginLaunchSpec launch,
             PluginManifest manifest,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default) =>
+            await StartAsync(launch, manifest, null, cancellationToken).ConfigureAwait(false);
+
+        internal static async Task<PluginStartResult> StartAsync(
+            PluginLaunchSpec launch,
+            PluginManifest manifest,
+            string? pluginDataDirectory,
+            CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(launch);
             ArgumentNullException.ThrowIfNull(manifest);
@@ -107,6 +114,8 @@ namespace FocusRgb.App.Plugins
                 CreateNoWindow = true
             };
             foreach (var argument in launch.Arguments) startInfo.ArgumentList.Add(argument);
+            if (pluginDataDirectory is not null)
+                startInfo.Environment["FOCUSRGB_PLUGIN_DATA_DIRECTORY"] = Path.GetFullPath(pluginDataDirectory);
 
             Process process;
             try

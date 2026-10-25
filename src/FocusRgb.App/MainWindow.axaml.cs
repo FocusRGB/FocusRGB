@@ -285,6 +285,36 @@ namespace FocusRgb.App
         private async void DisablePlugin_OnClick(object? sender, RoutedEventArgs e) =>
             await SetPluginEnabledAsync(sender, enabled: false);
 
+        private async void ConfigurePlugin_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { CommandParameter: InstalledPluginItemViewModel item }
+                || !item.CanConfigure || Application.Current is not App app
+                || !ViewModel.BeginPluginAction()) return;
+            try
+            {
+                var loaded = app.LoadPluginConfiguration(item.Id);
+                if (!loaded.IsSuccess)
+                {
+                    ViewModel.ReportPluginAction(loaded.Error ?? "The plugin settings could not be loaded.");
+                    return;
+                }
+                var window = new PluginSettingsWindow(
+                    item.Plugin, loaded.Schema!, loaded.Values!, loaded.Notices);
+                var values = await window.ShowDialog<IReadOnlyDictionary<string, System.Text.Json.JsonElement>?>(this);
+                if (values is null) return;
+                var result = await app.SavePluginConfigurationAsync(item.Id, loaded.Schema!, values);
+                ViewModel.ReportPluginAction(result.Message);
+            }
+            catch (Exception exception)
+            {
+                ViewModel.ReportPluginAction($"Could not configure the plugin: {exception.Message}");
+            }
+            finally
+            {
+                ViewModel.EndPluginAction();
+            }
+        }
+
         private async Task SetPluginEnabledAsync(object? sender, bool enabled)
         {
             if (sender is not Button { CommandParameter: InstalledPluginItemViewModel item }

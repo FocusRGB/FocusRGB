@@ -44,5 +44,6 @@ namespace FocusRgb.App.ViewModels
             : Plugin.IsRunning ? "Running" : Plugin.IsEnabled ? "Enabled, not running" : "Disabled";
         public bool CanEnable => !Plugin.IsEnabled && Plugin.Error is null;
         public bool CanDisable => Plugin.IsEnabled;
+        public bool CanConfigure => Plugin.HasConfiguration && Plugin.Error is null;
     }
 }

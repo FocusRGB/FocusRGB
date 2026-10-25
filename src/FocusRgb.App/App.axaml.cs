@@ -34,6 +34,7 @@ namespace FocusRgb.App
         private PluginPackageInstaller? _pluginInstaller;
         private PluginPackageDownloader? _pluginDownloader;
         private PluginInventory? _pluginInventory;
+        private PluginConfigurationStore? _pluginConfigurationStore;
         private readonly HttpClient _pluginDiscoveryHttpClient = new();
         private readonly HttpClient _pluginDownloadHttpClient = new() { Timeout = Timeout.InfiniteTimeSpan };
         private OutputCoordinator? _outputCoordinator;
@@ -110,6 +111,8 @@ namespace FocusRgb.App
                 _pluginDownloader = new PluginPackageDownloader(
                     _pluginDownloadHttpClient, Path.Combine(directory, "plugin-downloads"));
                 _pluginInventory = new PluginInventory(packagesDirectory);
+                _pluginConfigurationStore = new PluginConfigurationStore(
+                    packagesDirectory, Path.Combine(directory, "plugin-data"));
                 var enabledPluginIds = startup.Snapshot.Settings.Plugins!.Enabled!.ToArray();
                 var outputCoordinator = new OutputCoordinator(pluginGateway, startup.Snapshot.NativeSetup);
                 _outputCoordinator = outputCoordinator;
@@ -269,6 +272,7 @@ namespace FocusRgb.App
         {
             _pluginDiscovery?.Dispose();
             _pluginInventory?.Dispose();
+            _pluginConfigurationStore?.Dispose();
             _pluginDiscoveryHttpClient.Dispose();
             _pluginDownloadHttpClient.Dispose();
         }
@@ -766,6 +770,55 @@ namespace FocusRgb.App
                 if (saveError is null) return PluginManagementResult.Ok($"Disabled {pluginId}.");
                 if (hadEntry) await StartManagedPluginAsync(runtime, pluginId, cancellationToken);
                 return PluginManagementResult.Fail(saveError);
+            }
+            finally
+            {
+                _pluginPackageChanges.TryRemove(pluginId, out _);
+                UpdatePluginViews();
+            }
+        }
+
+        public PluginConfigurationLoadResult LoadPluginConfiguration(string pluginId) =>
+            _pluginConfigurationStore?.Load(pluginId)
+            ?? PluginConfigurationLoadResult.Fail("Plugin configuration is not ready.");
+
+        public async Task<PluginManagementResult> SavePluginConfigurationAsync(
+            string pluginId,
+            PluginConfigurationSchema schema,
+            IReadOnlyDictionary<string, System.Text.Json.JsonElement> values,
+            CancellationToken cancellationToken = default)
+        {
+            if (_pluginConfigurationStore is null || await GetPluginRuntimeAsync() is not { } runtime)
+                return PluginManagementResult.Fail("Plugin configuration is not ready.");
+            if (!_pluginPackageChanges.TryAdd(pluginId, 0))
+                return PluginManagementResult.Fail($"Plugin '{pluginId}' already has an action in progress.");
+            var wasRunning = runtime.Entries.Any(entry => entry.PluginId == pluginId && entry.IsRunning);
+            var stopped = false;
+            try
+            {
+                if (wasRunning)
+                {
+                    await StopManagedPluginAsync(runtime, pluginId, cancellationToken);
+                    stopped = true;
+                }
+                var error = await _pluginConfigurationStore.SaveAsync(
+                    pluginId, schema, values, cancellationToken);
+                if (error is not null)
+                {
+                    if (wasRunning) await StartManagedPluginAsync(runtime, pluginId, cancellationToken);
+                    return PluginManagementResult.Fail(error);
+                }
+                if (!wasRunning) return PluginManagementResult.Ok($"Saved settings for {pluginId}.");
+                var restarted = await StartManagedPluginAsync(runtime, pluginId, cancellationToken);
+                return restarted.IsRunning
+                    ? PluginManagementResult.Ok($"Saved settings and restarted {pluginId}.")
+                    : PluginManagementResult.Fail(
+                        $"Saved settings, but {pluginId} did not restart: {restarted.ErrorMessage}");
+            }
+            catch (OperationCanceledException) when (stopped)
+            {
+                await StartManagedPluginAsync(runtime, pluginId, CancellationToken.None);
+                throw;
             }
             finally
             {

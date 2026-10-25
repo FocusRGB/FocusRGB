@@ -220,6 +220,42 @@ The 1.3 schema `$id`s resolve to the immutable `spec-v1.3.0` tag. Every future r
 must likewise resolve to its protocol release tag, using
 `https://raw.githubusercontent.com/FocusRGB/FocusRGB/spec-vX.Y.Z/sdk/spec/<schema-name>`.
 
+## Optional package settings host extension
+
+This extension is introduced by FocusRGB#127. It describes the current desktop host's package
+configuration behavior; it is not retroactively part of previously released immutable spec tags.
+It adds no JSON-RPC method or manifest property. Older hosts ignore the additional package file.
+
+A package opts in by including `focusrgb-settings.schema.json` beside `focusrgb-plugin.json`.
+The JSON object has `schemaVersion: 1`, optional `description` (up to 512 characters), and
+`fields` (1–64 objects). Unknown schema properties and duplicate field IDs are rejected. A field
+declares:
+
+- `id`: a unique lowercase alphanumeric/hyphen identifier of 1–64 characters;
+- `displayName`: a nonempty string of at most 128 characters;
+- optional `description`: at most 512 characters;
+- `type`: `string`, `integer` (signed 64-bit), `number` (finite double), `boolean`, or `json`
+  (an object or array);
+- `default`: a value valid for that type;
+- optional `minimum` and `maximum`: inclusive numeric bounds, with minimum no greater than maximum.
+
+Schemas are limited to 256 KiB. String values are limited to 4096 characters and each serialized
+value to 8192 characters. The host removes control and Unicode format characters from rendered
+schema display text. It treats all field values as opaque plugin-owned configuration.
+
+The host sets `FOCUSRGB_PLUGIN_DATA_DIRECTORY` to the plugin's absolute data directory, outside
+the replaceable package folder (`%LOCALAPPDATA%/FocusRGB/plugin-data/<plugin-id>` on Windows).
+The directory may not exist until the first save. `settings.json` in that directory contains a
+JSON object keyed by field ID, limited to 1 MiB when loaded. These values do not belong in the
+host application's settings document. Plugins read their configuration from this directory;
+the environment variable is a location hint, not an access-control or trust boundary.
+
+The host supplies defaults for missing fields, drops obsolete saved fields, and replaces invalid
+saved values with defaults while displaying a notice. Loading repairs only the editor; Save
+validates and atomically replaces the settings file. Cancel preserves the existing file and
+Reset changes only the editor until Save. A running plugin is stopped and restarted around a
+configuration save; restart failure is reported separately from successful persistence.
+
 ## Conformance
 
 Conformance does not require .NET. A conforming executable communicates only through the
