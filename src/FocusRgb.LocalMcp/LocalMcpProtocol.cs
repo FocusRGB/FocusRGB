@@ -15,6 +15,7 @@ namespace FocusRgb.LocalMcp
         public const int Version = 1;
         public const int MaximumMessageBytes = 64 * 1024;
         internal static readonly TimeSpan ReadTimeout = TimeSpan.FromSeconds(1);
+        internal static readonly TimeSpan WriteTimeout = TimeSpan.FromSeconds(2);
 
         public static string PipeName
         {
@@ -49,6 +50,8 @@ namespace FocusRgb.LocalMcp
         public required string Code { get; init; }
         public required string Message { get; init; }
     }
+
+    public sealed class LocalMcpMethodNotFoundException(string message) : ArgumentException(message);
 
     /// <summary>Hosts one authenticated, current-user-only named-pipe listener owned by the app.</summary>
     public sealed class LocalMcpPipeServer : IAsyncDisposable
@@ -217,7 +220,10 @@ namespace FocusRgb.LocalMcp
             var response = await HandleRequestAsync(line, dispatchCancellation.Token).ConfigureAwait(false);
             await dispatchCancellation.CancelAsync().ConfigureAwait(false);
             await disconnect.ConfigureAwait(false);
-            await writer.WriteLineAsync(JsonSerializer.Serialize(response)).ConfigureAwait(false);
+            using var writeTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            writeTimeout.CancelAfter(LocalMcpProtocol.WriteTimeout);
+            await writer.WriteLineAsync(JsonSerializer.Serialize(response))
+                .WaitAsync(writeTimeout.Token).ConfigureAwait(false);
         }
 
         private static async Task CancelOnDisconnectAsync(
@@ -227,8 +233,10 @@ namespace FocusRgb.LocalMcp
             try
             {
                 var buffer = new char[1];
-                if (await reader.ReadAsync(buffer, dispatchCancellation.Token).ConfigureAwait(false) == 0)
-                    await dispatchCancellation.CancelAsync().ConfigureAwait(false);
+                while (await reader.ReadAsync(buffer, dispatchCancellation.Token).ConfigureAwait(false) != 0)
+                {
+                }
+                await dispatchCancellation.CancelAsync().ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -276,9 +284,13 @@ namespace FocusRgb.LocalMcp
                     Result = await _dispatch(request, cancellationToken).ConfigureAwait(false)
                 };
             }
-            catch (ArgumentException exception)
+            catch (LocalMcpMethodNotFoundException exception)
             {
                 return Error(request.Id, "method-not-found", exception.Message);
+            }
+            catch (ArgumentException exception)
+            {
+                return Error(request.Id, "invalid-request", exception.Message);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

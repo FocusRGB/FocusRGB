@@ -90,7 +90,6 @@ tests/
   FocusRgb.Core.Tests/         xUnit; dependency-boundary and core tests
   FocusRgb.FakePlugin/         executable plugin protocol fixture
 tools/                         screen colour test
-.ai/                           compressed repository agent instructions
 build/                         generated output (git-ignored)
 ```
 

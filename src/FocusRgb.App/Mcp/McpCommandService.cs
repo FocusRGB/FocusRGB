@@ -75,8 +75,9 @@ namespace FocusRgb.App.Mcp
             }
             catch (TimeoutException)
             {
-                Resolve(pending.Request.Id, approved: false, startCooldown: true);
-                return Error("approval-expired", "The MCP approval expired without a decision.", _state.Current);
+                if (Resolve(pending.Request.Id, approved: false, startCooldown: true))
+                    return Error("approval-expired", "The MCP approval expired without a decision.", _state.Current);
+                approved = await pending.Decision.Task.ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (pending.Decision.Task.IsCompletedSuccessfully)
             {
@@ -116,7 +117,9 @@ namespace FocusRgb.App.Mcp
                 var approval = new McpApprovalRequest
                 {
                     Id = Guid.NewGuid().ToString("N"),
-                    ClientName = string.IsNullOrWhiteSpace(request.ClientName) ? "Local MCP client" : request.ClientName,
+                    ClientName = SafeText(string.IsNullOrWhiteSpace(request.ClientName)
+                        ? "Local MCP client"
+                        : request.ClientName),
                     Method = request.Method!,
                     Summary = prepared.Summary,
                     PayloadHash = PayloadHash(request),
@@ -250,6 +253,8 @@ namespace FocusRgb.App.Mcp
             if (!parameters.TryGetProperty("mappingIds", out var idsElement)
                 || idsElement.ValueKind != JsonValueKind.Array)
                 throw new McpCommandException("invalid-parameters", "mappingIds must be an array.");
+            if (idsElement.EnumerateArray().Any(item => item.ValueKind != JsonValueKind.String))
+                throw new McpCommandException("invalid-parameters", "mappingIds must contain only strings.");
             var ids = idsElement.EnumerateArray().Select(item => item.GetString()).ToList();
             if (ids.Any(string.IsNullOrWhiteSpace)
                 || ids.Count != snapshot.Settings.Rules!.Count
@@ -328,12 +333,25 @@ namespace FocusRgb.App.Mcp
                 var oldResources = Resources(previous);
                 var newResources = Resources(profile);
                 if (oldResources != newResources)
-                    changes.Add($"{profile.DisplayName} effect/layout: {oldResources} -> {newResources}");
+                    changes.Add($"{Quote(profile.DisplayName!)} effect/layout: {oldResources} -> {newResources}");
+                if (previous is not null && Json(previous.Bindings) != Json(profile.Bindings))
+                    changes.Add($"{Quote(profile.DisplayName!)} bindings changed");
+                if (previous is not null && Json(previous.Fallback) != Json(profile.Fallback))
+                    changes.Add($"{Quote(profile.DisplayName!)} fallback changed");
+            }
+            foreach (var group in candidate.ApplicationGroups!)
+            {
+                var previous = current.ApplicationGroups!.SingleOrDefault(item => item.Id == group.Id);
+                if (previous is not null && Json(previous.Executables) != Json(group.Executables))
+                    changes.Add($"{Quote(group.DisplayName!)} executables: {Names(group.Executables!)}");
             }
             if (Json(current.Application) != Json(candidate.Application))
                 changes.Add("application preferences changed");
             if (Json(current.Selection) != Json(candidate.Selection))
                 changes.Add("selection preferences changed");
+            if (current.SchemaVersion != candidate.SchemaVersion
+                || Json(current.AdditionalProperties) != Json(candidate.AdditionalProperties))
+                changes.Add("settings schema or extension fields changed");
             return changes.Count == 0 ? "Apply a settings document with no detected changes." : string.Join(Environment.NewLine, changes);
         }
 
@@ -347,10 +365,10 @@ namespace FocusRgb.App.Mcp
         {
             var oldItems = current.ToDictionary(id, StringComparer.Ordinal);
             var newItems = candidate.ToDictionary(id, StringComparer.Ordinal);
-            var added = newItems.Keys.Except(oldItems.Keys, StringComparer.Ordinal).Select(key => name(newItems[key]));
-            var removed = oldItems.Keys.Except(newItems.Keys, StringComparer.Ordinal).Select(key => name(oldItems[key]));
+            var added = newItems.Keys.Except(oldItems.Keys, StringComparer.Ordinal).Select(key => Quote(name(newItems[key])));
+            var removed = oldItems.Keys.Except(newItems.Keys, StringComparer.Ordinal).Select(key => Quote(name(oldItems[key])));
             var changed = newItems.Keys.Intersect(oldItems.Keys, StringComparer.Ordinal)
-                .Where(key => Json(oldItems[key]) != Json(newItems[key])).Select(key => name(newItems[key]));
+                .Where(key => Json(oldItems[key]) != Json(newItems[key])).Select(key => Quote(name(newItems[key])));
             AddList(changes, $"added {label}", added);
             AddList(changes, $"removed {label}", removed);
             AddList(changes, $"changed {label}", changed);
@@ -363,13 +381,19 @@ namespace FocusRgb.App.Mcp
         }
 
         private static string Resources(ProfileSettings profile) => string.Join(", ", profile.Bindings!.Select(binding =>
-            $"{binding.Id} effect={binding.Effect?.ResourceId ?? binding.Effect?.DisplayName ?? "none"}, "
-            + $"layout={binding.Layout?.ResourceId ?? binding.Layout?.DisplayName ?? "current provider layout"}"));
+            $"{Quote(binding.Id!)} effect={Quote(binding.Effect?.ResourceId ?? binding.Effect?.DisplayName ?? "none")}, "
+            + $"layout={Quote(binding.Layout?.ResourceId ?? binding.Layout?.DisplayName ?? "current provider layout")}"));
 
         private static string ProfileName(SettingsDocument settings, string profileId) =>
             settings.Profiles!.SingleOrDefault(profile => profile.Id == profileId)?.DisplayName ?? profileId;
 
-        private static string Names(IEnumerable<string?> values) => string.Join(", ", values);
+        private static string Names(IEnumerable<string?> values) =>
+            string.Join(", ", values.Select(value => Quote(value ?? string.Empty)));
+
+        private static string Quote(string value) => JsonSerializer.Serialize(SafeText(value));
+
+        private static string SafeText(string value) => new(
+            value.Take(128).Select(character => char.IsControl(character) ? ' ' : character).ToArray());
 
         private static string Json<T>(T value) => JsonSerializer.Serialize(value, JsonOptions);
 

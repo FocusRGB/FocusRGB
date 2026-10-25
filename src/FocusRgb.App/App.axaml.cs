@@ -303,7 +303,6 @@ namespace FocusRgb.App
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
-                await _mcpConfigurationStore.SetEnabledAsync(false, cancellationToken: cancellationToken);
                 return _mcpState = new McpUiState(true, false, $"Could not start local MCP: {exception.Message}");
             }
         }
@@ -452,7 +451,6 @@ namespace FocusRgb.App
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
-                await _mcpConfigurationStore.SetEnabledAsync(false);
                 _mcpState = new McpUiState(
                     true, false, $"Local MCP is off because its pipe could not start: {exception.Message}");
                 AppLog.Write(_mcpState.Message);
