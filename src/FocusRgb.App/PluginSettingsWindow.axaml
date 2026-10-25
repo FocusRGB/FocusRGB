@@ -1,0 +1,24 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="FocusRgb.App.PluginSettingsWindow"
+        Width="560" Height="620" MinWidth="440" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Title="Plugin settings">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="24" RowSpacing="16">
+    <StackPanel Spacing="4">
+      <TextBlock Name="PluginNameText" FontSize="24" FontWeight="SemiBold" />
+      <TextBlock Name="PluginDetailsText" Opacity="0.7" TextWrapping="Wrap" />
+    </StackPanel>
+    <ScrollViewer Grid.Row="1">
+      <StackPanel Name="FieldsPanel" Spacing="14" />
+    </ScrollViewer>
+    <Grid Grid.Row="2" RowDefinitions="Auto,Auto" RowSpacing="10">
+      <TextBlock Name="StatusText" TextWrapping="Wrap" />
+      <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Name="ResetButton" Content="Reset to defaults" Click="Reset_OnClick" />
+        <Button Content="Cancel" Click="Cancel_OnClick" />
+        <Button Name="SaveButton" Content="Save" Click="Save_OnClick" />
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>

@@ -388,6 +388,8 @@
                                     CommandParameter="{Binding}" Click="EnablePlugin_OnClick" />
                             <Button Content="Disable" IsEnabled="{Binding CanDisable}"
                                     CommandParameter="{Binding}" Click="DisablePlugin_OnClick" />
+                            <Button Content="Configure" IsEnabled="{Binding CanConfigure}"
+                                    CommandParameter="{Binding}" Click="ConfigurePlugin_OnClick" />
                             <Button Content="Uninstall" CommandParameter="{Binding}" Click="UninstallPlugin_OnClick" />
                           </StackPanel>
                         </Grid>

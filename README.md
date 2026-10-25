@@ -111,6 +111,15 @@ Generated builds, packages, reports, caches, and tool artifacts belong under the
 `build/` directory. Maintained source stays outside it. Generated Graphify data lives at
 `build/graphify-out/` and is optional for development.
 
+## Plugin configuration
+
+An installed plugin opts into the generic settings window by placing
+`focusrgb-settings.schema.json` beside its manifest. Schema version 1 declares 1–64 flat fields
+with an `id`, `displayName`, `type` (`string`, `integer`, `number`, `boolean`, or `json`) and
+`default`; schema/field `description`, `minimum`, and `maximum` are optional. FocusRGB validates and stores the
+opaque values in `%LOCALAPPDATA%\FocusRGB\plugin-data\<plugin-id>\settings.json`, then restarts a
+running plugin. The plugin receives that directory through `FOCUSRGB_PLUGIN_DATA_DIRECTORY`.
+
 ## License
 
 [MIT](LICENSE).

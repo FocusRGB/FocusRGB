@@ -80,6 +80,9 @@ namespace FocusRgb.App.Plugins
                 DisplayName = package.Manifest?.Id ?? pluginId,
                 Version = package.Manifest?.Version,
                 Manifest = package.Manifest,
+                HasConfiguration = PluginConfigurationStore.TryReadSchema(
+                    Path.Combine(_packagesDirectory, pluginId, PluginConfigurationStore.SchemaFileName),
+                    out _, out _),
                 IsOfficial = official.Contains(pluginId),
                 IsEnabled = enabled.Contains(pluginId),
                 IsRunning = running.Contains(pluginId),
@@ -109,6 +112,7 @@ namespace FocusRgb.App.Plugins
         public required string DisplayName { get; init; }
         public string? Version { get; init; }
         public PluginManifest? Manifest { get; init; }
+        public bool HasConfiguration { get; init; }
         public bool IsOfficial { get; init; }
         public bool IsEnabled { get; init; }
         public bool IsRunning { get; init; }
