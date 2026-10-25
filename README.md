@@ -95,6 +95,12 @@ build/                         generated output (git-ignored)
 
 ## Build and test
 
+Game rules use cached executable names, including while discovery is offline. Common crash
+handlers and installers never trigger game rules. A name shared by several catalog games cannot
+identify a specific game and is ignored for exact-game rules. Refresh games on the Games tab to
+request updated catalogs from running discovery plugins; malformed entries are skipped individually.
+`games.last-known-good.json` protects cached and manual game entries during recovery.
+
 Requires the .NET SDK pinned in `global.json` (10.0.401 or a later 10.0 feature band).
 
 ```powershell

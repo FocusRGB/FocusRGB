@@ -972,8 +972,16 @@ namespace FocusRgb.App.ViewModels
                 if (result.IsSuccess && result.Value!.Support is "supported" or "unverified")
                 {
                     var refreshedAt = result.Value.RefreshedAt ?? DateTimeOffset.UtcNow;
-                    retained.AddRange(result.Value.Items.Where(item => item.Game is not null).Select(item =>
-                        new GameCatalogEntry
+                    var seen = new HashSet<GameIdentity>();
+                    var rejected = 0;
+                    foreach (var item in result.Value.Items)
+                    {
+                        if (item?.Game?.Executables is null)
+                        {
+                            rejected++;
+                            continue;
+                        }
+                        var game = new GameCatalogEntry
                         {
                             Launcher = launcher,
                             Id = item.ResourceId,
@@ -982,7 +990,22 @@ namespace FocusRgb.App.ViewModels
                             Available = item.Available,
                             UnavailableReason = item.Reason?.Message,
                             LastRefreshedAt = refreshedAt
-                        }));
+                        };
+                        if (GameCatalogJson.Validate(new GameCatalogDocument
+                            {
+                                SchemaVersion = GameCatalogJson.CurrentSchemaVersion,
+                                Games = [game]
+                            }).Count > 0 || !seen.Add(new GameIdentity(launcher, item.ResourceId)))
+                        {
+                            rejected++;
+                            continue;
+                        }
+                        retained.Add(game);
+                    }
+                    if (rejected > 0)
+                    {
+                        GameEditorStatus = $"Skipped {rejected} invalid or duplicate game catalog entries from {launcher}.";
+                    }
                 }
                 else
                 {
@@ -1008,7 +1031,7 @@ namespace FocusRgb.App.ViewModels
                     Games = retained,
                     AdditionalProperties = current.GameCatalog.AdditionalProperties
                 };
-                if (GameCatalogJson.Serialize(candidate) == GameCatalogJson.Serialize(current.GameCatalog)) return;
+                if (GameCatalogJson.HasSameContent(candidate, current.GameCatalog)) return;
                 var saved = await _applicationState.ApplyGameCatalogAsync(
                     candidate, current.SettingsRevision, "catalog", cancellationToken);
                 if (saved.IsSuccess) return;
@@ -1429,12 +1452,16 @@ namespace FocusRgb.App.ViewModels
             GameIdentity? selected = EditingGame is null
                 ? null
                 : new GameIdentity(EditingGame.Launcher, EditingGame.Id);
+            var ambiguous = _gameCatalog.Games!.SelectMany(game => game.Executables!)
+                .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)
+                .Where(group => group.Count() > 1).Select(group => group.Key)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
             Games.Clear();
             foreach (var game in _gameCatalog.Games!
                 .OrderBy(game => game.DisplayName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(game => game.Launcher, StringComparer.Ordinal)
                 .ThenBy(game => game.Id, StringComparer.Ordinal))
-                Games.Add(new GameCatalogItemViewModel(game));
+                Games.Add(new GameCatalogItemViewModel(game, ambiguous));
             if (selected is not null)
                 EditingGame = Games.FirstOrDefault(game =>
                     game.Launcher == selected.Value.Launcher && game.Id == selected.Value.Id);

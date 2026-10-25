@@ -684,6 +684,17 @@ namespace FocusRgb.App
             UpdateInstalledPlugins(_viewModel);
         }
 
+        public async Task RefreshGameCatalogsAsync(CancellationToken cancellationToken = default)
+        {
+            if (_viewModel is null || _pluginGateway is null
+                || await GetPluginRuntimeAsync() is not { } runtime) return;
+            foreach (var entry in runtime.Entries.Where(entry => entry.IsRunning))
+            {
+                var catalog = await _pluginGateway.ListGameCatalogAsync(entry.PluginId, cancellationToken);
+                await _viewModel.RefreshGameCatalogAsync(entry.PluginId, catalog, cancellationToken);
+            }
+        }
+
         public Task<PluginArchiveResult> InspectCustomPluginAsync(
             string archivePath,
             CancellationToken cancellationToken = default) =>

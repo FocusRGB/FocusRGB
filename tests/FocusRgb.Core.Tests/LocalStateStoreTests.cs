@@ -547,6 +547,73 @@ namespace FocusRgb.Core.Tests
             Assert.Single(Directory.GetFiles(_directory, "games.json.corrupt-*"));
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GameCatalog_RestoresManualGamesWhenCurrentFileIsMissingOrCorrupt(bool missing)
+        {
+            var store = new LocalStateStore(_directory);
+            await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            var catalog = new GameCatalogDocument
+            {
+                SchemaVersion = 1,
+                Games = [new GameCatalogEntry
+                {
+                    Launcher = "manual", Id = "local-game", DisplayName = "Local", Available = true,
+                    Executables = ["Local.exe"]
+                }]
+            };
+            Assert.True((await store.SaveGameCatalogAsync(catalog, TestContext.Current.CancellationToken)).IsSuccess);
+            if (missing)
+            {
+                File.Delete(PathFor(LocalStateStore.GameCatalogFileName));
+            }
+            else
+            {
+                await File.WriteAllTextAsync(PathFor(LocalStateStore.GameCatalogFileName), "{",
+                    TestContext.Current.CancellationToken);
+            }
+
+            var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess, restarted.Error?.Message);
+            Assert.Equal("local-game", Assert.Single(restarted.Snapshot!.GameCatalog.Games!).Id);
+        }
+
+        [Theory]
+        [InlineData(true, "{")]
+        [InlineData(false, "{")]
+        [InlineData(true, "{\"schemaVersion\":1,\"games\":null}")]
+        [InlineData(false, "{\"schemaVersion\":1,\"games\":null}")]
+        public async Task GameCatalog_ArchivesInvalidRecoveryAndStartsWithDefaults(bool currentMissing, string recoveryJson)
+        {
+            var store = new LocalStateStore(_directory);
+            await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            if (currentMissing)
+            {
+                File.Delete(PathFor(LocalStateStore.GameCatalogFileName));
+            }
+            else
+            {
+                await File.WriteAllTextAsync(PathFor(LocalStateStore.GameCatalogFileName), "{",
+                    TestContext.Current.CancellationToken);
+            }
+            await File.WriteAllTextAsync(PathFor(LocalStateStore.GameCatalogRecoveryFileName), recoveryJson,
+                TestContext.Current.CancellationToken);
+
+            var startup = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(startup.IsSuccess, startup.Error?.Message);
+            Assert.Empty(startup.Snapshot!.GameCatalog.Games!);
+            var notice = Assert.Single(startup.Snapshot.Recoveries, notice =>
+                notice.FileName == LocalStateStore.GameCatalogRecoveryFileName);
+            Assert.NotNull(notice.ArchivedPath);
+            Assert.Equal(recoveryJson, await File.ReadAllTextAsync(notice.ArchivedPath,
+                TestContext.Current.CancellationToken));
+            Assert.True(GameCatalogJson.Load(await File.ReadAllTextAsync(
+                PathFor(LocalStateStore.GameCatalogFileName), TestContext.Current.CancellationToken)).IsSuccess);
+        }
+
         public void Dispose()
         {
             _tempDirectory.Dispose();
