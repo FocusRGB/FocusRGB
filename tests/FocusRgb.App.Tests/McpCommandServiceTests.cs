@@ -406,6 +406,24 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task Approval_AppliesAcceptedDecisionWhenTimeoutWinsTheAwaitRace()
+        {
+            var (state, _) = await CreateAsync();
+            var clock = new RacingTimeoutProvider();
+            var commands = new McpCommandService(state, new McpReadQueryService(state, () => []), clock);
+            McpApprovalRequest? approval = null;
+            commands.ApprovalRequested += (_, request) => approval = request;
+            clock.AfterTimeout = () => Assert.True(commands.Approve(approval!.Id));
+
+            var result = await commands.DispatchAsync(Request("selectProfile", new { profile = "movie" }),
+                TestContext.Current.CancellationToken);
+
+            Assert.True(result.GetProperty("ok").GetBoolean());
+            Assert.Equal("movie", state.Current.SelectionState.ManualProfile);
+            Assert.False(commands.Approve(approval!.Id));
+        }
+
+        [Fact]
         public async Task PipeDisconnect_DeclinesPendingApprovalWithoutSideEffects()
         {
             var (state, commands) = await CreateAsync();
@@ -527,6 +545,25 @@ namespace FocusRgb.App.Tests
         public void Dispose()
         {
             if (Directory.Exists(_directory)) Directory.Delete(_directory, true);
+        }
+
+        private sealed class RacingTimeoutProvider : TimeProvider
+        {
+            public Action? AfterTimeout { get; set; }
+
+            public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+            {
+                callback(state);
+                AfterTimeout!();
+                return new CompletedTimer();
+            }
+
+            private sealed class CompletedTimer : ITimer
+            {
+                public bool Change(TimeSpan dueTime, TimeSpan period) => false;
+                public void Dispose() { }
+                public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+            }
         }
 
         private sealed class RecoveryGateway : IPluginOutputGateway

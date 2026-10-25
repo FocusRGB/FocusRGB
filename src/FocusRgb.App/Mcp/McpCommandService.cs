@@ -140,10 +140,10 @@ namespace FocusRgb.App.Mcp
             {
                 if (_pending?.Request.Id != approvalId) return false;
                 pending = _pending;
+                pending.Decision.TrySetResult(approved);
                 _pending = null;
                 if (startCooldown) _cooldownUntil = _timeProvider.GetUtcNow() + _declineCooldown;
             }
-            pending.Decision.TrySetResult(approved);
             ApprovalCleared?.Invoke(this, EventArgs.Empty);
             return true;
         }

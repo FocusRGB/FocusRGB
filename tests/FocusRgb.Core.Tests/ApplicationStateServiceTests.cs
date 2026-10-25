@@ -214,6 +214,24 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public async Task ApplySettingsAsync_CancellationRollsBackPersistedProfileRepair()
+        {
+            var store = new CancelingSettingsStore();
+            var service = CreateService(store, state: State("manual", "movie", "movie"));
+            using var cancellation = new CancellationTokenSource();
+            var apply = service.ApplySettingsAsync(WithoutProfile(service.Current.Settings, "movie"),
+                service.Current.SettingsRevision, "mcp", cancellation.Token);
+            await store.SaveStarted.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+            await cancellation.CancelAsync();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => apply);
+
+            Assert.Equal(["default", "movie"], store.SavedStates.Select(state => state.ManualProfile));
+            Assert.Equal("movie", service.Current.SelectionState.ManualProfile);
+            Assert.Equal(1, service.Current.SettingsRevision);
+        }
+
+        [Fact]
         public async Task ApplySettingsAsync_UsesOutputSourceWhenOnlyCoordinatorChanged()
         {
             var store = new BlockingFailSettingsStore();
@@ -460,6 +478,7 @@ namespace FocusRgb.Core.Tests
         private sealed class CancelingSettingsStore : IApplicationStateStore
         {
             public TaskCompletionSource SaveStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            public List<SelectionStateDocument> SavedStates { get; } = [];
 
             public async Task<SaveResult> SaveSettingsAsync(
                 SettingsDocument settings,
@@ -473,7 +492,11 @@ namespace FocusRgb.Core.Tests
             public Task<SaveResult> SaveStateAsync(
                 SelectionStateDocument state,
                 SettingsDocument settings,
-                CancellationToken cancellationToken = default) => Task.FromResult(SaveResult.Ok());
+                CancellationToken cancellationToken = default)
+            {
+                SavedStates.Add(state);
+                return Task.FromResult(SaveResult.Ok());
+            }
 
             public Task<SaveResult> SaveGameCatalogAsync(
                 GameCatalogDocument catalog,
