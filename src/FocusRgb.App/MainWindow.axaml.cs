@@ -205,6 +205,13 @@ namespace FocusRgb.App
                 || Application.Current is not App app || !ViewModel.BeginPluginAction()) return;
             try
             {
+                if (!item.IsCached)
+                {
+                    ViewModel.ReportPluginAction($"Downloading and verifying {item.Name}…");
+                    var downloaded = await app.DownloadOfficialPluginAsync(item.Listing);
+                    ViewModel.ReportPluginAction(downloaded.Message);
+                    return;
+                }
                 var choice = await ConfirmInstallAsync(
                     item.Id, item.Version, item.Source, item.Resources, null, custom: false, collision: false);
                 if (!choice.Confirmed) return;
@@ -233,6 +240,37 @@ namespace FocusRgb.App
             var path = files?.SingleOrDefault()?.TryGetLocalPath();
             if (path is null) return;
             await InstallCustomArchiveAsync(path, "Local ZIP");
+        }
+
+        private async void UpdatePlugin_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { CommandParameter: InstalledPluginItemViewModel item }
+                || item.AvailableRelease is not { } listing || Application.Current is not App app
+                || !ViewModel.BeginPluginAction()) return;
+            try
+            {
+                var choice = await ConfirmInstallAsync(listing.Id, listing.Version,
+                    listing.RepositoryUrl, string.Join(", ", listing.Resources), null,
+                    custom: false, collision: false, enableInitially: item.Plugin.IsEnabled);
+                if (!choice.Confirmed) return;
+                ViewModel.ReportPluginAction($"Downloading update for {item.Name}…");
+                var downloaded = await app.DownloadOfficialPluginAsync(listing);
+                if (!downloaded.IsSuccess)
+                {
+                    ViewModel.ReportPluginAction(downloaded.Message);
+                    return;
+                }
+                var installed = await app.InstallOfficialPluginAsync(listing, choice.Enable);
+                ViewModel.ReportPluginAction(installed.Message);
+            }
+            catch (Exception exception)
+            {
+                ViewModel.ReportPluginAction($"Could not update the plugin: {exception.Message}");
+            }
+            finally
+            {
+                ViewModel.EndPluginAction();
+            }
         }
 
         private async void InstallCustomGitHub_OnClick(object? sender, RoutedEventArgs e)
@@ -379,9 +417,14 @@ namespace FocusRgb.App
             string resources,
             string? sha256,
             bool custom,
-            bool collision)
+            bool collision,
+            bool enableInitially = true)
         {
-            var enable = new CheckBox { Content = "Enable and start this plugin after installation", IsChecked = true };
+            var enable = new CheckBox
+            {
+                Content = "Enable and start this plugin after installation",
+                IsChecked = enableInitially
+            };
             var message = new StackPanel { Spacing = 8 };
             message.Children.Add(new TextBlock { Text = $"Plugin: {id}" });
             message.Children.Add(new TextBlock { Text = $"Version: {version}" });

@@ -69,6 +69,9 @@ namespace FocusRgb.App.ViewModels
         private string _gameEditorStatus = "Manual and discovered games are stored locally.";
         private string _customPluginGitHubUrl = "";
         private int _pluginActionPending;
+        private IReadOnlyList<OfficialPluginListing> _officialPluginCatalog = [];
+        private IReadOnlyList<InstalledPluginInfo> _installedPluginInventory = [];
+        private Func<OfficialPluginListing, bool> _isPluginCached = _ => false;
 
         private MainWindowViewModel(
             ObservableCollection<ProfileOptionViewModel> profiles,
@@ -512,17 +515,32 @@ namespace FocusRgb.App.ViewModels
             if (IntegrationStatuses.Count == 0) IntegrationStatuses.Add("No plugins configured.");
         }
 
-        public void SetOfficialPlugins(OfficialPluginCatalogResult catalog)
+        public void SetOfficialPlugins(
+            OfficialPluginCatalogResult catalog,
+            Func<OfficialPluginListing, bool>? isCached = null)
         {
-            OfficialPlugins.Clear();
-            foreach (var item in catalog.Items) OfficialPlugins.Add(new OfficialPluginItemViewModel(item));
+            _officialPluginCatalog = catalog.Items;
+            _isPluginCached = isCached ?? (_ => false);
+            RefreshPluginLists();
             PluginsStatus = catalog.Status;
         }
 
         public void SetInstalledPlugins(IEnumerable<InstalledPluginInfo> plugins)
         {
+            _installedPluginInventory = plugins.ToArray();
+            RefreshPluginLists();
+        }
+
+        public void RefreshPluginLists()
+        {
+            var installed = _installedPluginInventory.Select(plugin => plugin.Id).ToHashSet(StringComparer.Ordinal);
+            OfficialPlugins.Clear();
+            foreach (var item in _officialPluginCatalog.Where(item => !installed.Contains(item.Id)))
+                OfficialPlugins.Add(new OfficialPluginItemViewModel(item, _isPluginCached(item)));
             InstalledPlugins.Clear();
-            foreach (var plugin in plugins) InstalledPlugins.Add(new InstalledPluginItemViewModel(plugin));
+            foreach (var plugin in _installedPluginInventory)
+                InstalledPlugins.Add(new InstalledPluginItemViewModel(plugin,
+                    _officialPluginCatalog.FirstOrDefault(item => item.Id == plugin.Id)));
         }
 
         public void ReportPluginAction(string message) => PluginsStatus = message;

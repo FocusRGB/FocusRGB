@@ -92,6 +92,12 @@ namespace FocusRgb.App.Plugins
                 if (manifestError is not null || releaseManifest!.Version != listing.Version)
                     return PluginArchiveResult.Fail(
                         "listing-mismatch", "The release manifest does not match the listed plugin ID and version.");
+                if (!releaseManifest.Resources!.Order(StringComparer.Ordinal)
+                    .SequenceEqual(listing.Resources.Order(StringComparer.Ordinal), StringComparer.Ordinal))
+                {
+                    return PluginArchiveResult.Fail("listing-mismatch",
+                        "The verified release manifest resources do not match the permissions shown for consent.");
+                }
 
                 var staged = await StageAsync(
                     archivePath, listing.Id, packageHash, cancellationToken).ConfigureAwait(false);

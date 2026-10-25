@@ -174,18 +174,21 @@ namespace FocusRgb.App.Plugins
     /// <summary>Owns downloaded release files and deletes them when the install flow ends.</summary>
     public sealed class DownloadedPluginPackage : IDisposable
     {
+        private readonly bool _deleteOnDispose;
         internal DownloadedPluginPackage(
             string directory,
             string archivePath,
             string? manifestPath = null,
             string? checksumsPath = null,
-            string? source = null)
+            string? source = null,
+            bool deleteOnDispose = true)
         {
             Directory = directory;
             ArchivePath = archivePath;
             ManifestPath = manifestPath;
             ChecksumsPath = checksumsPath;
             Source = source;
+            _deleteOnDispose = deleteOnDispose;
         }
 
         public string Directory { get; }
@@ -196,6 +199,7 @@ namespace FocusRgb.App.Plugins
 
         public void Dispose()
         {
+            if (!_deleteOnDispose) return;
             try { System.IO.Directory.Delete(Directory, true); }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
         }
