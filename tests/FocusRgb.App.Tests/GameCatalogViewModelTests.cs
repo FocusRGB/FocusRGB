@@ -51,10 +51,10 @@ namespace FocusRgb.App.Tests
                 [
                     new PluginCatalogItem
                     {
-                        ResourceId = "570",
-                        DisplayName = "Dota 2",
+                        ResourceId = "sample-game",
+                        DisplayName = "Sample Game",
                         Available = true,
-                        Game = new PluginGameCatalogMetadata { Executables = ["Dota.exe"] }
+                        Game = new PluginGameCatalogMetadata { Executables = ["Sample.exe"] }
                     }
                 ]
             };
@@ -68,7 +68,7 @@ namespace FocusRgb.App.Tests
 
             var cached = Assert.Single(viewModel.Games);
             Assert.False(cached.Available);
-            Assert.Equal(["Dota.exe"], cached.Executables);
+            Assert.Equal(["Sample.exe"], cached.Executables);
             Assert.Contains("offline", cached.Status, StringComparison.OrdinalIgnoreCase);
         }
 
@@ -108,7 +108,7 @@ namespace FocusRgb.App.Tests
             Assert.Equal("Unsaved manual game", viewModel.GameName);
             Assert.Equal(["Draft.exe"], viewModel.DraftGameExecutables);
             Assert.Contains(editor.Targets, target =>
-                target.GameLauncher == "steam" && target.GameId == "570");
+                target.GameLauncher == "steam" && target.GameId == "sample-game");
         }
 
         [Fact]
@@ -163,10 +163,10 @@ namespace FocusRgb.App.Tests
                     [
                         new GameCatalogEntry
                         {
-                            Launcher = "steam",
-                            Id = "570",
-                            DisplayName = "Dota 2",
-                            Executables = ["Dota.exe"],
+                            Launcher = "example",
+                            Id = "sample-game",
+                            DisplayName = "Sample Game",
+                            Executables = ["Sample.exe"],
                             Available = true,
                             LastRefreshedAt = Start
                         }
@@ -175,9 +175,9 @@ namespace FocusRgb.App.Tests
             viewModel.EditingGame = Assert.Single(viewModel.Games);
 
             Assert.False(viewModel.CanEditGame);
-            Assert.Equal(["Dota.exe"], viewModel.DraftGameExecutables);
+            Assert.Equal(["Sample.exe"], viewModel.DraftGameExecutables);
             Assert.False(viewModel.AddDraftGameExecutable("Other.exe"));
-            Assert.Equal(["Dota.exe"], viewModel.DraftGameExecutables);
+            Assert.Equal(["Sample.exe"], viewModel.DraftGameExecutables);
         }
 
         private async Task<(MainWindowViewModel ViewModel, ApplicationStateService Service)> CreateAsync()
@@ -203,10 +203,10 @@ namespace FocusRgb.App.Tests
                 [
                     new PluginCatalogItem
                     {
-                        ResourceId = "570",
-                        DisplayName = "Dota 2",
+                        ResourceId = "sample-game",
+                        DisplayName = "Sample Game",
                         Available = true,
-                        Game = new PluginGameCatalogMetadata { Executables = ["Dota.exe"] }
+                        Game = new PluginGameCatalogMetadata { Executables = ["Sample.exe"] }
                     }
                 ]
             });

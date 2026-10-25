@@ -172,7 +172,7 @@ namespace FocusRgb.App.Tests
         {
             var root = JsonNode.Parse(SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!))!;
             root["rules"]!.AsArray().Add(JsonNode.Parse("""
-                {"id":"steam-game","profile":"movie","match":{"game":{"launcher":"steam","id":"570"}},"eligibility":"while-running","enabled":false,"future":1}
+                {"id":"example-game","profile":"movie","match":{"game":{"launcher":"example","id":"sample-game"}},"eligibility":"while-running","enabled":false,"future":1}
                 """));
             var settings = SettingsJson.Load(root.ToJsonString()).Settings!;
 
@@ -180,11 +180,11 @@ namespace FocusRgb.App.Tests
             var saved = editor.CreateRuleSettings();
 
             Assert.Equal(4, editor.Mappings.Count);
-            var projected = editor.Mappings.Single(mapping => mapping.Id == "steam-game");
-            Assert.Equal("steam", projected.SelectedTarget.GameLauncher);
-            Assert.Equal("570", projected.SelectedTarget.GameId);
-            var game = Assert.Single(saved, rule => rule.Id == "steam-game");
-            Assert.Equal("570", game.Match!.Game!.Id);
+            var projected = editor.Mappings.Single(mapping => mapping.Id == "example-game");
+            Assert.Equal("example", projected.SelectedTarget.GameLauncher);
+            Assert.Equal("sample-game", projected.SelectedTarget.GameId);
+            var game = Assert.Single(saved, rule => rule.Id == "example-game");
+            Assert.Equal("sample-game", game.Match!.Game!.Id);
             Assert.False(game.Enabled);
             Assert.Equal(1, game.AdditionalProperties!["future"].GetInt32());
         }
@@ -210,7 +210,7 @@ namespace FocusRgb.App.Tests
         {
             var root = JsonNode.Parse(SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!))!;
             root["rules"]!.AsArray().Insert(1, JsonNode.Parse("""
-                {"id":"steam-game","profile":"movie","match":{"game":{"launcher":"steam","id":"570"}},"eligibility":"while-running","enabled":true}
+                {"id":"example-game","profile":"movie","match":{"game":{"launcher":"example","id":"sample-game"}},"eligibility":"while-running","enabled":true}
                 """));
             var editor = MainWindowViewModel.CreatePreview(
                 SettingsJson.Load(root.ToJsonString()).Settings!).MappingEditor;
@@ -218,7 +218,7 @@ namespace FocusRgb.App.Tests
             editor.Remove(editor.Mappings.Single(mapping => mapping.Id == "programming"));
             var saved = editor.CreateRuleSettings();
 
-            Assert.Equal(["steam-game", "movie", "music"], saved.Select(rule => rule.Id));
+            Assert.Equal(["example-game", "movie", "music"], saved.Select(rule => rule.Id));
         }
     }
 }
