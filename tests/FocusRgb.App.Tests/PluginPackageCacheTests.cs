@@ -68,6 +68,86 @@ namespace FocusRgb.App.Tests
             Assert.False(cache.Contains(Listing()));
         }
 
+        [Theory]
+        [InlineData("plugin.zip", true)]
+        [InlineData("plugin.zip", false)]
+        [InlineData("focusrgb-plugin.json", true)]
+        [InlineData("focusrgb-plugin.json", false)]
+        [InlineData("SHA256SUMS", true)]
+        [InlineData("SHA256SUMS", false)]
+        public async Task StageAsync_PrunesDamagedCacheAndAllowsRedownload(string damagedFile, bool empty)
+        {
+            var manifest = JsonSerializer.Serialize(FakePluginPackage.Manifest("plugin.dll"), PluginJson.Options);
+            var zip = CreateZip(manifest);
+            var sums = $"{Hash(zip)}  plugin.zip\n{Hash(Encoding.UTF8.GetBytes(manifest))}  focusrgb-plugin.json\n";
+            var requests = 0;
+            using var client = new HttpClient(new ReleaseHandler(path =>
+            {
+                requests++;
+                return path switch
+                {
+                    "/plugin.zip" => zip,
+                    "/focusrgb-plugin.json" => Encoding.UTF8.GetBytes(manifest),
+                    _ => Encoding.UTF8.GetBytes(sums)
+                };
+            }));
+            var cache = new PluginPackageCache(Path.Combine(_temporary.Path, "cache"));
+            var downloader = new PluginPackageDownloader(client, Path.Combine(_temporary.Path, "downloads"));
+            var installer = new PluginPackageInstaller(Path.Combine(_temporary.Path, "plugins"));
+            var listing = Listing();
+            await cache.DownloadAsync(listing, downloader, installer, TestContext.Current.CancellationToken);
+            using var cached = cache.Open(listing)!;
+            File.WriteAllBytes(Path.Combine(cached.Directory, damagedFile), empty ? [] : [1, 2, 3]);
+
+            var failed = await cache.StageAsync(listing, installer, TestContext.Current.CancellationToken);
+
+            Assert.False(failed.IsSuccess);
+            Assert.False(cache.Contains(listing));
+            Assert.False(Directory.Exists(cached.Directory));
+            await cache.DownloadAsync(listing, downloader, installer, TestContext.Current.CancellationToken);
+            Assert.Equal(6, requests);
+            var repaired = await cache.StageAsync(listing, installer, TestContext.Current.CancellationToken);
+            Assert.True(repaired.IsSuccess, repaired.ErrorMessage);
+            installer.Discard(repaired.StagedPackage!);
+        }
+
+        [Fact]
+        public void Open_UsesReleaseIdentityDespiteDescriptionChanges()
+        {
+            var directory = Path.Combine(_temporary.Path, "cache");
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("fake-output\n1.0.0")));
+            var entry = Path.Combine(directory, key);
+            Directory.CreateDirectory(entry);
+            foreach (var name in new[] { "plugin.zip", "focusrgb-plugin.json", "SHA256SUMS" })
+                File.WriteAllText(Path.Combine(entry, name), "content");
+            var cache = new PluginPackageCache(directory);
+
+            Assert.True(cache.Contains(Listing(description: "Old description")));
+            Assert.True(cache.Contains(Listing(description: "Edited description")));
+        }
+
+        [Fact]
+        public void Prune_BoundsCacheCountAndAgeWhilePreservingOtherDirectories()
+        {
+            var directory = Path.Combine(_temporary.Path, "cache");
+            for (var index = 0; index < 35; index++)
+            {
+                var entry = Path.Combine(directory, index.ToString("X64", System.Globalization.CultureInfo.InvariantCulture));
+                Directory.CreateDirectory(entry);
+                Directory.SetLastWriteTimeUtc(entry, DateTime.UtcNow.AddMinutes(-index));
+            }
+            var old = Path.Combine(directory, new string('F', 64));
+            Directory.CreateDirectory(old);
+            Directory.SetLastWriteTimeUtc(old, DateTime.UtcNow.AddDays(-31));
+            Directory.CreateDirectory(Path.Combine(directory, "unrelated"));
+
+            new PluginPackageCache(directory).Prune();
+
+            Assert.Equal(32, Directory.GetDirectories(directory).Count(path => Path.GetFileName(path).Length == 64));
+            Assert.False(Directory.Exists(old));
+            Assert.True(Directory.Exists(Path.Combine(directory, "unrelated")));
+        }
+
         [Fact]
         public void PluginLists_FilterInstalledAndDetectNewerOfficialReleaseRegardlessOfLoadOrder()
         {
@@ -104,9 +184,10 @@ namespace FocusRgb.App.Tests
             Assert.False(item.HasUpdate);
         }
 
-        internal static OfficialPluginListing Listing(string version = "1.0.0") => new()
+        internal static OfficialPluginListing Listing(string version = "1.0.0", string? description = null) => new()
         {
             Id = "fake-output", Name = "Fake", Version = version,
+            Description = description,
             RepositoryUrl = "https://github.com/FocusRGB/FocusRGB-Plugin-Fake",
             ReleaseUrl = "https://github.com/FocusRGB/FocusRGB-Plugin-Fake/releases/tag/v" + version,
             PackageUrl = "https://example.test/plugin.zip", PackageFileName = "plugin.zip",

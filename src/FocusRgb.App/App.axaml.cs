@@ -111,6 +111,14 @@ namespace FocusRgb.App
                 _pluginDownloader = new PluginPackageDownloader(
                     _pluginDownloadHttpClient, Path.Combine(directory, "plugin-downloads"));
                 _pluginPackageCache = new PluginPackageCache(Path.Combine(directory, "cache", "plugin-packages"));
+                try
+                {
+                    _pluginPackageCache.Prune();
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    AppLog.Write($"Plugin cache cleanup warning: {exception.Message}");
+                }
                 _pluginInventory = new PluginInventory(packagesDirectory);
                 var enabledPluginIds = startup.Snapshot.Settings.Plugins!.Enabled!.ToArray();
                 var outputCoordinator = new OutputCoordinator(pluginGateway, startup.Snapshot.NativeSetup);
@@ -703,13 +711,12 @@ namespace FocusRgb.App
         {
             if (_pluginPackageCache is null || _pluginInstaller is null)
                 return PluginManagementResult.Fail("Plugin management is not ready.");
-            using var download = _pluginPackageCache.Open(listing);
-            if (download is null)
-                return PluginManagementResult.Fail("Download this release before installing it.");
-            var staged = await _pluginInstaller.StageOfficialAsync(
-                listing, download.ArchivePath, download.ManifestPath!, download.ChecksumsPath!, cancellationToken);
+            var staged = await _pluginPackageCache.StageAsync(listing, _pluginInstaller, cancellationToken);
             if (!staged.IsSuccess)
+            {
+                _viewModel?.RefreshPluginLists();
                 return PluginManagementResult.Fail(staged.ErrorMessage ?? "The official package could not be staged.");
+            }
             try
             {
                 return await CommitPluginAsync(
