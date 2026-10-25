@@ -9,6 +9,43 @@ namespace FocusRgb.App.HeadlessTests
     public sealed class GameCatalogHeadlessTests
     {
         [AvaloniaFact]
+        public void GamesTab_ExplainsWhySharedExecutablesDoNotTriggerSpecificRules()
+        {
+            var viewModel = MainWindowViewModel.CreatePreview(SettingsJson.LoadDefaults().Settings!,
+                new GameCatalogDocument
+                {
+                    SchemaVersion = 1,
+                    Games = [new GameCatalogEntry
+                    {
+                        Launcher = "manual", Id = "first", DisplayName = "First", Available = true,
+                        Executables = ["Shared.exe", "First.exe"]
+                    }, new GameCatalogEntry
+                    {
+                        Launcher = "manual", Id = "second", DisplayName = "Second", Available = true,
+                        Executables = ["SHARED.EXE", "Second.exe"]
+                    }]
+                });
+            viewModel.EditingGame = viewModel.Games.First();
+            var window = new MainWindow(viewModel);
+            window.GetLogicalDescendants().OfType<TabItem>()
+                .Single(tab => Equals(tab.Header, "Games")).IsSelected = true;
+            window.Show();
+            try
+            {
+                var notice = window.FindControl<TextBlock>("GameMatchingNotice")!;
+                Assert.True(notice.IsVisible);
+                Assert.Contains("Shared.exe", notice.Text, StringComparison.OrdinalIgnoreCase);
+                Assert.Contains("specific rules", notice.Text, StringComparison.Ordinal);
+                Assert.DoesNotContain("First.exe", notice.Text, StringComparison.Ordinal);
+            }
+            finally
+            {
+                window.AllowClose();
+                window.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void DiscoveredGame_ShowsReadOnlyExecutableList()
         {
             var viewModel = MainWindowViewModel.CreatePreview(

@@ -330,6 +330,9 @@
                 <ListBox x:Name="GameExecutableList" ItemsSource="{Binding DraftGameExecutables}"
                          SelectedItem="{Binding SelectedGameExecutable}"
                          AutomationProperties.Name="Game executables" MinHeight="70" />
+                <TextBlock x:Name="GameMatchingNotice" Text="{Binding EditingGame.MatchingNotice}"
+                           IsVisible="{Binding EditingGame.HasAmbiguousExecutables}"
+                           TextWrapping="Wrap" />
                 <StackPanel x:Name="GameEditControls" Spacing="10" IsEnabled="{Binding CanEditGame}">
                   <Button Content="Add executable…" Click="BrowseGameExecutable_OnClick" HorizontalAlignment="Left" />
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">

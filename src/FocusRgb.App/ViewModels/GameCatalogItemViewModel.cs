@@ -6,7 +6,7 @@ namespace FocusRgb.App.ViewModels
     /// <summary>Projects one cached or manually entered launcher-scoped game.</summary>
     public sealed class GameCatalogItemViewModel
     {
-        public GameCatalogItemViewModel(GameCatalogEntry game)
+        public GameCatalogItemViewModel(GameCatalogEntry game, IReadOnlySet<string>? ambiguousExecutables = null)
         {
             Launcher = game.Launcher!;
             Id = game.Id!;
@@ -15,6 +15,12 @@ namespace FocusRgb.App.ViewModels
             Available = game.Available!.Value;
             UnavailableReason = game.UnavailableReason;
             LastRefreshedAt = game.LastRefreshedAt;
+            var ambiguous = game.Executables!.Where(name => ambiguousExecutables?.Contains(name) == true).ToArray();
+            HasAmbiguousExecutables = ambiguous.Length > 0;
+            MatchingNotice = HasAmbiguousExecutables
+                ? $"Shared executable names do not trigger this game's specific rules: {string.Join(", ", ambiguous)}. "
+                    + "Use a unique game executable or an explicit application group."
+                : string.Empty;
         }
 
         public string Launcher { get; }
@@ -24,6 +30,8 @@ namespace FocusRgb.App.ViewModels
         public bool Available { get; }
         public string? UnavailableReason { get; }
         public DateTimeOffset? LastRefreshedAt { get; }
+        public bool HasAmbiguousExecutables { get; }
+        public string MatchingNotice { get; }
         public bool IsManual => Launcher == GameCatalogJson.ManualLauncher;
         public string Identity => $"{Launcher}:{Id}";
         public string Status => IsManual

@@ -1452,12 +1452,16 @@ namespace FocusRgb.App.ViewModels
             GameIdentity? selected = EditingGame is null
                 ? null
                 : new GameIdentity(EditingGame.Launcher, EditingGame.Id);
+            var ambiguous = _gameCatalog.Games!.SelectMany(game => game.Executables!)
+                .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)
+                .Where(group => group.Count() > 1).Select(group => group.Key)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
             Games.Clear();
             foreach (var game in _gameCatalog.Games!
                 .OrderBy(game => game.DisplayName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(game => game.Launcher, StringComparer.Ordinal)
                 .ThenBy(game => game.Id, StringComparer.Ordinal))
-                Games.Add(new GameCatalogItemViewModel(game));
+                Games.Add(new GameCatalogItemViewModel(game, ambiguous));
             if (selected is not null)
                 EditingGame = Games.FirstOrDefault(game =>
                     game.Launcher == selected.Value.Launcher && game.Id == selected.Value.Id);
