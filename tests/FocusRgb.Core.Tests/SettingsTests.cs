@@ -205,7 +205,7 @@ namespace FocusRgb.Core.Tests
             root["rules"]![0]!["match"]!["executables"]![0] = "Code";
             root["rules"]![0]!["match"]!["executables"]!.AsArray().Add("code.EXE");
             root["rules"]![0]!["match"]!["executables"]!.AsArray().Add(" tool.bat ");
-            root["rules"]![0]!["match"]!["game"] = JsonNode.Parse("""{"launcher":"steam","id":"570"}""");
+            root["rules"]![0]!["match"]!["game"] = JsonNode.Parse("""{"launcher":"example","id":"sample-game"}""");
             root["rules"]!.AsArray().Add(JsonNode.Parse("""
                 {"id":"empty-legacy","profile":"default","match":{"executables":[]},"eligibility":"while-running","enabled":false}
                 """));
@@ -218,7 +218,7 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("programming", result.Settings.Rules![0].ApplicationGroup);
             Assert.Null(result.Settings.Rules[0].Match);
             var game = Assert.Single(result.Settings.Rules, rule => rule.Match?.Game is not null);
-            Assert.Equal("570", game.Match!.Game!.Id);
+            Assert.Equal("sample-game", game.Match!.Game!.Id);
             Assert.NotEqual("programming", game.Id);
             Assert.DoesNotContain(result.Settings.Rules, rule => rule.Id == "empty-legacy");
             Assert.Equal(["fake-output"], result.Settings.Plugins!.Enabled);
@@ -366,7 +366,7 @@ namespace FocusRgb.Core.Tests
             Set(root, "profiles.0.bindings.0.renderingAuthority", JsonValue.Create("application"));
             Set(root, "profiles.0.bindings.0.effect", null);
             Set(root, "rules.0.applicationGroup", null);
-            Set(root, "rules.0.match", JsonNode.Parse("""{"game":{"launcher":"steam","id":"570"}}"""));
+            Set(root, "rules.0.match", JsonNode.Parse("""{"game":{"launcher":"example","id":"sample-game"}}"""));
             Assert.True(SettingsJson.Load(root.ToJsonString()).IsSuccess);
         }
 

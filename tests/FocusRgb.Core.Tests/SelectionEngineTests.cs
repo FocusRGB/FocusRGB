@@ -244,33 +244,33 @@ namespace FocusRgb.Core.Tests
         public void Select_UsesOrdinalGameIdentityAndKeepsGenericRuleBelowExactRule()
         {
             var settings = GameSettings(
-                GameRule("epic-game", "movie", "while-running", "epic", "570"),
+                GameRule("launcher-b-game", "movie", "while-running", "launcher-b", "shared-id"),
                 GameRule("any-game", "music", "while-running", "*", "*"));
             var catalog = Catalog(
-                Game("steam", "570", "Same title", false, "Dota.exe"),
-                Game("epic", "570", "Same title", true, "Fortnite.exe"));
+                Game("launcher-a", "shared-id", "Same title", false, "Alpha.exe"),
+                Game("launcher-b", "shared-id", "Same title", true, "Beta.exe"));
             var engine = new SelectionEngine(settings, catalog);
 
-            var steam = engine.Select(SelectionMode.Automatic, "default",
-                Observation("Dota.exe", "Dota.exe"), Start);
-            var epic = engine.Select(SelectionMode.Automatic, "default",
-                Observation("Fortnite.exe", "Fortnite.exe"), Start.AddSeconds(1));
+            var alpha = engine.Select(SelectionMode.Automatic, "default",
+                Observation("Alpha.exe", "Alpha.exe"), Start);
+            var beta = engine.Select(SelectionMode.Automatic, "default",
+                Observation("Beta.exe", "Beta.exe"), Start.AddSeconds(1));
 
-            Assert.Equal("music", steam.ProfileId);
-            Assert.Equal("any-game", steam.Reason.RuleId);
-            Assert.Equal("movie", epic.ProfileId);
-            Assert.Equal("epic-game", epic.Reason.RuleId);
+            Assert.Equal("music", alpha.ProfileId);
+            Assert.Equal("any-game", alpha.Reason.RuleId);
+            Assert.Equal("movie", beta.ProfileId);
+            Assert.Equal("launcher-b-game", beta.Reason.RuleId);
         }
 
         [Fact]
         public void Select_UsesCachedGameExecutables_WhenDiscoveryIsUnavailable()
         {
             var engine = new SelectionEngine(
-                GameSettings(GameRule("offline-game", "movie", "while-running", "steam", "570")),
-                Catalog(Game("steam", "570", "Offline game", false, "Dota.exe")));
+                GameSettings(GameRule("offline-game", "movie", "while-running", "example", "sample-game")),
+                Catalog(Game("example", "sample-game", "Offline game", false, "Sample.exe")));
 
             var decision = engine.Select(SelectionMode.Automatic, "default",
-                Observation("DOTA.EXE", "dota.exe"), Start);
+                Observation("SAMPLE.EXE", "sample.exe"), Start);
 
             Assert.Equal("movie", decision.ProfileId);
         }
@@ -278,7 +278,7 @@ namespace FocusRgb.Core.Tests
         [Fact]
         public void Select_GameFocusRequiresObservedForegroundAndHonorsIgnoredExecutables()
         {
-            var settings = GameSettings(GameRule("focused-game", "movie", "while-focused", "steam", "570"));
+            var settings = GameSettings(GameRule("focused-game", "movie", "while-focused", "example", "sample-game"));
             settings = new SettingsDocument
             {
                 SchemaVersion = settings.SchemaVersion,
@@ -297,7 +297,7 @@ namespace FocusRgb.Core.Tests
             };
             var clock = new TestTimeProvider();
             var engine = new SelectionEngine(settings, Catalog(
-                Game("steam", "570", "Game", true, "Game.exe", "IgnoredGame.exe")), clock);
+                Game("example", "sample-game", "Game", true, "Game.exe", "IgnoredGame.exe")), clock);
 
             engine.Select(SelectionMode.Automatic, "default",
                 Observation("explorer.exe", "Game.exe", "explorer.exe"), Start);

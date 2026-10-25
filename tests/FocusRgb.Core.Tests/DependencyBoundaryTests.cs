@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using FocusRgb.Core.Protocol;
 using FocusRgb.TestSupport;
@@ -14,6 +16,8 @@ namespace FocusRgb.Core.Tests
     /// </summary>
     public sealed class DependencyBoundaryTests
     {
+        private static readonly string[] SourceFolders = ["src", "sdk", "tests"];
+
         private static readonly Dictionary<string, string[]> AllowedProjectReferences = new()
         {
             ["FocusRgb.Core"] = [],
@@ -70,7 +74,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public void ContractVersion_MatchesStableProtocol() =>
+        public void HostContractVersion_RemainsAt12_UntilTelemetryRoutingLands() =>
             Assert.Equal("1.2", ContractVersion.Current);
 
         [Theory]
@@ -82,7 +86,7 @@ namespace FocusRgb.Core.Tests
                 Path.Combine(RepositoryPaths.Root, "sdk", "spec", fileName)));
 
             Assert.Equal(
-                $"https://raw.githubusercontent.com/FocusRGB/FocusRGB/spec-v1.2.0/sdk/spec/{fileName}",
+                $"https://raw.githubusercontent.com/FocusRGB/FocusRGB/spec-v1.3.0/sdk/spec/{fileName}",
                 schema.RootElement.GetProperty("$id").GetString());
         }
 
@@ -120,11 +124,21 @@ namespace FocusRgb.Core.Tests
             { typeof(PluginCatalogResult), "pluginCatalogResult" },
             { typeof(PluginCatalogItem), "pluginCatalogItem" },
             { typeof(PluginGameCatalogMetadata), "pluginGameCatalogMetadata" },
+            { typeof(PluginGameReference), "pluginGameReference" },
+            { typeof(PluginTelemetrySection), "pluginTelemetrySection" },
+            { typeof(PluginTelemetryChoice), "pluginTelemetryChoice" },
+            { typeof(PluginTelemetryCatalogMetadata), "pluginTelemetryCatalogMetadata" },
+            { typeof(PluginTelemetrySource), "pluginTelemetrySource" },
+            { typeof(PluginTelemetryValue), "pluginTelemetryValue" },
+            { typeof(PluginTelemetryEvent), "pluginTelemetryEvent" },
+            { typeof(GameTelemetryParameters), "gameTelemetryParameters" },
             { typeof(PluginDeviceScope), "pluginDeviceScope" },
             { typeof(BindingApplyParameters), "bindingApplyParameters" },
             { typeof(BindingApplyResult), "bindingApplyResult" },
             { typeof(BindingReleaseParameters), "bindingReleaseParameters" },
             { typeof(BindingReleaseResult), "bindingReleaseResult" },
+            { typeof(EffectInputParameters), "effectInputParameters" },
+            { typeof(EffectInputResult), "effectInputResult" },
             { typeof(CancelParameters), "cancelParameters" },
         };
 
@@ -138,7 +152,9 @@ namespace FocusRgb.Core.Tests
             var schemaProperties = definition.GetProperty("properties").EnumerateObject()
                 .ToDictionary(property => property.Name, property => property.Value, StringComparer.Ordinal);
             var contractProperties = contractType.GetProperties().ToDictionary(
-                property => JsonNamingPolicy.CamelCase.ConvertName(property.Name), StringComparer.Ordinal);
+                property => property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name
+                    ?? JsonNamingPolicy.CamelCase.ConvertName(property.Name),
+                StringComparer.Ordinal);
 
             Assert.True(contractProperties.Keys.ToHashSet(StringComparer.Ordinal)
                 .SetEquals(schemaProperties.Keys));
@@ -181,7 +197,15 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("^1\\.(?:[1-9][0-9]*)$", schema.RootElement.GetProperty("allOf")[0]
                 .GetProperty("then").GetProperty("properties").GetProperty("contractVersion")
                 .GetProperty("pattern").GetString());
+            Assert.Equal("^1\\.(?:[3-9]|[1-9][0-9]+)$", schema.RootElement.GetProperty("allOf")[1]
+                .GetProperty("then").GetProperty("properties").GetProperty("contractVersion")
+                .GetProperty("pattern").GetString());
             Assert.Equal(typeof(string), typeof(PluginManifest).GetProperty(nameof(PluginManifest.Runtime))!.PropertyType);
+            Assert.Equal(
+                ["process.read", "process.start", "filesystem.read", "filesystem.write", "network.listen.loopback"],
+                schema.RootElement.GetProperty("properties").GetProperty("resources")
+                    .GetProperty("items").GetProperty("enum").EnumerateArray()
+                    .Select(value => value.GetString()));
         }
 
         [Fact]
@@ -204,6 +228,38 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public void TelemetrySchema_IsGameAgnosticAndBounded()
+        {
+            var path = Path.Combine(RepositoryPaths.Root, "sdk", "spec", "plugin-protocol.schema.json");
+            var text = File.ReadAllText(path);
+            using var schema = JsonDocument.Parse(text);
+            var definitions = schema.RootElement.GetProperty("$defs");
+            var kinds = definitions.GetProperty("catalogListParameters").GetProperty("properties")
+                .GetProperty("kind").GetProperty("enum").EnumerateArray()
+                .Select(item => item.GetString());
+            var telemetry = definitions.GetProperty("gameTelemetryParameters");
+
+            Assert.Contains("telemetry", kinds);
+            Assert.Equal(2048, telemetry.GetProperty("properties").GetProperty("inputs")
+                .GetProperty("maxItems").GetInt32());
+            Assert.Equal(128, telemetry.GetProperty("properties").GetProperty("events")
+                .GetProperty("maxItems").GetInt32());
+            var forbidden = new Regex(
+                $@"\b(?:{"do" + "ta"}|{"g" + "si"})\b|steam:{"5" + "70"}",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            var sourceFiles = SourceFolders
+                .SelectMany(directory => Directory.EnumerateFiles(
+                    Path.Combine(RepositoryPaths.Root, directory), "*", SearchOption.AllDirectories))
+                .Where(path => Path.GetExtension(path) is ".cs" or ".json" or ".md" or ".py" or ".yml")
+                .Where(path => !path.Split(Path.DirectorySeparatorChar)
+                    .Any(segment => segment is "bin" or "obj"));
+
+            foreach (var sourceFile in sourceFiles)
+                Assert.False(forbidden.IsMatch(File.ReadAllText(sourceFile)),
+                    $"Game-specific protocol example found in {Path.GetRelativePath(RepositoryPaths.Root, sourceFile)}.");
+        }
+
+        [Fact]
         public void AppProject_DoesNotReferenceFakePlugin()
         {
             var references = ReadProject("FocusRgb.App").Descendants()
@@ -223,6 +279,7 @@ namespace FocusRgb.Core.Tests
             if (type == typeof(string)) return "string";
             if (type == typeof(bool)) return "boolean";
             if (type == typeof(long) || type == typeof(int)) return "integer";
+            if (type == typeof(double)) return "number";
             if (type == typeof(DateTimeOffset)) return "string:date-time";
             var itemType = type.GetInterfaces().Append(type)
                 .FirstOrDefault(candidate => candidate.IsGenericType

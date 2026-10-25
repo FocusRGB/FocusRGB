@@ -33,7 +33,7 @@ jobs:
       - name: Verify language-neutral plugin conformance
         run: |
           python sdk/conformance/plugin-conformance.py --plugin-id python-example -- python sdk/examples/python-plugin/plugin.py
-          python sdk/conformance/plugin-conformance.py --plugin-id fake-output -- dotnet build/artifacts/bin/FocusRgb.FakePlugin/release/FocusRgb.FakePlugin.dll
+          python sdk/conformance/plugin-conformance.py --plugin-id fake-output --require-telemetry -- dotnet build/artifacts/bin/FocusRgb.FakePlugin/release/FocusRgb.FakePlugin.dll --telemetry
       - name: Stop .NET build servers
         if: always()
         run: dotnet build-server shutdown

@@ -64,7 +64,9 @@ if (args.Contains("--malformed", StringComparer.Ordinal))
 
 var delay = ReadOption(args, "--delay-ms", 0);
 var initializeDelay = ReadOption(args, "--initialize-delay-ms", 0);
-var contractVersion = ReadStringOption(args, "--contract-version") ?? Protocol.ContractVersion;
+var telemetryEnabled = args.Contains("--telemetry", StringComparer.Ordinal);
+var contractVersion = ReadStringOption(args, "--contract-version")
+    ?? (telemetryEnabled ? Protocol.TelemetryContractVersion : Protocol.ContractVersion);
 var exitOnStatus = args.Contains("--exit-on-status", StringComparer.Ordinal);
 var stderrBytes = ReadOption(args, "--stderr-bytes", 0);
 var stderrLineBytes = ReadOption(args, "--stderr-line-bytes", 0);
@@ -90,7 +92,8 @@ await RunFakePluginAsync(
     exitOnStatus,
     ReadStringOption(args, "--catalog-name") ?? "Aurora",
     ReadOption(args, "--notify-count", 0),
-    args.Contains("--notify-during-status", StringComparer.Ordinal));
+    args.Contains("--notify-during-status", StringComparer.Ordinal),
+    telemetryEnabled);
 
 static int ReadOption(string[] values, string name, int fallback) =>
     int.TryParse(ReadStringOption(values, name), out var parsed) ? parsed : fallback;
@@ -223,7 +226,8 @@ static async Task RunFakePluginAsync(
     bool exitOnStatus,
     string catalogName,
     int notifyCount,
-    bool notifyDuringStatus)
+    bool notifyDuringStatus,
+    bool telemetryEnabled)
 {
     using var lifetime = new CancellationTokenSource();
     using var writeGate = new SemaphoreSlim(1, 1);
@@ -295,19 +299,25 @@ static async Task RunFakePluginAsync(
                 case Protocol.Initialize:
                     if (initializeDelayMilliseconds > 0)
                         await Task.Delay(initializeDelayMilliseconds, cancellationToken);
+                    var capabilities = new List<object>
+                    {
+                        new { id = "provider.effect.catalog", support = "supported" },
+                        new { id = "provider.effect.select", support = "supported" },
+                        new { id = "provider.selection.observe", support = "supported" },
+                        new { id = "provider.layout.catalog", support = "unsupported" },
+                        new { id = "game.catalog", support = "supported" }
+                    };
+                    if (telemetryEnabled)
+                    {
+                        capabilities.Add(new { id = "game.telemetry", support = "supported" });
+                        capabilities.Add(new { id = "provider.effect.input", support = "supported" });
+                    }
                     result = new
                     {
                         pluginId = "fake-output",
                         pluginVersion = "1.0.0",
                         contractVersion,
-                        capabilities = new[]
-                        {
-                            new { id = "provider.effect.catalog", support = "supported" },
-                            new { id = "provider.effect.select", support = "supported" },
-                            new { id = "provider.selection.observe", support = "supported" },
-                            new { id = "provider.layout.catalog", support = "unsupported" },
-                            new { id = "game.catalog", support = "supported" }
-                        }
+                        capabilities
                     };
                     break;
                 case Protocol.StatusGet:
@@ -349,6 +359,45 @@ static async Task RunFakePluginAsync(
                             },
                             reason = (object?)null
                         },
+                        "telemetry" when telemetryEnabled => new
+                        {
+                            support = "supported",
+                            refreshedAt = DateTimeOffset.UnixEpoch,
+                            items = new object[]
+                            {
+                                new
+                                {
+                                    resourceId = "example.status.level",
+                                    displayName = "Level",
+                                    available = true,
+                                    telemetry = new
+                                    {
+                                        game = new { launcher = "example", id = "sample-game" },
+                                        section = new { id = "status", displayName = "Status", order = 0 },
+                                        kind = "input",
+                                        valueType = "number",
+                                        description = "A synthetic level used by protocol conformance.",
+                                        minimum = 0,
+                                        maximum = 100
+                                    }
+                                },
+                                new
+                                {
+                                    resourceId = "example.status.changed",
+                                    displayName = "Status changed",
+                                    available = true,
+                                    telemetry = new
+                                    {
+                                        game = new { launcher = "example", id = "sample-game" },
+                                        section = new { id = "events", displayName = "Events", order = 1 },
+                                        kind = "event",
+                                        valueType = "event",
+                                        description = "A synthetic event used by protocol conformance."
+                                    }
+                                }
+                            },
+                            reason = (object?)null
+                        },
                         _ => new
                         {
                             support = "unsupported",
@@ -361,6 +410,8 @@ static async Task RunFakePluginAsync(
                             }
                         }
                     };
+                    if (telemetryEnabled && parameters.GetProperty("kind").GetString() == "telemetry")
+                        await WriteTelemetryNotificationAsync(cancellationToken);
                     break;
                 case Protocol.BindingApply:
                     currentEffect = CloneOptional(parameters, "effect");
@@ -375,6 +426,9 @@ static async Task RunFakePluginAsync(
                     currentEffect = null;
                     currentLayout = null;
                     result = new { outcome = "nothing-to-release" };
+                    break;
+                case Protocol.EffectInput when telemetryEnabled:
+                    result = new { outcome = "accepted" };
                     break;
                 case Protocol.Shutdown:
                     result = new { };
@@ -412,6 +466,40 @@ static async Task RunFakePluginAsync(
         @params = new { }
     }, cancellationToken);
 
+    Task WriteTelemetryNotificationAsync(CancellationToken cancellationToken) => WriteAsync(new
+    {
+        jsonrpc = "2.0",
+        method = Protocol.GameTelemetry,
+        @params = new
+        {
+            source = new
+            {
+                game = new { launcher = "example", id = "sample-game" },
+                adapter = "example.synthetic"
+            },
+            sequence = 1,
+            observedAt = DateTimeOffset.UnixEpoch,
+            freshForMs = 1000,
+            disconnectAfterMs = 5000,
+            inputs = new[]
+            {
+                new { resourceId = "example.status.level", number = 42 }
+            },
+            events = new[]
+            {
+                new
+                {
+                    resourceId = "example.status.changed",
+                    observedAt = DateTimeOffset.UnixEpoch,
+                    values = new[]
+                    {
+                        new { resourceId = "example.status.level", number = 42 }
+                    }
+                }
+            }
+        }
+    }, cancellationToken);
+
     Task WriteErrorAsync(long? id, int code, string message, CancellationToken cancellationToken) =>
         WriteAsync(new { jsonrpc = "2.0", id, error = new { code, message } }, cancellationToken);
 
@@ -434,13 +522,16 @@ static async Task RunFakePluginAsync(
 internal static class Protocol
 {
     public const string ContractVersion = "1.2";
+    public const string TelemetryContractVersion = "1.3";
     public const string Initialize = "initialize";
     public const string StatusGet = "status/get";
     public const string CatalogList = "catalog/list";
     public const string BindingApply = "binding/apply";
     public const string BindingRelease = "binding/release";
+    public const string EffectInput = "effect/input";
     public const string Shutdown = "shutdown";
     public const string StatusChanged = "status/changed";
+    public const string GameTelemetry = "game/telemetry";
     public const string Cancel = "$/cancel";
 
     public static JsonSerializerOptions JsonOptions { get; } = new(JsonSerializerDefaults.Web)

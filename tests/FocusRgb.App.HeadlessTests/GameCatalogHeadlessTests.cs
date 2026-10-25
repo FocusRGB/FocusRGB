@@ -20,10 +20,10 @@ namespace FocusRgb.App.HeadlessTests
                     [
                         new GameCatalogEntry
                         {
-                            Launcher = "steam",
-                            Id = "570",
-                            DisplayName = "Dota 2",
-                            Executables = ["Dota.exe"],
+                            Launcher = "example",
+                            Id = "sample-game",
+                            DisplayName = "Sample Game",
+                            Executables = ["Sample.exe"],
                             Available = true,
                             LastRefreshedAt = new DateTimeOffset(2026, 10, 24, 12, 0, 0, TimeSpan.Zero)
                         }
@@ -40,7 +40,7 @@ namespace FocusRgb.App.HeadlessTests
                 var executables = window.FindControl<ListBox>("GameExecutableList")!;
                 var editControls = window.FindControl<StackPanel>("GameEditControls")!;
                 Assert.True(executables.IsVisible);
-                Assert.Equal(["Dota.exe"], executables.Items.Cast<string>());
+                Assert.Equal(["Sample.exe"], executables.Items.Cast<string>());
                 Assert.False(editControls.IsEnabled);
             }
             finally

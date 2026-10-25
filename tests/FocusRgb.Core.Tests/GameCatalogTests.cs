@@ -11,8 +11,8 @@ namespace FocusRgb.Core.Tests
         public void Validate_AllowsDuplicateTitlesAcrossLauncherScopedIdentities()
         {
             var catalog = Catalog(
-                Game("steam", "570", "Same title", "Dota.exe"),
-                Game("epic", "570", "Same title", "Fortnite.exe"));
+                Game("launcher-a", "shared-id", "Same title", "Alpha.exe"),
+                Game("launcher-b", "shared-id", "Same title", "Beta.exe"));
 
             Assert.Empty(GameCatalogJson.Validate(catalog));
         }
@@ -21,8 +21,8 @@ namespace FocusRgb.Core.Tests
         public void Validate_RejectsDuplicateIdentityPathsAndExecutableNames()
         {
             var catalog = Catalog(
-                Game("steam", "570", "First", @"C:\Games\Dota.exe", "DOTA.EXE"),
-                Game("steam", "570", "Second", "Other.exe"));
+                Game("example", "sample-game", "First", @"C:\Games\Sample.exe", "SAMPLE.EXE"),
+                Game("example", "sample-game", "Second", "Other.exe"));
 
             var errors = GameCatalogJson.Validate(catalog);
 
@@ -31,7 +31,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Theory]
-        [InlineData("*", "570")]
+        [InlineData("*", "sample-game")]
         [InlineData("steam", "*")]
         public void SettingsValidator_RejectsPartialGameWildcard(string launcher, string id)
         {
