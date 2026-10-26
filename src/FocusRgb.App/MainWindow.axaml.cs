@@ -1,6 +1,4 @@
 using System.Diagnostics;
-using System.IO.Compression;
-using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -592,39 +590,13 @@ namespace FocusRgb.App
                 if (file is null) return;
                 await using var output = await file.OpenWriteAsync();
                 output.SetLength(0);
-                using var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true);
-                var entry = archive.CreateEntry("diagnostics.json", CompressionLevel.Optimal);
-                await using (var entryStream = entry.Open())
-                await using (var writer = new StreamWriter(entryStream, new UTF8Encoding(false)))
-                    await writer.WriteAsync(DiagnosticExport.CreateJson(ViewModel, DateTimeOffset.UtcNow));
-                var logPath = Path.Combine(_dataDirectory, "logs", "focusrgb.log");
-                if (ViewModel.SavedVerboseLogging && File.Exists(logPath))
-                {
-                    var logEntry = archive.CreateEntry("focusrgb.log", CompressionLevel.Optimal);
-                    await using var logOutput = logEntry.Open();
-                    await using var writer = new StreamWriter(logOutput, new UTF8Encoding(false));
-                    var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                    foreach (var line in await File.ReadAllLinesAsync(logPath))
-                        await writer.WriteLineAsync(RedactUserProfile(line, userProfile));
-                }
-                ViewModel.ReportSettingsAction("Exported diagnostics without profiles, mappings, paths, or secrets.");
+                await DiagnosticExport.WriteZipAsync(ViewModel, DateTimeOffset.UtcNow, output);
+                ViewModel.ReportSettingsAction("Exported diagnostic metadata. Raw logs are omitted because they may contain secrets.");
             }
             catch (Exception exception)
             {
                 ViewModel.ReportSettingsAction($"Could not export diagnostics: {exception.Message}");
             }
-        }
-
-        private static string RedactUserProfile(string line, string userProfile)
-        {
-            if (string.IsNullOrEmpty(userProfile)) return line;
-            var parts = userProfile.Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries);
-            var variants = new List<string> { parts[0] };
-            foreach (var part in parts.Skip(1))
-                variants = variants.SelectMany(path => new[] { path + "\\" + part, path + "/" + part, path + "\\\\" + part }).ToList();
-            foreach (var path in variants.OrderByDescending(path => path.Length))
-                line = line.Replace(path, "%USERPROFILE%", StringComparison.OrdinalIgnoreCase);
-            return line;
         }
 
         private void OpenFolder(string path, string successMessage)

@@ -498,7 +498,7 @@
                   <Button Content="Open logs folder" Click="OpenLogsFolder_OnClick" />
                   <Button Content="Export diagnostics…" Click="ExportDiagnostics_OnClick" />
                 </StackPanel>
-                <TextBlock Text="Diagnostic exports contain application/runtime metadata only; profiles, mappings, paths, and secrets are excluded."
+                <TextBlock Text="Diagnostic exports contain application metadata only. Raw logs, profiles, mappings, and paths are omitted to protect secrets."
                            Opacity="0.65" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
