@@ -111,6 +111,27 @@ namespace FocusRgb.App.Tests
             Assert.False(store.CanConfigure("example"));
         }
 
+        [Theory]
+        [InlineData("steamRoot", true)]
+        [InlineData("extraLibraryFolders", true)]
+        [InlineData("../escape", false)]
+        [InlineData("bad\u202eName", false)]
+        public void CanConfigure_ValidatesFieldIdsSeparatelyFromPackageIds(string field, bool valid)
+        {
+            var packages = Path.Combine(_temporaryDirectory.Path, "plugins");
+            var package = Path.Combine(packages, "example");
+            Directory.CreateDirectory(package);
+            File.WriteAllText(Path.Combine(package, PluginConfigurationStore.SchemaFileName), JsonSerializer.Serialize(new
+            {
+                schemaVersion = 1,
+                fields = new[] { new { id = field, displayName = "Path", type = "string", @default = "" } }
+            }));
+            using var store = new PluginConfigurationStore(packages, Path.Combine(_temporaryDirectory.Path, "data"));
+
+            Assert.Equal(valid, store.CanConfigure("example"));
+            Assert.Throws<ArgumentException>(() => store.CanConfigure("Example"));
+        }
+
         public void Dispose() => _temporaryDirectory.Dispose();
 
         internal static string SchemaJson() =>
