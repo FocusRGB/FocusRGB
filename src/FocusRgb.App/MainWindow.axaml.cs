@@ -163,7 +163,9 @@ namespace FocusRgb.App
         private async void MainTabs_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
             if (ReferenceEquals(e.Source, sender) && sender is TabControl { SelectedItem: TabItem { Header: "Settings" } })
+            {
                 UpdateStartupControls();
+            }
             if (!ReferenceEquals(e.Source, sender)
                 || sender is not TabControl { SelectedItem: TabItem { Header: "Plugins" } }
                 || _pluginsLoaded) return;
@@ -591,13 +593,19 @@ namespace FocusRgb.App
 
         private void StartWithWindows_OnCheckedChanged(object? sender, RoutedEventArgs e)
         {
-            if (_updatingStartupControls || _startupRegistration is null) return;
+            if (_updatingStartupControls || _startupRegistration is null)
+            {
+                return;
+            }
             UpdateStartupControls(_startupRegistration.SetEnabled(StartWithWindowsCheckBox.IsChecked == true));
         }
 
         private void UpdateStartupControls(StartupRegistrationStatus? status = null)
         {
-            if (StartWithWindowsCheckBox is null) return;
+            if (StartWithWindowsCheckBox is null)
+            {
+                return;
+            }
             _updatingStartupControls = true;
             try
             {

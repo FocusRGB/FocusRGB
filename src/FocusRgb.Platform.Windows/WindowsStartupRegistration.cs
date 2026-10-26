@@ -56,7 +56,10 @@ namespace FocusRgb.Platform.Windows
                     || !executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
                     || Path.GetFileName(executable).Equals("dotnet.exe", StringComparison.OrdinalIgnoreCase)
                     || executable.Contains('"') || executable.Any(char.IsControl) || !File.Exists(executable))
-                    return new(current, false, "The application executable is unavailable. Start with Windows cannot be enabled.");
+                {
+                    // Keep an existing entry disableable even when creating a new one would be unsafe.
+                    return new(current, current, "The application executable is unavailable. You can disable an existing startup entry, but cannot enable a new one.");
+                }
                 var command = $"\"{Path.GetFullPath(executable)}\" --minimized";
                 if ((enabled == true || current) && !string.Equals(value as string, command, StringComparison.Ordinal))
                 {

@@ -46,11 +46,15 @@ namespace FocusRgb.Platform.Windows.Tests
         public void SetEnabled_DisablesEvenWhenExecutableHasBeenRemoved()
         {
             var key = new FakeRunKey { Value = "old.exe" };
+            var registration = new WindowsStartupRegistration(key, Path.Combine(_directory, "gone.exe"));
+            Assert.True(registration.Refresh().Available);
+            Assert.True(registration.Refresh().Enabled);
 
-            var status = new WindowsStartupRegistration(key, Path.Combine(_directory, "gone.exe")).SetEnabled(false);
+            var status = registration.SetEnabled(false);
 
             Assert.False(status.Enabled);
             Assert.Null(key.Value);
+            Assert.False(status.Available);
         }
 
         [Theory]
@@ -94,7 +98,10 @@ namespace FocusRgb.Platform.Windows.Tests
 
         public void Dispose()
         {
-            if (Directory.Exists(_directory)) Directory.Delete(_directory, true);
+            if (Directory.Exists(_directory))
+            {
+                Directory.Delete(_directory, true);
+            }
         }
 
         private sealed class FakeRunKey : IStartupRunKey
@@ -106,7 +113,10 @@ namespace FocusRgb.Platform.Windows.Tests
             public object? Read() => Value;
             public void Write(string command)
             {
-                if (FailWrites) throw new UnauthorizedAccessException();
+                if (FailWrites)
+                {
+                    throw new UnauthorizedAccessException();
+                }
                 Value = command;
                 Writes++;
             }

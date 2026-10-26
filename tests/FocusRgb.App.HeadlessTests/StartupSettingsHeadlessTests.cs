@@ -74,7 +74,10 @@ namespace FocusRgb.App.HeadlessTests
             public StartupRegistrationStatus Refresh() => new(Enabled, true, "Current registry state.");
             public StartupRegistrationStatus SetEnabled(bool enabled)
             {
-                if (deny) return new(Enabled, false, "Update denied.");
+                if (deny)
+                {
+                    return new(Enabled, false, "Update denied.");
+                }
                 Enabled = enabled;
                 Changes++;
                 return Refresh();
