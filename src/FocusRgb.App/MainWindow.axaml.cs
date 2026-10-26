@@ -11,6 +11,7 @@ using FocusRgb.App.Mcp;
 using FocusRgb.App.Plugins;
 using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Commands;
+using FocusRgb.Platform.Windows;
 
 namespace FocusRgb.App
 {
@@ -25,6 +26,8 @@ namespace FocusRgb.App
         private bool _pluginsLoaded;
         private string? _mcpApprovalId;
         private bool _hideAfterMcpApproval;
+        private readonly IStartupRegistration? _startupRegistration;
+        private bool _updatingStartupControls;
 
         public MainWindow()
             : this(MainWindowViewModel.CreatePreview(), null)
@@ -36,15 +39,20 @@ namespace FocusRgb.App
         {
         }
 
-        public MainWindow(MainWindowViewModel viewModel, string? dataDirectory)
+        public MainWindow(MainWindowViewModel viewModel, string? dataDirectory, IStartupRegistration? startupRegistration = null)
         {
             InitializeComponent();
+            _startupRegistration = startupRegistration;
             DataContext = viewModel;
             _dataDirectory = dataDirectory ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "FocusRGB");
             Closing += MainWindow_OnClosing;
-            Opened += (_, _) => UpdateMcpControls();
+            Opened += (_, _) =>
+            {
+                UpdateMcpControls();
+                UpdateStartupControls();
+            };
         }
 
         public event EventHandler? ExitRequested;
@@ -152,6 +160,10 @@ namespace FocusRgb.App
 
         private async void MainTabs_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
+            if (ReferenceEquals(e.Source, sender) && sender is TabControl { SelectedItem: TabItem { Header: "Settings" } })
+            {
+                UpdateStartupControls();
+            }
             if (!ReferenceEquals(e.Source, sender)
                 || sender is not TabControl { SelectedItem: TabItem { Header: "Plugins" } }
                 || _pluginsLoaded) return;
@@ -588,6 +600,36 @@ namespace FocusRgb.App
 
         private void OpenLogsFolder_OnClick(object? sender, RoutedEventArgs e) =>
             OpenFolder(Path.Combine(_dataDirectory, "logs"), "Opened the logs folder.");
+
+        private void StartWithWindows_OnCheckedChanged(object? sender, RoutedEventArgs e)
+        {
+            if (_updatingStartupControls || _startupRegistration is null)
+            {
+                return;
+            }
+            UpdateStartupControls(_startupRegistration.SetEnabled(StartWithWindowsCheckBox.IsChecked == true));
+        }
+
+        private void UpdateStartupControls(StartupRegistrationStatus? status = null)
+        {
+            if (StartWithWindowsCheckBox is null)
+            {
+                return;
+            }
+            _updatingStartupControls = true;
+            try
+            {
+                status ??= _startupRegistration?.Refresh()
+                    ?? new StartupRegistrationStatus(false, false, "Start with Windows is unavailable in this session.");
+                StartWithWindowsCheckBox.IsEnabled = status.Available;
+                StartWithWindowsCheckBox.IsChecked = status.Enabled;
+                StartupStatusText.Text = status.Message;
+            }
+            finally
+            {
+                _updatingStartupControls = false;
+            }
+        }
 
         private async void ExportDiagnostics_OnClick(object? sender, RoutedEventArgs e)
         {

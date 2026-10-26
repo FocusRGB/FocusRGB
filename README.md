@@ -94,6 +94,13 @@ tools/                         screen colour test
 build/                         generated output (git-ignored)
 ```
 
+The Settings page also offers **Start with Windows**, off when no per-user startup entry exists.
+It applies immediately, independently of Save/Cancel and settings.json: the current executable
+is registered under HKCU Run with `--minimized`, so sign-in launches directly to the tray. Opening
+Settings repairs an enabled entry after the executable moves; disabling removes only FocusRGB's
+value. The ordinary Start minimized preference remains separate. Reboot/tray acceptance is an
+owner-only check; MSIX startup tasks remain outside this feature.
+
 Official plugins use one Download action: FocusRGB checks the release manifest and checksum
 metadata, shows the verified declared resources for consent, then downloads, verifies and installs
 the ZIP. Confirmed hashes are pinned through installation. Cached packages support offline reuse;
