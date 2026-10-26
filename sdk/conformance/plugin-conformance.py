@@ -110,6 +110,21 @@ def require_contract_major(value: object, expected: int, path: str) -> None:
         raise ProtocolError(f"{path} must use compatible major {expected}")
 
 
+def require_catalog_metadata(catalog: dict) -> None:
+    reason = catalog.get("reason")
+    if reason is None:
+        return
+    if not isinstance(reason, dict):
+        raise ProtocolError("catalog.reason must be an object")
+    code = require_string(reason.get("code"), "catalog.reason.code")
+    require_string(reason.get("message"), "catalog.reason.message")
+    if code == "catalog-scan-incomplete":
+        if catalog.get("support") not in {"supported", "unverified"}:
+            raise ProtocolError("incomplete catalog support must be supported or unverified")
+        if "refreshedAt" in catalog:
+            raise ProtocolError("incomplete catalog must omit refreshedAt")
+
+
 def run(plugin_id: str, timeout: float, command: list[str]) -> None:
     session = Session(command, timeout)
     try:
@@ -150,6 +165,7 @@ def run(plugin_id: str, timeout: float, command: list[str]) -> None:
         require_string(status.get("availability"), "status.availability")
 
         catalog = session.call(3, "catalog/list", {"kind": "effect"})
+        require_catalog_metadata(catalog)
         catalog_support = require_string(catalog.get("support"), "catalog.support")
         if catalog_support not in SUPPORT or not isinstance(catalog.get("items"), list):
             raise ProtocolError("catalog result has invalid support or items")
@@ -157,6 +173,7 @@ def run(plugin_id: str, timeout: float, command: list[str]) -> None:
         next_id = 4
         if support_by_id.get("game.catalog") in {"supported", "unverified"}:
             games = session.call(next_id, "catalog/list", {"kind": "game"})
+            require_catalog_metadata(games)
             next_id += 1
             game_support = require_string(games.get("support"), "game catalog.support")
             game_items = games.get("items")

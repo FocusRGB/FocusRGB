@@ -220,6 +220,76 @@ namespace FocusRgb.App.Tests
             Assert.Equal(revision, service.Current.SettingsRevision);
         }
 
+        [Theory]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        [InlineData(false, false)]
+        public async Task CatalogRefresh_MergesIncompleteResultsAndRetainsUnvisitedGames(bool explicitReason, bool hasTimestamp)
+        {
+            var (viewModel, service) = await CreateAsync();
+            var original = Assert.Single(SupportedCatalog().Value!.Items);
+            var unvisited = new PluginCatalogItem
+            {
+                ResourceId = "unvisited", DisplayName = "Unvisited", Available = true,
+                Game = new PluginGameCatalogMetadata { Executables = ["Unvisited.exe"] }
+            };
+            await viewModel.RefreshGameCatalogAsync("example", new PluginGatewayResult<PluginCatalogResult>(new()
+            {
+                Support = "supported", RefreshedAt = Start, Items = [original, unvisited]
+            }), TestContext.Current.CancellationToken);
+            await viewModel.RefreshGameCatalogAsync("other", SupportedCatalog(), TestContext.Current.CancellationToken);
+            var changed = new PluginCatalogItem
+            {
+                ResourceId = original.ResourceId, DisplayName = "Updated", Available = true,
+                Game = new PluginGameCatalogMetadata { Executables = ["Updated.exe"] }
+            };
+            var added = new PluginCatalogItem
+            {
+                ResourceId = "new", DisplayName = "New", Available = true,
+                Game = new PluginGameCatalogMetadata { Executables = ["New.exe"] }
+            };
+
+            await viewModel.RefreshGameCatalogAsync("example", new PluginGatewayResult<PluginCatalogResult>(new()
+            {
+                Support = "supported", RefreshedAt = hasTimestamp ? Start : null, Items = [changed, added],
+                Reason = explicitReason ? new PluginReason { Code = "catalog-scan-incomplete", Message = "Scanning more games." } : null
+            }), TestContext.Current.CancellationToken);
+
+            var cached = service.Current.GameCatalog.Games!.Where(game => game.Launcher == "example").ToArray();
+            Assert.Equal(3, cached.Length);
+            Assert.Equal(["Updated.exe"], cached.Single(game => game.Id == original.ResourceId).Executables);
+            Assert.Equal(["Unvisited.exe"], cached.Single(game => game.Id == "unvisited").Executables);
+            Assert.True(cached.Single(game => game.Id == "unvisited").Available);
+            Assert.Contains(service.Current.GameCatalog.Games!, game => game.Launcher == "other");
+            Assert.Contains(explicitReason ? "Scanning more games." : "incomplete", viewModel.GameEditorStatus, StringComparison.Ordinal);
+            var persisted = GameCatalogJson.Load(await File.ReadAllTextAsync(
+                Path.Combine(_tempDirectory.Path, "games.json"), TestContext.Current.CancellationToken));
+            Assert.Equal(3, persisted.Catalog!.Games!.Count(game => game.Launcher == "example"));
+
+            await viewModel.RefreshGameCatalogAsync("example", SupportedCatalog(), TestContext.Current.CancellationToken);
+
+            Assert.Single(service.Current.GameCatalog.Games!, game => game.Launcher == "example");
+            Assert.DoesNotContain("Scanning", viewModel.GameEditorStatus, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task CatalogRefresh_ShowsProgressForEmptyUnchangedPartialResult()
+        {
+            var (viewModel, service) = await CreateAsync();
+            await viewModel.RefreshGameCatalogAsync("example", SupportedCatalog(), TestContext.Current.CancellationToken);
+            var revision = service.Current.SettingsRevision;
+
+            await viewModel.RefreshGameCatalogAsync("example", new PluginGatewayResult<PluginCatalogResult>(new()
+            {
+                Support = "supported", Items = [],
+                Reason = new PluginReason { Code = "catalog-scan-incomplete", Message = "Scan is running." }
+            }), TestContext.Current.CancellationToken);
+
+            Assert.Equal(revision, service.Current.SettingsRevision);
+            Assert.Single(service.Current.GameCatalog.Games!);
+            Assert.Equal("Scan is running.", viewModel.GameEditorStatus);
+        }
+
         private async Task<(MainWindowViewModel ViewModel, ApplicationStateService Service)> CreateAsync()
         {
             var store = new LocalStateStore(_tempDirectory.Path);

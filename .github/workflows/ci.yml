@@ -32,6 +32,7 @@ jobs:
         run: dotnet test --solution FocusRGB.slnx -c Release --no-build
       - name: Verify language-neutral plugin conformance
         run: |
+          python -m unittest discover -s sdk/conformance -p "test_*.py"
           python sdk/conformance/plugin-conformance.py --plugin-id python-example -- python sdk/examples/python-plugin/plugin.py
           python sdk/conformance/plugin-conformance.py --plugin-id fake-output -- dotnet build/artifacts/bin/FocusRgb.FakePlugin/release/FocusRgb.FakePlugin.dll
       - name: Stop .NET build servers

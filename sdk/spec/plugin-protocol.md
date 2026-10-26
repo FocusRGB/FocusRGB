@@ -85,6 +85,16 @@ The host calls `catalog/list` with `kind: "game"` only after `initialize` report
 `game.catalog` capability as `supported` or `unverified`. An absent or `unsupported` capability
 means the host must not make the call.
 
+For a game catalog, an absent `refreshedAt` means completeness is unknown: the host MUST merge
+reported entries by launcher/resource ID with existing cached games and MUST NOT remove unreported
+games. Only a complete catalog with a fresh timestamp can reconcile removals. The reserved reason
+code `catalog-scan-incomplete` explicitly identifies an in-progress/partial scan; its result MUST
+use `supported` or `unverified`, omit `refreshedAt`, and include a nonempty readable reason message.
+The host MUST surface that message in the Games UI and retain unreported games even if a malformed
+sender includes a timestamp with this reason. Partial catalogs may be empty. Later requests can
+return a completed catalog. Unknown reason codes remain extensible; neither resource IDs nor
+gameplay semantics are inferred from reason text.
+
 ### `binding/apply`
 
 Parameters contain the profile ID, binding ID, rendering authority, device scope, optional
