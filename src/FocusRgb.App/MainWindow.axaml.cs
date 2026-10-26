@@ -347,7 +347,7 @@ namespace FocusRgb.App
                 || !ViewModel.BeginPluginAction()) return;
             try
             {
-                var loaded = app.LoadPluginConfiguration(item.Id);
+                var loaded = await Task.Run(() => app.LoadPluginConfiguration(item.Id));
                 if (!loaded.IsSuccess)
                 {
                     ViewModel.ReportPluginAction(loaded.Error ?? "The plugin settings could not be loaded.");
