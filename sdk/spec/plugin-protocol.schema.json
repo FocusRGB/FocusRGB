@@ -94,7 +94,11 @@
     "catalogListParameters": { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "type": "string", "enum": ["effect", "layout", "game"] } } },
     "pluginCatalogResult": {
       "type": "object", "additionalProperties": false, "required": ["support", "items"],
-      "properties": { "support": { "type": "string" }, "refreshedAt": { "type": "string", "format": "date-time" }, "items": { "type": "array", "items": { "$ref": "#/$defs/pluginCatalogItem" } }, "reason": { "$ref": "#/$defs/pluginReason" } }
+      "properties": { "support": { "type": "string" }, "refreshedAt": { "type": "string", "format": "date-time" }, "items": { "type": "array", "items": { "$ref": "#/$defs/pluginCatalogItem" } }, "reason": { "$ref": "#/$defs/pluginReason" } },
+      "allOf": [{
+        "if": { "required": ["reason"], "properties": { "reason": { "required": ["code"], "properties": { "code": { "const": "catalog-scan-incomplete" } } } } },
+        "then": { "not": { "required": ["refreshedAt"] }, "properties": { "support": { "enum": ["supported", "unverified"] }, "reason": { "properties": { "message": { "minLength": 1 } } } } }
+      }]
     },
     "pluginCatalogItem": { "type": "object", "additionalProperties": false, "required": ["resourceId", "displayName", "available"], "properties": { "resourceId": { "type": "string" }, "displayName": { "type": "string" }, "available": { "type": "boolean" }, "reason": { "$ref": "#/$defs/pluginReason" }, "game": { "$ref": "#/$defs/pluginGameCatalogMetadata" } } },
     "pluginGameCatalogMetadata": { "type": "object", "additionalProperties": false, "required": ["executables"], "properties": { "executables": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "pattern": "^[^/\\\\]+$" } } } },
