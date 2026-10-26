@@ -167,7 +167,7 @@ namespace FocusRgb.App.Plugins
                 return "Plugin setting IDs must be unique.";
             foreach (var field in schema.Fields)
             {
-                if (!IsId(field.Id) || string.IsNullOrWhiteSpace(field.DisplayName) || field.DisplayName.Length > 128)
+                if (!IsFieldId(field.Id) || string.IsNullOrWhiteSpace(field.DisplayName) || field.DisplayName.Length > 128)
                     return "Plugin setting fields require a valid ID and display name.";
                 if (field.Description?.Length > 512) return $"Description for '{field.Id}' is too long.";
                 if (field.Type is not ("string" or "integer" or "number" or "boolean" or "json"))
@@ -211,6 +211,10 @@ namespace FocusRgb.App.Plugins
             if (!IsId(pluginId)) throw new ArgumentException("The plugin ID is invalid.", nameof(pluginId));
             return Path.Combine(_packagesDirectory, pluginId);
         }
+
+        private static bool IsFieldId(string? value) => value is { Length: >= 1 and <= 64 }
+            && value[0] is >= 'a' and <= 'z' or >= '0' and <= '9'
+            && value.All(character => char.IsAsciiLetterOrDigit(character) || character == '-');
 
         private static bool IsId(string? value) => value is { Length: >= 1 and <= 64 }
             && value[0] is >= 'a' and <= 'z' or >= '0' and <= '9'

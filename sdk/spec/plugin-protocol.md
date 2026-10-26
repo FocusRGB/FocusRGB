@@ -198,7 +198,10 @@ The JSON object has `schemaVersion: 1`, optional `description` (up to 512 charac
 `fields` (1–64 objects). Unknown schema properties and duplicate field IDs are rejected. A field
 declares:
 
-- `id`: a unique lowercase alphanumeric/hyphen identifier of 1–64 characters;
+- `id`: a unique ordinal identifier of 1–64 ASCII letters, digits or hyphens, starting with a
+  lowercase letter or digit. CamelCase suffixes are supported for plugin-owned setting names
+  such as `installRoot`; plugin/package IDs remain lowercase-only. This host extension accepts
+  camelCase fields in newer hosts; older hosts may reject these optional package schemas;
 - `displayName`: a nonempty string of at most 128 characters;
 - optional `description`: at most 512 characters;
 - `type`: `string`, `integer` (signed 64-bit), `number` (finite double), `boolean`, or `json`
