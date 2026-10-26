@@ -152,6 +152,41 @@ namespace FocusRgb.App.HeadlessTests
             }
         }
 
+        [AvaloniaFact]
+        public void RecoveredSettings_OpenWithNoticeAndReset_WhileCancelPreservesBrokenFile()
+        {
+            using var temporary = new FocusRgb.TestSupport.TempDirectory(nameof(PluginSettingsHeadlessTests));
+            var packages = Path.Combine(temporary.Path, "plugins");
+            var data = Path.Combine(temporary.Path, "plugin-data");
+            Directory.CreateDirectory(Path.Combine(packages, "example"));
+            Directory.CreateDirectory(Path.Combine(data, "example"));
+            File.WriteAllText(Path.Combine(packages, "example", PluginConfigurationStore.SchemaFileName),
+                """{"schemaVersion":1,"fields":[{"id":"port","displayName":"Port","type":"integer","default":3000}]}""");
+            var path = Path.Combine(data, "example", "settings.json");
+            File.WriteAllText(path, "{broken");
+            using var store = new PluginConfigurationStore(packages, data);
+            var loaded = store.Load("example");
+            Assert.True(loaded.IsSuccess, loaded.Error);
+            var window = new PluginSettingsWindow(Plugin("example", true), loaded.Schema!, loaded.Values!, loaded.Notices);
+            window.Show();
+            try
+            {
+                Assert.Contains("backup", window.FindControl<TextBlock>("StatusText")!.Text!, StringComparison.Ordinal);
+                var port = window.GetLogicalDescendants().OfType<TextBox>().Single(box => box.Name == "PluginSetting_port");
+                port.Text = "4567";
+                window.FindControl<Button>("ResetButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal("3000", window.GetLogicalDescendants().OfType<TextBox>().Single(box => box.Name == "PluginSetting_port").Text);
+                window.GetLogicalDescendants().OfType<Button>().Single(button => Equals(button.Content, "Cancel"))
+                    .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.False(window.IsVisible);
+                Assert.Equal("{broken", File.ReadAllText(path));
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+
         private static InstalledPluginInfo Plugin(string id, bool hasConfiguration) => new()
         {
             Id = id,

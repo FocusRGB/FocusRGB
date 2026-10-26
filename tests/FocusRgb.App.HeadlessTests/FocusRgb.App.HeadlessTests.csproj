@@ -5,6 +5,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\FocusRgb.TestSupport\FocusRgb.TestSupport.csproj" />
     <PackageReference Include="Avalonia.Headless.XUnit" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="xunit.v3" VersionOverride="3.2.2" />

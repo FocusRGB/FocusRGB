@@ -54,6 +54,68 @@ namespace FocusRgb.App.Tests
             Assert.Equal(3, requests);
         }
 
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public async Task InspectThenInstall_UsesVerifiedConsentBeforeZipAndPinsApprovedHashes(bool consent, bool changed)
+        {
+            var listing = Listing();
+            var manifest = JsonSerializer.Serialize(FakePluginPackage.Manifest("plugin.dll"), PluginJson.Options);
+            var zip = CreateZip(manifest);
+            var sums = $"{Hash(zip)}  plugin.zip\n{Hash(Encoding.UTF8.GetBytes(manifest))}  focusrgb-plugin.json\n";
+            var requests = new List<string>();
+            using var client = new HttpClient(new ReleaseHandler(path =>
+            {
+                requests.Add(path);
+                return path switch
+                {
+                    "/plugin.zip" => zip,
+                    "/focusrgb-plugin.json" => Encoding.UTF8.GetBytes(manifest),
+                    "/SHA256SUMS" => Encoding.UTF8.GetBytes(sums),
+                    _ => throw new InvalidOperationException(path)
+                };
+            }));
+            var packages = Path.Combine(_temporary.Path, "plugins");
+            var installer = new PluginPackageInstaller(packages);
+            var cache = new PluginPackageCache(Path.Combine(_temporary.Path, "cache"));
+            var downloader = new PluginPackageDownloader(client, Path.Combine(_temporary.Path, "downloads"));
+
+            var inspected = await cache.InspectOfficialAsync(listing, downloader, TestContext.Current.CancellationToken);
+
+            Assert.True(inspected.IsSuccess, inspected.ErrorMessage);
+            Assert.Equal(Hash(zip), inspected.Sha256);
+            Assert.Equal(["/focusrgb-plugin.json", "/SHA256SUMS"], requests);
+            Assert.False(cache.Contains(listing));
+            Assert.False(Directory.Exists(Path.Combine(packages, listing.Id)));
+            if (!consent) return;
+            if (changed)
+            {
+                manifest = manifest.Replace("\"license\":\"MIT\"", "\"license\":\"Apache-2.0\"", StringComparison.Ordinal);
+                zip = CreateZip(manifest);
+                sums = $"{Hash(zip)}  plugin.zip\n{Hash(Encoding.UTF8.GetBytes(manifest))}  focusrgb-plugin.json\n";
+            }
+            await cache.DownloadAsync(listing, downloader, installer, TestContext.Current.CancellationToken);
+            var staged = await cache.StageAsync(listing, installer, inspected, TestContext.Current.CancellationToken);
+
+            Assert.Equal(!changed, staged.IsSuccess);
+            if (changed)
+            {
+                Assert.Equal("release-changed", staged.ErrorCode);
+                Assert.False(cache.Contains(listing));
+                Assert.False(Directory.Exists(Path.Combine(packages, listing.Id)));
+                return;
+            }
+            Assert.True(installer.Commit(staged.StagedPackage!).IsSuccess);
+            var requestCount = requests.Count;
+            var offline = await cache.InspectOfficialAsync(listing, downloader, TestContext.Current.CancellationToken);
+            await cache.DownloadAsync(listing, downloader, installer, TestContext.Current.CancellationToken);
+            var reinstalled = await cache.StageAsync(listing, installer, offline, TestContext.Current.CancellationToken);
+            Assert.True(reinstalled.IsSuccess, reinstalled.ErrorMessage);
+            Assert.True(installer.Commit(reinstalled.StagedPackage!).IsSuccess);
+            Assert.Equal(requestCount, requests.Count);
+        }
+
         [Fact]
         public async Task DownloadAsync_DoesNotCacheUnverifiedAssets()
         {
@@ -99,14 +161,14 @@ namespace FocusRgb.App.Tests
             using var cached = cache.Open(listing)!;
             File.WriteAllBytes(Path.Combine(cached.Directory, damagedFile), empty ? [] : [1, 2, 3]);
 
-            var failed = await cache.StageAsync(listing, installer, TestContext.Current.CancellationToken);
+            var failed = await cache.StageAsync(listing, installer, cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.False(failed.IsSuccess);
             Assert.False(cache.Contains(listing));
             Assert.False(Directory.Exists(cached.Directory));
             await cache.DownloadAsync(listing, downloader, installer, TestContext.Current.CancellationToken);
             Assert.Equal(6, requests);
-            var repaired = await cache.StageAsync(listing, installer, TestContext.Current.CancellationToken);
+            var repaired = await cache.StageAsync(listing, installer, cancellationToken: TestContext.Current.CancellationToken);
             Assert.True(repaired.IsSuccess, repaired.ErrorMessage);
             installer.Discard(repaired.StagedPackage!);
         }
@@ -155,10 +217,10 @@ namespace FocusRgb.App.Tests
             var listing = Listing("1.10.0");
             viewModel.SetOfficialPlugins(OfficialPluginCatalogResult.Fresh(
                 DateTimeOffset.UtcNow, [listing], "Ready"), _ => false);
-            Assert.Equal("Download", Assert.Single(viewModel.OfficialPlugins).ActionText);
+            Assert.False(Assert.Single(viewModel.OfficialPlugins).IsCached);
             viewModel.SetOfficialPlugins(OfficialPluginCatalogResult.Fresh(
                 DateTimeOffset.UtcNow, [listing], "Ready"), _ => true);
-            Assert.Equal("Install", Assert.Single(viewModel.OfficialPlugins).ActionText);
+            Assert.True(Assert.Single(viewModel.OfficialPlugins).IsCached);
             viewModel.SetInstalledPlugins([new InstalledPluginInfo
             {
                 Id = listing.Id, DisplayName = listing.Name, Version = "1.9.0", IsOfficial = true

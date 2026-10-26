@@ -724,11 +724,15 @@ namespace FocusRgb.App
         public async Task<PluginManagementResult> InstallOfficialPluginAsync(
             OfficialPluginListing listing,
             bool enable,
+            PluginArchiveResult approval,
             CancellationToken cancellationToken = default)
         {
+            ArgumentNullException.ThrowIfNull(approval);
+            if (!approval.IsSuccess || approval.Manifest!.Id != listing.Id || approval.Manifest.Version != listing.Version)
+                return PluginManagementResult.Fail("The approved package does not match this release.");
             if (_pluginPackageCache is null || _pluginInstaller is null)
                 return PluginManagementResult.Fail("Plugin management is not ready.");
-            var staged = await _pluginPackageCache.StageAsync(listing, _pluginInstaller, cancellationToken);
+            var staged = await _pluginPackageCache.StageAsync(listing, _pluginInstaller, approval, cancellationToken);
             if (!staged.IsSuccess)
             {
                 _viewModel?.RefreshPluginLists();
@@ -753,8 +757,15 @@ namespace FocusRgb.App
                 return PluginManagementResult.Fail("Plugin management is not ready.");
             await _pluginPackageCache.DownloadAsync(listing, _pluginDownloader, _pluginInstaller, cancellationToken);
             _viewModel?.RefreshPluginLists();
-            return PluginManagementResult.Ok($"Downloaded and verified {listing.Id} {listing.Version}. Choose Install to continue.");
+            return PluginManagementResult.Ok($"Downloaded and verified {listing.Id} {listing.Version}.");
         }
+
+        public Task<PluginArchiveResult> InspectOfficialPluginAsync(
+            OfficialPluginListing listing,
+            CancellationToken cancellationToken = default) =>
+            _pluginPackageCache is not null && _pluginDownloader is not null && _pluginInstaller is not null
+                ? _pluginPackageCache.InspectOfficialAsync(listing, _pluginDownloader, cancellationToken)
+                : Task.FromResult(PluginArchiveResult.Fail("runtime-unavailable", "Plugin management is not ready."));
 
         public async Task<PluginManagementResult> InstallCustomPluginAsync(
             string archivePath,

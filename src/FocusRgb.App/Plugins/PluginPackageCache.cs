@@ -3,7 +3,7 @@ using System.Text;
 
 namespace FocusRgb.App.Plugins
 {
-    /// <summary>Retains verified release assets for a separate, offline-capable install action.</summary>
+    /// <summary>Retains verified release assets for offline-capable installs and updates.</summary>
     public sealed class PluginPackageCache(string directory)
     {
         private readonly string _directory = Path.GetFullPath(directory);
@@ -51,9 +51,28 @@ namespace FocusRgb.App.Plugins
             Prune();
         }
 
+        public async Task<PluginArchiveResult> InspectOfficialAsync(
+            OfficialPluginListing listing,
+            PluginPackageDownloader downloader,
+            CancellationToken cancellationToken = default)
+        {
+            using var cached = Open(listing);
+            if (cached is not null)
+            {
+                var inspected = await PluginPackageInstaller.InspectOfficialManifestAsync(listing,
+                    cached.ManifestPath!, cached.ChecksumsPath!, cancellationToken).ConfigureAwait(false);
+                if (inspected.IsSuccess) return inspected;
+                Invalidate(listing);
+            }
+            using var metadata = await downloader.DownloadOfficialMetadataAsync(listing, cancellationToken).ConfigureAwait(false);
+            return await PluginPackageInstaller.InspectOfficialManifestAsync(listing,
+                metadata.ManifestPath!, metadata.ChecksumsPath!, cancellationToken).ConfigureAwait(false);
+        }
+
         public async Task<PluginArchiveResult> StageAsync(
             OfficialPluginListing listing,
             PluginPackageInstaller installer,
+            PluginArchiveResult? approval = null,
             CancellationToken cancellationToken = default)
         {
             using var cached = Open(listing);
@@ -64,6 +83,13 @@ namespace FocusRgb.App.Plugins
             }
             var staged = await installer.StageOfficialAsync(listing, cached.ArchivePath,
                 cached.ManifestPath!, cached.ChecksumsPath!, cancellationToken).ConfigureAwait(false);
+            if (staged.IsSuccess && approval is not null
+                && (!string.Equals(staged.Sha256, approval.Sha256, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(staged.ManifestSha256, approval.ManifestSha256, StringComparison.OrdinalIgnoreCase)))
+            {
+                installer.Discard(staged.StagedPackage!);
+                staged = PluginArchiveResult.Fail("release-changed", "The release changed after confirmation. Review and confirm the package again.");
+            }
             if (!staged.IsSuccess)
             {
                 Invalidate(listing);

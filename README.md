@@ -12,7 +12,8 @@ protected. The Windows app now starts asynchronously, persists manual selection,
 tray icon, and saves again before tray Quit or OS shutdown. The Settings page persists close
 behavior, start-minimized, theme, and diagnostic-logging preferences, with versioned migration,
 last-known-good recovery, and a
-privacy-limited diagnostics export. The app hosts explicitly enabled local process plugins
+metadata-only diagnostics export. Raw host/plugin logs stay local and are omitted from exports
+because they may contain credentials. The app hosts explicitly enabled local process plugins
 through the packaged 1.0 SDK and coordinates desired, applied, fallback, pending, ownership, and
 consent-gated recovery state. Windows process/focus observation now exists behind the platform
 boundary; application-group persistence and runtime detector wiring are still pending. See
@@ -99,6 +100,11 @@ is registered under HKCU Run with `--minimized`, so sign-in launches directly to
 Settings repairs an enabled entry after the executable moves; disabling removes only FocusRGB's
 value. The ordinary Start minimized preference remains separate. Reboot/tray acceptance is an
 owner-only check; MSIX startup tasks remain outside this feature.
+
+Official plugins use one Download action: FocusRGB checks the release manifest and checksum
+metadata, shows the verified declared resources for consent, then downloads, verifies and installs
+the ZIP. Confirmed hashes are pinned through installation. Cached packages support offline reuse;
+updates use the same consent checks, and custom packages retain their unverified warning.
 
 ## Build and test
 

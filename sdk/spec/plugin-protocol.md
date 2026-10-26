@@ -85,6 +85,16 @@ The host calls `catalog/list` with `kind: "game"` only after `initialize` report
 `game.catalog` capability as `supported` or `unverified`. An absent or `unsupported` capability
 means the host must not make the call.
 
+For a game catalog, an absent `refreshedAt` means completeness is unknown: the host MUST merge
+reported entries by launcher/resource ID with existing cached games and MUST NOT remove unreported
+games. Only a complete catalog with a fresh timestamp can reconcile removals. The reserved reason
+code `catalog-scan-incomplete` explicitly identifies an in-progress/partial scan; its result MUST
+use `supported` or `unverified`, omit `refreshedAt`, and include a nonempty readable reason message.
+The host MUST surface that message in the Games UI and retain unreported games even if a malformed
+sender includes a timestamp with this reason. Partial catalogs may be empty. Later requests can
+return a completed catalog. Unknown reason codes remain extensible; neither resource IDs nor
+gameplay semantics are inferred from reason text.
+
 ### `binding/apply`
 
 Parameters contain the profile ID, binding ID, rendering authority, device scope, optional
@@ -218,7 +228,11 @@ host application's settings document. Plugins read their configuration from this
 the environment variable is a location hint, not an access-control or trust boundary.
 
 The host supplies defaults for missing fields, drops obsolete saved fields, and replaces invalid
-saved values with defaults while displaying a notice. Loading repairs only the editor; Save
+saved values with defaults while displaying a notice. Recovery handles malformed or oversized
+saved documents by copying the original to a
+`.corrupt-<unique-id>` sibling and opening defaults with a notice. The original remains intact
+until an explicit Save; Cancel leaves it unchanged. If the backup cannot be written, recovery
+reports an error without replacing the original. Loading repairs only the editor; Save
 validates and atomically replaces the settings file. Cancel preserves the existing file and
 Reset changes only the editor until Save. A running plugin is stopped and restarted around a
 configuration save; restart failure is reported separately from successful persistence.

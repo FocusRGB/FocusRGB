@@ -215,6 +215,19 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
+        public void CatalogSchema_ReservesIncompleteScanReasonWithoutChangingWireShape()
+        {
+            using var schema = JsonDocument.Parse(File.ReadAllText(
+                Path.Combine(RepositoryPaths.Root, "sdk", "spec", "plugin-protocol.schema.json")));
+            var rule = schema.RootElement.GetProperty("$defs").GetProperty("pluginCatalogResult").GetProperty("allOf")[0];
+            Assert.Equal("catalog-scan-incomplete", rule.GetProperty("if").GetProperty("properties")
+                .GetProperty("reason").GetProperty("properties").GetProperty("code").GetProperty("const").GetString());
+            Assert.Equal("refreshedAt", rule.GetProperty("then").GetProperty("not").GetProperty("required")[0].GetString());
+            Assert.Equal(1, rule.GetProperty("then").GetProperty("properties").GetProperty("reason")
+                .GetProperty("properties").GetProperty("message").GetProperty("minLength").GetInt32());
+        }
+
+        [Fact]
         public void AppProject_DoesNotReferenceFakePlugin()
         {
             var references = ReadProject("FocusRgb.App").Descendants()
