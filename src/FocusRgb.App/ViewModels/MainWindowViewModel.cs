@@ -989,6 +989,11 @@ namespace FocusRgb.App.ViewModels
                     .ToList();
                 if (result.IsSuccess && result.Value!.Support is "supported" or "unverified")
                 {
+                    var incomplete = result.Value.RefreshedAt is null
+                        || result.Value.Reason?.Code == "catalog-scan-incomplete";
+                    if (incomplete) retained.AddRange(launcherGames);
+                    GameEditorStatus = result.Value.Reason?.Message
+                        ?? (incomplete ? "Game discovery is incomplete; retaining cached games." : string.Empty);
                     var refreshedAt = result.Value.RefreshedAt ?? DateTimeOffset.UtcNow;
                     var seen = new HashSet<GameIdentity>();
                     var rejected = 0;
@@ -1018,11 +1023,17 @@ namespace FocusRgb.App.ViewModels
                             rejected++;
                             continue;
                         }
+                        if (incomplete)
+                            retained.RemoveAll(existing => existing.Launcher == launcher && existing.Id == game.Id);
                         retained.Add(game);
                     }
                     if (rejected > 0)
                     {
-                        GameEditorStatus = $"Skipped {rejected} invalid or duplicate game catalog entries from {launcher}.";
+                        GameEditorStatus = string.Join(" ", new[]
+                        {
+                            GameEditorStatus,
+                            $"Skipped {rejected} invalid or duplicate game catalog entries from {launcher}."
+                        }.Where(message => !string.IsNullOrEmpty(message)));
                     }
                 }
                 else
