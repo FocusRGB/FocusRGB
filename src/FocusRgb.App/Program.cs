@@ -15,7 +15,7 @@ namespace FocusRgb.App
             using var instance = new Mutex(true, $"Local\\FocusRGB.Instance.{user}", out var firstInstance);
             if (!firstInstance)
             {
-                showSignal.Set();
+                if (!App.ShouldStartMinimized(args, savedPreference: false)) showSignal.Set();
                 return 0;
             }
 

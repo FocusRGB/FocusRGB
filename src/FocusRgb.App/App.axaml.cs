@@ -186,7 +186,8 @@ namespace FocusRgb.App
                         AppLog.Write($"Plugin availability update failed: {exception.Message}");
                     }
                 };
-                var mainWindow = new MainWindow(viewModel, directory);
+                var mainWindow = new MainWindow(viewModel, directory,
+                    OperatingSystem.IsWindows() ? new WindowsStartupRegistration(Environment.ProcessPath) : null);
                 AttachWindowsSessionEnd(mainWindow);
                 _mainWindow = mainWindow;
                 var icon = CreateIcon();
@@ -210,7 +211,7 @@ namespace FocusRgb.App
                     if (_trayIcon is not null)
                         _trayIcon.ToolTipText = "FocusRGB is running in the system tray.";
                 };
-                if (trayAvailable && startup.Snapshot.Settings.Application.StartMinimized == true)
+                if (trayAvailable && ShouldStartMinimized(desktop.Args, startup.Snapshot.Settings.Application.StartMinimized == true))
                 {
                     _trayIcon!.ToolTipText = "FocusRGB is running in the system tray.";
                     mainWindow.CreateHiddenPlatformWindow();
@@ -359,6 +360,9 @@ namespace FocusRgb.App
             trayIcon.Clicked += (_, _) => mainWindow.ShowFromTray();
             return trayIcon;
         }
+
+        internal static bool ShouldStartMinimized(string[]? args, bool savedPreference) =>
+            savedPreference || args?.Contains("--minimized", StringComparer.OrdinalIgnoreCase) == true;
 
         private async Task QuitAsync()
         {

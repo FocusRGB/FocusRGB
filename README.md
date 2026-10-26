@@ -93,6 +93,13 @@ tools/                         screen colour test
 build/                         generated output (git-ignored)
 ```
 
+The Settings page also offers **Start with Windows**, off when no per-user startup entry exists.
+It applies immediately, independently of Save/Cancel and settings.json: the current executable
+is registered under HKCU Run with `--minimized`, so sign-in launches directly to the tray. Opening
+Settings repairs an enabled entry after the executable moves; disabling removes only FocusRGB's
+value. The ordinary Start minimized preference remains separate. Reboot/tray acceptance is an
+owner-only check; MSIX startup tasks remain outside this feature.
+
 ## Build and test
 
 Game rules use cached executable names, including while discovery is offline. Common crash
