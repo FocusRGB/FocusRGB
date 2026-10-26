@@ -26,7 +26,6 @@ namespace FocusRgb.App.ViewModels
             : "Incompatible with this operating system or architecture";
         public bool CanInstall => Listing.IsCompatible;
         public bool IsCached { get; }
-        public string ActionText => IsCached ? "Install" : "Download";
     }
 
     /// <summary>Presents one local plugin folder and its recorded install origin.</summary>

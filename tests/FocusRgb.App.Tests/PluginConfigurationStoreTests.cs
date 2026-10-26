@@ -132,6 +132,42 @@ namespace FocusRgb.App.Tests
             Assert.Throws<ArgumentException>(() => store.CanConfigure("Example"));
         }
 
+        [Theory]
+        [InlineData("{broken")]
+        [InlineData("null")]
+        [InlineData("[]")]
+        [InlineData("oversized")]
+        public async Task Load_ArchivesInvalidDocumentAndOpensDefaults_WithoutReplacingOriginalUntilSave(string document)
+        {
+            var packages = Path.Combine(_temporaryDirectory.Path, "plugins");
+            var data = Path.Combine(_temporaryDirectory.Path, "plugin-data");
+            Directory.CreateDirectory(Path.Combine(packages, "example"));
+            Directory.CreateDirectory(Path.Combine(data, "example"));
+            File.WriteAllText(Path.Combine(packages, "example", PluginConfigurationStore.SchemaFileName), SchemaJson());
+            var path = Path.Combine(data, "example", PluginConfigurationStore.SettingsFileName);
+            var original = document == "oversized" ? new string(' ', 1024 * 1024 + 1) : document;
+            await File.WriteAllTextAsync(path, original, TestContext.Current.CancellationToken);
+            var bytes = await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken);
+            using var store = new PluginConfigurationStore(packages, data);
+
+            var loaded = store.Load("example");
+
+            Assert.True(loaded.IsSuccess, loaded.Error);
+            Assert.True(store.CanConfigure("example"));
+            Assert.Equal(3000, loaded.Values!["port"].GetInt32());
+            Assert.True(loaded.Values["enabled"].GetBoolean());
+            Assert.Contains("Cancel", Assert.Single(loaded.Notices), StringComparison.Ordinal);
+            Assert.Equal(bytes, await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken));
+            var archive = Assert.Single(Directory.GetFiles(Path.GetDirectoryName(path)!, "settings.json.corrupt-*"));
+            Assert.Equal(bytes, await File.ReadAllBytesAsync(archive, TestContext.Current.CancellationToken));
+
+            Assert.Null(await store.SaveAsync("example", loaded.Schema!, loaded.Values, TestContext.Current.CancellationToken));
+
+            Assert.Empty(store.Load("example").Notices);
+            Assert.Equal(3000, store.Load("example").Values!["port"].GetInt32());
+            Assert.Equal(bytes, await File.ReadAllBytesAsync(archive, TestContext.Current.CancellationToken));
+        }
+
         public void Dispose() => _temporaryDirectory.Dispose();
 
         internal static string SchemaJson() =>

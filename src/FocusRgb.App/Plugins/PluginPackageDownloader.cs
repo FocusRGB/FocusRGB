@@ -24,6 +24,24 @@ namespace FocusRgb.App.Plugins
             OfficialPluginListing listing,
             CancellationToken cancellationToken = default)
         {
+            var download = await DownloadOfficialMetadataAsync(listing, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await DownloadAsync(listing.PackageUrl, download.ArchivePath, PluginPackageInstaller.MaximumExpandedBytes,
+                    cancellationToken).ConfigureAwait(false);
+                return download;
+            }
+            catch
+            {
+                download.Dispose();
+                throw;
+            }
+        }
+
+        public async Task<DownloadedPluginPackage> DownloadOfficialMetadataAsync(
+            OfficialPluginListing listing,
+            CancellationToken cancellationToken = default)
+        {
             ArgumentNullException.ThrowIfNull(listing);
             var directory = CreateTemporaryDirectory();
             try
@@ -31,8 +49,6 @@ namespace FocusRgb.App.Plugins
                 var archive = Path.Combine(directory, "plugin.zip");
                 var manifest = Path.Combine(directory, PluginPackage.ManifestFileName);
                 var checksums = Path.Combine(directory, "SHA256SUMS");
-                await DownloadAsync(listing.PackageUrl, archive, PluginPackageInstaller.MaximumExpandedBytes,
-                    cancellationToken).ConfigureAwait(false);
                 await DownloadAsync(listing.ManifestUrl, manifest, MaximumMetadataBytes,
                     cancellationToken).ConfigureAwait(false);
                 await DownloadAsync(listing.ChecksumsUrl, checksums, MaximumMetadataBytes,

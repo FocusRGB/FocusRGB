@@ -52,6 +52,21 @@ namespace FocusRgb.App.Plugins
             string checksumsPath,
             CancellationToken cancellationToken = default)
         {
+            var inspected = await InspectOfficialManifestAsync(listing, manifestPath, checksumsPath, cancellationToken).ConfigureAwait(false);
+            if (!inspected.IsSuccess) return inspected;
+            var staged = await StageAsync(archivePath, listing.Id, inspected.Sha256!, cancellationToken).ConfigureAwait(false);
+            if (!staged.IsSuccess) return staged;
+            if (staged.ManifestSha256!.Equals(inspected.ManifestSha256, StringComparison.OrdinalIgnoreCase)) return staged;
+            DeleteStagingWithoutThrowing(staged.StagedPackage!.Directory);
+            return PluginArchiveResult.Fail("listing-mismatch", "The zip manifest does not match the verified release manifest.");
+        }
+
+        public static async Task<PluginArchiveResult> InspectOfficialManifestAsync(
+            OfficialPluginListing listing,
+            string manifestPath,
+            string checksumsPath,
+            CancellationToken cancellationToken = default)
+        {
             ArgumentNullException.ThrowIfNull(listing);
             try
             {
@@ -99,14 +114,7 @@ namespace FocusRgb.App.Plugins
                         "The verified release manifest resources do not match the permissions shown for consent.");
                 }
 
-                var staged = await StageAsync(
-                    archivePath, listing.Id, packageHash, cancellationToken).ConfigureAwait(false);
-                if (!staged.IsSuccess) return staged;
-                if (staged.ManifestSha256!.Equals(actualManifestHash, StringComparison.OrdinalIgnoreCase))
-                    return staged;
-                DeleteStagingWithoutThrowing(staged.StagedPackage!.Directory);
-                return PluginArchiveResult.Fail(
-                    "listing-mismatch", "The zip manifest does not match the verified release manifest.");
+                return PluginArchiveResult.Ok(releaseManifest, packageHash, actualManifestHash);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

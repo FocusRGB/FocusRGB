@@ -39,9 +39,18 @@ namespace FocusRgb.App.Plugins
                 if (File.Exists(path))
                 {
                     if (new FileInfo(path).Length > MaximumSettingsBytes)
-                        return PluginConfigurationLoadResult.Fail("The plugin settings file is too large.");
-                    var saved = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
-                        File.ReadAllText(path), PluginJsonOptions) ?? [];
+                        return RecoverDefaults(schema!, path, "The saved plugin settings exceeded 1 MiB.");
+                    Dictionary<string, JsonElement> saved;
+                    try
+                    {
+                        saved = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                            File.ReadAllText(path), PluginJsonOptions)
+                            ?? throw new JsonException("Plugin settings must be a JSON object.");
+                    }
+                    catch (JsonException)
+                    {
+                        return RecoverDefaults(schema!, path, "The saved plugin settings were not a valid JSON object.");
+                    }
                     var fields = schema!.Fields.ToDictionary(field => field.Id, StringComparer.Ordinal);
                     foreach (var value in saved)
                     {
@@ -106,6 +115,16 @@ namespace FocusRgb.App.Plugins
             {
                 _writeGate.Release();
             }
+        }
+
+        private static PluginConfigurationLoadResult RecoverDefaults(
+            PluginConfigurationSchema schema, string path, string reason)
+        {
+            var archive = path + ".corrupt-" + Guid.NewGuid().ToString("N");
+            // Copy rather than move: cancelling the editor must preserve the plugin's original file.
+            File.Copy(path, archive);
+            return PluginConfigurationLoadResult.Ok(schema, Defaults(schema),
+                [$"{reason} A backup was saved as {Path.GetFileName(archive)}. Defaults are shown; Save to replace the settings, or Cancel to leave them unchanged."]);
         }
 
         public static IReadOnlyDictionary<string, JsonElement> Defaults(PluginConfigurationSchema schema) =>
