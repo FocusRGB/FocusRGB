@@ -426,7 +426,7 @@
                             <TextBlock Text="{Binding Compatibility}" TextWrapping="Wrap" />
                             <TextBlock Text="{Binding Source}" Opacity="0.65" TextWrapping="Wrap" />
                           </StackPanel>
-                          <Button Grid.Column="1" Content="{Binding ActionText}" IsEnabled="{Binding CanInstall}"
+                          <Button Grid.Column="1" Content="Download" IsEnabled="{Binding CanInstall}"
                                   CommandParameter="{Binding}" Click="InstallOfficialPlugin_OnClick"
                                   VerticalAlignment="Center" />
                         </Grid>
