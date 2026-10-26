@@ -1,4 +1,7 @@
-# FocusRGB plugin protocol 1.3
+# FocusRGB plugin protocol 1.2 and optional package settings extension
+
+Protocol 1.3 is withdrawn. The supported wire contract remains 1.2; immutable release tags
+and existing schema `$id` URLs are preserved. The package settings extension below is host-only.
 
 This document is the normative, language-neutral contract between the FocusRGB host and a
 plugin process. The JSON schemas beside this document are normative machine-readable
@@ -25,7 +28,7 @@ immutable protocol tag and do not define the wire contract.
 
 The first request is `initialize`. No other request is valid until it succeeds. The manifest ID,
 handshake plugin ID, and compatible contract version must match. The host then uses `status/get`,
-`catalog/list`, `binding/apply`, `binding/release`, and `effect/input` only when declared capabilities allow
+`catalog/list`, `binding/apply`, and `binding/release` only when the declared capabilities allow
 them. `shutdown` is the final request.
 
 | Operation | Host limit | Cancellation and exit behavior |
@@ -35,7 +38,6 @@ them. `shutdown` is the final request.
 | `catalog/list` | 5 seconds | Timeout returns no guessed catalog and marks the plugin unhealthy. |
 | `binding/apply` | 5 seconds | Timeout is not proof that output was unchanged; recovery must re-query status before retrying. |
 | `binding/release` | 5 seconds | Timeout leaves ownership unresolved and blocks transfer to another writer. |
-| `effect/input` | 1 second | The host coalesces superseded values instead of building a queue. |
 | `shutdown` | 5 seconds, then 500 ms exit grace | The host kills a child that does not exit after the bounded shutdown. |
 
 When a host stops waiting for a written request, it sends the `$/cancel` notification with that
@@ -70,7 +72,7 @@ resource reference contains an opaque provider `resourceId` when known and a req
 
 ### `catalog/list`
 
-Parameters contain `kind`, currently `effect`, `layout`, `game`, or `telemetry`. The result contains `support`, an
+Parameters contain `kind`, currently `effect`, `layout`, or `game`. The result contains `support`, an
 optional `refreshedAt`, `items[]`, and an optional `reason`. Each item has a stable `resourceId`,
 `displayName`, `available`, and an optional reason. Unsupported enumeration returns
 `support: "unsupported"`; it must not fabricate items.
@@ -82,17 +84,6 @@ processes. Game identity is the `(pluginId, resourceId)` pair; display names are
 The host calls `catalog/list` with `kind: "game"` only after `initialize` reports the
 `game.catalog` capability as `supported` or `unverified`. An absent or `unsupported` capability
 means the host must not make the call.
-
-Telemetry catalogs are self-describing and are requested only after `initialize` reports
-`game.telemetry` as `supported` or `unverified`. Each telemetry catalog item includes
-`telemetry { game, section, kind, valueType, description }`. `game { launcher, id }` uses the same
-launcher-scoped identity as the game catalog. A section contains a plugin-owned stable `id`,
-friendly `displayName`, and integer display `order`. `kind` is `input` or `event`; `valueType` is
-`boolean`, `number`, `string`, or `event`. Event descriptors use the `event` value type. Optional
-presentation metadata consists of a unit, numeric minimum/maximum, and string choices with values
-and display names. The host treats resource IDs, sections, labels, and descriptions as data and
-must not infer game semantics from them. Namespaced resource and adapter IDs use dot-separated,
-lowercase ASCII segments; each segment may also contain digits and hyphens.
 
 ### `binding/apply`
 
@@ -106,20 +97,6 @@ Parameters contain the profile ID and binding ID. The result contains `outcome`.
 the plugin has removed changes owned by that binding; it does not by itself prove that another
 physical writer may safely acquire a device.
 
-### `effect/input`
-
-The host sends this request only to the currently applied binding of an output plugin that reports
-`provider.effect.input` as `supported` or `unverified`. Parameters identify the profile, binding,
-user mapping, host-authenticated source plugin, telemetry source/game, sequence, host receipt time,
-source descriptor ID, freshness, condition result, and target input ID. A `fresh` request contains
-exactly one typed value or event whose resource ID matches the source descriptor ID. A `stale` or
-`disconnected` request contains neither, so old data cannot be mistaken for current state. The
-result outcome is `accepted`, `unsupported`, or `unavailable`, with an optional reason.
-
-Hosts keep at most one request in flight per binding and coalesce superseded values. Events are
-delivered at most once and are never replayed. Effect input does not select a profile, acquire a
-device, or change rendering authority.
-
 ### `shutdown`
 
 Parameters are empty and the result is an empty object. The plugin stops accepting work, cleans
@@ -129,14 +106,6 @@ up app-owned temporary state where possible, writes the response, and exits.
 
 - `status/changed` has empty parameters and tells the host to call `status/get`; it carries no
   authoritative state itself.
-- `game/telemetry` publishes one full replacement input snapshot plus ordered one-shot events. Its
-  source contains an opaque game identity and adapter ID; the host derives the source plugin ID
-  from the child process. Sequence numbers are non-negative and monotonic for that process.
-  `observedAt` is UTC, and `freshForMs`/`disconnectAfterMs` are bounded durations; the host rejects
-  a disconnect duration that is not greater than the fresh duration. Values reference catalog
-  resource IDs and carry exactly one Boolean, finite JSON number, or bounded string. Event IDs and
-  fields follow the same namespaced typed-value rules. The protocol assigns no universal gameplay
-  field names.
 - `$/cancel` contains `{ "id": number }` and is sent by the host for an abandoned request.
 
 ## Support, outcomes, and reasons
@@ -207,16 +176,14 @@ Contract versions are `major.minor`; package versions are semantic `major.minor.
 - Contract 1.1 adds the optional manifest `runtime` field. Runner plugins must declare contract
   1.1 or later; direct executable plugins may continue to declare 1.0.
 - Contract 1.2 adds the optional `game.catalog` capability and `game` catalog item metadata.
-- Contract 1.3 adds self-describing telemetry catalogs, the optional `game.telemetry` and
-  `provider.effect.input` capabilities, the `game/telemetry` notification, and the `effect/input`
-  request. It deliberately defines no game-specific sections or gameplay field names.
 - Patch releases change implementation or documentation without changing the wire contract.
 - Stable 1.x fields and methods are not removed before 2.0. Deprecations remain supported for at
   least the rest of the current major and are documented before removal.
 - Unknown optional capabilities are ignored. Required behavior is invoked only after capability
   negotiation, leaving room for game events and native frame output in later 1.x versions.
 
-The 1.3 schema `$id`s resolve to the immutable `spec-v1.3.0` tag. Every future released schema
+Existing schema `$id`s retain the immutable `spec-v1.3.0` URLs for compatibility; this
+working-tree document supersedes that withdrawn release. Every future released schema
 must likewise resolve to its protocol release tag, using
 `https://raw.githubusercontent.com/FocusRGB/FocusRGB/spec-vX.Y.Z/sdk/spec/<schema-name>`.
 
@@ -263,9 +230,8 @@ transport above, validates initialization, implements every capability it report
 cancellation and shutdown, keeps logs off standard output, and agrees with
 [`plugin-protocol.schema.json`](plugin-protocol.schema.json).
 
-The language-neutral runner checks successful initialize, status, declared game and telemetry
-catalogs, telemetry notifications, effect-input delivery, effect catalog, apply, release, and
-shutdown. The repository's host and SDK tests separately cover package
+The language-neutral runner checks the successful initialize, status, declared game catalog,
+effect catalog, apply, release, and shutdown lifecycle. The repository's host and SDK tests separately cover package
 reproducibility, an external package consumer, manifest and handshake incompatibility, malformed
 and oversized messages, timeouts, cancellation, concurrent calls, process exit, stderr/stdout
 separation, and shutdown. Schema/type drift tests fail when the normative schemas, method

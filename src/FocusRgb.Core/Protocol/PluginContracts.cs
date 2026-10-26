@@ -10,10 +10,8 @@ namespace FocusRgb.Core.Protocol
         public const string CatalogList = "catalog/list";
         public const string BindingApply = "binding/apply";
         public const string BindingRelease = "binding/release";
-        public const string EffectInput = "effect/input";
         public const string Shutdown = "shutdown";
         public const string StatusChanged = "status/changed";
-        public const string GameTelemetry = "game/telemetry";
         public const string Cancel = "$/cancel";
     }
 
@@ -104,7 +102,7 @@ namespace FocusRgb.Core.Protocol
         public required string DisplayName { get; init; }
     }
 
-    /// <summary>Requests an effect, layout, installed-game, or telemetry descriptor catalog.</summary>
+    /// <summary>Requests an effect, layout, or installed-game catalog.</summary>
     public sealed class CatalogListParameters
     {
         public required string Kind { get; init; }
@@ -127,86 +125,12 @@ namespace FocusRgb.Core.Protocol
         public required bool Available { get; init; }
         public PluginReason? Reason { get; init; }
         public PluginGameCatalogMetadata? Game { get; init; }
-        public PluginTelemetryCatalogMetadata? Telemetry { get; init; }
     }
 
     /// <summary>Lists executable file names that identify one installed game without exposing paths.</summary>
     public sealed class PluginGameCatalogMetadata
     {
         public required IReadOnlyList<string> Executables { get; init; }
-    }
-
-    /// <summary>Identifies one game without assigning meaning to its launcher-owned ID.</summary>
-    public sealed class PluginGameReference
-    {
-        public required string Launcher { get; init; }
-        public required string Id { get; init; }
-    }
-
-    /// <summary>Groups telemetry descriptors using plugin-owned display text and order.</summary>
-    public sealed class PluginTelemetrySection
-    {
-        public required string Id { get; init; }
-        public required string DisplayName { get; init; }
-        public int Order { get; init; }
-    }
-
-    /// <summary>Describes one selectable string value without making it a host enum.</summary>
-    public sealed class PluginTelemetryChoice
-    {
-        public required string Value { get; init; }
-        public required string DisplayName { get; init; }
-    }
-
-    /// <summary>Lets any game plugin describe one input or event without host-specific assumptions.</summary>
-    public sealed class PluginTelemetryCatalogMetadata
-    {
-        public required PluginGameReference Game { get; init; }
-        public required PluginTelemetrySection Section { get; init; }
-        public required string Kind { get; init; }
-        public required string ValueType { get; init; }
-        public required string Description { get; init; }
-        public string? Unit { get; init; }
-        public double? Minimum { get; init; }
-        public double? Maximum { get; init; }
-        public IReadOnlyList<PluginTelemetryChoice>? Choices { get; init; }
-    }
-
-    /// <summary>Identifies the game and adapter that produced telemetry.</summary>
-    public sealed class PluginTelemetrySource
-    {
-        public required PluginGameReference Game { get; init; }
-        public required string Adapter { get; init; }
-    }
-
-    /// <summary>Carries exactly one Boolean, finite number, or bounded string telemetry value.</summary>
-    public sealed class PluginTelemetryValue
-    {
-        public required string ResourceId { get; init; }
-        public bool? Boolean { get; init; }
-        public double? Number { get; init; }
-        [JsonPropertyName("string")]
-        public string? StringValue { get; init; }
-    }
-
-    /// <summary>Reports one namespaced, one-shot event and its typed fields.</summary>
-    public sealed class PluginTelemetryEvent
-    {
-        public required string ResourceId { get; init; }
-        public required DateTimeOffset ObservedAt { get; init; }
-        public IReadOnlyList<PluginTelemetryValue> Values { get; init; } = [];
-    }
-
-    /// <summary>Publishes a full telemetry snapshot plus events with bounded freshness.</summary>
-    public sealed class GameTelemetryParameters
-    {
-        public required PluginTelemetrySource Source { get; init; }
-        public long Sequence { get; init; }
-        public required DateTimeOffset ObservedAt { get; init; }
-        public int FreshForMs { get; init; }
-        public int DisconnectAfterMs { get; init; }
-        public IReadOnlyList<PluginTelemetryValue> Inputs { get; init; } = [];
-        public IReadOnlyList<PluginTelemetryEvent> Events { get; init; } = [];
     }
 
     /// <summary>Describes the provider-managed or explicit device scope for one binding.</summary>
@@ -246,31 +170,6 @@ namespace FocusRgb.Core.Protocol
     public sealed class BindingReleaseResult
     {
         public required string Outcome { get; init; }
-    }
-
-    /// <summary>Routes one mapped telemetry value or event to the active output binding.</summary>
-    public sealed class EffectInputParameters
-    {
-        public required string Profile { get; init; }
-        public required string BindingId { get; init; }
-        public required string MappingId { get; init; }
-        public required string SourcePluginId { get; init; }
-        public required PluginTelemetrySource Source { get; init; }
-        public required string SourceResourceId { get; init; }
-        public long Sequence { get; init; }
-        public required DateTimeOffset ReceivedAt { get; init; }
-        public required string Freshness { get; init; }
-        public bool ConditionMatched { get; init; }
-        public required string TargetInputId { get; init; }
-        public PluginTelemetryValue? Value { get; init; }
-        public PluginTelemetryEvent? Event { get; init; }
-    }
-
-    /// <summary>Reports whether the active output accepted one mapped effect input.</summary>
-    public sealed class EffectInputResult
-    {
-        public required string Outcome { get; init; }
-        public PluginReason? Reason { get; init; }
     }
 
     /// <summary>Identifies a request the host no longer waits for.</summary>
