@@ -218,7 +218,11 @@ host application's settings document. Plugins read their configuration from this
 the environment variable is a location hint, not an access-control or trust boundary.
 
 The host supplies defaults for missing fields, drops obsolete saved fields, and replaces invalid
-saved values with defaults while displaying a notice. Loading repairs only the editor; Save
+saved values with defaults while displaying a notice. Recovery handles malformed or oversized
+saved documents by copying the original to a
+`.corrupt-<unique-id>` sibling and opening defaults with a notice. The original remains intact
+until an explicit Save; Cancel leaves it unchanged. If the backup cannot be written, recovery
+reports an error without replacing the original. Loading repairs only the editor; Save
 validates and atomically replaces the settings file. Cancel preserves the existing file and
 Reset changes only the editor until Save. A running plugin is stopped and restarted around a
 configuration save; restart failure is reported separately from successful persistence.
