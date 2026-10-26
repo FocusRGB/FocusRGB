@@ -94,6 +94,11 @@ tools/                         screen colour test
 build/                         generated output (git-ignored)
 ```
 
+Official plugins use one Download action: FocusRGB checks the release manifest and checksum
+metadata, shows the verified declared resources for consent, then downloads, verifies and installs
+the ZIP. Confirmed hashes are pinned through installation. Cached packages support offline reuse;
+updates use the same consent checks, and custom packages retain their unverified warning.
+
 ## Build and test
 
 Game rules use cached executable names, including while discovery is offline. Common crash

@@ -203,18 +203,24 @@ namespace FocusRgb.App
                 || Application.Current is not App app || !ViewModel.BeginPluginAction()) return;
             try
             {
-                if (!item.IsCached)
+                var inspected = await app.InspectOfficialPluginAsync(item.Listing);
+                if (!inspected.IsSuccess)
                 {
-                    ViewModel.ReportPluginAction($"Downloading and verifying {item.Name}…");
-                    var downloaded = await app.DownloadOfficialPluginAsync(item.Listing);
-                    ViewModel.ReportPluginAction(downloaded.Message);
+                    ViewModel.ReportPluginAction(inspected.ErrorMessage ?? "The release metadata could not be verified.");
                     return;
                 }
                 var choice = await ConfirmInstallAsync(
-                    item.Id, item.Version, item.Source, item.Resources, null, custom: false, collision: false);
+                    inspected.Manifest!.Id!, inspected.Manifest.Version!, item.Source,
+                    string.Join(", ", inspected.Manifest.Resources!), inspected.Sha256, custom: false, collision: false);
                 if (!choice.Confirmed) return;
                 ViewModel.ReportPluginAction($"Downloading and verifying {item.Name}…");
-                var result = await app.InstallOfficialPluginAsync(item.Listing, choice.Enable);
+                var downloaded = await app.DownloadOfficialPluginAsync(item.Listing);
+                if (!downloaded.IsSuccess)
+                {
+                    ViewModel.ReportPluginAction(downloaded.Message);
+                    return;
+                }
+                var result = await app.InstallOfficialPluginAsync(item.Listing, choice.Enable, inspected);
                 ViewModel.ReportPluginAction(result.Message);
             }
             catch (Exception exception)
@@ -247,8 +253,14 @@ namespace FocusRgb.App
                 || !ViewModel.BeginPluginAction()) return;
             try
             {
-                var choice = await ConfirmInstallAsync(listing.Id, listing.Version,
-                    listing.RepositoryUrl, string.Join(", ", listing.Resources), null,
+                var inspected = await app.InspectOfficialPluginAsync(listing);
+                if (!inspected.IsSuccess)
+                {
+                    ViewModel.ReportPluginAction(inspected.ErrorMessage ?? "The release metadata could not be verified.");
+                    return;
+                }
+                var choice = await ConfirmInstallAsync(inspected.Manifest!.Id!, inspected.Manifest.Version!,
+                    listing.RepositoryUrl, string.Join(", ", inspected.Manifest.Resources!), inspected.Sha256,
                     custom: false, collision: false, enableInitially: item.Plugin.IsEnabled);
                 if (!choice.Confirmed) return;
                 ViewModel.ReportPluginAction($"Downloading update for {item.Name}…");
@@ -258,7 +270,7 @@ namespace FocusRgb.App
                     ViewModel.ReportPluginAction(downloaded.Message);
                     return;
                 }
-                var installed = await app.InstallOfficialPluginAsync(listing, choice.Enable);
+                var installed = await app.InstallOfficialPluginAsync(listing, choice.Enable, inspected);
                 ViewModel.ReportPluginAction(installed.Message);
             }
             catch (Exception exception)
