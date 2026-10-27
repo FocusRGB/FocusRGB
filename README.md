@@ -35,7 +35,7 @@ FocusRGB is organized as a modular ecosystem:
 | Repository | Purpose | Status |
 |---|---|---|
 | [**FocusRGB**](https://github.com/FocusRGB/FocusRGB) | Desktop app (Avalonia), portable core host, and normative JSON-RPC protocol specification | Active (`develop`) |
-| [**FocusRGB-Plugin-SDK**](https://github.com/FocusRGB/FocusRGB-Plugin-SDK) | Official plugin development SDKs: .NET (`FocusRgb.PluginSdk` on nuget.org), with Node and Python planned | v1.2.0 on NuGet |
+| [**FocusRGB-SDK**](https://github.com/FocusRGB/FocusRGB-SDK) | Official plugin development SDKs: .NET (`FocusRgb.PluginSdk` on nuget.org), with Node and Python planned | v1.2.0 on NuGet |
 | [**FocusRGB-Plugin-SignalRGB**](https://github.com/FocusRGB/FocusRGB-Plugin-SignalRGB) | Official output plugin rendering FocusRGB profiles through SignalRGB | Released v1.0.0; `develop` uses SDK 1.2 |
 | [**FocusRGB-Plugin-Steam**](https://github.com/FocusRGB/FocusRGB-Plugin-Steam) | Official discovery plugin scanning installed Steam games and launch executables | SDK 1.2 |
 

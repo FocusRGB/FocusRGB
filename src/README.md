@@ -15,7 +15,7 @@ Application source for FocusRGB. Delivery status is tracked on the
 
 Core targets portable .NET 10 without Windows APIs and is not packable. No project here
 references an integration or SDK source. Production plugins live in independent
-`FocusRGB-Plugin-<Name>` repositories and consume packages from `FocusRGB-Plugin-SDK`; the main
+`FocusRGB-Plugin-<Name>` repositories and consume packages from [`FocusRGB-SDK`](https://github.com/FocusRGB/FocusRGB-SDK); the main
 repository keeps only its raw fake conformance fixture under tests. Build output goes to the ignored
 `../build/artifacts/` directory (set by `../Directory.Build.props`).
 `../tests/FocusRgb.Core.Tests/DependencyBoundaryTests.cs` fails the build's tests if Core gains
