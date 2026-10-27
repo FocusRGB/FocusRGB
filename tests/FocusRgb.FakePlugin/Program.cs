@@ -130,7 +130,7 @@ static async Task RunRawProbeAsync(string invalidResponse)
                     result = new
                     {
                         pluginId = "fake-output",
-                        pluginVersion = "1.0.0",
+                        pluginVersion = "0.1.0",
                         contractVersion = Protocol.ContractVersion,
                         capabilities = (object?)null
                     }
@@ -145,7 +145,7 @@ static async Task RunRawProbeAsync(string invalidResponse)
                 result = new
                 {
                     pluginId = "fake-output",
-                    pluginVersion = "1.0.0",
+                    pluginVersion = "0.1.0",
                     contractVersion = Protocol.ContractVersion,
                     capabilities = Array.Empty<object>()
                 }
@@ -306,7 +306,7 @@ static async Task RunFakePluginAsync(
                     result = new
                     {
                         pluginId = "fake-output",
-                        pluginVersion = "1.0.0",
+                        pluginVersion = "0.1.0",
                         contractVersion,
                         capabilities = new[]
                         {

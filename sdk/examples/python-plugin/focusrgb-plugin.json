@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "python-example",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "contractVersion": "1.0",
   "entryPoint": "plugin.py",
   "operatingSystems": ["linux", "macos"],

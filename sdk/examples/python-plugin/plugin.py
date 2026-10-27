@@ -45,7 +45,7 @@ def main() -> int:
                 continue
             result(request_id, {
                 "pluginId": PLUGIN_ID,
-                "pluginVersion": "1.0.0",
+                "pluginVersion": "0.1.0",
                 "contractVersion": "1.0",
                 "capabilities": [
                     {"id": "provider.effect.catalog", "support": "supported"},

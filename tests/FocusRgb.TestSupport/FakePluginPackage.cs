@@ -12,7 +12,7 @@ namespace FocusRgb.TestSupport
         {
             SchemaVersion = 1,
             Id = "fake-output",
-            Version = "1.0.0",
+            Version = "0.1.0",
             ContractVersion = contractVersion ?? ContractVersion.Current,
             EntryPoint = entryPoint,
             OperatingSystems = [OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "macos" : "linux"],

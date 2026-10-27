@@ -177,7 +177,7 @@ namespace FocusRgb.App.Tests
         public void Open_UsesReleaseIdentityDespiteDescriptionChanges()
         {
             var directory = Path.Combine(_temporary.Path, "cache");
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("fake-output\n1.0.0")));
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("fake-output\n0.1.0")));
             var entry = Path.Combine(directory, key);
             Directory.CreateDirectory(entry);
             foreach (var name in new[] { "plugin.zip", "focusrgb-plugin.json", "SHA256SUMS" })
@@ -246,7 +246,7 @@ namespace FocusRgb.App.Tests
             Assert.False(item.HasUpdate);
         }
 
-        internal static OfficialPluginListing Listing(string version = "1.0.0", string? description = null) => new()
+        internal static OfficialPluginListing Listing(string version = "0.1.0", string? description = null) => new()
         {
             Id = "fake-output", Name = "Fake", Version = version,
             Description = description,
