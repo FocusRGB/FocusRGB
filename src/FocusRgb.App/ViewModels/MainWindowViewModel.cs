@@ -106,7 +106,6 @@ namespace FocusRgb.App.ViewModels
             EditingProfile = profiles.Count > 0 ? profiles[0] : null;
             EditingApplicationGroup = ApplicationGroups.Count > 0 ? ApplicationGroups[0] : null;
             ReloadGameProjection();
-            EditingGame = Games.FirstOrDefault(game => game.IsManual);
             LoadApplicationSettings();
         }
 
@@ -253,7 +252,16 @@ namespace FocusRgb.App.ViewModels
         public string GameName { get => _gameName; set => Set(ref _gameName, value); }
         public string ManualGameExecutable { get => _manualGameExecutable; set => Set(ref _manualGameExecutable, value); }
         public string? SelectedGameExecutable { get => _selectedGameExecutable; set => Set(ref _selectedGameExecutable, value); }
-        public string GameEditorStatus { get => _gameEditorStatus; private set => Set(ref _gameEditorStatus, value); }
+        public string GamePickerPlaceholder => Games.Count == 0 ? "No games have been added or discovered" : "Choose a game";
+        public string GameEditorStatus
+        {
+            get => _gameEditorStatus;
+            private set
+            {
+                if (!Set(ref _gameEditorStatus, value))
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GameEditorStatus)));
+            }
+        }
         public bool CanEditGame => EditingGame is null || EditingGame.IsManual;
         public bool CanRemoveGame => EditingGame?.IsManual == true;
         public string? SelectedDraftExecutable { get => _selectedDraftExecutable; set => Set(ref _selectedDraftExecutable, value); }
@@ -984,7 +992,6 @@ namespace FocusRgb.App.ViewModels
                 }
                 MappingEditor.RemoveGameTarget(launcher, id);
                 ReloadGameProjection();
-                EditingGame = Games.FirstOrDefault(game => game.IsManual);
                 GameEditorStatus = $"Removed {removed}.";
             }
             finally
@@ -1509,7 +1516,8 @@ namespace FocusRgb.App.ViewModels
 
         private void ReloadGameProjection(bool preserveManualDraft = false)
         {
-            var preserveDraft = preserveManualDraft && EditingGame?.IsManual == true;
+            var preserveDraft = preserveManualDraft && (EditingGame?.IsManual == true
+                || EditingGame is null && (GameName.Length > 0 || DraftGameExecutables.Count > 0));
             var draftName = GameName;
             var draftExecutables = DraftGameExecutables.ToList();
             var selectedExecutable = SelectedGameExecutable;
@@ -1526,9 +1534,11 @@ namespace FocusRgb.App.ViewModels
                 .ThenBy(game => game.Launcher, StringComparer.Ordinal)
                 .ThenBy(game => game.Id, StringComparer.Ordinal))
                 Games.Add(new GameCatalogItemViewModel(game, ambiguous));
-            if (selected is not null)
-                EditingGame = Games.FirstOrDefault(game =>
-                    game.Launcher == selected.Value.Launcher && game.Id == selected.Value.Id);
+            if (!(preserveDraft && selected is null))
+                EditingGame = Games.FirstOrDefault(game => selected is not null
+                    && game.Launcher == selected.Value.Launcher && game.Id == selected.Value.Id)
+                    ?? Games.FirstOrDefault(game => game.IsManual) ?? Games.FirstOrDefault();
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GamePickerPlaceholder)));
             if (preserveDraft)
             {
                 GameName = draftName;

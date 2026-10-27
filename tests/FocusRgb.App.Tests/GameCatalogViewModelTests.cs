@@ -16,6 +16,18 @@ namespace FocusRgb.App.Tests
         private readonly TempDirectory _tempDirectory = new(nameof(GameCatalogViewModelTests));
 
         [Fact]
+        public async Task Discovery_SelectsFirstGameOnRefreshAndRestart()
+        {
+            var (viewModel, service) = await CreateAsync();
+            Assert.Null(viewModel.EditingGame);
+            await viewModel.RefreshGameCatalogAsync("steam", SupportedCatalog(), TestContext.Current.CancellationToken);
+            Assert.Same(viewModel.Games[0], viewModel.EditingGame);
+            var restarted = MainWindowViewModel.CreatePreview(service.Current.Settings, service.Current.GameCatalog);
+            Assert.Same(restarted.Games[0], restarted.EditingGame);
+            Assert.Equal("Choose a game", restarted.GamePickerPlaceholder);
+        }
+
+        [Fact]
         public async Task ManualGame_SavePersistsAndBecomesAMappingTarget()
         {
             var store = new LocalStateStore(_tempDirectory.Path);

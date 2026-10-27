@@ -32,6 +32,7 @@ namespace FocusRgb.App
         private readonly IStartupRegistration? _startupRegistration;
         private bool _updatingStartupControls;
         private IDisposable? _focusStatusTimer;
+        private IDisposable? _gameStatusTimer;
 
         public MainWindow()
             : this(MainWindowViewModel.CreatePreview(), null)
@@ -53,6 +54,7 @@ namespace FocusRgb.App
             Deactivated += (_, _) => FinishMappingDrag(false);
             _startupRegistration = startupRegistration;
             DataContext = viewModel;
+            viewModel.PropertyChanged += GameStatus_OnPropertyChanged;
             _dataDirectory = dataDirectory ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "FocusRGB");
@@ -840,6 +842,14 @@ namespace FocusRgb.App
             this.FindControl<TextBlock>("FocusSaveStatus")!.Opacity = 1;
         }
 
+        private void GameStatus_OnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != nameof(MainWindowViewModel.GameEditorStatus)) return;
+            _gameStatusTimer?.Dispose();
+            GameEditorStatusText.Opacity = 0.7;
+            _gameStatusTimer = DispatcherTimer.RunOnce(() => GameEditorStatusText.Opacity = 0, TimeSpan.FromSeconds(3));
+        }
+
         private void AnimateFocusMove(Action move)
         {
             ResetFocusStatus();
@@ -868,6 +878,8 @@ namespace FocusRgb.App
         {
             FinishMappingDrag(false);
             _focusStatusTimer?.Dispose();
+            _gameStatusTimer?.Dispose();
+            ViewModel.PropertyChanged -= GameStatus_OnPropertyChanged;
             base.OnClosed(e);
         }
 
