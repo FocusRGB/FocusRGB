@@ -1183,11 +1183,18 @@ namespace FocusRgb.App.ViewModels
             }
         }
 
-        public async Task SaveMappingsAsync(CancellationToken cancellationToken = default)
+        public Task SaveMappingsAsync(CancellationToken cancellationToken = default) =>
+            SaveMappingsCoreAsync(false, false, cancellationToken);
+
+        public Task SaveEditingFocusAsync(bool saveAs, CancellationToken cancellationToken = default) =>
+            SaveMappingsCoreAsync(true, saveAs, cancellationToken);
+
+        private async Task SaveMappingsCoreAsync(bool saveEditor, bool saveAs, CancellationToken cancellationToken)
         {
             if (!BeginSettingsSave()) return;
             try
             {
+                if (saveEditor && !MappingEditor.CommitEditing(saveAs)) return;
                 var candidate = WithMappings(CreateApplicationGroupSettings(), MappingEditor.CreateRuleSettings());
                 var error = await SaveCandidateAsync(candidate, cancellationToken);
                 if (error is not null)
