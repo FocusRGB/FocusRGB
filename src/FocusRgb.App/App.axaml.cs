@@ -44,6 +44,7 @@ namespace FocusRgb.App
         private LocalMcpPipeServer? _mcpServer;
         private McpReadQueryService? _mcpQueries;
         private McpCommandService? _mcpCommands;
+        private ApplicationStateService? _applicationState;
         private McpUiState _mcpState = McpUiState.Unavailable;
         private NativeMenuItem? _reviewMcpRequestMenuItem;
         private CancellationTokenSource? _pluginStartupCancellation;
@@ -139,6 +140,7 @@ namespace FocusRgb.App
                     outputCoordinator,
                     initialOutput,
                     startup.Snapshot.GameCatalog);
+                _applicationState = stateService;
                 var popupDecision = new FocusRgb.Core.Selection.ProfileChangePopupDecision();
                 popupDecision.Update(stateService.Current);
                 stateService.SnapshotChanged += (_, snapshot) => Dispatcher.UIThread.Post(() =>
@@ -306,6 +308,21 @@ namespace FocusRgb.App
 
         public McpUiState McpState => _mcpState;
 
+        public async Task RequestProfilePreviewAsync(string profileId, CancellationToken cancellationToken)
+        {
+            if (_mcpCommands is null) return;
+            var result = await _mcpCommands.DispatchAsync(new LocalMcpRequest
+            {
+                Method = "previewProfile",
+                ClientName = "FocusRGB app",
+                Parameters = System.Text.Json.JsonSerializer.SerializeToElement(new { profile = profileId, durationSeconds = 10 })
+            }, cancellationToken);
+            if (result.TryGetProperty("error", out var error))
+                _viewModel?.ReportUnexpectedError(error.GetProperty("message").GetString()!);
+        }
+
+        public Task CancelProfilePreviewAsync() => _applicationState?.CancelPreviewAsync() ?? Task.CompletedTask;
+
         public async Task<McpUiState> SetMcpEnabledAsync(
             bool enabled,
             CancellationToken cancellationToken = default)
@@ -356,7 +373,7 @@ namespace FocusRgb.App
         {
             var show = new NativeMenuItem("Show FocusRGB");
             show.Click += (_, _) => mainWindow.ShowFromTray();
-            var reviewMcp = new NativeMenuItem("Review MCP request") { IsEnabled = false };
+            var reviewMcp = new NativeMenuItem("Review command request") { IsEnabled = false };
             reviewMcp.Click += (_, _) => ReviewMcpApprovalFromTray();
             _reviewMcpRequestMenuItem = reviewMcp;
             var quit = new NativeMenuItem("Quit");
@@ -408,6 +425,7 @@ namespace FocusRgb.App
 
         private async Task StopPluginsAsync()
         {
+            await CancelProfilePreviewAsync();
             await StopMcpAsync();
             _observationCancellation?.Cancel();
             if (_observationTask is { } observationTask)
@@ -514,7 +532,7 @@ namespace FocusRgb.App
             Dispatcher.UIThread.Post(() =>
             {
                 if (_reviewMcpRequestMenuItem is not null) _reviewMcpRequestMenuItem.IsEnabled = true;
-                if (_trayIcon is not null) _trayIcon.ToolTipText = "FocusRGB: MCP approval requested.";
+                if (_trayIcon is not null) _trayIcon.ToolTipText = "FocusRGB: command approval requested.";
                 _mainWindow?.ShowMcpApproval(request, openedFromTray: false);
             });
 

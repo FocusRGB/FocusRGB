@@ -26,6 +26,7 @@ namespace FocusRgb.App
         private bool _pluginsLoaded;
         private string? _mcpApprovalId;
         private bool _hideAfterMcpApproval;
+        private CancellationTokenSource? _previewCancellation;
         private readonly IStartupRegistration? _startupRegistration;
         private bool _updatingStartupControls;
 
@@ -121,6 +122,7 @@ namespace FocusRgb.App
         {
             if (_allowClose) return;
             DeclineMcpApproval();
+            _previewCancellation?.Cancel();
             e.Cancel = true;
             if (ViewModel.ShouldMinimizeOnClose)
             {
@@ -537,6 +539,28 @@ namespace FocusRgb.App
 
         private async void SaveProfile_OnClick(object? sender, RoutedEventArgs e) =>
             await RunUiActionAsync(() => ViewModel.SaveProfileAsync());
+
+        private async void PreviewProfile_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (_previewCancellation is not null || ViewModel.EditingProfile is not { } profile) return;
+            using var cancellation = new CancellationTokenSource();
+            _previewCancellation = cancellation;
+            try
+            {
+                await RunUiActionAsync(async () =>
+                {
+                    if (Application.Current is App app) await app.RequestProfilePreviewAsync(profile.Id, cancellation.Token);
+                });
+            }
+            finally { _previewCancellation = null; }
+        }
+
+        private async void StopPreview_OnClick(object? sender, RoutedEventArgs e) =>
+            await RunUiActionAsync(async () =>
+            {
+                _previewCancellation?.Cancel();
+                if (Application.Current is App app) await app.CancelProfilePreviewAsync();
+            });
         private async void SaveProfileAs_OnClick(object? sender, RoutedEventArgs e) =>
             await RunUiActionAsync(() => ViewModel.SaveProfileAsAsync());
         private async void RemoveProfile_OnClick(object? sender, RoutedEventArgs e) =>

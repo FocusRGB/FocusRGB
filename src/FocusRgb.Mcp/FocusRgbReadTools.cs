@@ -52,6 +52,12 @@ namespace FocusRgb.Mcp
             CancellationToken cancellationToken) =>
             client.RequestAsync("selectProfile", new { profile }, ClientName(server), cancellationToken);
 
+        [McpServerTool(Name = "previewProfile")]
+        [Description("Requests in-app approval for a 1–30 second real-output preview of a saved profile. Disconnect cancels it; saved selection is restored.")]
+        public Task<JsonElement> PreviewProfileAsync(string profile, int durationSeconds,
+            McpServer server, CancellationToken cancellationToken) =>
+            client.RequestAsync("previewProfile", new { profile, durationSeconds }, ClientName(server), cancellationToken);
+
         [McpServerTool(Name = "setMode")]
         [Description("Requests approval to switch FocusRGB between manual and automatic selection.")]
         public Task<JsonElement> SetModeAsync(

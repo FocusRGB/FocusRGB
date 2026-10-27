@@ -20,6 +20,88 @@ namespace FocusRgb.App.Tests
             Path.GetTempPath(), "FocusRgb.Tests", Guid.NewGuid().ToString("N"));
 
         [Fact]
+        public async Task PreviewApproval_DisconnectAfterApprovalEndsOverrideAndPreservesSavedIntent()
+        {
+            using var coordinator = new OutputCoordinator(new RecoveryGateway(), NativeSetupJson.CreateDefault());
+            var (state, commands) = await CreateAsync(coordinator: coordinator);
+            McpApprovalRequest? approval = null;
+            commands.ApprovalRequested += (_, value) => approval = value;
+            var saved = await File.ReadAllBytesAsync(Path.Combine(_directory, LocalStateStore.StateFileName), TestContext.Current.CancellationToken);
+            using var disconnected = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            var request = commands.DispatchAsync(Request("previewProfile", new { profile = "movie", durationSeconds = 30 }), disconnected.Token);
+            await WaitForAsync(() => approval is not null);
+            commands.Approve(approval!.Id);
+            await WaitForAsync(() => state.Current.Preview is not null);
+            var status = await new McpReadQueryService(state, () => []).QueryAsync("getStatus", TestContext.Current.CancellationToken);
+            Assert.Equal("movie", status.GetProperty("preview").GetProperty("profileId").GetString());
+            disconnected.Cancel();
+            Assert.True((await request).GetProperty("ok").GetBoolean());
+            Assert.Null(state.Current.Preview);
+            Assert.Equal("default", state.Current.SelectionState.ManualProfile);
+            Assert.Equal(saved, await File.ReadAllBytesAsync(Path.Combine(_directory, LocalStateStore.StateFileName), TestContext.Current.CancellationToken));
+            Assert.False(File.Exists(Path.Combine(_directory, LocalStateStore.PreviewJournalFileName)));
+        }
+
+        [Fact]
+        public async Task PreviewApproval_DeclineDoesNotChangeOutputOrSavedState()
+        {
+            var (state, commands) = await CreateAsync();
+            McpApprovalRequest? approval = null;
+            commands.ApprovalRequested += (_, value) => approval = value;
+            var request = commands.DispatchAsync(Request("previewProfile", new { profile = "movie", durationSeconds = 10 }),
+                TestContext.Current.CancellationToken);
+            await WaitForAsync(() => approval is not null);
+            Assert.Contains("real output", approval!.Summary, StringComparison.Ordinal);
+            Assert.Contains("10 seconds", approval.Summary, StringComparison.Ordinal);
+            commands.Decline(approval.Id);
+            var result = await request;
+            Assert.Equal("approval-declined", result.GetProperty("error").GetProperty("code").GetString());
+            Assert.Null(state.Current.Preview);
+            Assert.Equal("default", state.Current.SelectionState.ManualProfile);
+            Assert.False(File.Exists(Path.Combine(_directory, LocalStateStore.PreviewJournalFileName)));
+        }
+
+        [Fact]
+        public async Task PreviewApproval_RechecksRevisionAndNeverApprovesThroughMcp()
+        {
+            var (state, commands) = await CreateAsync();
+            McpApprovalRequest? approval = null;
+            commands.ApprovalRequested += (_, value) => approval = value;
+            var request = commands.DispatchAsync(Request("previewProfile", new { profile = "movie", durationSeconds = 1 }),
+                TestContext.Current.CancellationToken);
+            await WaitForAsync(() => approval is not null);
+            var unknown = await commands.DispatchAsync(Request("approve", new { id = approval!.Id }), TestContext.Current.CancellationToken);
+            Assert.Equal("method-not-found", unknown.GetProperty("error").GetProperty("code").GetString());
+            await state.ApplySettingsAsync(state.Current.Settings, state.Current.SettingsRevision, "ui", TestContext.Current.CancellationToken);
+            commands.Approve(approval.Id);
+            var result = await request;
+            Assert.Equal("conflict", result.GetProperty("error").GetProperty("code").GetString());
+            Assert.Null(state.Current.Preview);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(31)]
+        public async Task PreviewApproval_RejectsInvalidDurationBeforePrompt(int durationSeconds)
+        {
+            var (_, commands) = await CreateAsync();
+            var result = await commands.DispatchAsync(Request("previewProfile", new { profile = "movie", durationSeconds }),
+                TestContext.Current.CancellationToken);
+            Assert.Equal("invalid-duration", result.GetProperty("error").GetProperty("code").GetString());
+            Assert.Null(commands.Pending);
+        }
+
+        [Fact]
+        public async Task PreviewApproval_RejectsNonNumericDurationWithoutPrompt()
+        {
+            var (_, commands) = await CreateAsync();
+            var result = await commands.DispatchAsync(Request("previewProfile", new { profile = "movie", durationSeconds = "30" }),
+                TestContext.Current.CancellationToken);
+            Assert.Equal("invalid-duration", result.GetProperty("error").GetProperty("code").GetString());
+            Assert.Null(commands.Pending);
+        }
+
+        [Fact]
         public async Task Approval_DoesNotHoldCommandGate_AndRechecksRevisionBeforeExecution()
         {
             var (state, commands) = await CreateAsync();
@@ -484,7 +566,8 @@ namespace FocusRgb.App.Tests
 
         private async Task<(ApplicationStateService State, McpCommandService Commands)> CreateAsync(
             TimeSpan? approvalTimeout = null,
-            TimeSpan? declineCooldown = null)
+            TimeSpan? declineCooldown = null,
+            OutputCoordinator? coordinator = null)
         {
             var store = new LocalStateStore(_directory);
             var startup = await store.InitializeAsync(
@@ -494,7 +577,7 @@ namespace FocusRgb.App.Tests
                 startup.Snapshot!.Settings,
                 startup.Snapshot.State,
                 startup.Snapshot.Desired.Reason,
-                store);
+                store, coordinator);
             var queries = new McpReadQueryService(state, () => []);
             return (state, new McpCommandService(
                 state,

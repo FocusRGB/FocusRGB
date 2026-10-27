@@ -5,6 +5,12 @@ namespace FocusRgb.Core.Persistence
     /// <summary>Persists the application documents owned by the shared command service.</summary>
     public interface IApplicationStateStore : ISelectionStateStore
     {
+        Task<SaveResult> SavePreviewJournalAsync(string? profileId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(SaveResult.Fail(new PersistenceError
+            {
+                FileName = "preview.json", Message = "This state store does not support safe output previews."
+            }));
+
         /// <summary>Atomically saves validated application settings.</summary>
         Task<SaveResult> SaveSettingsAsync(
             SettingsDocument settings,

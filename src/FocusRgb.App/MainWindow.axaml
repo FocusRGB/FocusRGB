@@ -31,7 +31,7 @@
             CornerRadius="8" BorderBrush="#3B82F6" BorderThickness="1">
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
         <StackPanel Spacing="5">
-          <TextBlock Text="Local MCP approval" FontWeight="SemiBold" />
+          <TextBlock Text="Command approval" FontWeight="SemiBold" />
           <TextBlock x:Name="McpApprovalDetailsText" Opacity="0.7" TextWrapping="Wrap" />
           <TextBlock x:Name="McpApprovalSummaryText" TextWrapping="Wrap" />
         </StackPanel>
@@ -236,6 +236,8 @@
                 <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding !IsSettingsSavePending}">
                   <Button Content="Save" Click="SaveProfile_OnClick" />
                   <Button Content="Save As" Click="SaveProfileAs_OnClick" />
+                  <Button Content="Preview saved output (10s)" Click="PreviewProfile_OnClick" IsEnabled="{Binding HasEditingProfile}" />
+                  <Button Content="Stop output preview" Click="StopPreview_OnClick" />
                   <Button Content="Cancel" Click="CancelProfile_OnClick" />
                   <Button Content="Remove" Click="RemoveProfile_OnClick" IsEnabled="{Binding CanRemoveEditingProfile}" />
                 </StackPanel>

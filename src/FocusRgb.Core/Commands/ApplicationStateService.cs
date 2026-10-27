@@ -25,6 +25,8 @@ namespace FocusRgb.Core.Commands
         private long _settingsRevision = 1;
         private bool _commandActive;
         private bool _outputChangedDuringCommand;
+        private ProfilePreview? _preview;
+        private CancellationTokenSource? _previewCancellation;
 
         public ApplicationStateService(
             SettingsDocument settings,
@@ -174,6 +176,116 @@ namespace FocusRgb.Core.Commands
                 cancellationToken,
                 publishUnchanged: false);
 
+        /// <summary>Runs a bounded, already-approved temporary override without persisting preview intent.</summary>
+        public async Task<ApplicationCommandResult> PreviewProfileAsync(
+            string profileId, int durationSeconds, long expectedRevision, string source,
+            CancellationToken cancellationToken = default)
+        {
+            if (durationSeconds is < 1 or > 30)
+                return ApplicationCommandResult.Fail(Current, "invalid-duration", "Preview duration must be 1–30 seconds.");
+            await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            ProfilePreview? preview = null;
+            CancellationTokenSource? lifetime = null;
+            var publish = false;
+            BeginCommand();
+            try
+            {
+                if (expectedRevision != _settingsRevision)
+                    return ApplicationCommandResult.Fail(Current, "conflict", "Settings changed before preview approval completed.");
+                if (_preview is not null)
+                    return ApplicationCommandResult.Fail(Current, "busy", "An output preview is already active.");
+                if (_outputCoordinator is null || _outputCoordinator.IsDisposed)
+                    return ApplicationCommandResult.Fail(Current, "output-not-connected", "No output coordinator is connected.");
+                if (!_settings.Profiles!.Any(profile => profile.Id == profileId))
+                    return ApplicationCommandResult.Fail(Current, "invalid-profile", "The saved preview profile does not exist.");
+                var journal = await _store.SavePreviewJournalAsync(profileId, cancellationToken).ConfigureAwait(false);
+                if (!journal.IsSuccess)
+                    return ApplicationCommandResult.Fail(Current, "persistence-failed", journal.Error!.Message);
+                lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                lifetime.CancelAfter(TimeSpan.FromSeconds(durationSeconds));
+                preview = new ProfilePreview(Guid.NewGuid().ToString("N"), profileId,
+                    DateTimeOffset.UtcNow.AddSeconds(durationSeconds), source);
+                lock (_snapshotGate) { _preview = preview; _previewCancellation = lifetime; }
+                // Selection keeps tracking/persisting observations, but only the preview owns output.
+                _selectionCommands = new SelectionCommandService(_store);
+                var temporary = new SelectionStateDocument
+                {
+                    SchemaVersion = _selectionState.SchemaVersion, Mode = "manual",
+                    ManualProfile = profileId, LastSelectedProfile = profileId, UpdatedAt = _selectionState.UpdatedAt
+                };
+                await _outputCoordinator.ApplyAsync(_settings, temporary,
+                    new SelectionReason { Kind = "preview" }, cancellationToken: lifetime.Token).ConfigureAwait(false);
+                publish = true;
+            }
+            catch
+            {
+                try { if (preview is not null) await EndPreviewCoreAsync().ConfigureAwait(false); }
+                finally { lifetime?.Dispose(); }
+                throw;
+            }
+            finally
+            {
+                var snapshot = EndCommand("preview", ref publish);
+                _commandGate.Release();
+                if (publish) SnapshotChanged?.Invoke(this, snapshot);
+            }
+
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, lifetime!.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (lifetime!.IsCancellationRequested) { }
+            finally
+            {
+                await _commandGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+                BeginCommand();
+                try
+                {
+                    if (_preview?.Id == preview.Id) await EndPreviewCoreAsync().ConfigureAwait(false);
+                }
+                finally
+                {
+                    publish = true;
+                    var snapshot = EndCommand("preview-ended", ref publish);
+                    _commandGate.Release();
+                    SnapshotChanged?.Invoke(this, snapshot);
+                    lifetime!.Dispose();
+                }
+            }
+            return ApplicationCommandResult.Ok(Current);
+        }
+
+        public async Task CancelPreviewAsync(CancellationToken cancellationToken = default)
+        {
+            await _commandGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            BeginCommand();
+            var publish = false;
+            try
+            {
+                if (_preview is not null) { await EndPreviewCoreAsync().ConfigureAwait(false); publish = true; }
+            }
+            finally
+            {
+                var snapshot = EndCommand("preview-ended", ref publish);
+                _commandGate.Release();
+                if (publish) SnapshotChanged?.Invoke(this, snapshot);
+            }
+        }
+
+        private async Task EndPreviewCoreAsync()
+        {
+            _previewCancellation?.Cancel();
+            lock (_snapshotGate) { _preview = null; _previewCancellation = null; }
+            _selectionCommands = new SelectionCommandService(_store, _outputCoordinator);
+            // Never use the disconnected caller's token when restoring saved intent.
+            var restored = await _selectionCommands.ReapplyAsync(_settings, _selectionState,
+                _selectionReason, CancellationToken.None).ConfigureAwait(false);
+            if (!restored.IsSuccess) throw new IOException($"Saved selection could not be restored: {restored.ErrorMessage}");
+            ApplySelectionResult(restored);
+            var journal = await _store.SavePreviewJournalAsync(null, CancellationToken.None).ConfigureAwait(false);
+            if (!journal.IsSuccess) throw new IOException($"Could not clear preview journal: {journal.Error!.Message}");
+        }
+
         /// <summary>Validates and saves a full document only when the caller read the current revision.</summary>
         public async Task<ApplicationCommandResult> ApplySettingsAsync(
             SettingsDocument candidate,
@@ -193,6 +305,8 @@ namespace FocusRgb.Core.Commands
             try
             {
                 SettingsDocument currentSettings;
+                if (_preview is not null)
+                    return ApplicationCommandResult.Fail(Current, "busy", "End the output preview before editing settings.");
                 SelectionStateDocument currentState;
                 SelectionReason currentReason;
                 long currentRevision;
@@ -409,6 +523,8 @@ namespace FocusRgb.Core.Commands
                 }
                 if (conflictMessage is null)
                 {
+                    if (_preview is not null && source != "observation")
+                        await EndPreviewCoreAsync().ConfigureAwait(false);
                     result = await command(settings, state).ConfigureAwait(false);
                     if (result.IsSuccess)
                     {
@@ -440,9 +556,10 @@ namespace FocusRgb.Core.Commands
             lock (_snapshotGate)
             {
                 _selectionState = Clone(result.State!);
-                if (_runtimeStatus is null || status.Sequence >= _runtimeStatus.Sequence)
+                if (_preview is not null || _runtimeStatus is null || status.Sequence >= _runtimeStatus.Sequence)
                 {
-                    _runtimeStatus = status;
+                    _runtimeStatus = _preview is null ? status
+                        : ProjectRuntimeStatus(_selectionState, status.Desired.Reason, _outputCoordinator?.CurrentStatus);
                     _selectionReason = status.Desired.Reason;
                 }
             }
@@ -454,8 +571,8 @@ namespace FocusRgb.Core.Commands
             lock (_snapshotGate)
             {
                 if (_runtimeStatus is not null && status.Sequence < _runtimeStatus.Sequence) return;
-                _runtimeStatus = status;
-                _selectionReason = status.Desired.Reason;
+                _runtimeStatus = _preview is null ? status : ProjectRuntimeStatus(_selectionState, _selectionReason, status);
+                if (_preview is null) _selectionReason = status.Desired.Reason;
                 if (_commandActive) _outputChangedDuringCommand = true;
                 else snapshot = CreateSnapshot("output");
             }
@@ -490,6 +607,7 @@ namespace FocusRgb.Core.Commands
             SelectionState = Clone(_selectionState),
             SelectionReason = _selectionReason,
             RuntimeStatus = _runtimeStatus,
+            Preview = _preview,
             SettingsRevision = _settingsRevision,
             Source = source
         };
@@ -571,6 +689,7 @@ namespace FocusRgb.Core.Commands
         public required SelectionStateDocument SelectionState { get; init; }
         public required SelectionReason SelectionReason { get; init; }
         public SelectionRuntimeStatus? RuntimeStatus { get; init; }
+        public ProfilePreview? Preview { get; init; }
         public long SettingsRevision { get; init; }
         public required string Source { get; init; }
     }
