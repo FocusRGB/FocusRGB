@@ -316,9 +316,9 @@
                 <Button Content="New manual game" Click="NewManualGame_OnClick" />
               </StackPanel>
             </Grid>
-            <ComboBox ItemsSource="{Binding Games}" SelectedItem="{Binding EditingGame}"
+            <ComboBox x:Name="GamePicker" ItemsSource="{Binding Games}" SelectedItem="{Binding EditingGame}"
                       AutomationProperties.Name="Game to inspect or edit"
-                      PlaceholderText="No games have been added or discovered">
+                      PlaceholderText="{Binding GamePickerPlaceholder}">
               <ComboBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:GameCatalogItemViewModel">
                   <StackPanel>
@@ -341,7 +341,10 @@
                            IsVisible="{Binding EditingGame.HasAmbiguousExecutables}"
                            TextWrapping="Wrap" />
                 <StackPanel x:Name="GameEditControls" Spacing="10" IsEnabled="{Binding CanEditGame}">
-                  <Button Content="Add executable…" Click="BrowseGameExecutable_OnClick" HorizontalAlignment="Left" />
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Add executable…" Click="BrowseGameExecutable_OnClick" />
+                    <Button Content="Remove executable" Click="RemoveGameExecutable_OnClick" />
+                  </StackPanel>
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <ComboBox ItemsSource="{Binding DetectedExecutables}"
                               SelectedItem="{Binding SelectedDetectedExecutable}"
@@ -355,14 +358,16 @@
                              PlaceholderText="Enter executable name, for example game.exe" />
                     <Button Grid.Column="1" Content="Add name" Click="AddManualGameExecutable_OnClick" />
                   </Grid>
-                  <Button Content="Remove executable" Click="RemoveGameExecutable_OnClick" />
-                  <Button Content="Save" Click="SaveManualGame_OnClick" />
                 </StackPanel>
-                <Button Content="Remove game" Click="RemoveManualGame_OnClick"
-                        IsEnabled="{Binding CanRemoveGame}" HorizontalAlignment="Left" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="Save" Click="SaveManualGame_OnClick" IsEnabled="{Binding CanEditGame}" />
+                  <Button Content="Remove game" Click="RemoveManualGame_OnClick" IsEnabled="{Binding CanRemoveGame}" />
+                </StackPanel>
               </StackPanel>
             </Border>
-            <TextBlock Text="{Binding GameEditorStatus}" Opacity="0.7" TextWrapping="Wrap" />
+            <TextBlock x:Name="GameEditorStatusText" Text="{Binding GameEditorStatus}" Opacity="0.7" TextWrapping="Wrap">
+              <TextBlock.Transitions><Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.2" /></Transitions></TextBlock.Transitions>
+            </TextBlock>
           </StackPanel>
         </ScrollViewer>
       </TabItem>

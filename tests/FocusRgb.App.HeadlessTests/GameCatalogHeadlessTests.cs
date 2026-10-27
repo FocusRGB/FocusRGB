@@ -9,6 +9,33 @@ namespace FocusRgb.App.HeadlessTests
     public sealed class GameCatalogHeadlessTests
     {
         [AvaloniaFact]
+        public async Task GamesStatus_FadesAfterThreeSecondsAndRestartsForRepeatedValidation()
+        {
+            var viewModel = MainWindowViewModel.CreatePreview();
+            var window = new MainWindow(viewModel);
+            window.Show();
+            try
+            {
+                var picker = window.FindControl<ComboBox>("GamePicker")!;
+                Assert.Null(picker.SelectedItem);
+                Assert.Equal("No games have been added or discovered", picker.PlaceholderText);
+                viewModel.ManualGameExecutable = "invalid";
+                viewModel.AddManualGameExecutable();
+                var status = window.FindControl<TextBlock>("GameEditorStatusText")!;
+                Assert.Contains(".exe", status.Text, StringComparison.Ordinal);
+                await Task.Delay(3300);
+                Assert.Equal(0, status.GetBaseValue(Avalonia.Visual.OpacityProperty).Value);
+                viewModel.AddManualGameExecutable();
+                Assert.Equal(0.7, status.GetBaseValue(Avalonia.Visual.OpacityProperty).Value);
+            }
+            finally
+            {
+                window.AllowClose();
+                window.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void GamesTab_ExplainsWhySharedExecutablesDoNotTriggerSpecificRules()
         {
             var viewModel = MainWindowViewModel.CreatePreview(SettingsJson.LoadDefaults().Settings!,
@@ -66,7 +93,7 @@ namespace FocusRgb.App.HeadlessTests
                         }
                     ]
                 });
-            viewModel.EditingGame = Assert.Single(viewModel.Games);
+            Assert.Same(Assert.Single(viewModel.Games), viewModel.EditingGame);
             var window = new MainWindow(viewModel);
             window.GetLogicalDescendants().OfType<TabItem>()
                 .Single(tab => Equals(tab.Header, "Games")).IsSelected = true;
@@ -79,6 +106,9 @@ namespace FocusRgb.App.HeadlessTests
                 Assert.True(executables.IsVisible);
                 Assert.Equal(["Sample.exe"], executables.Items.Cast<string>());
                 Assert.False(editControls.IsEnabled);
+                var picker = window.FindControl<ComboBox>("GamePicker")!;
+                Assert.Same(viewModel.EditingGame, picker.SelectedItem);
+                Assert.Equal("Choose a game", picker.PlaceholderText);
             }
             finally
             {
