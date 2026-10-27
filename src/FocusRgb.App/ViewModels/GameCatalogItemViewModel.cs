@@ -12,10 +12,11 @@ namespace FocusRgb.App.ViewModels
             Id = game.Id!;
             DisplayName = game.DisplayName!;
             Executables = new ObservableCollection<string>(game.Executables!);
+            MatchingExecutables = game.MatchingExecutables.ToArray();
             Available = game.Available!.Value;
             UnavailableReason = game.UnavailableReason;
             LastRefreshedAt = game.LastRefreshedAt;
-            var ambiguous = game.Executables!.Where(name => ambiguousExecutables?.Contains(name) == true).ToArray();
+            var ambiguous = game.MatchingExecutables.Where(name => ambiguousExecutables?.Contains(name) == true).ToArray();
             HasAmbiguousExecutables = ambiguous.Length > 0;
             MatchingNotice = HasAmbiguousExecutables
                 ? $"Shared executable names do not trigger this game's specific rules: {string.Join(", ", ambiguous)}. "
@@ -27,6 +28,7 @@ namespace FocusRgb.App.ViewModels
         public string Id { get; }
         public string DisplayName { get; }
         public ObservableCollection<string> Executables { get; }
+        public IReadOnlyList<string> MatchingExecutables { get; }
         public bool Available { get; }
         public string? UnavailableReason { get; }
         public DateTimeOffset? LastRefreshedAt { get; }

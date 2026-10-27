@@ -6,6 +6,39 @@ namespace FocusRgb.Core.Tests
     /// <summary>Checks deterministic profile selection without process, clock, or lighting dependencies.</summary>
     public sealed class SelectionEngineTests
     {
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void Select_UsesChosenExecutablesForSpecificAndWildcardRulesWhileOffline(bool wildcard)
+        {
+            var game = new GameCatalogEntry
+            {
+                Launcher = "example", Id = "game", DisplayName = "Game", Available = false,
+                LastRefreshedAt = Start, Executables = ["Main.exe", "Tool.exe"], SelectedExecutables = ["Main.exe"]
+            };
+            var engine = new SelectionEngine(GameSettings(GameRule("game-focus", "movie", "while-running",
+                wildcard ? "*" : "example", wildcard ? "*" : "game")), Catalog(game));
+            Assert.Equal("default", engine.Select(SelectionMode.Automatic, "default", Observation("Tool.exe", "Tool.exe"), Start).ProfileId);
+            Assert.Equal("movie", engine.Select(SelectionMode.Automatic, "default", Observation("MAIN.EXE", "MAIN.EXE"), Start).ProfileId);
+        }
+
+        [Fact]
+        public void Select_AmbiguityOnlyIncludesChosenExecutables()
+        {
+            var first = new GameCatalogEntry
+            {
+                Launcher = "example", Id = "first", DisplayName = "First", Available = true,
+                LastRefreshedAt = Start, Executables = ["Shared.exe", "Other.exe"], SelectedExecutables = ["Shared.exe"]
+            };
+            var second = new GameCatalogEntry
+            {
+                Launcher = "example", Id = "second", DisplayName = "Second", Available = true,
+                LastRefreshedAt = Start, Executables = ["Shared.exe", "Other.exe"], SelectedExecutables = ["Other.exe"]
+            };
+            var engine = new SelectionEngine(GameSettings(GameRule("first-focus", "movie", "while-running", "example", "first")), Catalog(first, second));
+            Assert.Equal("movie", engine.Select(SelectionMode.Automatic, "default", Observation("Shared.exe", "Shared.exe"), Start).ProfileId);
+        }
+
         private static readonly DateTimeOffset Start = new(2026, 10, 12, 12, 0, 0, TimeSpan.Zero);
 
         [Fact]

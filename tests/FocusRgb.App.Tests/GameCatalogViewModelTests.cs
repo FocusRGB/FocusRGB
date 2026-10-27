@@ -302,6 +302,68 @@ namespace FocusRgb.App.Tests
             Assert.Equal("Scan is running.", viewModel.GameEditorStatus);
         }
 
+        [Fact]
+        public async Task ExecutableSelection_PersistsAcrossRefreshOfflineAndRestartWithoutLosingOtherDrafts()
+        {
+            var (viewModel, service) = await CreateAsync();
+            await viewModel.RefreshGameCatalogAsync("steam", ExecutableCatalog(), TestContext.Current.CancellationToken);
+            viewModel.EditingGame = Assert.Single(viewModel.Games);
+            viewModel.GameExecutableOptions.Single(option => option.Name == "Tool.exe").IsSelected = false;
+            var editor = viewModel.MappingEditor;
+            editor.SelectedMapping!.Eligibility = "while-running";
+            viewModel.ProfileName = "Unsaved profile";
+            await viewModel.SaveDiscoveredGameExecutablesAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(["Main.exe"], Assert.Single(service.Current.GameCatalog.Games!).SelectedExecutables);
+            Assert.Same(editor, viewModel.MappingEditor);
+            Assert.True(editor.IsDirty);
+            Assert.Equal("Unsaved profile", viewModel.ProfileName);
+            Assert.Contains(editor.Targets, target => target.GameLauncher == "steam" && target.GameId == "570");
+
+            await viewModel.RefreshGameCatalogAsync("steam", ExecutableCatalog(updated: true), TestContext.Current.CancellationToken);
+            await viewModel.RefreshGameCatalogAsync("steam", new PluginGatewayResult<PluginCatalogResult>("plugin-absent", "Offline"), TestContext.Current.CancellationToken);
+            var restarted = await new LocalStateStore(_tempDirectory.Path).InitializeAsync(Start, TestContext.Current.CancellationToken);
+            var saved = Assert.Single(restarted.Snapshot!.GameCatalog.Games!);
+            Assert.Equal("570", saved.Id);
+            Assert.Equal("steam", saved.Launcher);
+            Assert.Equal(["Main.exe"], saved.SelectedExecutables);
+            Assert.Equal(["Updated.exe", "Tool.exe"], saved.Executables);
+            Assert.False(saved.Available);
+            Assert.Contains(viewModel.GameExecutableOptions, option => option.Name == "Main.exe" && option.IsSelected);
+
+            await viewModel.RefreshGameCatalogAsync("steam", new PluginGatewayResult<PluginCatalogResult>(new()
+            {
+                Support = "supported", RefreshedAt = Start, Items = []
+            }), TestContext.Current.CancellationToken);
+            Assert.Equal(["Main.exe"], Assert.Single(service.Current.GameCatalog.Games!).SelectedExecutables);
+        }
+
+        [Fact]
+        public async Task ExecutableSelection_PreservesUnsavedChoicesOnRefreshAndRejectsEmptySelection()
+        {
+            var (viewModel, service) = await CreateAsync();
+            await viewModel.RefreshGameCatalogAsync("steam", ExecutableCatalog(), TestContext.Current.CancellationToken);
+            viewModel.EditingGame = Assert.Single(viewModel.Games);
+            viewModel.GameExecutableOptions.Single(option => option.Name == "Tool.exe").IsSelected = false;
+            await viewModel.RefreshGameCatalogAsync("steam", ExecutableCatalog(updated: true), TestContext.Current.CancellationToken);
+            Assert.Equal(["Main.exe"], viewModel.GameExecutableOptions.Where(option => option.IsSelected).Select(option => option.Name));
+            foreach (var option in viewModel.GameExecutableOptions) option.IsSelected = false;
+            var revision = service.Current.SettingsRevision;
+            await viewModel.SaveDiscoveredGameExecutablesAsync(TestContext.Current.CancellationToken);
+            Assert.Contains("at least one", viewModel.GameEditorStatus, StringComparison.Ordinal);
+            Assert.Equal(revision, service.Current.SettingsRevision);
+            Assert.Null(Assert.Single(service.Current.GameCatalog.Games!).SelectedExecutables);
+        }
+
+        private static PluginGatewayResult<PluginCatalogResult> ExecutableCatalog(bool updated = false) => new(new()
+        {
+            Support = "supported", RefreshedAt = Start,
+            Items = [new PluginCatalogItem
+            {
+                ResourceId = "570", DisplayName = "Example game", Available = true,
+                Game = new PluginGameCatalogMetadata { Executables = [updated ? "Updated.exe" : "Main.exe", "Tool.exe"] }
+            }]
+        });
+
         private async Task<(MainWindowViewModel ViewModel, ApplicationStateService Service)> CreateAsync()
         {
             var store = new LocalStateStore(_tempDirectory.Path);
