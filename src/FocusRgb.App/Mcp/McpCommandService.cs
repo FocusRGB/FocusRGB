@@ -93,7 +93,8 @@ namespace FocusRgb.App.Mcp
                 return Error("approval-declined", "The owner declined the MCP request.", _state.Current);
 
             // After approval the app owns the command through completion, even if the client disconnects.
-            var result = await prepared.ExecuteAsync(CancellationToken.None).ConfigureAwait(false);
+            var result = await prepared.ExecuteAsync(request.Method == "previewProfile"
+                ? cancellationToken : CancellationToken.None).ConfigureAwait(false);
             return Result(result);
         }
 
@@ -152,13 +153,14 @@ namespace FocusRgb.App.Mcp
         {
             if (request.Method is not (
                 "selectProfile" or "setMode" or "applySettings" or "respondToNotification"
-                or "upsertProfile" or "upsertApplicationGroup" or "reorderMappings"))
+                or "upsertProfile" or "upsertApplicationGroup" or "reorderMappings" or "previewProfile"))
                 throw new McpCommandException("method-not-found", $"Unknown MCP method '{request.Method}'.");
             var parameters = RequireParameters(request);
             var snapshot = _state.Current;
             return request.Method switch
             {
                 "selectProfile" => PrepareSelectProfile(parameters, snapshot),
+                "previewProfile" => PreparePreview(parameters, snapshot),
                 "setMode" => PrepareSetMode(parameters, snapshot),
                 "applySettings" => PrepareApplySettings(parameters, snapshot),
                 "respondToNotification" => PrepareNotification(parameters, snapshot),
@@ -187,6 +189,23 @@ namespace FocusRgb.App.Mcp
                     snapshot.SettingsRevision,
                     "mcp",
                     cancellationToken));
+        }
+
+        private PreparedCommand PreparePreview(JsonElement parameters, ApplicationStateSnapshot snapshot)
+        {
+            var profileId = RequiredString(parameters, "profile");
+            var profile = snapshot.Settings.Profiles!.SingleOrDefault(item => item.Id == profileId)
+                ?? throw new McpCommandException("invalid-profile", "The saved profile does not exist.");
+            if (!parameters.TryGetProperty("durationSeconds", out var value) || value.ValueKind != JsonValueKind.Number
+                || !value.TryGetInt32(out var seconds)
+                || seconds is < 1 or > 30)
+                throw new McpCommandException("invalid-duration", "Preview duration must be 1–30 seconds.");
+            if (snapshot.Preview is not null)
+                throw new McpCommandException("busy", "An output preview is already active.");
+            return new PreparedCommand(snapshot.SettingsRevision,
+                $"Preview saved profile {Quote(profile.DisplayName!)} on real output for {seconds} seconds. "
+                + "Unsaved drafts are excluded. Automatic selection keeps tracking; output returns to the latest saved selection when preview ends or the client disconnects.",
+                token => _state.PreviewProfileAsync(profileId, seconds, snapshot.SettingsRevision, "approved-preview", token));
         }
 
         private PreparedCommand PrepareSetMode(JsonElement parameters, ApplicationStateSnapshot snapshot)
@@ -469,7 +488,8 @@ namespace FocusRgb.App.Mcp
         {
             snapshot.SettingsRevision,
             snapshot.SelectionState,
-            snapshot.RuntimeStatus
+            snapshot.RuntimeStatus,
+            snapshot.Preview
         };
 
         private sealed record PreparedCommand(

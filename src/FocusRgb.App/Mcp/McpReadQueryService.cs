@@ -51,11 +51,13 @@ namespace FocusRgb.App.Mcp
                 {
                     snapshot.SettingsRevision,
                     snapshot.SelectionState,
+                    snapshot.Preview,
                     snapshot.RuntimeStatus
                 },
                 "explainActiveSelection" => new
                 {
                     mode = snapshot.SelectionState.Mode,
+                    snapshot.Preview,
                     desiredProfile = snapshot.RuntimeStatus!.Desired.ProfileId,
                     reason = snapshot.SelectionReason,
                     effective = snapshot.RuntimeStatus.Effective,

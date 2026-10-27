@@ -1370,7 +1370,9 @@ namespace FocusRgb.App.ViewModels
             var selected = Profiles.FirstOrDefault(profile => profile.Id == snapshot.RuntimeStatus.Desired.ProfileId);
             if (selected is not null) _selectedProfile = selected;
             if (snapshot.Source != "shutdown")
-                RuntimeStatusMessage = snapshot.RuntimeStatus.AppliedDetail;
+                RuntimeStatusMessage = snapshot.Preview is { } preview
+                    ? $"Previewing {preview.ProfileId} until {preview.ExpiresAt.LocalDateTime:T}; saved selection remains {snapshot.RuntimeStatus.Desired.ProfileId}. {snapshot.RuntimeStatus.AppliedDetail}"
+                    : snapshot.RuntimeStatus.AppliedDetail;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsManual)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAutomatic)));
             NotifyStateChanged(nameof(SelectedProfile));
