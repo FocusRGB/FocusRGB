@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
+using Avalonia.VisualTree;
 using FocusRgb.App.ViewModels;
 using FocusRgb.Core.Configuration;
 
@@ -46,7 +47,7 @@ namespace FocusRgb.App.HeadlessTests
         }
 
         [AvaloniaFact]
-        public void DiscoveredGame_ShowsReadOnlyExecutableList()
+        public void DiscoveredGame_AllowsSavingExecutableChoicesWithoutEditingDiscoveredMetadata()
         {
             var viewModel = MainWindowViewModel.CreatePreview(
                 SettingsJson.LoadDefaults().Settings!,
@@ -60,7 +61,7 @@ namespace FocusRgb.App.HeadlessTests
                             Launcher = "example",
                             Id = "sample-game",
                             DisplayName = "Sample Game",
-                            Executables = ["Sample.exe"],
+                            Executables = ["Sample.exe", "Tool.exe"],
                             Available = true,
                             LastRefreshedAt = new DateTimeOffset(2026, 10, 24, 12, 0, 0, TimeSpan.Zero)
                         }
@@ -74,10 +75,24 @@ namespace FocusRgb.App.HeadlessTests
             window.Show();
             try
             {
-                var executables = window.FindControl<ListBox>("GameExecutableList")!;
+                var executables = window.FindControl<ListBox>("DiscoveredGameExecutables")!;
                 var editControls = window.FindControl<StackPanel>("GameEditControls")!;
+                var tabs = window.GetLogicalDescendants().OfType<TabControl>().Single();
+                tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(tab => Equals(tab.Header, "Games"));
                 Assert.True(executables.IsVisible);
-                Assert.Equal(["Sample.exe"], executables.Items.Cast<string>());
+                Assert.Equal(["Sample.exe", "Tool.exe"], executables.Items.Cast<GameExecutableOptionViewModel>().Select(option => option.Name));
+                window.UpdateLayout();
+                Assert.True(executables.IsEffectivelyVisible);
+                executables.ScrollIntoView(viewModel.GameExecutableOptions.Single(option => option.Name == "Tool.exe"));
+                window.UpdateLayout();
+                var checkboxes = executables.GetVisualDescendants().OfType<CheckBox>().ToArray();
+                Assert.Contains("Tool.exe", checkboxes.Select(box => box.Content));
+                var tool = checkboxes.Single(box => Equals(box.Content, "Tool.exe"));
+                tool.IsChecked = false;
+                var save = window.FindControl<Button>("SaveDiscoveredGameButton")!;
+                Assert.True(save.IsEnabled);
+                save.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal(["Sample.exe"], viewModel.EditingGame!.MatchingExecutables);
                 Assert.False(editControls.IsEnabled);
             }
             finally
