@@ -8,6 +8,7 @@ namespace FocusRgb.App.Plugins
     {
         public const string SchemaFileName = "focusrgb-settings.schema.json";
         public const string SettingsFileName = "settings.json";
+        public const string DefaultsFileName = "defaults.json";
         private const int MaximumSchemaBytes = 256 * 1024;
         private const int MaximumSettingsBytes = 1024 * 1024;
         private readonly string _packagesDirectory;
@@ -33,13 +34,13 @@ namespace FocusRgb.App.Plugins
             try
             {
                 var path = SettingsPath(pluginId);
-                var values = Defaults(schema!).ToDictionary(
-                    pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
                 var notices = new List<string>();
+                var defaults = LoadDefaults(pluginId, schema!, notices);
+                var values = defaults.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
                 if (File.Exists(path))
                 {
                     if (new FileInfo(path).Length > MaximumSettingsBytes)
-                        return RecoverDefaults(schema!, path, "The saved plugin settings exceeded 1 MiB.");
+                        return RecoverDefaults(schema!, path, "The saved plugin settings exceeded 1 MiB.", defaults);
                     Dictionary<string, JsonElement> saved;
                     try
                     {
@@ -49,7 +50,7 @@ namespace FocusRgb.App.Plugins
                     }
                     catch (JsonException)
                     {
-                        return RecoverDefaults(schema!, path, "The saved plugin settings were not a valid JSON object.");
+                        return RecoverDefaults(schema!, path, "The saved plugin settings were not a valid JSON object.", defaults);
                     }
                     var fields = schema!.Fields.ToDictionary(field => field.Id, StringComparer.Ordinal);
                     foreach (var value in saved)
@@ -68,7 +69,7 @@ namespace FocusRgb.App.Plugins
                         }
                     }
                 }
-                return PluginConfigurationLoadResult.Ok(schema!, values, notices);
+                return PluginConfigurationLoadResult.Ok(schema!, values, notices, defaults);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
             {
@@ -118,13 +119,40 @@ namespace FocusRgb.App.Plugins
         }
 
         private static PluginConfigurationLoadResult RecoverDefaults(
-            PluginConfigurationSchema schema, string path, string reason)
+            PluginConfigurationSchema schema, string path, string reason, IReadOnlyDictionary<string, JsonElement> defaults)
         {
             var archive = path + ".corrupt-" + Guid.NewGuid().ToString("N");
             // Copy rather than move: cancelling the editor must preserve the plugin's original file.
             File.Copy(path, archive);
-            return PluginConfigurationLoadResult.Ok(schema, Defaults(schema),
-                [$"{reason} A backup was saved as {Path.GetFileName(archive)}. Defaults are shown; Save to replace the settings, or Cancel to leave them unchanged."]);
+            return PluginConfigurationLoadResult.Ok(schema, defaults,
+                [$"{reason} A backup was saved as {Path.GetFileName(archive)}. Defaults are shown; Save to replace the settings, or Cancel to leave them unchanged."], defaults);
+        }
+
+        private Dictionary<string, JsonElement> LoadDefaults(
+            string pluginId, PluginConfigurationSchema schema, List<string> notices)
+        {
+            var defaults = Defaults(schema).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+            var path = Path.Combine(_dataDirectory, pluginId, DefaultsFileName);
+            try
+            {
+                if (!File.Exists(path)) return defaults;
+                if (new FileInfo(path).Length > MaximumSettingsBytes) throw new JsonException("Defaults exceed the size limit.");
+                var detected = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(File.ReadAllText(path), PluginJsonOptions)
+                    ?? throw new JsonException("Defaults must be an object.");
+                foreach (var value in detected)
+                {
+                    var field = schema.Fields.FirstOrDefault(field => field.Id == value.Key);
+                    if (field is not null && ValidateValue(field, value.Value) is null)
+                        defaults[value.Key] = value.Value;
+                    else
+                        notices.Add("Ignored an invalid or undeclared plugin-provided default.");
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
+            {
+                notices.Add("Plugin-provided defaults could not be read; package defaults are shown.");
+            }
+            return defaults;
         }
 
         public static IReadOnlyDictionary<string, JsonElement> Defaults(PluginConfigurationSchema schema) =>
@@ -191,6 +219,9 @@ namespace FocusRgb.App.Plugins
                 if (field.Description?.Length > 512) return $"Description for '{field.Id}' is too long.";
                 if (field.Type is not ("string" or "integer" or "number" or "boolean" or "json"))
                     return $"Plugin setting '{field.Id}' has an unsupported type.";
+                if (field.Format is not null && !(field.Format == "directory" && field.Type == "string"
+                    || field.Format == "directory-list" && field.Type == "json"))
+                    return $"Plugin setting '{field.Id}' has an unsupported format/type combination.";
                 if (field.Minimum > field.Maximum) return $"Plugin setting '{field.Id}' has an inverted range.";
                 var error = ValidateValue(field, field.Default);
                 if (error is not null) return $"Default {error}";
@@ -211,6 +242,9 @@ namespace FocusRgb.App.Plugins
                 _ => false
             };
             if (!validType) return $"Plugin setting '{field.Id}' must be {field.Type}.";
+            if (field.Format == "directory-list" && (value.ValueKind != JsonValueKind.Array
+                || value.EnumerateArray().Any(item => item.ValueKind != JsonValueKind.String || item.GetString()!.Length > 4096)))
+                return $"Plugin setting '{field.Id}' must be an array of folder strings.";
             if (value.ValueKind == JsonValueKind.String && value.GetString()!.Length > 4096)
                 return $"Plugin setting '{field.Id}' is too long.";
             if (value.GetRawText().Length > 8192)
@@ -259,6 +293,7 @@ namespace FocusRgb.App.Plugins
         public required string DisplayName { get; init; }
         public string? Description { get; init; }
         public required string Type { get; init; }
+        public string? Format { get; init; }
         public required JsonElement Default { get; init; }
         public double? Minimum { get; init; }
         public double? Maximum { get; init; }
@@ -268,6 +303,7 @@ namespace FocusRgb.App.Plugins
     {
         public PluginConfigurationSchema? Schema { get; private init; }
         public IReadOnlyDictionary<string, JsonElement>? Values { get; private init; }
+        public IReadOnlyDictionary<string, JsonElement>? DefaultValues { get; private init; }
         public string? Error { get; private init; }
         public IReadOnlyList<string> Notices { get; private init; } = [];
         public bool IsSuccess => Schema is not null && Values is not null;
@@ -275,7 +311,11 @@ namespace FocusRgb.App.Plugins
         public static PluginConfigurationLoadResult Ok(
             PluginConfigurationSchema schema,
             IReadOnlyDictionary<string, JsonElement> values,
-            IReadOnlyList<string>? notices = null) => new() { Schema = schema, Values = values, Notices = notices ?? [] };
+            IReadOnlyList<string>? notices = null,
+            IReadOnlyDictionary<string, JsonElement>? defaults = null) => new()
+            {
+                Schema = schema, Values = values, DefaultValues = defaults ?? PluginConfigurationStore.Defaults(schema), Notices = notices ?? []
+            };
 
         public static PluginConfigurationLoadResult Fail(string error) => new() { Error = error };
     }

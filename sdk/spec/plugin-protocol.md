@@ -217,11 +217,26 @@ declares:
 - `type`: `string`, `integer` (signed 64-bit), `number` (finite double), `boolean`, or `json`
   (an object or array);
 - `default`: a value valid for that type;
+- optional `format`: `directory` for a string folder picker, or `directory-list` for a `json`
+  array containing only strings. Stored values remain strings/string arrays; this is a schema-v1
+  host UI extension, not a plugin RPC or contract-version change. Older hosts may reject these
+  optional schemas. Other type/format combinations are rejected;
 - optional `minimum` and `maximum`: inclusive numeric bounds, with minimum no greater than maximum.
 
 Schemas are limited to 256 KiB. String values are limited to 4096 characters and each serialized
 value to 8192 characters. The host removes control and Unicode format characters from rendered
 schema display text. It treats all field values as opaque plugin-owned configuration.
+
+A plugin may atomically write optional `defaults.json` in `FOCUSRGB_PLUGIN_DATA_DIRECTORY` to
+expose detected configuration defaults (for example, an installation folder). The file is a
+field-ID/value object limited to 1 MiB, with the same per-field type, format and size validation
+as saved settings. The host ignores invalid/unknown defaults with a notice, falling back to
+package defaults. Valid detected defaults override package defaults only; explicit saved values
+always win, including empty strings. Reset restores the detected defaults shown when Configure
+opened. Opening or cancelling Configure never writes `settings.json` or the package schema.
+Defaults are read on demand; plugins should refresh them at startup and avoid concurrent writers.
+For a directory editor with an empty saved string, the UI prefills a detected default as a draft
+suggestion; the saved value changes only if the user saves the editor.
 
 The host sets `FOCUSRGB_PLUGIN_DATA_DIRECTORY` to the plugin's absolute data directory, outside
 the replaceable package folder (`%LOCALAPPDATA%/FocusRGB/plugin-data/<plugin-id>` on Windows).

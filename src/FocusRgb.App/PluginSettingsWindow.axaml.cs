@@ -4,6 +4,7 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform.Storage;
 using FocusRgb.App.Plugins;
 
 namespace FocusRgb.App
@@ -13,22 +14,27 @@ namespace FocusRgb.App
         private static JsonSerializerOptions IndentedJson { get; } = new() { WriteIndented = true };
         private readonly Dictionary<string, Control> _editors = new(StringComparer.Ordinal);
         private PluginConfigurationSchema? _schema;
+        private IReadOnlyDictionary<string, JsonElement>? _defaults;
+        internal Func<bool, Task<IReadOnlyList<string>>> FolderPicker { get; set; }
 
         public PluginSettingsWindow()
         {
             AvaloniaXamlLoader.Load(this);
+            FolderPicker = PickLocalFoldersAsync;
         }
 
         public PluginSettingsWindow(
             InstalledPluginInfo plugin,
             PluginConfigurationSchema schema,
             IReadOnlyDictionary<string, JsonElement> values,
-            IReadOnlyList<string>? notices = null) : this()
+            IReadOnlyList<string>? notices = null,
+            IReadOnlyDictionary<string, JsonElement>? defaults = null) : this()
         {
             ArgumentNullException.ThrowIfNull(plugin);
             ArgumentNullException.ThrowIfNull(schema);
             ArgumentNullException.ThrowIfNull(values);
             _schema = schema;
+            _defaults = defaults ?? PluginConfigurationStore.Defaults(schema);
             this.FindControl<TextBlock>("PluginNameText")!.Text = SafeDisplayText(plugin.DisplayName);
             this.FindControl<TextBlock>("PluginDetailsText")!.Text =
                 $"{plugin.Id} · {plugin.Version ?? "unknown version"}"
@@ -70,15 +76,43 @@ namespace FocusRgb.App
                 group.Children.Add(new TextBlock { Text = SafeDisplayText(field.DisplayName), FontWeight = Avalonia.Media.FontWeight.SemiBold });
                 if (!string.IsNullOrWhiteSpace(field.Description))
                     group.Children.Add(new TextBlock { Text = SafeDisplayText(field.Description), Opacity = 0.7, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
-                var editor = CreateEditor(field, values[field.Id]);
+                var value = values[field.Id];
+                if (field.Format == "directory" && value.GetString() == ""
+                    && _defaults!.TryGetValue(field.Id, out var detected) && detected.ValueKind == JsonValueKind.String)
+                    value = detected;
+                var editor = CreateEditor(field, value);
                 editor.Name = $"PluginSetting_{field.Id}";
-                group.Children.Add(editor);
+                if (field.Format == "directory")
+                {
+                    var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 8 };
+                    row.Children.Add(editor);
+                    var browse = new Button { Content = "Browse…", Name = $"Browse_{field.Id}" };
+                    Grid.SetColumn(browse, 1);
+                    browse.Click += async (_, _) => await BrowseFoldersAsync(
+                        paths => { if (paths.Count > 0) ((TextBox)editor).Text = paths[0]; }, false);
+                    row.Children.Add(browse);
+                    group.Children.Add(row);
+                }
+                else
+                {
+                    group.Children.Add(editor);
+                }
                 panel.Children.Add(group);
                 _editors.Add(field.Id, editor);
             }
         }
 
-        private static Control CreateEditor(PluginConfigurationField field, JsonElement value) => field.Type switch
+        private Control CreateEditor(PluginConfigurationField field, JsonElement value)
+        {
+            if (field.Format == "directory-list")
+            {
+                var list = new FolderListEditor(value.EnumerateArray().Select(item => item.GetString()!));
+                var add = new Button { Content = "Add folder…", Name = $"AddFolders_{field.Id}" };
+                add.Click += async (_, _) => await BrowseFoldersAsync(list.AddFolders, true);
+                list.Children.Add(add);
+                return list;
+            }
+            return field.Type switch
         {
             "boolean" => new CheckBox { IsChecked = value.GetBoolean() },
             "json" => new TextBox
@@ -89,11 +123,64 @@ namespace FocusRgb.App
                 TextWrapping = Avalonia.Media.TextWrapping.Wrap
             },
             _ => new TextBox { Text = ValueText(value) }
-        };
+            };
+        }
+
+        private async Task<IReadOnlyList<string>> PickLocalFoldersAsync(bool multiple)
+        {
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Choose plugin folders", AllowMultiple = multiple
+            });
+            return folders.Select(folder => folder.TryGetLocalPath()).OfType<string>().ToArray();
+        }
+
+        private async Task BrowseFoldersAsync(Action<IReadOnlyList<string>> apply, bool multiple)
+        {
+            try
+            {
+                apply(await FolderPicker(multiple));
+            }
+            catch (Exception exception)
+            {
+                this.FindControl<TextBlock>("StatusText")!.Text = $"Could not choose a folder: {SafeDisplayText(exception.Message)}";
+            }
+        }
+
+        private sealed class FolderListEditor : StackPanel
+        {
+            private readonly StackPanel _rows = new() { Spacing = 4 };
+            public List<string> Folders { get; } = [];
+
+            public FolderListEditor(IEnumerable<string> folders)
+            {
+                Spacing = 8;
+                Children.Add(_rows);
+                AddFolders(folders.ToArray());
+            }
+
+            public void AddFolders(IReadOnlyList<string> folders)
+            {
+                foreach (var path in folders)
+                {
+                    if (Folders.Contains(path, StringComparer.OrdinalIgnoreCase)) continue;
+                    Folders.Add(path);
+                    var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 8 };
+                    row.Children.Add(new TextBlock { Text = SafeDisplayText(path), TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+                    var remove = new Button { Content = "Remove" };
+                    Avalonia.Automation.AutomationProperties.SetName(remove, $"Remove folder {SafeDisplayText(path)}");
+                    Grid.SetColumn(remove, 1);
+                    remove.Click += (_, _) => { Folders.Remove(path); _rows.Children.Remove(row); };
+                    row.Children.Add(remove);
+                    _rows.Children.Add(row);
+                }
+            }
+        }
 
         private static JsonElement ReadValue(PluginConfigurationField field, Control editor)
         {
             if (field.Type == "boolean") return JsonSerializer.SerializeToElement(((CheckBox)editor).IsChecked == true);
+            if (editor is FolderListEditor folders) return JsonSerializer.SerializeToElement(folders.Folders);
             var text = ((TextBox)editor).Text ?? string.Empty;
             return field.Type switch
             {
@@ -128,7 +215,7 @@ namespace FocusRgb.App
 
         private void Reset_OnClick(object? sender, RoutedEventArgs e)
         {
-            Populate(PluginConfigurationStore.Defaults(_schema!));
+            Populate(_defaults!);
             this.FindControl<TextBlock>("StatusText")!.Text = "Defaults restored in the editor. Save to apply them.";
         }
 

@@ -11,6 +11,61 @@ namespace FocusRgb.App.HeadlessTests
     public sealed class PluginSettingsHeadlessTests
     {
         [AvaloniaFact]
+        public void FolderEditors_BrowseAddRemoveRoundTripAndResetDetectedDefaults()
+        {
+            var schema = new PluginConfigurationSchema
+            {
+                SchemaVersion = 1,
+                Fields = [new PluginConfigurationField
+                {
+                    Id = "root", DisplayName = "Root", Type = "string", Format = "directory",
+                    Default = JsonSerializer.SerializeToElement("")
+                }, new PluginConfigurationField
+                {
+                    Id = "folders", DisplayName = "Libraries", Type = "json", Format = "directory-list",
+                    Default = JsonSerializer.SerializeToElement(Array.Empty<string>())
+                }]
+            };
+            var defaults = new Dictionary<string, JsonElement>
+            {
+                ["root"] = JsonSerializer.SerializeToElement("C:/Detected"),
+                ["folders"] = JsonSerializer.SerializeToElement<string[]>(["D:/Existing"])
+            };
+            var valuesWithEmptyRoot = defaults.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+            valuesWithEmptyRoot["root"] = JsonSerializer.SerializeToElement("");
+            var window = new PluginSettingsWindow(Plugin("example", true), schema, valuesWithEmptyRoot, defaults: defaults)
+            {
+                FolderPicker = multiple => Task.FromResult<IReadOnlyList<string>>(
+                    multiple ? ["E:/Added", "F:/Added"] : ["C:/Chosen"])
+            };
+            window.Show();
+            try
+            {
+                var root = window.GetLogicalDescendants().OfType<TextBox>().Single(box => box.Name == "PluginSetting_root");
+                Assert.Equal("C:/Detected", root.Text);
+                window.GetLogicalDescendants().OfType<Button>().Single(button => button.Name == "Browse_root")
+                    .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal("C:/Chosen", root.Text);
+                window.GetLogicalDescendants().OfType<Button>().Single(button => button.Name == "AddFolders_folders")
+                    .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                window.GetLogicalDescendants().OfType<Button>().First(button => Equals(button.Content, "Remove"))
+                    .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                var values = window.CollectValues()!;
+                Assert.Equal("C:/Chosen", values["root"].GetString());
+                Assert.Equal(["E:/Added", "F:/Added"], values["folders"].EnumerateArray().Select(item => item.GetString()));
+                Assert.Single(window.GetLogicalDescendants().OfType<TextBox>());
+                window.FindControl<Button>("ResetButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                var reset = window.CollectValues()!;
+                Assert.Equal("C:/Detected", reset["root"].GetString());
+                Assert.Equal(["D:/Existing"], reset["folders"].EnumerateArray().Select(item => item.GetString()));
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void PluginsTab_EnablesConfigureOnlyForDeclaredConfiguration()
         {
             var viewModel = MainWindowViewModel.CreatePreview();

@@ -6,6 +6,53 @@ namespace FocusRgb.App.Tests
 {
     public sealed class PluginConfigurationStoreTests : IDisposable
     {
+        [Theory]
+        [InlineData("{\"port\":4567}", 4567)]
+        [InlineData("{\"port\":\"invalid\"}", 3000)]
+        [InlineData("{broken", 3000)]
+        public void DetectedDefaults_AreValidatedAndSavedValuesAlwaysWin(string defaultsJson, int expected)
+        {
+            var packages = Path.Combine(_temporaryDirectory.Path, "plugins");
+            var data = Path.Combine(_temporaryDirectory.Path, "plugin-data");
+            Directory.CreateDirectory(Path.Combine(packages, "example"));
+            Directory.CreateDirectory(Path.Combine(data, "example"));
+            File.WriteAllText(Path.Combine(packages, "example", PluginConfigurationStore.SchemaFileName), SchemaJson());
+            File.WriteAllText(Path.Combine(data, "example", PluginConfigurationStore.DefaultsFileName), defaultsJson);
+            using var store = new PluginConfigurationStore(packages, data);
+            var loaded = store.Load("example");
+            Assert.True(loaded.IsSuccess, loaded.Error);
+            Assert.Equal(expected, loaded.Values!["port"].GetInt32());
+            Assert.Equal(expected, loaded.DefaultValues!["port"].GetInt32());
+            File.WriteAllText(Path.Combine(data, "example", PluginConfigurationStore.SettingsFileName), "{\"port\":5000}");
+            Assert.Equal(5000, store.Load("example").Values!["port"].GetInt32());
+            Assert.Equal(expected, store.Load("example").DefaultValues!["port"].GetInt32());
+        }
+
+        [Theory]
+        [InlineData("directory-list", "json", "[]", true)]
+        [InlineData("directory-list", "json", "[123]", false)]
+        [InlineData("directory-list", "string", "\"path\"", false)]
+        [InlineData("directory", "string", "\"\"", true)]
+        [InlineData("unknown", "string", "\"\"", false)]
+        public void FolderFormats_ValidateTypeAndListShape(string format, string type, string defaultJson, bool valid)
+        {
+            var schema = new PluginConfigurationSchema
+            {
+                SchemaVersion = 1,
+                Fields = [new PluginConfigurationField
+                {
+                    Id = "folders", DisplayName = "Folders", Type = type, Format = format,
+                    Default = JsonDocument.Parse(defaultJson).RootElement.Clone()
+                }]
+            };
+            var packages = Path.Combine(_temporaryDirectory.Path, "plugins");
+            Directory.CreateDirectory(Path.Combine(packages, "example"));
+            File.WriteAllText(Path.Combine(packages, "example", PluginConfigurationStore.SchemaFileName),
+                JsonSerializer.Serialize(schema, JsonSerializerOptions.Web));
+            using var store = new PluginConfigurationStore(packages, Path.Combine(_temporaryDirectory.Path, "data"));
+            Assert.Equal(valid, store.Load("example").IsSuccess);
+        }
+
         private readonly TempDirectory _temporaryDirectory = new(nameof(PluginConfigurationStoreTests));
 
         [Fact]
