@@ -21,8 +21,6 @@ namespace FocusRgb.App
     /// <summary>Hosts persisted local state and minimizes to the tray while the runtime continues.</summary>
     public sealed partial class MainWindow : Window
     {
-        private static readonly DataFormat<MappingEditorItemViewModel> MappingFormat =
-            DataFormat.CreateInProcessFormat<MappingEditorItemViewModel>("FocusRGB.Mapping");
         private readonly string _dataDirectory;
         private bool _allowClose;
         private bool _exitRequested;
@@ -48,6 +46,11 @@ namespace FocusRgb.App
         public MainWindow(MainWindowViewModel viewModel, string? dataDirectory, IStartupRegistration? startupRegistration = null)
         {
             InitializeComponent();
+            // ListBox selection can capture and handle pointer events before they reach the row.
+            AddHandler(PointerMovedEvent, MappingDrag_OnPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+            AddHandler(PointerReleasedEvent, MappingDrag_OnPointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+            AddHandler(KeyDownEvent, MappingDrag_OnKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
+            Deactivated += (_, _) => FinishMappingDrag(false);
             _startupRegistration = startupRegistration;
             DataContext = viewModel;
             _dataDirectory = dataDirectory ?? Path.Combine(
@@ -764,18 +767,6 @@ namespace FocusRgb.App
             ResetFocusStatus();
         }
 
-        private void MoveMappingTop_OnClick(object? sender, RoutedEventArgs e)
-        {
-            if (sender is Button { CommandParameter: MappingEditorItemViewModel item })
-                AnimateFocusMove(() => ViewModel.MappingEditor.MoveToTop(item));
-        }
-
-        private void MoveMappingBottom_OnClick(object? sender, RoutedEventArgs e)
-        {
-            if (sender is Button { CommandParameter: MappingEditorItemViewModel item })
-                AnimateFocusMove(() => ViewModel.MappingEditor.MoveToBottom(item));
-        }
-
         private void MoveMappingUp_OnClick(object? sender, RoutedEventArgs e) =>
             MoveFromButton(sender, -1);
 
@@ -788,35 +779,6 @@ namespace FocusRgb.App
             {
                 AnimateFocusMove(() => ViewModel.MappingEditor.Move(item, offset));
             }
-        }
-
-        private async void MappingDrag_OnPointerPressed(object? sender, PointerPressedEventArgs e)
-        {
-            if (sender is not Control { DataContext: MappingEditorItemViewModel item }) return;
-            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
-                || e.Source is Button
-                || e.Source is Visual source && source.FindAncestorOfType<Button>() is not null)
-                return;
-            ViewModel.MappingEditor.SelectedMapping = item;
-            var transfer = new DataTransfer();
-            transfer.Add(DataTransferItem.Create(MappingFormat, item));
-            await RunUiActionAsync(() => DragDrop.DoDragDropAsync(e, transfer, DragDropEffects.Move));
-        }
-
-        private void MappingRow_OnDragOver(object? sender, DragEventArgs e)
-        {
-            e.DragEffects = e.DataTransfer.Contains(MappingFormat) ? DragDropEffects.Move : DragDropEffects.None;
-        }
-
-        private void MappingRow_OnDrop(object? sender, DragEventArgs e)
-        {
-            if (sender is not Control { DataContext: MappingEditorItemViewModel target } row) return;
-            var source = e.DataTransfer.TryGetValue(MappingFormat);
-            if (source is null) return;
-            AnimateFocusMove(() => { if (e.GetPosition(row).Y < row.Bounds.Height / 2)
-                ViewModel.MappingEditor.MoveBefore(source, target);
-            else
-                ViewModel.MappingEditor.MoveAfter(source, target); });
         }
 
         private async void BrowseExecutable_OnClick(object? sender, RoutedEventArgs e)
@@ -881,15 +843,15 @@ namespace FocusRgb.App
         private void AnimateFocusMove(Action move)
         {
             ResetFocusStatus();
-            var positions = this.GetVisualDescendants().OfType<Control>()
-                .Where(control => control.Name == "FocusRow" && control.DataContext is MappingEditorItemViewModel)
+            var positions = FocusRowContainers()
                 .ToDictionary(control => ((MappingEditorItemViewModel)control.DataContext!).Id,
                     control => control.TranslatePoint(default, this)?.Y ?? 0);
             move();
+            foreach (var container in FocusRowContainers()) container.RenderTransform = null;
             void AfterLayout(object? sender, EventArgs args)
             {
                 LayoutUpdated -= AfterLayout;
-                foreach (var row in this.GetVisualDescendants().OfType<Control>().Where(control => control.Name == "FocusRow"))
+                foreach (var row in FocusRowContainers())
                 {
                     if (row.DataContext is not MappingEditorItemViewModel item || !positions.TryGetValue(item.Id, out var before)) continue;
                     var transform = new TranslateTransform(0, before - (row.TranslatePoint(default, this)?.Y ?? before));
@@ -904,6 +866,7 @@ namespace FocusRgb.App
 
         protected override void OnClosed(EventArgs e)
         {
+            FinishMappingDrag(false);
             _focusStatusTimer?.Dispose();
             base.OnClosed(e);
         }
