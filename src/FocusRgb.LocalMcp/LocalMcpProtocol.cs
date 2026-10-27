@@ -210,7 +210,7 @@ namespace FocusRgb.LocalMcp
             }
             catch (InvalidDataException exception)
             {
-                await WriteResponseAsync(writer, Error(null, "invalid-request", exception.Message), cancellationToken)
+                await WriteResponseAsync(pipe, writer, Error(null, "invalid-request", exception.Message), cancellationToken)
                     .ConfigureAwait(false);
                 return;
             }
@@ -220,17 +220,26 @@ namespace FocusRgb.LocalMcp
             var response = await HandleRequestAsync(line, dispatchCancellation.Token).ConfigureAwait(false);
             await dispatchCancellation.CancelAsync().ConfigureAwait(false);
             await disconnect.ConfigureAwait(false);
-            await WriteResponseAsync(writer, response, cancellationToken).ConfigureAwait(false);
+            await WriteResponseAsync(pipe, writer, response, cancellationToken).ConfigureAwait(false);
         }
 
         private static async Task WriteResponseAsync(
-            StreamWriter writer, LocalMcpResponse response, CancellationToken cancellationToken)
+            NamedPipeServerStream pipe, StreamWriter writer, LocalMcpResponse response, CancellationToken cancellationToken)
         {
             using var writeTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             writeTimeout.CancelAfter(LocalMcpProtocol.WriteTimeout);
-            // Cancel the I/O itself and await it before the caller disposes its writer.
-            await writer.WriteLineAsync(JsonSerializer.Serialize(response).AsMemory(), writeTimeout.Token)
-                .ConfigureAwait(false);
+            try
+            {
+                // Cancel the I/O itself and await it before disposing its writer.
+                await writer.WriteLineAsync(JsonSerializer.Serialize(response).AsMemory(), writeTimeout.Token)
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+                // A cancelled write can leave buffered characters; disposal must not flush them to a stalled client.
+                pipe.Dispose();
+                throw;
+            }
         }
 
         private static async Task CancelOnDisconnectAsync(
