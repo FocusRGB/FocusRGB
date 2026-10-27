@@ -18,6 +18,7 @@ namespace FocusRgb.App.ViewModels
         private MappingTargetViewModel? _newTarget;
         private ProfileOptionViewModel? _newProfile;
         private string _previewStatus = "No preview changes.";
+        private MappingEditorItemViewModel[]? _reorderOriginal;
 
         private MappingEditorViewModel(
             IReadOnlyList<ProfileOptionViewModel> profiles,
@@ -45,6 +46,8 @@ namespace FocusRgb.App.ViewModels
         public IReadOnlyList<MappingSnapshot> AppliedMappings => _appliedMappings;
         public int PreviewRevision { get; private set; }
         public int AppliedRevision { get; private set; }
+        public MappingEditorItemViewModel? ReorderingMapping { get; private set; }
+        public int ReorderIndex { get; private set; } = -1;
 
         public MappingEditorItemViewModel? SelectedMapping { get => _selectedMapping; set => Set(ref _selectedMapping, value); }
         public MappingEditorItemViewModel? EditingMapping
@@ -338,6 +341,41 @@ namespace FocusRgb.App.ViewModels
             Mappings.Move(currentIndex, newIndex);
             UpdatePositions();
             NotifyDraftChanged();
+        }
+
+        public bool BeginReorder(MappingEditorItemViewModel item)
+        {
+            if (ReorderingMapping is not null || !Mappings.Contains(item)) return false;
+            _reorderOriginal = Mappings.ToArray();
+            ReorderingMapping = item;
+            ReorderIndex = Mappings.IndexOf(item);
+            return true;
+        }
+
+        public void PreviewReorder(int index)
+        {
+            if (ReorderingMapping is null) return;
+            ReorderIndex = Math.Clamp(index, 0, _reorderOriginal!.Length - 1);
+        }
+
+        public bool CommitReorder()
+        {
+            var item = ReorderingMapping;
+            var index = ReorderIndex;
+            var unchanged = _reorderOriginal is not null && Mappings.SequenceEqual(_reorderOriginal);
+            CancelReorder();
+            if (!unchanged || item is null || Mappings.IndexOf(item) == index) return false;
+            Mappings.Move(Mappings.IndexOf(item), index);
+            UpdatePositions();
+            NotifyDraftChanged();
+            return true;
+        }
+
+        public void CancelReorder()
+        {
+            _reorderOriginal = null;
+            ReorderingMapping = null;
+            ReorderIndex = -1;
         }
 
         public void MoveBefore(MappingEditorItemViewModel item, MappingEditorItemViewModel target) => MoveRelative(item, target, false);

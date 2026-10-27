@@ -21,8 +21,6 @@ namespace FocusRgb.App
     /// <summary>Hosts persisted local state and minimizes to the tray while the runtime continues.</summary>
     public sealed partial class MainWindow : Window
     {
-        private static readonly DataFormat<MappingEditorItemViewModel> MappingFormat =
-            DataFormat.CreateInProcessFormat<MappingEditorItemViewModel>("FocusRGB.Mapping");
         private readonly string _dataDirectory;
         private bool _allowClose;
         private bool _exitRequested;
@@ -34,9 +32,6 @@ namespace FocusRgb.App
         private readonly IStartupRegistration? _startupRegistration;
         private bool _updatingStartupControls;
         private IDisposable? _focusStatusTimer;
-        private MappingEditorItemViewModel? _mappingDragCandidate;
-        private PointerPressedEventArgs? _mappingDragPress;
-        private Point _mappingDragStart;
 
         public MainWindow()
             : this(MainWindowViewModel.CreatePreview(), null)
@@ -54,6 +49,8 @@ namespace FocusRgb.App
             // ListBox selection can capture and handle pointer events before they reach the row.
             AddHandler(PointerMovedEvent, MappingDrag_OnPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
             AddHandler(PointerReleasedEvent, MappingDrag_OnPointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+            AddHandler(KeyDownEvent, MappingDrag_OnKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
+            Deactivated += (_, _) => FinishMappingDrag(false);
             _startupRegistration = startupRegistration;
             DataContext = viewModel;
             _dataDirectory = dataDirectory ?? Path.Combine(
@@ -784,66 +781,6 @@ namespace FocusRgb.App
             }
         }
 
-        private void MappingDrag_OnPointerPressed(object? sender, PointerPressedEventArgs e)
-        {
-            ClearMappingDrag();
-            if (sender is not Control { DataContext: MappingEditorItemViewModel item }) return;
-            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
-                || e.Source is Button
-                || e.Source is Visual source && source.FindAncestorOfType<Button>() is not null)
-                return;
-            _mappingDragCandidate = item;
-            _mappingDragPress = e;
-            _mappingDragStart = e.GetPosition(this);
-        }
-
-        internal static bool HasMappingDragThreshold(Point start, Point current) =>
-            Math.Abs(current.X - start.X) >= 4 || Math.Abs(current.Y - start.Y) >= 4;
-
-        private async void MappingDrag_OnPointerMoved(object? sender, PointerEventArgs e)
-        {
-            if (_mappingDragCandidate is not { } item || _mappingDragPress is not { } press
-                || !ReferenceEquals(e.Pointer, press.Pointer)) return;
-            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-            {
-                ClearMappingDrag();
-                return;
-            }
-            if (!HasMappingDragThreshold(_mappingDragStart, e.GetPosition(this))) return;
-            ClearMappingDrag();
-            ViewModel.MappingEditor.SelectedMapping = item;
-            var transfer = new DataTransfer();
-            transfer.Add(DataTransferItem.Create(MappingFormat, item));
-            await RunUiActionAsync(() => DragDrop.DoDragDropAsync(press, transfer, DragDropEffects.Move));
-        }
-
-        private void MappingDrag_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
-        {
-            if (ReferenceEquals(e.Pointer, _mappingDragPress?.Pointer)) ClearMappingDrag();
-        }
-
-        private void ClearMappingDrag()
-        {
-            _mappingDragCandidate = null;
-            _mappingDragPress = null;
-        }
-
-        private void MappingRow_OnDragOver(object? sender, DragEventArgs e)
-        {
-            e.DragEffects = e.DataTransfer.Contains(MappingFormat) ? DragDropEffects.Move : DragDropEffects.None;
-        }
-
-        private void MappingRow_OnDrop(object? sender, DragEventArgs e)
-        {
-            if (sender is not Control { DataContext: MappingEditorItemViewModel target } row) return;
-            var source = e.DataTransfer.TryGetValue(MappingFormat);
-            if (source is null) return;
-            AnimateFocusMove(() => { if (e.GetPosition(row).Y < row.Bounds.Height / 2)
-                ViewModel.MappingEditor.MoveBefore(source, target);
-            else
-                ViewModel.MappingEditor.MoveAfter(source, target); });
-        }
-
         private async void BrowseExecutable_OnClick(object? sender, RoutedEventArgs e)
         {
             var files = await RunUiActionAsync(() => StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
@@ -906,15 +843,15 @@ namespace FocusRgb.App
         private void AnimateFocusMove(Action move)
         {
             ResetFocusStatus();
-            var positions = this.GetVisualDescendants().OfType<Control>()
-                .Where(control => control.Name == "FocusRow" && control.DataContext is MappingEditorItemViewModel)
+            var positions = FocusRowContainers()
                 .ToDictionary(control => ((MappingEditorItemViewModel)control.DataContext!).Id,
                     control => control.TranslatePoint(default, this)?.Y ?? 0);
             move();
+            foreach (var container in FocusRowContainers()) container.RenderTransform = null;
             void AfterLayout(object? sender, EventArgs args)
             {
                 LayoutUpdated -= AfterLayout;
-                foreach (var row in this.GetVisualDescendants().OfType<Control>().Where(control => control.Name == "FocusRow"))
+                foreach (var row in FocusRowContainers())
                 {
                     if (row.DataContext is not MappingEditorItemViewModel item || !positions.TryGetValue(item.Id, out var before)) continue;
                     var transform = new TranslateTransform(0, before - (row.TranslatePoint(default, this)?.Y ?? before));
@@ -929,6 +866,7 @@ namespace FocusRgb.App
 
         protected override void OnClosed(EventArgs e)
         {
+            FinishMappingDrag(false);
             _focusStatusTimer?.Dispose();
             base.OnClosed(e);
         }
