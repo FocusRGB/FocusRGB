@@ -303,7 +303,8 @@ namespace FocusRgb.App.ViewModels
             get => _includeBetaPlugins;
             set => SetApplicationSettingsDraft(ref _includeBetaPlugins, value);
         }
-        public bool SavedIncludeBetaPlugins => _settings.Application?.IncludeBetaPlugins ?? ApplicationVersion.IsPrerelease;
+        public bool SavedIncludeBetaPlugins =>
+            (_applicationState?.Current.Settings ?? _settings).Application?.IncludeBetaPlugins ?? ApplicationVersion.IsPrerelease;
         public bool IsApplicationSettingsDirty
         {
             get => _isApplicationSettingsDirty;

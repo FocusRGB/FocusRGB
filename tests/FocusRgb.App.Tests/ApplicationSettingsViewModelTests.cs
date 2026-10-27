@@ -177,6 +177,21 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task SavedIncludeBetaPlugins_UsesCurrentServiceSettings_WhenEditorHasConflict()
+        {
+            var (viewModel, service) = await CreateWithServiceAsync();
+            viewModel.ProfileName = "Unsaved draft";
+            var applied = await service.ApplySettingsAsync(
+                WithTheme(service.Current.Settings, "dark", includeBetaPlugins: false),
+                service.Current.SettingsRevision, "mcp", TestContext.Current.CancellationToken);
+
+            Assert.True(applied.IsSuccess);
+            Assert.True(viewModel.HasSettingsConflict);
+            Assert.True(viewModel.IncludeBetaPlugins);
+            Assert.False(viewModel.SavedIncludeBetaPlugins);
+        }
+
+        [Fact]
         public async Task ExternalSettingsChange_PreservesNewGroupDraftWithoutASelection()
         {
             var (viewModel, service) = await CreateWithServiceAsync();
@@ -252,7 +267,7 @@ namespace FocusRgb.App.Tests
                 startup.Snapshot, store, applicationState: service), service);
         }
 
-        private static SettingsDocument WithTheme(SettingsDocument settings, string theme) => new()
+        private static SettingsDocument WithTheme(SettingsDocument settings, string theme, bool? includeBetaPlugins = null) => new()
         {
             SchemaVersion = settings.SchemaVersion,
             Application = new ApplicationSettings
@@ -261,6 +276,7 @@ namespace FocusRgb.App.Tests
                 StartMinimized = settings.Application.StartMinimized,
                 Theme = theme,
                 VerboseLogging = settings.Application.VerboseLogging,
+                IncludeBetaPlugins = includeBetaPlugins ?? settings.Application.IncludeBetaPlugins,
                 AdditionalProperties = settings.Application.AdditionalProperties
             },
             Plugins = settings.Plugins,
