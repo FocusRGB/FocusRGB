@@ -1,5 +1,8 @@
 # FocusRGB source
 
+The UI calls automatic application/game rules **Focuses** and presents them in the **Focus Library**.
+Internal rule/mapping identifiers and settings serialization remain unchanged.
+
 Application source for FocusRGB. Delivery status is tracked on the
 [project board](https://github.com/orgs/FocusRGB/projects/1), with archived plans indexed by
 [issue #83](https://github.com/FocusRGB/FocusRGB/issues/83). The solution file is
