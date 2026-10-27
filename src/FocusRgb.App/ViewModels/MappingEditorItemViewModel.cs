@@ -57,6 +57,8 @@ namespace FocusRgb.App.ViewModels
         public string AccessibleName => $"{SelectedTarget.DisplayName} maps to {SelectedProfile.DisplayName}, {Eligibility}";
         public string MoveUpAccessibleName => $"Move {SelectedTarget.DisplayName} Focus up";
         public string MoveDownAccessibleName => $"Move {SelectedTarget.DisplayName} Focus down";
+        public bool CanMoveUp => Position > 1;
+        public bool CanMoveDown => Position > 0 && Position < _editor.Mappings.Count;
         public string EditAccessibleName => $"Edit {SelectedTarget.DisplayName} Focus";
         public string RemoveAccessibleName => $"Remove {SelectedTarget.DisplayName} Focus";
         public override string ToString() => AccessibleName;
@@ -72,6 +74,7 @@ namespace FocusRgb.App.ViewModels
             foreach (var property in new[]
             {
                 nameof(AccessibleName), nameof(MoveUpAccessibleName), nameof(MoveDownAccessibleName),
+                nameof(CanMoveUp), nameof(CanMoveDown),
                 nameof(EditAccessibleName), nameof(RemoveAccessibleName)
             })
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));

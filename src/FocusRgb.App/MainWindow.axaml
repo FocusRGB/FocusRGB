@@ -116,14 +116,14 @@
                 <ListBox x:Name="FocusList" IsVisible="{Binding !MappingEditor.IsEmpty}" ItemsSource="{Binding MappingEditor.Mappings}" SelectedItem="{Binding MappingEditor.SelectedMapping}">
                   <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:MappingEditorItemViewModel">
-                        <Grid x:Name="FocusRow" Margin="4" MinHeight="30" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8"
+                        <Grid x:Name="FocusRow" Background="Transparent" Margin="4" MinHeight="30" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8"
                               AutomationProperties.Name="{Binding AccessibleName}"
                               PointerPressed="MappingDrag_OnPointerPressed" ToolTip.Tip="Drag this row to reorder"
                               DragDrop.AllowDrop="True" DragDrop.DragOver="MappingRow_OnDragOver"
                               DragDrop.Drop="MappingRow_OnDrop">
                           <StackPanel Spacing="2">
-                            <Button Content="⇈" Padding="7,2" CommandParameter="{Binding}" Click="MoveMappingTop_OnClick" ToolTip.Tip="Move to top" AutomationProperties.Name="Move Focus to top" />
-                            <Button Content="⇊" Padding="7,2" CommandParameter="{Binding}" Click="MoveMappingBottom_OnClick" ToolTip.Tip="Move to bottom" AutomationProperties.Name="Move Focus to bottom" />
+                            <Button Content="▲" Padding="7,2" CommandParameter="{Binding}" Click="MoveMappingUp_OnClick" IsEnabled="{Binding CanMoveUp}" ToolTip.Tip="Move up" AutomationProperties.Name="{Binding MoveUpAccessibleName}" />
+                            <Button Content="▼" Padding="7,2" CommandParameter="{Binding}" Click="MoveMappingDown_OnClick" IsEnabled="{Binding CanMoveDown}" ToolTip.Tip="Move down" AutomationProperties.Name="{Binding MoveDownAccessibleName}" />
                           </StackPanel>
                           <TextBlock Grid.Column="1" Text="{Binding Position}" VerticalAlignment="Center" Opacity="0.55" />
                           <StackPanel Grid.Column="2" Spacing="2">

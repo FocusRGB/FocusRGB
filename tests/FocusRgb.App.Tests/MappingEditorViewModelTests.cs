@@ -6,6 +6,46 @@ namespace FocusRgb.App.Tests
 {
     public sealed class MappingEditorViewModelTests
     {
+        [Theory]
+        [InlineData(0, -1, 0, false)]
+        [InlineData(0, 1, 1, true)]
+        [InlineData(2, 1, 2, false)]
+        [InlineData(2, -1, 1, true)]
+        public void Move_ChangesOneStepAndStopsAtEdges(int start, int offset, int expected, bool dirty)
+        {
+            var editor = MainWindowViewModel.CreatePreview().MappingEditor;
+            var item = editor.Mappings[start];
+            editor.Move(item, offset);
+            Assert.Same(item, editor.Mappings[expected]);
+            Assert.Equal(dirty, editor.IsDirty);
+            Assert.Equal([1, 2, 3], editor.Mappings.Select(row => row.Position));
+            Assert.All(editor.Mappings, row =>
+            {
+                Assert.Equal(row.Position > 1, row.CanMoveUp);
+                Assert.Equal(row.Position < editor.Mappings.Count, row.CanMoveDown);
+            });
+        }
+
+        [Fact]
+        public void MoveAvailability_RefreshesWhenLastRowIsRemoved()
+        {
+            var editor = MainWindowViewModel.CreatePreview().MappingEditor;
+            var middle = editor.Mappings[1];
+            var changed = new List<string?>();
+            middle.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+            editor.Remove(editor.Mappings.Last());
+            Assert.False(middle.CanMoveDown);
+            Assert.Contains(nameof(middle.CanMoveDown), changed);
+        }
+
+        [Theory]
+        [InlineData(0, 0, false)]
+        [InlineData(3, -3, false)]
+        [InlineData(4, 0, true)]
+        [InlineData(0, -4, true)]
+        public void MappingDrag_WaitsForMovementThreshold(double x, double y, bool expected) =>
+            Assert.Equal(expected, MainWindow.HasMappingDragThreshold(default, new Avalonia.Point(x, y)));
+
         [Fact]
         public void CreatePreview_LoadsNamedGroupsAndMappingsInSavedOrder()
         {

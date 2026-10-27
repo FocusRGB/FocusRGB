@@ -34,6 +34,9 @@ namespace FocusRgb.App
         private readonly IStartupRegistration? _startupRegistration;
         private bool _updatingStartupControls;
         private IDisposable? _focusStatusTimer;
+        private MappingEditorItemViewModel? _mappingDragCandidate;
+        private PointerPressedEventArgs? _mappingDragPress;
+        private Point _mappingDragStart;
 
         public MainWindow()
             : this(MainWindowViewModel.CreatePreview(), null)
@@ -48,6 +51,9 @@ namespace FocusRgb.App
         public MainWindow(MainWindowViewModel viewModel, string? dataDirectory, IStartupRegistration? startupRegistration = null)
         {
             InitializeComponent();
+            // ListBox selection can capture and handle pointer events before they reach the row.
+            AddHandler(PointerMovedEvent, MappingDrag_OnPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+            AddHandler(PointerReleasedEvent, MappingDrag_OnPointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
             _startupRegistration = startupRegistration;
             DataContext = viewModel;
             _dataDirectory = dataDirectory ?? Path.Combine(
@@ -764,18 +770,6 @@ namespace FocusRgb.App
             ResetFocusStatus();
         }
 
-        private void MoveMappingTop_OnClick(object? sender, RoutedEventArgs e)
-        {
-            if (sender is Button { CommandParameter: MappingEditorItemViewModel item })
-                AnimateFocusMove(() => ViewModel.MappingEditor.MoveToTop(item));
-        }
-
-        private void MoveMappingBottom_OnClick(object? sender, RoutedEventArgs e)
-        {
-            if (sender is Button { CommandParameter: MappingEditorItemViewModel item })
-                AnimateFocusMove(() => ViewModel.MappingEditor.MoveToBottom(item));
-        }
-
         private void MoveMappingUp_OnClick(object? sender, RoutedEventArgs e) =>
             MoveFromButton(sender, -1);
 
@@ -790,17 +784,48 @@ namespace FocusRgb.App
             }
         }
 
-        private async void MappingDrag_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+        private void MappingDrag_OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
+            ClearMappingDrag();
             if (sender is not Control { DataContext: MappingEditorItemViewModel item }) return;
             if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
                 || e.Source is Button
                 || e.Source is Visual source && source.FindAncestorOfType<Button>() is not null)
                 return;
+            _mappingDragCandidate = item;
+            _mappingDragPress = e;
+            _mappingDragStart = e.GetPosition(this);
+        }
+
+        internal static bool HasMappingDragThreshold(Point start, Point current) =>
+            Math.Abs(current.X - start.X) >= 4 || Math.Abs(current.Y - start.Y) >= 4;
+
+        private async void MappingDrag_OnPointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (_mappingDragCandidate is not { } item || _mappingDragPress is not { } press
+                || !ReferenceEquals(e.Pointer, press.Pointer)) return;
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                ClearMappingDrag();
+                return;
+            }
+            if (!HasMappingDragThreshold(_mappingDragStart, e.GetPosition(this))) return;
+            ClearMappingDrag();
             ViewModel.MappingEditor.SelectedMapping = item;
             var transfer = new DataTransfer();
             transfer.Add(DataTransferItem.Create(MappingFormat, item));
-            await RunUiActionAsync(() => DragDrop.DoDragDropAsync(e, transfer, DragDropEffects.Move));
+            await RunUiActionAsync(() => DragDrop.DoDragDropAsync(press, transfer, DragDropEffects.Move));
+        }
+
+        private void MappingDrag_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (ReferenceEquals(e.Pointer, _mappingDragPress?.Pointer)) ClearMappingDrag();
+        }
+
+        private void ClearMappingDrag()
+        {
+            _mappingDragCandidate = null;
+            _mappingDragPress = null;
         }
 
         private void MappingRow_OnDragOver(object? sender, DragEventArgs e)
