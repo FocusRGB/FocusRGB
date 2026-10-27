@@ -1,11 +1,12 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "application": {
     "closeButtonBehavior": "minimize-to-tray",
     "startMinimized": false,
     "theme": "system",
     "verboseLogging": false,
-    "showProfileChangePopup": true
+    "showProfileChangePopup": true,
+    "switchingSpeed": "normal"
   },
   "plugins": {
     "enabled": []
@@ -13,7 +14,7 @@
   "selection": {
     "defaultProfile": "default",
     "unmatched": "default-profile",
-    "debounceMs": 2000,
+    "debounceMs": 750,
     "ignoredExecutables": ["ShellExperienceHost.exe", "StartMenuExperienceHost.exe", "SearchHost.exe", "LockApp.exe"]
   },
   "profiles": [

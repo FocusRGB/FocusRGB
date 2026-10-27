@@ -58,6 +58,7 @@ namespace FocusRgb.App.ViewModels
         private bool _verboseLogging;
         private bool _showProfileChangePopup = true;
         private bool _includeBetaPlugins;
+        private string _switchingSpeed = "Normal (750 ms)";
         private bool _isApplicationSettingsDirty;
         private int _settingsSavePending;
         private string? _settingsSaveWarning;
@@ -305,6 +306,12 @@ namespace FocusRgb.App.ViewModels
         }
         public bool SavedIncludeBetaPlugins =>
             (_applicationState?.Current.Settings ?? _settings).Application?.IncludeBetaPlugins ?? ApplicationVersion.IsPrerelease;
+        public IReadOnlyList<string> SwitchingSpeeds { get; } = ["Fast (300 ms)", "Normal (750 ms)", "Smooth (2000 ms)"];
+        public string SwitchingSpeed
+        {
+            get => _switchingSpeed;
+            set => SetApplicationSettingsDraft(ref _switchingSpeed, value);
+        }
         public bool IsApplicationSettingsDirty
         {
             get => _isApplicationSettingsDirty;
@@ -493,6 +500,7 @@ namespace FocusRgb.App.ViewModels
                     VerboseLogging = VerboseLogging,
                     ShowProfileChangePopup = ShowProfileChangePopup,
                     IncludeBetaPlugins = IncludeBetaPlugins,
+                    SwitchingSpeed = SwitchingSpeed.Split(' ')[0].ToLowerInvariant(),
                     AdditionalProperties = _settings.Application!.AdditionalProperties
                 };
                 var candidate = WithApplication(application);
@@ -1827,6 +1835,12 @@ namespace FocusRgb.App.ViewModels
             VerboseLogging = application.VerboseLogging!.Value;
             ShowProfileChangePopup = application.ShowProfileChangePopup ?? true;
             IncludeBetaPlugins = SavedIncludeBetaPlugins;
+            SwitchingSpeed = application.SwitchingSpeed switch
+            {
+                "fast" => SwitchingSpeeds[0],
+                "smooth" => SwitchingSpeeds[2],
+                _ => SwitchingSpeeds[1]
+            };
             _loadingApplicationSettings = false;
             IsApplicationSettingsDirty = false;
         }

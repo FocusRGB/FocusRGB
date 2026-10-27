@@ -169,7 +169,7 @@ namespace FocusRgb.Core.Tests
         private static (ApplicationStateService, Store, Gateway, OutputCoordinator) Create(bool automatic = false)
         {
             var document = System.Text.Json.Nodes.JsonNode.Parse(SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!))!;
-            document["selection"]!["debounceMs"] = 0;
+            document["rules"]![0]!["eligibility"] = "while-running";
             var settings = SettingsJson.Load(document.ToJsonString()).Settings!;
             var state = new SelectionStateDocument { SchemaVersion = 1, Mode = automatic ? "automatic" : "manual",
                 ManualProfile = "default", LastSelectedProfile = "default", UpdatedAt = DateTimeOffset.UtcNow };

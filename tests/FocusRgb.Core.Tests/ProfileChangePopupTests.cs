@@ -38,12 +38,13 @@ namespace FocusRgb.Core.Tests
         {
             var defaults = SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!);
             var root = System.Text.Json.Nodes.JsonNode.Parse(defaults)!;
+            root["schemaVersion"] = 5;
             root["application"]!.AsObject().Remove("showProfileChangePopup");
             if (property.Length > 0) root["application"]!["showProfileChangePopup"] = null;
             var loaded = SettingsJson.Load(root.ToJsonString());
             Assert.True(loaded.IsSuccess);
             Assert.True(loaded.Settings!.Application!.ShowProfileChangePopup ?? true);
-            Assert.Equal(5, loaded.Settings.SchemaVersion);
+            Assert.Equal(6, loaded.Settings.SchemaVersion);
         }
 
         private static ApplicationStateSnapshot Snapshot(string profile, string mode = "automatic",
