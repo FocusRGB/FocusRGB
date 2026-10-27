@@ -36,6 +36,7 @@ namespace FocusRgb.Core.Configuration
         public string? Theme { get; init; }
         public bool? VerboseLogging { get; init; }
         public bool? ShowProfileChangePopup { get; init; } = true;
+        public bool? IncludeBetaPlugins { get; init; }
     }
 
     /// <summary>Controls unmatched applications, focus stability, and first-run profile selection.</summary>

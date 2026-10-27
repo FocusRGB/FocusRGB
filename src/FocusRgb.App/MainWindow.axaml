@@ -481,6 +481,8 @@
                 <TextBlock x:Name="StartupStatusText" TextWrapping="Wrap" />
                 <TextBlock Text="Start with Windows changes take effect immediately. Start minimized controls ordinary launches."
                            Opacity="0.65" TextWrapping="Wrap" />
+                <CheckBox x:Name="IncludeBetaPluginsCheckBox" IsChecked="{Binding IncludeBetaPlugins}" Content="Include beta plugins"
+                          AutomationProperties.Name="Include beta plugins" />
               </StackPanel>
             </Border>
             <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
@@ -499,6 +501,7 @@
             <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
               <StackPanel Spacing="12">
                 <TextBlock Text="Diagnostics" FontSize="18" FontWeight="SemiBold" />
+                <Button x:Name="AboutButton" Content="About FocusRGB" Click="About_OnClick" />
                 <CheckBox IsChecked="{Binding VerboseLogging}"
                           Content="Enable basic diagnostic logging" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
