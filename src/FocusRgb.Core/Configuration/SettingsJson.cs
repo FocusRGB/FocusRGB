@@ -83,7 +83,8 @@ namespace FocusRgb.Core.Configuration
             CloseButtonBehavior = "minimize-to-tray",
             StartMinimized = false,
             Theme = "system",
-            VerboseLogging = false
+            VerboseLogging = false,
+            ShowProfileChangePopup = true
         };
 
         public static PluginSettings CreateDefaultPluginSettings() => new() { Enabled = [] };

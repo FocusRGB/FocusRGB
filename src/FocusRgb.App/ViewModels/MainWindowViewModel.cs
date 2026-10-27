@@ -56,6 +56,7 @@ namespace FocusRgb.App.ViewModels
         private bool _startMinimized;
         private string _applicationTheme = "System";
         private bool _verboseLogging;
+        private bool _showProfileChangePopup = true;
         private bool _isApplicationSettingsDirty;
         private int _settingsSavePending;
         private string? _settingsSaveWarning;
@@ -291,6 +292,11 @@ namespace FocusRgb.App.ViewModels
             get => _verboseLogging;
             set => SetApplicationSettingsDraft(ref _verboseLogging, value);
         }
+        public bool ShowProfileChangePopup
+        {
+            get => _showProfileChangePopup;
+            set => SetApplicationSettingsDraft(ref _showProfileChangePopup, value);
+        }
         public bool IsApplicationSettingsDirty
         {
             get => _isApplicationSettingsDirty;
@@ -477,6 +483,7 @@ namespace FocusRgb.App.ViewModels
                     StartMinimized = StartMinimized,
                     Theme = ApplicationTheme.ToLowerInvariant(),
                     VerboseLogging = VerboseLogging,
+                    ShowProfileChangePopup = ShowProfileChangePopup,
                     AdditionalProperties = _settings.Application!.AdditionalProperties
                 };
                 var candidate = WithApplication(application);
@@ -1807,6 +1814,7 @@ namespace FocusRgb.App.ViewModels
             StartMinimized = application.StartMinimized!.Value;
             ApplicationTheme = char.ToUpperInvariant(application.Theme![0]) + application.Theme[1..];
             VerboseLogging = application.VerboseLogging!.Value;
+            ShowProfileChangePopup = application.ShowProfileChangePopup ?? true;
             _loadingApplicationSettings = false;
             IsApplicationSettingsDirty = false;
         }

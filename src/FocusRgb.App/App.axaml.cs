@@ -25,6 +25,7 @@ namespace FocusRgb.App
         private IClassicDesktopStyleApplicationLifetime? _desktop;
         private MainWindow? _mainWindow;
         private Window? _startupErrorWindow;
+        private ProfileChangePopupWindow? _profileChangePopup;
         private LocalStateStore? _store;
         private PluginRuntime? _plugins;
         private PluginRuntimeGateway? _pluginGateway;
@@ -138,6 +139,20 @@ namespace FocusRgb.App
                     outputCoordinator,
                     initialOutput,
                     startup.Snapshot.GameCatalog);
+                var popupDecision = new FocusRgb.Core.Selection.ProfileChangePopupDecision();
+                popupDecision.Update(stateService.Current);
+                stateService.SnapshotChanged += (_, snapshot) => Dispatcher.UIThread.Post(() =>
+                {
+                    if (_shutdownApproved) return;
+                    var announcement = popupDecision.Update(snapshot);
+                    if (snapshot.Settings.Application?.ShowProfileChangePopup == false)
+                        _profileChangePopup?.Dismiss();
+                    if (announcement is not null)
+                    {
+                        _profileChangePopup ??= new ProfileChangePopupWindow();
+                        _profileChangePopup.Present(announcement);
+                    }
+                });
                 ApplyTheme(startup.Snapshot.Settings.Application.Theme!);
                 var viewModel = MainWindowViewModel.CreatePersistent(
                     startup.Snapshot,
@@ -281,6 +296,7 @@ namespace FocusRgb.App
 
         public void Dispose()
         {
+            _profileChangePopup?.Close();
             _pluginDiscovery?.Dispose();
             _pluginInventory?.Dispose();
             _pluginConfigurationStore?.Dispose();
