@@ -51,6 +51,7 @@ selection commands require explicit, single-use approval in the app.
 
 ## Start here
 
+- [User wiki](https://github.com/FocusRGB/FocusRGB/wiki): Home, installing plugins, and the SignalRGB plugin guide.
 - [Project board](https://github.com/orgs/FocusRGB/projects/1): current delivery status and planning.
 - [Archived-document index](https://github.com/FocusRGB/FocusRGB/issues/83): links to the slice and
   architecture records in Issues #26–#55 and Milestones #1–#5.
