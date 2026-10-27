@@ -118,6 +118,8 @@ namespace FocusRgb.App.ViewModels
         public ObservableCollection<GameCatalogItemViewModel> Games { get; } = [];
         public ObservableCollection<string> DraftExecutables { get; } = [];
         public ObservableCollection<string> DraftGameExecutables { get; } = [];
+        public ObservableCollection<GameExecutableOptionViewModel> GameExecutableOptions { get; } = [];
+        public bool HasDiscoveredGame => EditingGame is { IsManual: false };
         public ObservableCollection<string> DetectedExecutables { get; } = [];
         public ObservableCollection<string> IntegrationStatuses { get; } = ["No plugins configured."];
         public ObservableCollection<OfficialPluginItemViewModel> OfficialPlugins { get; } = [];
@@ -183,6 +185,14 @@ namespace FocusRgb.App.ViewModels
                 if (value is not null)
                     foreach (var executable in value.Executables) DraftGameExecutables.Add(executable);
                 SelectedGameExecutable = null;
+                GameExecutableOptions.Clear();
+                if (value is { IsManual: false })
+                {
+                    foreach (var name in value.Executables.Union(value.MatchingExecutables, StringComparer.OrdinalIgnoreCase))
+                        GameExecutableOptions.Add(new GameExecutableOptionViewModel(name,
+                            value.MatchingExecutables.Contains(name, StringComparer.OrdinalIgnoreCase)));
+                }
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasDiscoveredGame)));
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanEditGame)));
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanRemoveGame)));
             }
@@ -953,6 +963,49 @@ namespace FocusRgb.App.ViewModels
             }
         }
 
+        public async Task SaveDiscoveredGameExecutablesAsync(CancellationToken cancellationToken = default)
+        {
+            if (EditingGame is not { IsManual: false } editing || !BeginSettingsSave()) return;
+            try
+            {
+                var selected = GameExecutableOptions.Where(option => option.IsSelected).Select(option => option.Name).ToList();
+                if (selected.Count == 0)
+                {
+                    GameEditorStatus = "Select at least one main executable to match.";
+                    return;
+                }
+                var candidate = GameCatalogJson.Load(GameCatalogJson.Serialize(_gameCatalog)).Catalog!;
+                var games = candidate.Games!;
+                var existing = games.FirstOrDefault(game => game.Launcher == editing.Launcher && game.Id == editing.Id);
+                if (existing is null)
+                {
+                    GameEditorStatus = "This game is no longer in the catalog. Refresh games and try again.";
+                    return;
+                }
+                var saved = new GameCatalogEntry
+                {
+                    Launcher = existing.Launcher, Id = existing.Id, DisplayName = existing.DisplayName,
+                    Executables = existing.Executables, SelectedExecutables = selected,
+                    Available = existing.Available, UnavailableReason = existing.UnavailableReason,
+                    LastRefreshedAt = existing.LastRefreshedAt, AdditionalProperties = existing.AdditionalProperties
+                };
+                games[games.IndexOf(existing)] = saved;
+                var error = await SaveGameCatalogCandidateAsync(candidate, cancellationToken, source: "catalog");
+                if (error is not null)
+                {
+                    GameEditorStatus = error;
+                    return;
+                }
+                MappingEditor.UpsertGameTarget(saved);
+                ReloadGameProjection();
+                GameEditorStatus = $"Saved executable selection for {editing.DisplayName}. Focuses now match the selected executables.";
+            }
+            finally
+            {
+                EndSettingsSave();
+            }
+        }
+
         public async Task RemoveManualGameAsync(CancellationToken cancellationToken = default)
         {
             if (EditingGame?.IsManual != true || !BeginSettingsSave()) return;
@@ -1030,15 +1083,18 @@ namespace FocusRgb.App.ViewModels
                             rejected++;
                             continue;
                         }
+                        var existing = launcherGames.FirstOrDefault(game => game.Id == item.ResourceId);
                         var game = new GameCatalogEntry
                         {
                             Launcher = launcher,
                             Id = item.ResourceId,
                             DisplayName = item.DisplayName,
                             Executables = [.. item.Game!.Executables],
+                            SelectedExecutables = existing?.SelectedExecutables,
                             Available = item.Available,
                             UnavailableReason = item.Reason?.Message,
-                            LastRefreshedAt = refreshedAt
+                            LastRefreshedAt = refreshedAt,
+                            AdditionalProperties = existing?.AdditionalProperties
                         };
                         if (GameCatalogJson.Validate(new GameCatalogDocument
                             {
@@ -1053,6 +1109,10 @@ namespace FocusRgb.App.ViewModels
                             retained.RemoveAll(existing => existing.Launcher == launcher && existing.Id == game.Id);
                         retained.Add(game);
                     }
+                    if (!incomplete)
+                        retained.AddRange(launcherGames.Where(game => game.SelectedExecutables is not null
+                            && !seen.Contains(new GameIdentity(launcher, game.Id!)))
+                            .Select(game => UnavailableGame(game, "Not reported by the latest discovery scan.")));
                     if (rejected > 0)
                     {
                         GameEditorStatus = string.Join(" ", new[]
@@ -1068,17 +1128,7 @@ namespace FocusRgb.App.ViewModels
                         ? result.Value!.Reason?.Message ?? "Game discovery is unavailable."
                         : result.ErrorMessage!;
                     retained.AddRange(launcherGames
-                        .Select(game => new GameCatalogEntry
-                        {
-                            Launcher = game.Launcher,
-                            Id = game.Id,
-                            DisplayName = game.DisplayName,
-                            Executables = game.Executables,
-                            Available = false,
-                            UnavailableReason = reason,
-                            LastRefreshedAt = game.LastRefreshedAt,
-                            AdditionalProperties = game.AdditionalProperties
-                        }));
+                        .Select(game => UnavailableGame(game, reason)));
                 }
                 var candidate = new GameCatalogDocument
                 {
@@ -1098,6 +1148,14 @@ namespace FocusRgb.App.ViewModels
             }
             GameEditorStatus = "Game catalog changed concurrently; discovery will retry later.";
         }
+
+        private static GameCatalogEntry UnavailableGame(GameCatalogEntry game, string reason) => new()
+        {
+            Launcher = game.Launcher, Id = game.Id, DisplayName = game.DisplayName,
+            Executables = game.Executables, SelectedExecutables = game.SelectedExecutables,
+            Available = false, UnavailableReason = reason, LastRefreshedAt = game.LastRefreshedAt,
+            AdditionalProperties = game.AdditionalProperties
+        };
 
         public async Task SaveApplicationGroupAsync(CancellationToken cancellationToken = default)
         {
@@ -1467,8 +1525,12 @@ namespace FocusRgb.App.ViewModels
                 ? !string.IsNullOrWhiteSpace(GameName) || DraftGameExecutables.Count > 0
                 : GameName != EditingGame.DisplayName
                   || !DraftGameExecutables.SequenceEqual(EditingGame.Executables));
-            return IsProfileDirty || MappingEditor.IsDirty || IsApplicationSettingsDirty || groupDirty || gameDirty;
+            return IsProfileDirty || MappingEditor.IsDirty || IsApplicationSettingsDirty || groupDirty || gameDirty || HasDirtyGameExecutableSelection();
         }
+
+        private bool HasDirtyGameExecutableSelection() => HasDiscoveredGame
+            && !GameExecutableOptions.Where(option => option.IsSelected).Select(option => option.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(EditingGame!.MatchingExecutables);
 
         private void ReportSettingsConflict()
         {
@@ -1513,10 +1575,12 @@ namespace FocusRgb.App.ViewModels
             var draftName = GameName;
             var draftExecutables = DraftGameExecutables.ToList();
             var selectedExecutable = SelectedGameExecutable;
+            var preserveExecutableSelection = preserveManualDraft && HasDirtyGameExecutableSelection();
+            var executableChoices = GameExecutableOptions.Where(option => option.IsSelected).Select(option => option.Name).ToArray();
             GameIdentity? selected = EditingGame is null
                 ? null
                 : new GameIdentity(EditingGame.Launcher, EditingGame.Id);
-            var ambiguous = _gameCatalog.Games!.SelectMany(game => game.Executables!)
+            var ambiguous = _gameCatalog.Games!.SelectMany(game => game.MatchingExecutables)
                 .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)
                 .Where(group => group.Count() > 1).Select(group => group.Key)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -1535,6 +1599,15 @@ namespace FocusRgb.App.ViewModels
                 DraftGameExecutables.Clear();
                 foreach (var executable in draftExecutables) DraftGameExecutables.Add(executable);
                 SelectedGameExecutable = selectedExecutable;
+            }
+            if (preserveExecutableSelection && EditingGame is not null && selected is not null
+                && EditingGame.Launcher == selected.Value.Launcher && EditingGame.Id == selected.Value.Id)
+            {
+                foreach (var name in executableChoices)
+                    if (!GameExecutableOptions.Any(option => string.Equals(option.Name, name, StringComparison.OrdinalIgnoreCase)))
+                        GameExecutableOptions.Add(new GameExecutableOptionViewModel(name, true));
+                foreach (var option in GameExecutableOptions)
+                    option.IsSelected = executableChoices.Contains(option.Name, StringComparer.OrdinalIgnoreCase);
             }
         }
 
@@ -1890,7 +1963,8 @@ namespace FocusRgb.App.ViewModels
 
         private async Task<string?> SaveGameCatalogCandidateAsync(
             GameCatalogDocument candidate,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string source = "ui")
         {
             if (_applicationState is null)
             {
@@ -1902,7 +1976,7 @@ namespace FocusRgb.App.ViewModels
             }
 
             var result = await _applicationState.ApplyGameCatalogAsync(
-                candidate, _settingsRevision, "ui", cancellationToken);
+                candidate, _settingsRevision, source, cancellationToken);
             if (!result.IsSuccess)
             {
                 if (result.ErrorCode == "conflict")

@@ -749,6 +749,8 @@ namespace FocusRgb.App
             ViewModel.RemoveDraftGameExecutable();
         private async void SaveManualGame_OnClick(object? sender, RoutedEventArgs e) =>
             await RunUiActionAsync(() => ViewModel.SaveManualGameAsync());
+        private async void SaveDiscoveredGame_OnClick(object? sender, RoutedEventArgs e) =>
+            await RunUiActionAsync(() => ViewModel.SaveDiscoveredGameExecutablesAsync());
         private async void RemoveManualGame_OnClick(object? sender, RoutedEventArgs e) =>
             await RunUiActionAsync(() => ViewModel.RemoveManualGameAsync());
 

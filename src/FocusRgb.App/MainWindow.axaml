@@ -317,6 +317,7 @@
               </StackPanel>
             </Grid>
             <ComboBox ItemsSource="{Binding Games}" SelectedItem="{Binding EditingGame}"
+                      IsEnabled="{Binding !IsSettingsSavePending}"
                       AutomationProperties.Name="Game to inspect or edit"
                       PlaceholderText="No games have been added or discovered">
               <ComboBox.ItemTemplate>
@@ -336,7 +337,23 @@
                          PlaceholderText="Game name" IsReadOnly="{Binding !CanEditGame}" />
                 <ListBox x:Name="GameExecutableList" ItemsSource="{Binding DraftGameExecutables}"
                          SelectedItem="{Binding SelectedGameExecutable}"
+                         IsVisible="{Binding !HasDiscoveredGame}"
                          AutomationProperties.Name="Game executables" MinHeight="70" />
+                <StackPanel IsVisible="{Binding HasDiscoveredGame}" Spacing="8">
+                  <TextBlock Text="Choose the main executable(s) used for Focus matching. Save to keep your selection active, even while discovery is offline."
+                             TextWrapping="Wrap" />
+                  <ListBox x:Name="DiscoveredGameExecutables" ItemsSource="{Binding GameExecutableOptions}" MinHeight="70" MaxHeight="240"
+                           IsEnabled="{Binding !IsSettingsSavePending}"
+                           AutomationProperties.Name="Executables used for game matching">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:GameExecutableOptionViewModel">
+                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}" />
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                  <Button x:Name="SaveDiscoveredGameButton" Content="Save executable selection" Click="SaveDiscoveredGame_OnClick"
+                          IsEnabled="{Binding !IsSettingsSavePending}" HorizontalAlignment="Left" />
+                </StackPanel>
                 <TextBlock x:Name="GameMatchingNotice" Text="{Binding EditingGame.MatchingNotice}"
                            IsVisible="{Binding EditingGame.HasAmbiguousExecutables}"
                            TextWrapping="Wrap" />

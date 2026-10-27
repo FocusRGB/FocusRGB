@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace FocusRgb.Core.Configuration
 {
@@ -54,7 +55,8 @@ namespace FocusRgb.Core.Configuration
                 {
                     game.Launcher, game.Id, game.DisplayName, game.Available,
                     game.UnavailableReason, game.AdditionalProperties,
-                    Executables = game.Executables!.Order(StringComparer.OrdinalIgnoreCase)
+                    Executables = game.Executables!.Order(StringComparer.OrdinalIgnoreCase),
+                    SelectedExecutables = game.SelectedExecutables?.Order(StringComparer.OrdinalIgnoreCase)
                 })
         }, ConfigurationJson.Options);
 
@@ -116,28 +118,13 @@ namespace FocusRgb.Core.Configuration
                             Message = "manual games require at least one executable"
                         });
                     }
-                    var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    for (var executableIndex = 0; executableIndex < game.Executables.Count; executableIndex++)
-                    {
-                        var executable = game.Executables[executableIndex];
-                        var executablePath = $"{path}.executables[{executableIndex}]";
-                        if (string.IsNullOrWhiteSpace(executable))
-                        {
-                            errors.Add(new ConfigurationError { Path = executablePath, Message = "required non-empty file name" });
-                        }
-                        else if (executable.Contains('/') || executable.Contains('\\'))
-                        {
-                            errors.Add(new ConfigurationError { Path = executablePath, Message = "must be a file name, not a path" });
-                        }
-                        else if (!executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                        {
-                            errors.Add(new ConfigurationError { Path = executablePath, Message = "must end in .exe" });
-                        }
-                        else if (!names.Add(executable))
-                        {
-                            errors.Add(new ConfigurationError { Path = executablePath, Message = "duplicate executable name" });
-                        }
-                    }
+                    ValidateExecutables(game.Executables, path + ".executables", errors);
+                }
+                if (game.SelectedExecutables is { } selected)
+                {
+                    if (selected.Count == 0)
+                        errors.Add(new ConfigurationError { Path = path + ".selectedExecutables", Message = "select at least one executable" });
+                    ValidateExecutables(selected, path + ".selectedExecutables", errors);
                 }
                 if (game.Available is null)
                 {
@@ -162,6 +149,20 @@ namespace FocusRgb.Core.Configuration
                 errors.Add(new ConfigurationError { Path = path, Message = "required non-empty string" });
             }
         }
+
+        private static void ValidateExecutables(List<string> executables, string path, List<ConfigurationError> errors)
+        {
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (var index = 0; index < executables.Count; index++)
+            {
+                var name = executables[index];
+                var error = string.IsNullOrWhiteSpace(name) ? "required non-empty file name"
+                    : name.Contains('/') || name.Contains('\\') ? "must be a file name, not a path"
+                    : !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? "must end in .exe"
+                    : !names.Add(name) ? "duplicate executable name" : null;
+                if (error is not null) errors.Add(new ConfigurationError { Path = $"{path}[{index}]", Message = error });
+            }
+        }
     }
 
     /// <summary>Stores cached discovery results and owner-created games outside settings.json.</summary>
@@ -178,6 +179,9 @@ namespace FocusRgb.Core.Configuration
         public string? Id { get; init; }
         public string? DisplayName { get; init; }
         public List<string>? Executables { get; init; }
+        public List<string>? SelectedExecutables { get; init; }
+        [JsonIgnore]
+        public IReadOnlyList<string> MatchingExecutables => SelectedExecutables ?? Executables ?? [];
         public bool? Available { get; init; }
         public string? UnavailableReason { get; init; }
         public DateTimeOffset? LastRefreshedAt { get; init; }

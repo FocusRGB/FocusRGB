@@ -50,7 +50,7 @@ namespace FocusRgb.Core.Selection
             }
             _games = GameCatalogJson.Load(GameCatalogJson.Serialize(gameCatalog)).Catalog!.Games!
                 .ToDictionary(game => new GameIdentity(game.Launcher!, game.Id!));
-            _ambiguousExecutables = _games.Values.SelectMany(game => game.Executables!)
+            _ambiguousExecutables = _games.Values.SelectMany(game => game.MatchingExecutables)
                 .GroupBy(name => name, ExecutableComparer).Where(group => group.Count() > 1)
                 .Select(group => group.Key).ToHashSet(ExecutableComparer);
         }
@@ -160,13 +160,13 @@ namespace FocusRgb.Core.Selection
             if (game.Launcher == "*" && game.Id == "*")
             {
                 return _games.Values
-                    .SelectMany(entry => entry.Executables ?? [])
+                    .SelectMany(entry => entry.MatchingExecutables)
                     .Where(IsGameExecutable)
                     .Distinct(ExecutableComparer)
                     .ToArray();
             }
             return _games.TryGetValue(new GameIdentity(game.Launcher!, game.Id!), out var entry)
-                ? entry.Executables!.Where(name => IsGameExecutable(name) && !_ambiguousExecutables.Contains(name)).ToArray()
+                ? entry.MatchingExecutables.Where(name => IsGameExecutable(name) && !_ambiguousExecutables.Contains(name)).ToArray()
                 : null;
         }
 
