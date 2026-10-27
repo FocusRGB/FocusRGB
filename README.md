@@ -20,6 +20,9 @@ FocusRGB automatically switches lighting profiles based on the active applicatio
 
 ## Key Features
 
+Use the **Focus** tab to select a profile manually or manage automatic **Focuses** in the **Focus Library**.
+Each Focus links an application or game to a lighting profile. See the [user guides](https://github.com/FocusRGB/FocusRGB/wiki).
+
 - **Context-Aware Lighting:** Seamlessly switches profiles using ordered priority rules—either while an application is running or only while it has focus.
 - **Process-Isolated Plugins:** Output providers, game integrators, and discovery services run as independent processes communicating over versioned stdio JSON-RPC. If a plugin crashes, the host stays responsive and safe.
 - **Single-Writer Safety:** Explicit rendering authority coordinates one writer per physical device, with fallback and pending status when output is unavailable.

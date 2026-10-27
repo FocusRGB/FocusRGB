@@ -231,7 +231,7 @@ namespace FocusRgb.App.ViewModels
             OnPropertyChanged(nameof(AppliedMappings));
             OnPropertyChanged(nameof(AppliedRevision));
             IsDirty = false;
-            UpdatePreview($"Saved {_appliedMappings.Count} mappings.");
+            UpdatePreview($"Saved {_appliedMappings.Count} Focuses.");
         }
 
         public List<RuleSettings> CreateRuleSettings() => Mappings.Select(mapping =>
@@ -265,7 +265,7 @@ namespace FocusRgb.App.ViewModels
             RestoreDraft(_appliedMappings);
             SelectedMapping = Mappings.FirstOrDefault(mapping => mapping.Id == selectedId) ?? Mappings.FirstOrDefault();
             IsDirty = false;
-            UpdatePreview("Draft restored to the last saved mappings.");
+            UpdatePreview("Draft restored to the last saved Focuses.");
         }
 
         public void ReportSaveFailure(string message) => PreviewStatus = message;
@@ -289,7 +289,7 @@ namespace FocusRgb.App.ViewModels
             IsDirty = !Mappings.Select(mapping => mapping.CreateSnapshot()).SequenceEqual(_appliedMappings);
             PreviewStatus = IsDirty
                 ? LivePreview ? "Draft preview updated in the editor; output is sent after Save." : "Draft changes are waiting for Save."
-                : "Draft matches the last saved mappings.";
+                : "Draft matches the last saved Focuses.";
             if (LivePreview) { PreviewRevision++; OnPropertyChanged(nameof(PreviewRevision)); }
         }
 
