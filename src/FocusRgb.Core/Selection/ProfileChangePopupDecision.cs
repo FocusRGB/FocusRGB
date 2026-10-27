@@ -29,7 +29,8 @@ namespace FocusRgb.Core.Selection
             var reason = snapshot.SelectionReason.Kind == "unmatched-default"
                 ? "No matching app"
                 : group?.DisplayName ?? game?.DisplayName ?? rule?.Id ?? "Automatic selection";
-            return $"{profile.DisplayName} · {reason}\n{snapshot.RuntimeStatus?.AppliedDetail ?? "Output unavailable"}";
+            var focusName = snapshot.SelectionReason.Kind == "unmatched-default" ? $"Default ({reason})" : reason;
+            return $"Focus: {focusName}\nProfile: {profile.DisplayName}\n{snapshot.RuntimeStatus?.AppliedDetail ?? "Output unavailable"}";
         }
     }
 }

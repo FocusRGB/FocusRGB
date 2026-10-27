@@ -491,7 +491,7 @@
             <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
               <StackPanel Spacing="12">
                 <TextBlock Text="Appearance" FontSize="18" FontWeight="SemiBold" />
-                <CheckBox IsChecked="{Binding ShowProfileChangePopup}" Content="Show profile change pop-up" />
+                <CheckBox IsChecked="{Binding ShowProfileChangePopup}" Content="Show Focus change notifications" />
                 <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
                   <TextBlock Text="Theme" VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1" ItemsSource="{Binding ApplicationThemes}"
