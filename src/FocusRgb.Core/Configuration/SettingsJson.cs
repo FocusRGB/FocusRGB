@@ -5,7 +5,7 @@ namespace FocusRgb.Core.Configuration
     /// <summary>Reads and validates settings in memory before LocalStateStore persists them.</summary>
     public static class SettingsJson
     {
-        public const int CurrentSchemaVersion = 5;
+        public const int CurrentSchemaVersion = 6;
 
         public static SettingsLoadResult Load(string json)
         {
@@ -13,7 +13,7 @@ namespace FocusRgb.Core.Configuration
             try
             {
                 var document = JsonSerializer.Deserialize<SettingsDocument>(json, ConfigurationJson.Options);
-                if (document?.SchemaVersion is 1 or 2 or 3 or 4)
+                if (document?.SchemaVersion is 1 or 2 or 3 or 4 or 5)
                 {
                     var groups = document.SchemaVersion < 4
                         ? document.ApplicationGroups?.Select(group => new ApplicationGroupSettings
@@ -37,12 +37,12 @@ namespace FocusRgb.Core.Configuration
                         SchemaVersion = CurrentSchemaVersion,
                         Application = document.SchemaVersion == 1
                             ? CreateDefaultApplicationSettings()
-                            : document.Application,
+                            : MigrateApplication(document.Application),
                         Plugins = document.SchemaVersion is 1 or 2
                             ? CreateDefaultPluginSettings()
                             : document.Plugins,
                         Selection = MigrateSelection(document.Selection),
-                        Profiles = MigrateProfiles(document.Profiles),
+                        Profiles = document.SchemaVersion < 5 ? MigrateProfiles(document.Profiles) : document.Profiles,
                         ApplicationGroups = groups,
                         Rules = document.SchemaVersion < 4 ? MigrateRules(document.Rules) : document.Rules,
                         AdditionalProperties = document.AdditionalProperties
@@ -84,10 +84,23 @@ namespace FocusRgb.Core.Configuration
             StartMinimized = false,
             Theme = "system",
             VerboseLogging = false,
-            ShowProfileChangePopup = true
+            ShowProfileChangePopup = true,
+            SwitchingSpeed = "normal"
         };
 
         public static PluginSettings CreateDefaultPluginSettings() => new() { Enabled = [] };
+
+        private static ApplicationSettings? MigrateApplication(ApplicationSettings? application) => application is null ? null : new()
+        {
+            CloseButtonBehavior = application.CloseButtonBehavior,
+            StartMinimized = application.StartMinimized,
+            Theme = application.Theme,
+            VerboseLogging = application.VerboseLogging,
+            ShowProfileChangePopup = application.ShowProfileChangePopup,
+            IncludeBetaPlugins = application.IncludeBetaPlugins,
+            SwitchingSpeed = "normal",
+            AdditionalProperties = application.AdditionalProperties
+        };
 
         private static List<ProfileSettings>? MigrateProfiles(List<ProfileSettings>? profiles) => profiles?
             .Select(profile => profile.Id == "movie"
@@ -143,7 +156,7 @@ namespace FocusRgb.Core.Configuration
             {
                 DefaultProfile = selection.DefaultProfile,
                 Unmatched = selection.Unmatched,
-                DebounceMs = selection.DebounceMs,
+                DebounceMs = 750,
                 IgnoredExecutables = ignored,
                 AdditionalProperties = selection.AdditionalProperties
             };

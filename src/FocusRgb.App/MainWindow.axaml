@@ -488,6 +488,9 @@
                            Opacity="0.65" TextWrapping="Wrap" />
                 <CheckBox x:Name="IncludeBetaPluginsCheckBox" IsChecked="{Binding IncludeBetaPlugins}" Content="Include beta plugins"
                           AutomationProperties.Name="Include beta plugins" />
+                <TextBlock Text="Switching speed" />
+                <ComboBox x:Name="SwitchingSpeedPicker" ItemsSource="{Binding SwitchingSpeeds}" SelectedItem="{Binding SwitchingSpeed}"
+                          AutomationProperties.Name="Switching speed" />
               </StackPanel>
             </Border>
             <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">

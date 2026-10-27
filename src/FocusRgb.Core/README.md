@@ -50,7 +50,9 @@ is not derived from provider bindings. Runtime intent is stored separately in `s
 Construct `SelectionEngine` with validated settings, then pass `SelectionMode`, the retained
 manual profile ID, an `ApplicationObservation`, and its timestamp to `Select`. Automatic mode
 uses case-insensitive executable matching and saved rule order; the first eligible rule wins.
-Focus-only rules wait for `debounceMs`; ignored foreground executables preserve the
+Focus-only rules wait for `application.switchingSpeed` (Fast 300 ms, Normal 750 ms, Smooth 2000 ms);
+schema v6 migrates existing settings to Normal. The legacy `selection.debounceMs` field is retained
+for document compatibility; the application preset controls selection. Ignored foreground executables preserve the
 previous stable focus. A process must still appear in `RunningExecutables`, so exit removes
 eligibility immediately. No eligible rule returns protected Default. The result reports
 `manual`, `rule` (with its rule ID), `observation-pending`, or `unmatched-default`. On startup

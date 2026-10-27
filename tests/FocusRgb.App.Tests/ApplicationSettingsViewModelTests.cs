@@ -26,6 +26,7 @@ namespace FocusRgb.App.Tests
             viewModel.VerboseLogging = true;
             viewModel.ShowProfileChangePopup = false;
             viewModel.IncludeBetaPlugins = false;
+            viewModel.SwitchingSpeed = "Fast (300 ms)";
 
             var saved = await viewModel.SaveApplicationSettingsAsync(TestContext.Current.CancellationToken);
             var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
@@ -38,6 +39,7 @@ namespace FocusRgb.App.Tests
             Assert.False(restarted.Snapshot.Settings.Application.ShowProfileChangePopup);
             Assert.False(restarted.Snapshot.Settings.Application.IncludeBetaPlugins);
             Assert.False(viewModel.SavedIncludeBetaPlugins);
+            Assert.Equal("fast", restarted.Snapshot.Settings.Application.SwitchingSpeed);
             Assert.Equal(stateBefore, await File.ReadAllTextAsync(statePath, TestContext.Current.CancellationToken));
             Assert.Equal(effectBefore, restarted.Snapshot.Settings.Profiles!
                 .Single(profile => profile.Id == "default").Bindings![0].Effect!.DisplayName);
