@@ -735,7 +735,7 @@ namespace FocusRgb.App.ViewModels
                     || MappingEditor.AppliedMappings.Any(mapping => mapping.ProfileId == EditingProfile.Id)
                     || MappingEditor.Mappings.Any(mapping => mapping.SelectedProfile.Id == EditingProfile.Id))
                 {
-                    ProfileEditorStatus = "rules: reassign or remove mappings that use this profile first.";
+                    ProfileEditorStatus = "rules: reassign or remove Focuses that use this profile first.";
                     return;
                 }
                 var fallbackOwner = _settings.Profiles!
@@ -955,7 +955,7 @@ namespace FocusRgb.App.ViewModels
                     || MappingEditor.Mappings.Any(mapping =>
                         mapping.SelectedTarget.GameLauncher == launcher && mapping.SelectedTarget.GameId == id))
                 {
-                    GameEditorStatus = "Remove mappings that use this game first.";
+                    GameEditorStatus = "Remove Focuses that use this game first.";
                     return;
                 }
                 var removed = EditingGame.DisplayName;
@@ -1158,7 +1158,7 @@ namespace FocusRgb.App.ViewModels
                     || MappingEditor.Mappings.Any(mapping =>
                         mapping.SelectedTarget.ApplicationGroupId == EditingApplicationGroup.Id))
                 {
-                    ApplicationGroupEditorStatus = "Remove mappings that use this application group first.";
+                    ApplicationGroupEditorStatus = "Remove Focuses that use this application group first.";
                     return;
                 }
                 var removed = EditingApplicationGroup.DisplayName;
@@ -1400,8 +1400,8 @@ namespace FocusRgb.App.ViewModels
             "restored" => "Restored from the last saved selection.",
             "manual" => "Selected manually and saved locally.",
             "observation-pending" => "Waiting for a stable application observation.",
-            "rule" => $"Matched mapping '{reason.RuleId}'.",
-            "unmatched-default" => "No mapping matched; using Default.",
+            "rule" => $"Matched Focus '{reason.RuleId}'.",
+            "unmatched-default" => "No Focus matched; using Default.",
             "invalid-state-reset" => "Invalid saved selection was reset to Default.",
             _ => reason.Kind
         };
@@ -1436,7 +1436,7 @@ namespace FocusRgb.App.ViewModels
             ApplicationGroupEditorStatus = "Reloaded the current saved settings.";
             GameEditorStatus = "Reloaded the current saved game catalog.";
             ApplicationSettingsStatus = "Reloaded the current saved application preferences.";
-            MappingEditor.ReportSaveFailure("Reloaded the current saved mappings.");
+            MappingEditor.ReportSaveFailure("Reloaded the current saved Focuses.");
         }
 
         private bool HasDirtyEditor()

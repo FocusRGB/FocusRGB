@@ -25,7 +25,7 @@ namespace FocusRgb.App.Tests
 
             Assert.Equal("Programming maps to Programming, while-focused", mapping.AccessibleName);
             Assert.Equal(mapping.AccessibleName, mapping.ToString());
-            Assert.Equal("Remove Programming mapping", mapping.RemoveAccessibleName);
+            Assert.Equal("Remove Programming Focus", mapping.RemoveAccessibleName);
             Assert.Equal("Programming", mapping.SelectedApplicationGroup.ToString());
         }
 
