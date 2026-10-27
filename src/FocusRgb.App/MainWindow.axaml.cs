@@ -388,7 +388,7 @@ namespace FocusRgb.App
                     return;
                 }
                 var window = new PluginSettingsWindow(
-                    item.Plugin, loaded.Schema!, loaded.Values!, loaded.Notices);
+                    item.Plugin, loaded.Schema!, loaded.Values!, loaded.Notices, loaded.DefaultValues);
                 var values = await window.ShowDialog<IReadOnlyDictionary<string, System.Text.Json.JsonElement>?>(this);
                 if (values is null) return;
                 var result = await app.SavePluginConfigurationAsync(item.Id, loaded.Schema!, values);
