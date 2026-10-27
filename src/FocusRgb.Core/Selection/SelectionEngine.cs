@@ -201,7 +201,8 @@ namespace FocusRgb.Core.Selection
                 _hasPendingForeground = true;
             }
 
-            if (_timeProvider.GetElapsedTime(_pendingSince) < TimeSpan.FromMilliseconds(selection.DebounceMs!.Value))
+            if (_timeProvider.GetElapsedTime(_pendingSince) < TimeSpan.FromMilliseconds(
+                SwitchingSpeedPresets.Milliseconds(_settings.Application!.SwitchingSpeed)))
             {
                 return;
             }
