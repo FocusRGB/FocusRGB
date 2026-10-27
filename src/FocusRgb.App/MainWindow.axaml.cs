@@ -24,6 +24,7 @@ namespace FocusRgb.App
         private bool _allowClose;
         private bool _exitRequested;
         private bool _pluginsLoaded;
+        private bool _pluginsIncludeBeta;
         private string? _mcpApprovalId;
         private bool _hideAfterMcpApproval;
         private CancellationTokenSource? _previewCancellation;
@@ -168,8 +169,9 @@ namespace FocusRgb.App
             }
             if (!ReferenceEquals(e.Source, sender)
                 || sender is not TabControl { SelectedItem: TabItem { Header: "Plugins" } }
-                || _pluginsLoaded) return;
+                || (_pluginsLoaded && _pluginsIncludeBeta == ViewModel.SavedIncludeBetaPlugins)) return;
             _pluginsLoaded = true;
+            _pluginsIncludeBeta = ViewModel.SavedIncludeBetaPlugins;
             await LoadPluginsAsync(refresh: false);
         }
 
@@ -567,6 +569,24 @@ namespace FocusRgb.App
             await RunUiActionAsync(() => ViewModel.RemoveProfileAsync());
         private void CancelProfile_OnClick(object? sender, RoutedEventArgs e) => ViewModel.CancelProfile();
 
+        private async void About_OnClick(object? sender, RoutedEventArgs e) =>
+            await RunUiActionAsync(async () =>
+            {
+                var close = new Button { Content = "Close", HorizontalAlignment = HorizontalAlignment.Right };
+                var dialog = new Window
+                {
+                    Title = "About FocusRGB", Width = 360, Height = 180, CanResize = false,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                    Content = new StackPanel
+                    {
+                        Margin = new Thickness(20), Spacing = 16,
+                        Children = { new TextBlock { Text = ApplicationVersion.DisplayName }, close }
+                    }
+                };
+                close.Click += (_, _) => dialog.Close();
+                await dialog.ShowDialog(this);
+            });
+
         private async void SaveApplicationSettings_OnClick(object? sender, RoutedEventArgs e)
         {
             if (await RunUiActionAsync(() => ViewModel.SaveApplicationSettingsAsync()))
@@ -574,6 +594,7 @@ namespace FocusRgb.App
                 (Application.Current as App)?.ApplyTheme(ViewModel.ApplicationTheme);
                 AppLog.Configure(_dataDirectory, ViewModel.SavedVerboseLogging);
                 AppLog.Write("Application preferences saved.");
+                _pluginsLoaded = false;
             }
         }
 

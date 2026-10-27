@@ -115,13 +115,57 @@ namespace FocusRgb.App.Tests
             _temporaryDirectory.Dispose();
         }
 
+        [Theory]
+        [InlineData(false, false, false, 1)]
+        [InlineData(false, true, false, 0)]
+        [InlineData(true, true, false, 1)]
+        [InlineData(true, false, false, 1)]
+        [InlineData(true, true, true, 0)]
+        public async Task DiscoverAsync_FiltersReleaseChannelAndDrafts(
+            bool includeBeta, bool prerelease, bool draft, int expectedCount)
+        {
+            var handler = new DiscoveryHandler(prerelease: prerelease, draft: draft);
+            using var client = new HttpClient(handler);
+            using var discovery = new OfficialPluginDiscovery(client, Path.Combine(_temporaryDirectory.Path, "channels.json"));
+
+            var result = await discovery.DiscoverAsync(cancellationToken: TestContext.Current.CancellationToken,
+                includePrereleases: includeBeta);
+
+            Assert.Equal(expectedCount, result.Items.Count);
+            Assert.Equal(includeBeta, handler.UsedReleaseList);
+        }
+
+        [Fact]
+        public async Task DiscoverAsync_DoesNotReuseBetaCache_WhenStableOnlyIsSelectedOffline()
+        {
+            var cachePath = Path.Combine(_temporaryDirectory.Path, "channels.json");
+            using var onlineClient = new HttpClient(new DiscoveryHandler(prerelease: true));
+            using (var online = new OfficialPluginDiscovery(onlineClient, cachePath))
+            {
+                var beta = await online.DiscoverAsync(cancellationToken: TestContext.Current.CancellationToken,
+                    includePrereleases: true);
+                Assert.Single(beta.Items);
+            }
+            using var offlineClient = new HttpClient(new OfflineHandler());
+            using var offline = new OfficialPluginDiscovery(offlineClient, cachePath);
+            var stable = await offline.DiscoverAsync(cancellationToken: TestContext.Current.CancellationToken);
+            Assert.Empty(stable.Items);
+            var cachedBeta = await offline.DiscoverAsync(cancellationToken: TestContext.Current.CancellationToken,
+                includePrereleases: true);
+            Assert.True(cachedBeta.IsFromCache);
+            Assert.Single(cachedBeta.Items);
+        }
+
         private sealed class DiscoveryHandler(
             bool includeUntrustedRepository = false,
             bool rateLimitedAfterSearch = false,
             string? runtime = null,
-            string contractVersion = "1.0") : HttpMessageHandler
+            string contractVersion = "1.0",
+            bool prerelease = false,
+            bool draft = false) : HttpMessageHandler
         {
             public int RequestCount { get; private set; }
+            public bool UsedReleaseList { get; private set; }
 
             protected override Task<HttpResponseMessage> SendAsync(
                 HttpRequestMessage request,
@@ -129,10 +173,12 @@ namespace FocusRgb.App.Tests
             {
                 RequestCount++;
                 var path = request.RequestUri!.AbsolutePath;
+                if (path.EndsWith("/releases", StringComparison.Ordinal)) UsedReleaseList = true;
                 var json = path switch
                 {
                     "/search/repositories" => SearchJson(includeUntrustedRepository),
                     "/repos/FocusRGB/FocusRGB-Plugin-SignalRGB/releases/latest" => ReleaseJson(),
+                    "/repos/FocusRGB/FocusRGB-Plugin-SignalRGB/releases" => "[" + ReleaseJson() + "]",
                     "/assets/focusrgb-plugin.json" => ManifestJson(),
                     _ => throw new InvalidOperationException($"Unexpected request: {request.RequestUri}")
                 };
@@ -158,8 +204,8 @@ namespace FocusRgb.App.Tests
                   ,{"name":"FocusRGB-Plugin-Evil","description":null,"html_url":"https://github.com/elsewhere/FocusRGB-Plugin-Evil","owner":{"login":"elsewhere"}}
                 """ : string.Empty) + "]}";
 
-            private static string ReleaseJson() => """
-                {"draft":false,"prerelease":false,"html_url":"https://github.com/FocusRGB/FocusRGB-Plugin-SignalRGB/releases/tag/v1.0.0","assets":[
+            private string ReleaseJson() => $$"""
+                {"draft":{{draft.ToString().ToLowerInvariant()}},"prerelease":{{prerelease.ToString().ToLowerInvariant()}},"html_url":"https://github.com/FocusRGB/FocusRGB-Plugin-SignalRGB/releases/tag/v1.0.0","assets":[
                   {"name":"FocusRGB-Plugin-SignalRGB-win-x64.zip","browser_download_url":"https://github.com/assets/plugin.zip"},
                   {"name":"focusrgb-plugin.json","browser_download_url":"https://github.com/assets/focusrgb-plugin.json"},
                   {"name":"SHA256SUMS","browser_download_url":"https://github.com/assets/SHA256SUMS"}

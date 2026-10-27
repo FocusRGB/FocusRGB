@@ -57,6 +57,7 @@ namespace FocusRgb.App.ViewModels
         private string _applicationTheme = "System";
         private bool _verboseLogging;
         private bool _showProfileChangePopup = true;
+        private bool _includeBetaPlugins;
         private bool _isApplicationSettingsDirty;
         private int _settingsSavePending;
         private string? _settingsSaveWarning;
@@ -297,6 +298,13 @@ namespace FocusRgb.App.ViewModels
             get => _showProfileChangePopup;
             set => SetApplicationSettingsDraft(ref _showProfileChangePopup, value);
         }
+        public bool IncludeBetaPlugins
+        {
+            get => _includeBetaPlugins;
+            set => SetApplicationSettingsDraft(ref _includeBetaPlugins, value);
+        }
+        public bool SavedIncludeBetaPlugins =>
+            (_applicationState?.Current.Settings ?? _settings).Application?.IncludeBetaPlugins ?? ApplicationVersion.IsPrerelease;
         public bool IsApplicationSettingsDirty
         {
             get => _isApplicationSettingsDirty;
@@ -484,6 +492,7 @@ namespace FocusRgb.App.ViewModels
                     Theme = ApplicationTheme.ToLowerInvariant(),
                     VerboseLogging = VerboseLogging,
                     ShowProfileChangePopup = ShowProfileChangePopup,
+                    IncludeBetaPlugins = IncludeBetaPlugins,
                     AdditionalProperties = _settings.Application!.AdditionalProperties
                 };
                 var candidate = WithApplication(application);
@@ -1817,6 +1826,7 @@ namespace FocusRgb.App.ViewModels
             ApplicationTheme = char.ToUpperInvariant(application.Theme![0]) + application.Theme[1..];
             VerboseLogging = application.VerboseLogging!.Value;
             ShowProfileChangePopup = application.ShowProfileChangePopup ?? true;
+            IncludeBetaPlugins = SavedIncludeBetaPlugins;
             _loadingApplicationSettings = false;
             IsApplicationSettingsDirty = false;
         }

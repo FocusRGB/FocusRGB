@@ -29,12 +29,14 @@ namespace FocusRgb.App.Plugins
 
         public async Task<OfficialPluginCatalogResult> DiscoverAsync(
             bool refresh = false,
+            bool includePrereleases = false,
             CancellationToken cancellationToken = default)
         {
+            var cachePath = includePrereleases ? _cachePath + ".beta" : _cachePath;
             await _refreshGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                var cached = await ReadCacheAsync(cancellationToken).ConfigureAwait(false);
+                var cached = await ReadCacheAsync(cachePath, cancellationToken).ConfigureAwait(false);
                 if (!refresh && cached is not null
                     && _timeProvider.GetUtcNow() - cached.RefreshedAt < CacheLifetime)
                 {
@@ -44,9 +46,9 @@ namespace FocusRgb.App.Plugins
 
                 try
                 {
-                    var items = await FetchAsync(cancellationToken).ConfigureAwait(false);
+                    var items = await FetchAsync(includePrereleases, cancellationToken).ConfigureAwait(false);
                     var refreshedAt = _timeProvider.GetUtcNow();
-                    var warning = await WriteCacheAsync(refreshedAt, items, cancellationToken).ConfigureAwait(false);
+                    var warning = await WriteCacheAsync(cachePath, refreshedAt, items, cancellationToken).ConfigureAwait(false);
                     return OfficialPluginCatalogResult.Fresh(refreshedAt, items, warning is null
                         ? "Official plugin list refreshed."
                         : $"Official plugin list refreshed, but its cache could not be saved: {warning}");
@@ -70,7 +72,7 @@ namespace FocusRgb.App.Plugins
             _refreshGate.Dispose();
         }
 
-        private async Task<List<OfficialPluginListing>> FetchAsync(CancellationToken cancellationToken)
+        private async Task<List<OfficialPluginListing>> FetchAsync(bool includePrereleases, CancellationToken cancellationToken)
         {
             var query = Uri.EscapeDataString($"topic:focusrgb-plugin org:{OfficialOrganization}");
             var search = await GetJsonAsync<RepositorySearch>(
@@ -82,12 +84,12 @@ namespace FocusRgb.App.Plugins
             {
                 try
                 {
-                    var listing = await FetchRepositoryAsync(repository, cancellationToken).ConfigureAwait(false);
+                    var listing = await FetchRepositoryAsync(repository, includePrereleases, cancellationToken).ConfigureAwait(false);
                     if (listing is not null) listings.Add(listing);
                 }
                 catch (HttpRequestException exception) when (exception.StatusCode is HttpStatusCode.NotFound)
                 {
-                    // Repositories without a complete stable release are not installable catalog entries.
+                    // Repositories without a complete eligible release are not installable catalog entries.
                 }
                 catch (JsonException)
                 {
@@ -103,13 +105,25 @@ namespace FocusRgb.App.Plugins
 
         private async Task<OfficialPluginListing?> FetchRepositoryAsync(
             GitHubRepository repository,
+            bool includePrereleases,
             CancellationToken cancellationToken)
         {
             var name = Uri.EscapeDataString(repository.Name);
-            var release = await GetJsonAsync<GitHubRelease>(new Uri(
-                $"https://api.github.com/repos/{OfficialOrganization}/{name}/releases/latest"),
-                cancellationToken).ConfigureAwait(false);
-            if (release.Draft || release.Prerelease) return null;
+            var releaseRoot = $"https://api.github.com/repos/{OfficialOrganization}/{name}/releases";
+            var releases = includePrereleases
+                ? await GetJsonAsync<List<GitHubRelease>>(new Uri(releaseRoot + "?per_page=20"), cancellationToken).ConfigureAwait(false)
+                : [await GetJsonAsync<GitHubRelease>(new Uri(releaseRoot + "/latest"), cancellationToken).ConfigureAwait(false)];
+            foreach (var release in releases.Where(release => !release.Draft && (includePrereleases || !release.Prerelease)))
+            {
+                var listing = await ReadListingAsync(repository, release, cancellationToken).ConfigureAwait(false);
+                if (listing is not null) return listing;
+            }
+            return null;
+        }
+
+        private async Task<OfficialPluginListing?> ReadListingAsync(
+            GitHubRepository repository, GitHubRelease release, CancellationToken cancellationToken)
+        {
             var packages = release.Assets.Where(asset =>
                 asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)).ToList();
             var manifestAsset = release.Assets.FirstOrDefault(asset =>
@@ -171,11 +185,11 @@ namespace FocusRgb.App.Plugins
                 ?? throw new JsonException("GitHub returned an empty response.");
         }
 
-        private async Task<DiscoveryCache?> ReadCacheAsync(CancellationToken cancellationToken)
+        private static async Task<DiscoveryCache?> ReadCacheAsync(string cachePath, CancellationToken cancellationToken)
         {
             try
             {
-                await using var stream = File.OpenRead(_cachePath);
+                await using var stream = File.OpenRead(cachePath);
                 return await JsonSerializer.DeserializeAsync<DiscoveryCache>(
                     stream, JsonOptions, cancellationToken).ConfigureAwait(false);
             }
@@ -185,15 +199,16 @@ namespace FocusRgb.App.Plugins
             }
         }
 
-        private async Task<string?> WriteCacheAsync(
+        private static async Task<string?> WriteCacheAsync(
+            string cachePath,
             DateTimeOffset refreshedAt,
             List<OfficialPluginListing> items,
             CancellationToken cancellationToken)
         {
-            var temporaryPath = _cachePath + ".tmp";
+            var temporaryPath = cachePath + ".tmp";
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(_cachePath)!);
+                Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
                 await using (var stream = File.Create(temporaryPath))
                 {
                     await JsonSerializer.SerializeAsync(stream, new DiscoveryCache
@@ -202,7 +217,7 @@ namespace FocusRgb.App.Plugins
                         Items = items
                     }, JsonOptions, cancellationToken).ConfigureAwait(false);
                 }
-                File.Move(temporaryPath, _cachePath, true);
+                File.Move(temporaryPath, cachePath, true);
                 return null;
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

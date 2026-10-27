@@ -226,11 +226,11 @@ namespace FocusRgb.App
                 mainWindow.HiddenToTray += (_, _) =>
                 {
                     if (_trayIcon is not null)
-                        _trayIcon.ToolTipText = "FocusRGB is running in the system tray.";
+                        _trayIcon.ToolTipText = $"{ApplicationVersion.DisplayName} is running in the system tray.";
                 };
                 if (trayAvailable && ShouldStartMinimized(desktop.Args, startup.Snapshot.Settings.Application.StartMinimized == true))
                 {
-                    _trayIcon!.ToolTipText = "FocusRGB is running in the system tray.";
+                    _trayIcon!.ToolTipText = $"{ApplicationVersion.DisplayName} is running in the system tray.";
                     mainWindow.CreateHiddenPlatformWindow();
                     mainWindow.NotifyStartedMinimized();
                 }
@@ -379,6 +379,7 @@ namespace FocusRgb.App
             var quit = new NativeMenuItem("Quit");
             quit.Click += (_, _) => RequestQuit();
             var menu = new NativeMenu();
+            menu.Items.Add(new NativeMenuItem(ApplicationVersion.DisplayName) { IsEnabled = false });
             menu.Items.Add(show);
             menu.Items.Add(reviewMcp);
             menu.Items.Add(new NativeMenuItemSeparator());
@@ -386,7 +387,7 @@ namespace FocusRgb.App
             var trayIcon = new TrayIcon
             {
                 Icon = icon,
-                ToolTipText = "FocusRGB",
+                ToolTipText = ApplicationVersion.DisplayName,
                 Menu = menu,
                 IsVisible = true
             };
@@ -532,7 +533,7 @@ namespace FocusRgb.App
             Dispatcher.UIThread.Post(() =>
             {
                 if (_reviewMcpRequestMenuItem is not null) _reviewMcpRequestMenuItem.IsEnabled = true;
-                if (_trayIcon is not null) _trayIcon.ToolTipText = "FocusRGB: command approval requested.";
+                if (_trayIcon is not null) _trayIcon.ToolTipText = $"{ApplicationVersion.DisplayName}: command approval requested.";
                 _mainWindow?.ShowMcpApproval(request, openedFromTray: false);
             });
 
@@ -543,8 +544,8 @@ namespace FocusRgb.App
                 _mainWindow?.ClearMcpApproval();
                 if (_trayIcon is not null)
                     _trayIcon.ToolTipText = _mainWindow?.IsVisible == true
-                        ? "FocusRGB"
-                        : "FocusRGB is running in the system tray.";
+                        ? ApplicationVersion.DisplayName
+                        : $"{ApplicationVersion.DisplayName} is running in the system tray.";
             });
 
         private void ReviewMcpApprovalFromTray()
@@ -727,7 +728,8 @@ namespace FocusRgb.App
         public async Task LoadPluginPageAsync(bool refresh, CancellationToken cancellationToken = default)
         {
             if (_pluginDiscovery is null || _viewModel is null) return;
-            var catalog = await _pluginDiscovery.DiscoverAsync(refresh, cancellationToken);
+            var catalog = await _pluginDiscovery.DiscoverAsync(refresh,
+                includePrereleases: _viewModel.SavedIncludeBetaPlugins, cancellationToken: cancellationToken);
             _viewModel.SetOfficialPlugins(catalog, listing => _pluginPackageCache?.Contains(listing) == true);
             UpdateInstalledPlugins(_viewModel);
         }

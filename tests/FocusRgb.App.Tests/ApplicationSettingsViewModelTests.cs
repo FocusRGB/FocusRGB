@@ -25,6 +25,7 @@ namespace FocusRgb.App.Tests
             viewModel.ApplicationTheme = "Dark";
             viewModel.VerboseLogging = true;
             viewModel.ShowProfileChangePopup = false;
+            viewModel.IncludeBetaPlugins = false;
 
             var saved = await viewModel.SaveApplicationSettingsAsync(TestContext.Current.CancellationToken);
             var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
@@ -35,6 +36,8 @@ namespace FocusRgb.App.Tests
             Assert.Equal("dark", restarted.Snapshot.Settings.Application.Theme);
             Assert.True(restarted.Snapshot.Settings.Application.VerboseLogging);
             Assert.False(restarted.Snapshot.Settings.Application.ShowProfileChangePopup);
+            Assert.False(restarted.Snapshot.Settings.Application.IncludeBetaPlugins);
+            Assert.False(viewModel.SavedIncludeBetaPlugins);
             Assert.Equal(stateBefore, await File.ReadAllTextAsync(statePath, TestContext.Current.CancellationToken));
             Assert.Equal(effectBefore, restarted.Snapshot.Settings.Profiles!
                 .Single(profile => profile.Id == "default").Bindings![0].Effect!.DisplayName);
@@ -67,12 +70,16 @@ namespace FocusRgb.App.Tests
 
             viewModel.CloseButtonBehavior = "Exit application";
             viewModel.ApplicationTheme = "Dark";
+            Assert.True(viewModel.IncludeBetaPlugins);
+            viewModel.IncludeBetaPlugins = false;
+            Assert.True(viewModel.SavedIncludeBetaPlugins);
 
             Assert.True(viewModel.ShouldMinimizeOnClose);
             Assert.True(viewModel.IsApplicationSettingsDirty);
             viewModel.CancelApplicationSettings();
             Assert.Equal("Minimize to system tray", viewModel.CloseButtonBehavior);
             Assert.Equal("System", viewModel.ApplicationTheme);
+            Assert.True(viewModel.IncludeBetaPlugins);
             Assert.False(viewModel.IsApplicationSettingsDirty);
         }
 
@@ -170,6 +177,21 @@ namespace FocusRgb.App.Tests
         }
 
         [Fact]
+        public async Task SavedIncludeBetaPlugins_UsesCurrentServiceSettings_WhenEditorHasConflict()
+        {
+            var (viewModel, service) = await CreateWithServiceAsync();
+            viewModel.ProfileName = "Unsaved draft";
+            var applied = await service.ApplySettingsAsync(
+                WithTheme(service.Current.Settings, "dark", includeBetaPlugins: false),
+                service.Current.SettingsRevision, "mcp", TestContext.Current.CancellationToken);
+
+            Assert.True(applied.IsSuccess);
+            Assert.True(viewModel.HasSettingsConflict);
+            Assert.True(viewModel.IncludeBetaPlugins);
+            Assert.False(viewModel.SavedIncludeBetaPlugins);
+        }
+
+        [Fact]
         public async Task ExternalSettingsChange_PreservesNewGroupDraftWithoutASelection()
         {
             var (viewModel, service) = await CreateWithServiceAsync();
@@ -245,7 +267,7 @@ namespace FocusRgb.App.Tests
                 startup.Snapshot, store, applicationState: service), service);
         }
 
-        private static SettingsDocument WithTheme(SettingsDocument settings, string theme) => new()
+        private static SettingsDocument WithTheme(SettingsDocument settings, string theme, bool? includeBetaPlugins = null) => new()
         {
             SchemaVersion = settings.SchemaVersion,
             Application = new ApplicationSettings
@@ -254,6 +276,7 @@ namespace FocusRgb.App.Tests
                 StartMinimized = settings.Application.StartMinimized,
                 Theme = theme,
                 VerboseLogging = settings.Application.VerboseLogging,
+                IncludeBetaPlugins = includeBetaPlugins ?? settings.Application.IncludeBetaPlugins,
                 AdditionalProperties = settings.Application.AdditionalProperties
             },
             Plugins = settings.Plugins,
