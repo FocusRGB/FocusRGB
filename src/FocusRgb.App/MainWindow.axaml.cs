@@ -1,5 +1,8 @@
 using System.Diagnostics;
 using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -30,6 +33,7 @@ namespace FocusRgb.App
         private CancellationTokenSource? _previewCancellation;
         private readonly IStartupRegistration? _startupRegistration;
         private bool _updatingStartupControls;
+        private IDisposable? _focusStatusTimer;
 
         public MainWindow()
             : this(MainWindowViewModel.CreatePreview(), null)
@@ -745,8 +749,32 @@ namespace FocusRgb.App
         private async void RemoveManualGame_OnClick(object? sender, RoutedEventArgs e) =>
             await RunUiActionAsync(() => ViewModel.RemoveManualGameAsync());
 
-        private void SaveMappingAs_OnClick(object? sender, RoutedEventArgs e) =>
-            ViewModel.MappingEditor.SaveMappingAs();
+        private async void SaveMappingAs_OnClick(object? sender, RoutedEventArgs e) =>
+            await SaveFocusAsync(saveAs: true);
+
+        private void CreateFocus_OnClick(object? sender, RoutedEventArgs e)
+        {
+            ResetFocusStatus();
+            ViewModel.MappingEditor.BeginCreate();
+        }
+
+        private void EditSelectedFocus_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (ViewModel.MappingEditor.SelectedMapping is { } item) ViewModel.MappingEditor.BeginEdit(item);
+            ResetFocusStatus();
+        }
+
+        private void MoveMappingTop_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (sender is Button { CommandParameter: MappingEditorItemViewModel item })
+                AnimateFocusMove(() => ViewModel.MappingEditor.MoveToTop(item));
+        }
+
+        private void MoveMappingBottom_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (sender is Button { CommandParameter: MappingEditorItemViewModel item })
+                AnimateFocusMove(() => ViewModel.MappingEditor.MoveToBottom(item));
+        }
 
         private void MoveMappingUp_OnClick(object? sender, RoutedEventArgs e) =>
             MoveFromButton(sender, -1);
@@ -758,7 +786,7 @@ namespace FocusRgb.App
         {
             if (sender is Button { CommandParameter: MappingEditorItemViewModel item })
             {
-                ViewModel.MappingEditor.Move(item, offset);
+                AnimateFocusMove(() => ViewModel.MappingEditor.Move(item, offset));
             }
         }
 
@@ -785,10 +813,10 @@ namespace FocusRgb.App
             if (sender is not Control { DataContext: MappingEditorItemViewModel target } row) return;
             var source = e.DataTransfer.TryGetValue(MappingFormat);
             if (source is null) return;
-            if (e.GetPosition(row).Y < row.Bounds.Height / 2)
+            AnimateFocusMove(() => { if (e.GetPosition(row).Y < row.Bounds.Height / 2)
                 ViewModel.MappingEditor.MoveBefore(source, target);
             else
-                ViewModel.MappingEditor.MoveAfter(source, target);
+                ViewModel.MappingEditor.MoveAfter(source, target); });
         }
 
         private async void BrowseExecutable_OnClick(object? sender, RoutedEventArgs e)
@@ -817,7 +845,8 @@ namespace FocusRgb.App
         private void EditMapping_OnClick(object? sender, RoutedEventArgs e)
         {
             if (sender is Button { CommandParameter: MappingEditorItemViewModel item })
-                ViewModel.MappingEditor.SelectedMapping = item;
+                ViewModel.MappingEditor.BeginEdit(item);
+            ResetFocusStatus();
         }
 
         private void RemoveMapping_OnClick(object? sender, RoutedEventArgs e)
@@ -826,9 +855,58 @@ namespace FocusRgb.App
                 ViewModel.MappingEditor.Remove(item);
         }
 
-        private async void ApplyMappings_OnClick(object? sender, RoutedEventArgs e) =>
-            await RunUiActionAsync(() => ViewModel.SaveMappingsAsync());
-        private void CancelMappings_OnClick(object? sender, RoutedEventArgs e) => ViewModel.MappingEditor.Cancel();
+        private async void ApplyMappings_OnClick(object? sender, RoutedEventArgs e) => await SaveFocusAsync(false);
+        private void CancelMappings_OnClick(object? sender, RoutedEventArgs e)
+        {
+            ViewModel.MappingEditor.Cancel();
+            ResetFocusStatus();
+        }
+
+        private async Task SaveFocusAsync(bool saveAs)
+        {
+            ResetFocusStatus();
+            await RunUiActionAsync(() => ViewModel.MappingEditor.HasEditor
+                ? ViewModel.SaveEditingFocusAsync(saveAs) : ViewModel.SaveMappingsAsync());
+            if (!ViewModel.MappingEditor.IsDirty)
+                _focusStatusTimer = DispatcherTimer.RunOnce(() => this.FindControl<TextBlock>("FocusSaveStatus")!.Opacity = 0,
+                    TimeSpan.FromSeconds(3));
+        }
+
+        private void ResetFocusStatus()
+        {
+            _focusStatusTimer?.Dispose();
+            this.FindControl<TextBlock>("FocusSaveStatus")!.Opacity = 1;
+        }
+
+        private void AnimateFocusMove(Action move)
+        {
+            ResetFocusStatus();
+            var positions = this.GetVisualDescendants().OfType<Control>()
+                .Where(control => control.Name == "FocusRow" && control.DataContext is MappingEditorItemViewModel)
+                .ToDictionary(control => ((MappingEditorItemViewModel)control.DataContext!).Id,
+                    control => control.TranslatePoint(default, this)?.Y ?? 0);
+            move();
+            void AfterLayout(object? sender, EventArgs args)
+            {
+                LayoutUpdated -= AfterLayout;
+                foreach (var row in this.GetVisualDescendants().OfType<Control>().Where(control => control.Name == "FocusRow"))
+                {
+                    if (row.DataContext is not MappingEditorItemViewModel item || !positions.TryGetValue(item.Id, out var before)) continue;
+                    var transform = new TranslateTransform(0, before - (row.TranslatePoint(default, this)?.Y ?? before));
+                    row.RenderTransform = transform;
+                    transform.Transitions = [new DoubleTransition { Property = TranslateTransform.YProperty, Duration = TimeSpan.FromMilliseconds(180) }];
+                    transform.Y = 0;
+                }
+            }
+            LayoutUpdated += AfterLayout;
+            InvalidateArrange();
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            _focusStatusTimer?.Dispose();
+            base.OnClosed(e);
+        }
 
         private async Task RunUiActionAsync(Func<Task> action)
         {

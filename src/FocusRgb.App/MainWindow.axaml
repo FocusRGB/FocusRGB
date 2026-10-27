@@ -109,24 +109,28 @@
             </Grid>
             <Grid Grid.Row="1" ColumnDefinitions="390,*" ColumnSpacing="16">
               <Grid RowDefinitions="*,Auto" RowSpacing="8">
-                <ListBox ItemsSource="{Binding MappingEditor.Mappings}" SelectedItem="{Binding MappingEditor.SelectedMapping}">
+                <StackPanel IsVisible="{Binding MappingEditor.IsEmpty}" Spacing="10">
+                  <TextBlock Text="Your Focus Library is empty." />
+                  <Button x:Name="CreateEmptyFocusButton" Content="Create a new Focus" Click="CreateFocus_OnClick" />
+                </StackPanel>
+                <ListBox x:Name="FocusList" IsVisible="{Binding !MappingEditor.IsEmpty}" ItemsSource="{Binding MappingEditor.Mappings}" SelectedItem="{Binding MappingEditor.SelectedMapping}">
                   <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:MappingEditorItemViewModel">
-                        <Grid Margin="4" MinHeight="30" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
+                        <Grid x:Name="FocusRow" Margin="4" MinHeight="30" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8"
                               AutomationProperties.Name="{Binding AccessibleName}"
                               PointerPressed="MappingDrag_OnPointerPressed" ToolTip.Tip="Drag this row to reorder"
                               DragDrop.AllowDrop="True" DragDrop.DragOver="MappingRow_OnDragOver"
                               DragDrop.Drop="MappingRow_OnDrop">
-                          <TextBlock Text="{Binding Position}" VerticalAlignment="Center" Opacity="0.55" />
-                          <StackPanel Grid.Column="1" Spacing="2">
+                          <StackPanel Spacing="2">
+                            <Button Content="⇈" Padding="7,2" CommandParameter="{Binding}" Click="MoveMappingTop_OnClick" ToolTip.Tip="Move to top" AutomationProperties.Name="Move Focus to top" />
+                            <Button Content="⇊" Padding="7,2" CommandParameter="{Binding}" Click="MoveMappingBottom_OnClick" ToolTip.Tip="Move to bottom" AutomationProperties.Name="Move Focus to bottom" />
+                          </StackPanel>
+                          <TextBlock Grid.Column="1" Text="{Binding Position}" VerticalAlignment="Center" Opacity="0.55" />
+                          <StackPanel Grid.Column="2" Spacing="2">
                             <TextBlock Text="{Binding SelectedTarget.DisplayName}" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding SelectedProfile.DisplayName}" FontSize="12" Opacity="0.65" />
                           </StackPanel>
-                          <StackPanel Grid.Column="2" Classes="row-actions" Orientation="Horizontal" Spacing="3">
-                            <Button Content="↑" Padding="7,3" CommandParameter="{Binding}" Click="MoveMappingUp_OnClick" ToolTip.Tip="Move up"
-                                    AutomationProperties.Name="{Binding MoveUpAccessibleName}" />
-                            <Button Content="↓" Padding="7,3" CommandParameter="{Binding}" Click="MoveMappingDown_OnClick" ToolTip.Tip="Move down"
-                                    AutomationProperties.Name="{Binding MoveDownAccessibleName}" />
+                          <StackPanel Grid.Column="3" Classes="row-actions" Orientation="Horizontal" Spacing="3">
                             <Button Content="Edit" Padding="7,3" CommandParameter="{Binding}" Click="EditMapping_OnClick"
                                     AutomationProperties.Name="{Binding EditAccessibleName}" />
                             <Button Content="Remove" Padding="7,3" CommandParameter="{Binding}" Click="RemoveMapping_OnClick"
@@ -136,23 +140,12 @@
                     </DataTemplate>
                   </ListBox.ItemTemplate>
                 </ListBox>
-                <StackPanel Grid.Row="1" Spacing="6">
-                  <TextBlock Text="Create Focus" FontWeight="SemiBold" />
-                  <ComboBox ItemsSource="{Binding MappingEditor.Targets}" SelectedItem="{Binding MappingEditor.NewTarget}"
-                            AutomationProperties.Name="New Focus target"
-                            PlaceholderText="No Focus targets available">
-                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:MappingTargetViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
-                  </ComboBox>
-                  <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding MappingEditor.NewProfile}"
-                            AutomationProperties.Name="New Focus profile"
-                            PlaceholderText="No profiles available">
-                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ProfileOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
-                  </ComboBox>
-                  <Button Content="Save As" Click="SaveMappingAs_OnClick" HorizontalAlignment="Left" />
-                </StackPanel>
+                <Button Grid.Row="1" Content="Create a new Focus" IsVisible="{Binding !MappingEditor.IsEmpty}" Click="CreateFocus_OnClick" HorizontalAlignment="Left" />
               </Grid>
               <Border Grid.Column="1" Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
-                <ContentControl Content="{Binding MappingEditor.SelectedMapping}">
+                <StackPanel Spacing="12">
+                <Button Content="Edit selected Focus" IsVisible="{Binding !MappingEditor.HasEditor}" Click="EditSelectedFocus_OnClick" />
+                <ContentControl Content="{Binding MappingEditor.EditingMapping}">
                   <ContentControl.ContentTemplate>
                     <DataTemplate x:DataType="vm:MappingEditorItemViewModel">
                       <StackPanel Spacing="10">
@@ -174,16 +167,24 @@
                     </DataTemplate>
                   </ContentControl.ContentTemplate>
                 </ContentControl>
+                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding MappingEditor.HasEditor}" IsEnabled="{Binding !IsSettingsSavePending}">
+                  <Button Content="Cancel" Click="CancelMappings_OnClick" />
+                  <Button x:Name="SaveFocusButton" Content="Save" Click="ApplyMappings_OnClick" />
+                  <Button x:Name="SaveFocusAsButton" Content="Save As" Click="SaveMappingAs_OnClick" />
+                </StackPanel>
+                </StackPanel>
               </Border>
             </Grid>
             <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
               <StackPanel>
-                <TextBlock Text="{Binding MappingEditor.PreviewStatus}" />
+                <TextBlock x:Name="FocusSaveStatus" Text="{Binding MappingEditor.PreviewStatus}">
+                  <TextBlock.Transitions><Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.25" /></Transitions></TextBlock.Transitions>
+                </TextBlock>
                 <TextBlock Text="Unsaved draft" IsVisible="{Binding MappingEditor.IsDirty}" Foreground="#FBBF24" FontWeight="SemiBold" />
               </StackPanel>
               <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                 <Button Content="Cancel" Click="CancelMappings_OnClick" />
-                <Button Content="Save" Click="ApplyMappings_OnClick" />
+                <Button Content="Save order" Click="ApplyMappings_OnClick" IsEnabled="{Binding !IsSettingsSavePending}" />
               </StackPanel>
             </Grid>
           </Grid>

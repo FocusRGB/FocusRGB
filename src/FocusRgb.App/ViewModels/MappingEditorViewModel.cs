@@ -13,6 +13,8 @@ namespace FocusRgb.App.ViewModels
         private bool _isDirty;
         private bool _livePreview;
         private MappingEditorItemViewModel? _selectedMapping;
+        private MappingEditorItemViewModel? _editingMapping;
+        private string? _editingOriginalId;
         private MappingTargetViewModel? _newTarget;
         private ProfileOptionViewModel? _newProfile;
         private string _previewStatus = "No preview changes.";
@@ -45,6 +47,18 @@ namespace FocusRgb.App.ViewModels
         public int AppliedRevision { get; private set; }
 
         public MappingEditorItemViewModel? SelectedMapping { get => _selectedMapping; set => Set(ref _selectedMapping, value); }
+        public MappingEditorItemViewModel? EditingMapping
+        {
+            get => _editingMapping;
+            private set
+            {
+                Set(ref _editingMapping, value);
+                OnPropertyChanged(nameof(HasEditor));
+                OnPropertyChanged(nameof(IsDirty));
+            }
+        }
+        public bool HasEditor => EditingMapping is not null;
+        public bool IsEmpty => Mappings.Count == 0;
         public MappingTargetViewModel? NewTarget { get => _newTarget; set => Set(ref _newTarget, value); }
         public ApplicationGroupViewModel? NewApplicationGroup
         {
@@ -64,7 +78,12 @@ namespace FocusRgb.App.ViewModels
             }
         }
 
-        public bool IsDirty { get => _isDirty; private set => Set(ref _isDirty, value); }
+        public bool IsDirty
+        {
+            get => _isDirty || EditingMapping is { } editing && (_editingOriginalId is null
+                || editing.CreateSnapshot() != Mappings.FirstOrDefault(item => item.Id == _editingOriginalId)?.CreateSnapshot());
+            private set => Set(ref _isDirty, value);
+        }
         public string PreviewStatus { get => _previewStatus; private set => Set(ref _previewStatus, value); }
 
         public static MappingEditorViewModel Create(
@@ -194,6 +213,44 @@ namespace FocusRgb.App.ViewModels
             NotifyDraftChanged();
         }
 
+        public void BeginCreate()
+        {
+            if (Targets.Count == 0 || Profiles.Count == 0) return;
+            _editingOriginalId = null;
+            EditingMapping = new MappingEditorItemViewModel(this, new MappingSnapshot(
+                "draft", Targets[0].ApplicationGroupId, Targets[0].GameLauncher, Targets[0].GameId,
+                Profiles[0].Id, "while-focused"));
+        }
+
+        public void BeginEdit(MappingEditorItemViewModel item)
+        {
+            if (!Mappings.Contains(item)) return;
+            _editingOriginalId = item.Id;
+            EditingMapping = new MappingEditorItemViewModel(this, item.CreateSnapshot());
+        }
+
+        public bool CommitEditing(bool saveAs)
+        {
+            if (EditingMapping is not { } editing) return false;
+            var snapshot = editing.CreateSnapshot();
+            if (saveAs || _editingOriginalId is null)
+            {
+                NewTarget = editing.SelectedTarget;
+                NewProfile = editing.SelectedProfile;
+                SaveMappingAs();
+                snapshot = snapshot with { Id = SelectedMapping!.Id };
+                _editingOriginalId = snapshot.Id;
+            }
+            var index = Mappings.ToList().FindIndex(item => item.Id == _editingOriginalId);
+            if (index < 0) return false;
+            Mappings[index] = new MappingEditorItemViewModel(this, snapshot);
+            EditingMapping = new MappingEditorItemViewModel(this, snapshot);
+            SelectedMapping = Mappings[index];
+            UpdatePositions();
+            NotifyDraftChanged();
+            return true;
+        }
+
         private static string NormalizeRuleId(string value)
         {
             var normalized = new string(value.ToLowerInvariant().Select(character =>
@@ -219,6 +276,7 @@ namespace FocusRgb.App.ViewModels
             var index = Mappings.IndexOf(item);
             if (index < 0) return;
             Mappings.RemoveAt(index);
+            if (_editingOriginalId == item.Id) EditingMapping = null;
             UpdatePositions();
             SelectedMapping = Mappings.Count == 0 ? null : Mappings[Math.Min(index, Mappings.Count - 1)];
             NotifyDraftChanged();
@@ -226,6 +284,7 @@ namespace FocusRgb.App.ViewModels
 
         public void Apply()
         {
+            EditingMapping = null;
             _appliedMappings = Mappings.Select(mapping => mapping.CreateSnapshot()).ToList();
             AppliedRevision++;
             OnPropertyChanged(nameof(AppliedMappings));
@@ -261,6 +320,7 @@ namespace FocusRgb.App.ViewModels
 
         public void Cancel()
         {
+            EditingMapping = null;
             var selectedId = SelectedMapping?.Id;
             RestoreDraft(_appliedMappings);
             SelectedMapping = Mappings.FirstOrDefault(mapping => mapping.Id == selectedId) ?? Mappings.FirstOrDefault();
@@ -283,10 +343,13 @@ namespace FocusRgb.App.ViewModels
         public void MoveBefore(MappingEditorItemViewModel item, MappingEditorItemViewModel target) => MoveRelative(item, target, false);
         public void MoveAfter(MappingEditorItemViewModel item, MappingEditorItemViewModel target) => MoveRelative(item, target, true);
         public void MoveSelected(int offset) { if (SelectedMapping is not null) Move(SelectedMapping, offset); }
+        public void MoveToTop(MappingEditorItemViewModel item) => Move(item, -Mappings.IndexOf(item));
+        public void MoveToBottom(MappingEditorItemViewModel item) => Move(item, Mappings.Count - 1 - Mappings.IndexOf(item));
 
         internal void NotifyDraftChanged()
         {
             IsDirty = !Mappings.Select(mapping => mapping.CreateSnapshot()).SequenceEqual(_appliedMappings);
+            OnPropertyChanged(nameof(IsDirty));
             PreviewStatus = IsDirty
                 ? LivePreview ? "Draft preview updated in the editor; output is sent after Save." : "Draft changes are waiting for Save."
                 : "Draft matches the last saved Focuses.";
@@ -318,6 +381,7 @@ namespace FocusRgb.App.ViewModels
         private void UpdatePositions()
         {
             for (var index = 0; index < Mappings.Count; index++) Mappings[index].SetPosition(index + 1);
+            OnPropertyChanged(nameof(IsEmpty));
         }
 
         private void UpdatePreview(string status)
