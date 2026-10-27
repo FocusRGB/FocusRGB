@@ -55,10 +55,10 @@ namespace FocusRgb.App.ViewModels
         }
 
         public string AccessibleName => $"{SelectedTarget.DisplayName} maps to {SelectedProfile.DisplayName}, {Eligibility}";
-        public string MoveUpAccessibleName => $"Move {SelectedTarget.DisplayName} mapping up";
-        public string MoveDownAccessibleName => $"Move {SelectedTarget.DisplayName} mapping down";
-        public string EditAccessibleName => $"Edit {SelectedTarget.DisplayName} mapping";
-        public string RemoveAccessibleName => $"Remove {SelectedTarget.DisplayName} mapping";
+        public string MoveUpAccessibleName => $"Move {SelectedTarget.DisplayName} Focus up";
+        public string MoveDownAccessibleName => $"Move {SelectedTarget.DisplayName} Focus down";
+        public string EditAccessibleName => $"Edit {SelectedTarget.DisplayName} Focus";
+        public string RemoveAccessibleName => $"Remove {SelectedTarget.DisplayName} Focus";
         public override string ToString() => AccessibleName;
 
         internal MappingSnapshot CreateSnapshot() => new(

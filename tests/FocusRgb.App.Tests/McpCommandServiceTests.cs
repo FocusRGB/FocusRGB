@@ -228,7 +228,7 @@ namespace FocusRgb.App.Tests
                 TestContext.Current.CancellationToken);
             await WaitForAsync(() => approval is not null);
 
-            Assert.Contains($"changed mappings: {rule.Id}", approval!.Summary, StringComparison.Ordinal);
+            Assert.Contains($"changed Focuses: {rule.Id}", approval!.Summary, StringComparison.Ordinal);
             commands.Decline(approval.Id);
             await task;
         }
@@ -398,7 +398,7 @@ namespace FocusRgb.App.Tests
                 TestContext.Current.CancellationToken);
             await WaitForAsync(() => approval is not null);
 
-            Assert.Contains("mapping order", approval!.Summary, StringComparison.Ordinal);
+            Assert.Contains("Focus order", approval!.Summary, StringComparison.Ordinal);
             commands.Approve(approval.Id);
             var result = await task;
 

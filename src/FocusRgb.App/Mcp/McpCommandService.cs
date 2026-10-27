@@ -278,10 +278,10 @@ namespace FocusRgb.App.Mcp
             if (ids.Any(string.IsNullOrWhiteSpace)
                 || ids.Count != snapshot.Settings.Rules!.Count
                 || ids.Distinct(StringComparer.Ordinal).Count() != ids.Count)
-                throw new McpCommandException("invalid-parameters", "mappingIds must contain every mapping ID exactly once.");
+                throw new McpCommandException("invalid-parameters", "mappingIds must contain every Focus ID exactly once.");
             var byId = snapshot.Settings.Rules.ToDictionary(rule => rule.Id!, StringComparer.Ordinal);
             if (ids.Any(id => !byId.ContainsKey(id!)))
-                throw new McpCommandException("invalid-parameters", "mappingIds contains an unknown mapping ID.");
+                throw new McpCommandException("invalid-parameters", "mappingIds contains an unknown Focus ID.");
             var candidate = Clone(snapshot.Settings);
             candidate.Rules!.Clear();
             candidate.Rules.AddRange(ids.Select(id => byId[id!]));
@@ -339,12 +339,12 @@ namespace FocusRgb.App.Mcp
             AddNamedChanges(changes, "profiles", currentProfiles, candidateProfiles, item => item.Id!, item => item.DisplayName!);
             AddNamedChanges(changes, "application groups", current.ApplicationGroups!, candidate.ApplicationGroups!, item => item.Id!, item => item.DisplayName!);
             if (!currentRules.Select(rule => rule.Id).SequenceEqual(candidateRules.Select(rule => rule.Id)))
-                changes.Add($"mapping order: {Names(currentRules.Select(rule => rule.Id))} -> {Names(candidateRules.Select(rule => rule.Id))}");
+                changes.Add($"Focus order: {Names(currentRules.Select(rule => rule.Id))} -> {Names(candidateRules.Select(rule => rule.Id))}");
             var changedRules = candidateRules
                 .Where(rule => currentRules.SingleOrDefault(item => item.Id == rule.Id) is { } previous
                     && Json(previous) != Json(rule))
                 .Select(rule => rule.Id!);
-            AddList(changes, "changed mappings", changedRules);
+            AddList(changes, "changed Focuses", changedRules);
             foreach (var profile in candidateProfiles)
             {
                 var previous = currentProfiles.SingleOrDefault(item => item.Id == profile.Id);

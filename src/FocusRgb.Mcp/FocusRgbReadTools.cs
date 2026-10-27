@@ -20,7 +20,7 @@ namespace FocusRgb.Mcp
             client.QueryAsync("listApplicationGroups", cancellationToken);
 
         [McpServerTool(Name = "listMappings")]
-        [Description("Lists application mappings in their effective priority order.")]
+        [Description("Lists application Focuses in their effective priority order.")]
         public Task<JsonElement> ListMappingsAsync(CancellationToken cancellationToken) =>
             client.QueryAsync("listMappings", cancellationToken);
 
@@ -104,9 +104,9 @@ namespace FocusRgb.Mcp
                 "upsertApplicationGroup", new { applicationGroup, expectedRevision }, ClientName(server), cancellationToken);
 
         [McpServerTool(Name = "reorderMappings")]
-        [Description("Requests approval to replace mapping priority order using every mapping ID exactly once.")]
+        [Description("Requests approval to replace Focus priority order using every Focus ID exactly once.")]
         public Task<JsonElement> ReorderMappingsAsync(
-            string[] mappingIds,
+            [Description("IDs of every Focus in the requested Focus Library priority order.")] string[] mappingIds,
             long expectedRevision,
             McpServer server,
             CancellationToken cancellationToken) =>
