@@ -216,7 +216,7 @@ namespace FocusRgb.App
         private async void InstallOfficialPlugin_OnClick(object? sender, RoutedEventArgs e)
         {
             if (sender is not Button { CommandParameter: OfficialPluginItemViewModel item }
-                || Application.Current is not App app || !ViewModel.BeginPluginAction()) return;
+                || !item.CanInstall || Application.Current is not App app || !ViewModel.BeginPluginAction()) return;
             try
             {
                 var inspected = await app.InspectOfficialPluginAsync(item.Listing);
@@ -227,7 +227,8 @@ namespace FocusRgb.App
                 }
                 var choice = await ConfirmInstallAsync(
                     inspected.Manifest!.Id!, inspected.Manifest.Version!, item.Source,
-                    string.Join(", ", inspected.Manifest.Resources!), inspected.Sha256, custom: false, collision: false);
+                    string.Join(", ", inspected.Manifest.Resources!), inspected.Sha256, custom: false, collision: false,
+                    enableInitially: item.Installed?.Plugin.IsEnabled ?? true);
                 if (!choice.Confirmed) return;
                 ViewModel.ReportPluginAction($"Downloading and verifying {item.Name}…");
                 var downloaded = await app.DownloadOfficialPluginAsync(item.Listing);

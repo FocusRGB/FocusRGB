@@ -120,6 +120,7 @@ namespace FocusRgb.App.ViewModels
         public ObservableCollection<string> DetectedExecutables { get; } = [];
         public ObservableCollection<string> IntegrationStatuses { get; } = ["No plugins configured."];
         public ObservableCollection<OfficialPluginItemViewModel> OfficialPlugins { get; } = [];
+        public bool HasNoOfficialPlugins => OfficialPlugins.Count == 0;
         public ObservableCollection<InstalledPluginItemViewModel> InstalledPlugins { get; } = [];
         public IReadOnlyList<string> CloseButtonBehaviors => CanMinimizeToTray
             ? ["Minimize to system tray", "Exit application"]
@@ -549,10 +550,11 @@ namespace FocusRgb.App.ViewModels
 
         public void RefreshPluginLists()
         {
-            var installed = _installedPluginInventory.Select(plugin => plugin.Id).ToHashSet(StringComparer.Ordinal);
             OfficialPlugins.Clear();
-            foreach (var item in _officialPluginCatalog.Where(item => !installed.Contains(item.Id)))
-                OfficialPlugins.Add(new OfficialPluginItemViewModel(item, _isPluginCached(item)));
+            foreach (var item in _officialPluginCatalog)
+                OfficialPlugins.Add(new OfficialPluginItemViewModel(item, _isPluginCached(item),
+                    _installedPluginInventory.FirstOrDefault(plugin => plugin.Id == item.Id)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasNoOfficialPlugins)));
             InstalledPlugins.Clear();
             foreach (var plugin in _installedPluginInventory)
                 InstalledPlugins.Add(new InstalledPluginItemViewModel(plugin,

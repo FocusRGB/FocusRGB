@@ -41,7 +41,9 @@ namespace FocusRgb.App.Plugins
                     && _timeProvider.GetUtcNow() - cached.RefreshedAt < CacheLifetime)
                 {
                     return OfficialPluginCatalogResult.Cached(
-                        cached.RefreshedAt, cached.Items, "Official plugin list loaded from cache.");
+                        cached.RefreshedAt, cached.Items, cached.Items.Count == 0
+                            ? "The cached catalog contains no compatible release listings. Refresh to check GitHub."
+                            : "Official plugin list loaded from cache.");
                 }
 
                 try
@@ -50,7 +52,9 @@ namespace FocusRgb.App.Plugins
                     var refreshedAt = _timeProvider.GetUtcNow();
                     var warning = await WriteCacheAsync(cachePath, refreshedAt, items, cancellationToken).ConfigureAwait(false);
                     return OfficialPluginCatalogResult.Fresh(refreshedAt, items, warning is null
-                        ? "Official plugin list refreshed."
+                        ? items.Count == 0
+                            ? "No installable official releases were found. Repositories need a supported manifest, ZIP and SHA256SUMS; enable beta plugins for prereleases."
+                            : "Official plugin list refreshed."
                         : $"Official plugin list refreshed, but its cache could not be saved: {warning}");
                 }
                 catch (Exception exception) when (IsOfflineFailure(exception, cancellationToken))
