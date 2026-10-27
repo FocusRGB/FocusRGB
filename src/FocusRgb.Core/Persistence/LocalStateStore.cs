@@ -19,6 +19,7 @@ namespace FocusRgb.Core.Persistence
         public const string SettingsFileName = "settings.json";
         public const string SettingsRecoveryFileName = "settings.last-known-good.json";
         public const string StateFileName = "state.json";
+        public const string PreviewJournalFileName = "preview.json";
         public const string NativeSetupFileName = "native-setup.json";
         public const string GameCatalogFileName = "games.json";
         public const string GameCatalogRecoveryFileName = "games.last-known-good.json";
@@ -47,6 +48,11 @@ namespace FocusRgb.Core.Persistence
                 Directory.CreateDirectory(_directory);
                 CleanupTemporaryFiles();
                 var recoveries = new List<RecoveryNotice>();
+                if (File.Exists(PathFor(PreviewJournalFileName)))
+                {
+                    recoveries.Add(ArchiveInvalid(PreviewJournalFileName, "interrupted", now,
+                        [new ConfigurationError { Path = "preview", Message = "An interrupted output preview was discarded. Only saved selection intent is restored." }]));
+                }
 
                 var settingsResult = await LoadSettingsAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
                 if (!settingsResult.IsSuccess)
@@ -95,6 +101,29 @@ namespace FocusRgb.Core.Persistence
             catch (Exception exception) when (IsPersistenceException(exception))
             {
                 return StartupResult.Fail(Error(currentFile, exception));
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        /// <summary>Journals a temporary override without replacing saved selection intent.</summary>
+        public async Task<SaveResult> SavePreviewJournalAsync(string? profileId, CancellationToken cancellationToken = default)
+        {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                if (profileId is not null)
+                    return await SerializeAndWriteAsync(PreviewJournalFileName,
+                        () => JsonSerializer.Serialize(new { profileId, restore = "saved-selection-only" }), cancellationToken)
+                        .ConfigureAwait(false);
+                File.Delete(PathFor(PreviewJournalFileName));
+                return SaveResult.Ok();
+            }
+            catch (Exception exception) when (IsPersistenceException(exception))
+            {
+                return SaveResult.Fail(Error(PreviewJournalFileName, exception));
             }
             finally
             {
