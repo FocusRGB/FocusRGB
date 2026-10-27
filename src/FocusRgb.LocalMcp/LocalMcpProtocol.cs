@@ -210,8 +210,8 @@ namespace FocusRgb.LocalMcp
             }
             catch (InvalidDataException exception)
             {
-                await writer.WriteLineAsync(JsonSerializer.Serialize(
-                    Error(null, "invalid-request", exception.Message))).ConfigureAwait(false);
+                await WriteResponseAsync(writer, Error(null, "invalid-request", exception.Message), cancellationToken)
+                    .ConfigureAwait(false);
                 return;
             }
             if (line is null) return;
@@ -220,10 +220,17 @@ namespace FocusRgb.LocalMcp
             var response = await HandleRequestAsync(line, dispatchCancellation.Token).ConfigureAwait(false);
             await dispatchCancellation.CancelAsync().ConfigureAwait(false);
             await disconnect.ConfigureAwait(false);
+            await WriteResponseAsync(writer, response, cancellationToken).ConfigureAwait(false);
+        }
+
+        private static async Task WriteResponseAsync(
+            StreamWriter writer, LocalMcpResponse response, CancellationToken cancellationToken)
+        {
             using var writeTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             writeTimeout.CancelAfter(LocalMcpProtocol.WriteTimeout);
-            await writer.WriteLineAsync(JsonSerializer.Serialize(response))
-                .WaitAsync(writeTimeout.Token).ConfigureAwait(false);
+            // Cancel the I/O itself and await it before the caller disposes its writer.
+            await writer.WriteLineAsync(JsonSerializer.Serialize(response).AsMemory(), writeTimeout.Token)
+                .ConfigureAwait(false);
         }
 
         private static async Task CancelOnDisconnectAsync(

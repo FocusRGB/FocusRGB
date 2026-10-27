@@ -19,6 +19,77 @@ namespace FocusRgb.App.Tests
             Path.GetTempPath(), "FocusRgb.Tests", Guid.NewGuid().ToString("N"));
 
         [Fact]
+        public async Task Pipe_ShutdownCancelsBlockedResponseWriteBeforeDisposingWriter()
+        {
+            var largeResponse = JsonSerializer.SerializeToElement(new string('x', 1024 * 1024));
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                var credential = Credential();
+                var server = new LocalMcpPipeServer(credential, (request, _) => Task.FromResult(
+                    request.Method == "blocked" ? largeResponse : JsonSerializer.SerializeToElement("ready")));
+                using var stalled = new NamedPipeClientStream(
+                    ".", LocalMcpProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                var run = server.RunAsync();
+                try
+                {
+                    // Use a later pipe instance: shutdown separately disposes the first listener.
+                    var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!);
+                    await client.QueryAsync("warmup", TestContext.Current.CancellationToken);
+                    await StartBlockedResponseAsync(stalled, credential);
+                }
+                finally
+                {
+                    // Keep the client open and undrained until server shutdown has completed.
+                    await server.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+                }
+                Assert.True(run.IsCompletedSuccessfully || run.IsCanceled);
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Pipe_SurvivesBlockedResponseTimeoutAndClientDisconnect(bool disconnect)
+        {
+            var credential = Credential();
+            var largeResponse = JsonSerializer.SerializeToElement(new string('x', 1024 * 1024));
+            await using var server = new LocalMcpPipeServer(credential, (request, _) => Task.FromResult(
+                request.Method == "blocked" ? largeResponse : JsonSerializer.SerializeToElement("ready")));
+            _ = server.RunAsync();
+            var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!);
+            await client.QueryAsync("warmup", TestContext.Current.CancellationToken);
+            using var stalled = new NamedPipeClientStream(
+                ".", LocalMcpProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+            await StartBlockedResponseAsync(stalled, credential);
+            if (disconnect)
+            {
+                stalled.Dispose();
+            }
+            else
+            {
+                // The production write deadline is two seconds; do not drain and unblock it.
+                await Task.Delay(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+                await Assert.ThrowsAsync<IOException>(() => stalled.WriteAsync(new byte[1], TestContext.Current.CancellationToken)
+                    .AsTask().WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken));
+            }
+            Assert.Equal("ready", (await client.QueryAsync("probe", TestContext.Current.CancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken)).GetString());
+        }
+
+        private static async Task StartBlockedResponseAsync(NamedPipeClientStream pipe, string credential)
+        {
+            await pipe.ConnectAsync(2000, TestContext.Current.CancellationToken);
+            var request = JsonSerializer.Serialize(new LocalMcpRequest
+            {
+                ProtocolVersion = LocalMcpProtocol.Version, Id = "blocked", Credential = credential, Method = "blocked"
+            }) + "\n";
+            await pipe.WriteAsync(Encoding.UTF8.GetBytes(request), TestContext.Current.CancellationToken);
+            var firstByte = new byte[1];
+            Assert.Equal(1, await pipe.ReadAsync(firstByte, TestContext.Current.CancellationToken).AsTask()
+                .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        }
+
+        [Fact]
         public async Task Configuration_MissingAndInvalidFilesFailClosed()
         {
             var store = new McpConfigurationStore(_directory);
