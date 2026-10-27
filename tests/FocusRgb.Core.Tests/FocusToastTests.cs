@@ -43,6 +43,20 @@ namespace FocusRgb.Core.Tests
             Source = "observation"
         };
 
+        [Fact]
+        public void Toast_UsesFriendlyWildcardFocusName()
+        {
+            var settings = SettingsJson.LoadDefaults().Settings!;
+            settings.Rules!.Add(new RuleSettings
+            {
+                Id = "any-game-movie", Profile = "movie", Enabled = true, Eligibility = "while-focused",
+                Match = new ApplicationMatch { Game = new GameMatch { Launcher = "*", Id = "*" } }
+            });
+            var toast = new ProfileChangePopupDecision();
+            toast.Update(Snapshot(settings, "default", SelectionReason.Restored()));
+            Assert.StartsWith("Focus: Any known game", toast.Update(Snapshot(settings, "movie", SelectionReason.Rule("any-game-movie"))), StringComparison.Ordinal);
+        }
+
         private sealed class Clock : TimeProvider
         {
             private long _timestamp;
