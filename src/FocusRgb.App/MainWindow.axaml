@@ -304,7 +304,7 @@
 
       <TabItem Header="Games">
         <ScrollViewer>
-          <StackPanel Margin="28,16" Spacing="16" MaxWidth="720" HorizontalAlignment="Stretch">
+          <StackPanel Margin="28,16" Spacing="16" MaxWidth="720" HorizontalAlignment="Stretch" IsEnabled="{Binding !IsSettingsSavePending}">
             <Grid ColumnDefinitions="*,Auto">
               <StackPanel>
                 <TextBlock Text="Games" FontSize="26" FontWeight="SemiBold" />
@@ -317,7 +317,6 @@
               </StackPanel>
             </Grid>
             <ComboBox ItemsSource="{Binding Games}" SelectedItem="{Binding EditingGame}"
-                      IsEnabled="{Binding !IsSettingsSavePending}"
                       AutomationProperties.Name="Game to inspect or edit"
                       PlaceholderText="No games have been added or discovered">
               <ComboBox.ItemTemplate>
@@ -343,7 +342,6 @@
                   <TextBlock Text="Choose the main executable(s) used for Focus matching. Save to keep your selection active, even while discovery is offline."
                              TextWrapping="Wrap" />
                   <ListBox x:Name="DiscoveredGameExecutables" ItemsSource="{Binding GameExecutableOptions}" MinHeight="70" MaxHeight="240"
-                           IsEnabled="{Binding !IsSettingsSavePending}"
                            AutomationProperties.Name="Executables used for game matching">
                     <ListBox.ItemTemplate>
                       <DataTemplate x:DataType="vm:GameExecutableOptionViewModel">
@@ -352,7 +350,7 @@
                     </ListBox.ItemTemplate>
                   </ListBox>
                   <Button x:Name="SaveDiscoveredGameButton" Content="Save executable selection" Click="SaveDiscoveredGame_OnClick"
-                          IsEnabled="{Binding !IsSettingsSavePending}" HorizontalAlignment="Left" />
+                          HorizontalAlignment="Left" />
                 </StackPanel>
                 <TextBlock x:Name="GameMatchingNotice" Text="{Binding EditingGame.MatchingNotice}"
                            IsVisible="{Binding EditingGame.HasAmbiguousExecutables}"
