@@ -5,10 +5,11 @@ namespace FocusRgb.App.ViewModels
     /// <summary>Presents one official catalog entry without losing its verified release metadata.</summary>
     public sealed class OfficialPluginItemViewModel
     {
-        public OfficialPluginItemViewModel(OfficialPluginListing listing, bool isCached = false)
+        public OfficialPluginItemViewModel(OfficialPluginListing listing, bool isCached = false, InstalledPluginInfo? installed = null)
         {
             Listing = listing;
             IsCached = isCached;
+            Installed = installed is null ? null : new InstalledPluginItemViewModel(installed, listing);
         }
 
         public OfficialPluginListing Listing { get; }
@@ -24,7 +25,9 @@ namespace FocusRgb.App.ViewModels
         public string Compatibility => Listing.IsCompatible
             ? "Compatible with this system"
             : "Incompatible with this operating system or architecture";
-        public bool CanInstall => Listing.IsCompatible;
+        public InstalledPluginItemViewModel? Installed { get; }
+        public string ActionText => Installed is null ? "Install" : Installed.HasUpdate ? Installed.UpdateText : "Installed";
+        public bool CanInstall => Listing.IsCompatible && (Installed is null || Installed.HasUpdate);
         public bool IsCached { get; }
     }
 

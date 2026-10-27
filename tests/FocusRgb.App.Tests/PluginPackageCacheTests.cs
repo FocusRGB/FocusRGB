@@ -226,7 +226,7 @@ namespace FocusRgb.App.Tests
                 Id = listing.Id, DisplayName = listing.Name, Version = "1.9.0", IsOfficial = true
             }]);
 
-            Assert.Empty(viewModel.OfficialPlugins);
+            Assert.Equal("Update to v1.10.0", Assert.Single(viewModel.OfficialPlugins).ActionText);
             Assert.Equal("1.10.0", Assert.Single(viewModel.InstalledPlugins).AvailableVersion);
             viewModel.SetInstalledPlugins([]);
             Assert.Single(viewModel.OfficialPlugins);
