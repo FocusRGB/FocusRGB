@@ -24,6 +24,7 @@ namespace FocusRgb.App.Tests
             viewModel.StartMinimized = true;
             viewModel.ApplicationTheme = "Dark";
             viewModel.VerboseLogging = true;
+            viewModel.ShowProfileChangePopup = false;
 
             var saved = await viewModel.SaveApplicationSettingsAsync(TestContext.Current.CancellationToken);
             var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
@@ -33,6 +34,7 @@ namespace FocusRgb.App.Tests
             Assert.True(restarted.Snapshot.Settings.Application.StartMinimized);
             Assert.Equal("dark", restarted.Snapshot.Settings.Application.Theme);
             Assert.True(restarted.Snapshot.Settings.Application.VerboseLogging);
+            Assert.False(restarted.Snapshot.Settings.Application.ShowProfileChangePopup);
             Assert.Equal(stateBefore, await File.ReadAllTextAsync(statePath, TestContext.Current.CancellationToken));
             Assert.Equal(effectBefore, restarted.Snapshot.Settings.Profiles!
                 .Single(profile => profile.Id == "default").Bindings![0].Effect!.DisplayName);

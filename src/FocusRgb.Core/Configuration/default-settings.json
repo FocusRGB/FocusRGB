@@ -4,7 +4,8 @@
     "closeButtonBehavior": "minimize-to-tray",
     "startMinimized": false,
     "theme": "system",
-    "verboseLogging": false
+    "verboseLogging": false,
+    "showProfileChangePopup": true
   },
   "plugins": {
     "enabled": []
