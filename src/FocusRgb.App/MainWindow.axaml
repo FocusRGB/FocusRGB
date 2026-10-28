@@ -440,7 +440,7 @@
                 <TextBlock Text="Official plugins" FontSize="18" FontWeight="SemiBold" />
                 <StackPanel IsVisible="{Binding HasNoOfficialPlugins}">
                   <TextBlock Text="No official plugins are available." FontWeight="SemiBold" />
-                  <TextBlock Text="{Binding PluginsStatus}" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding OfficialPluginsEmptyMessage}" TextWrapping="Wrap" />
                 </StackPanel>
                 <ItemsControl ItemsSource="{Binding OfficialPlugins}">
                   <ItemsControl.ItemTemplate>
