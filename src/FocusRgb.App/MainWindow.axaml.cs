@@ -128,12 +128,13 @@ namespace FocusRgb.App
 
         public void CancelExitRequest() => _exitRequested = false;
 
-        private void MainWindow_OnClosing(object? sender, WindowClosingEventArgs e)
+        private async void MainWindow_OnClosing(object? sender, WindowClosingEventArgs e)
         {
             if (_allowClose) return;
+            e.Cancel = true;
+            if (!await ConfirmUnsavedChangesAsync()) return;
             DeclineMcpApproval();
             _previewCancellation?.Cancel();
-            e.Cancel = true;
             if (ViewModel.ShouldMinimizeOnClose)
             {
                 ShowInTaskbar = false;
@@ -172,6 +173,24 @@ namespace FocusRgb.App
 
         private async void MainTabs_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
+            if (!ReferenceEquals(e.Source, sender) || _restoringTab || DataContext is not MainWindowViewModel
+                || sender is not TabControl tabs) return;
+            var target = tabs.SelectedIndex;
+            if (target != _activeTabIndex)
+            {
+                var editors = DraftsForTab(tabs.Items[_activeTabIndex]);
+                if (ViewModel.HasUnsavedChanges(editors) || _unsavedPromptPending)
+                {
+                    _restoringTab = true;
+                    tabs.SelectedIndex = _activeTabIndex;
+                    _restoringTab = false;
+                    if (!await ConfirmUnsavedChangesAsync(editors)) return;
+                    _restoringTab = true;
+                    tabs.SelectedIndex = target;
+                    _restoringTab = false;
+                }
+                _activeTabIndex = target;
+            }
             if (ReferenceEquals(e.Source, sender) && sender is TabControl { SelectedItem: TabItem { Header: "Settings" } })
             {
                 UpdateStartupControls();
@@ -601,10 +620,7 @@ namespace FocusRgb.App
         {
             if (await RunUiActionAsync(() => ViewModel.SaveApplicationSettingsAsync()))
             {
-                (Application.Current as App)?.ApplyTheme(ViewModel.ApplicationTheme);
-                AppLog.Configure(_dataDirectory, ViewModel.SavedVerboseLogging);
-                AppLog.Write("Application preferences saved.");
-                _pluginsLoaded = false;
+                ApplySavedApplicationPreferences();
             }
         }
 

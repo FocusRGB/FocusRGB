@@ -402,6 +402,12 @@ namespace FocusRgb.App
         {
             if (_quitPending || _mainWindow is null || _desktop is null) return;
             _quitPending = true;
+            if (!await _mainWindow.ConfirmUnsavedChangesAsync())
+            {
+                _quitPending = false;
+                _mainWindow.CancelExitRequest();
+                return;
+            }
             if (_quitWithoutSaving)
             {
                 _shutdownApproved = true;
