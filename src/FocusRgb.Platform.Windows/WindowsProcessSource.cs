@@ -136,9 +136,11 @@ namespace FocusRgb.Platform.Windows
             string? executable = null) =>
             processId == currentProcessId || IgnoredWindowClasses.Contains(windowClass)
             || executable is not null && (StartExecutables.Contains(executable)
-                || windowClass == "Windows.UI.Core.CoreWindow"
+                || windowClass is "Windows.UI.Core.CoreWindow" or "ControlCenterWindow"
                     && (executable.Equals("ShellExperienceHost.exe", StringComparison.OrdinalIgnoreCase)
-                        || executable.Equals("ShellHost.exe", StringComparison.OrdinalIgnoreCase)));
+                        || executable.Equals("ShellHost.exe", StringComparison.OrdinalIgnoreCase))
+                || windowClass == "TopLevelWindowForOverflowXamlIsland"
+                    && executable.Equals("explorer.exe", StringComparison.OrdinalIgnoreCase));
 
         internal static string ToExecutableName(string processName) =>
             processName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)

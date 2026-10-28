@@ -51,6 +51,11 @@ namespace FocusRgb.Platform.Windows.Tests
         [InlineData("OtherWindow", "ShellHost.exe", false)]
         [InlineData("Windows.UI.Core.CoreWindow", "StartMenuExperienceHost.exe", true)]
         [InlineData("OtherWindow", "SearchHost.exe", true)]
+        [InlineData("ControlCenterWindow", "ShellHost.exe", true)]
+        [InlineData("ControlCenterWindow", "Example.exe", false)]
+        [InlineData("TopLevelWindowForOverflowXamlIsland", "explorer.exe", true)]
+        [InlineData("TopLevelWindowForOverflowXamlIsland", "Example.exe", false)]
+        [InlineData("CabinetWClass", "explorer.exe", false)]
         public void ShouldPreserveForeground_FiltersShellWithoutIgnoringRealCoreWindowApps(string windowClass, string executable, bool expected)
         {
             Assert.Equal(expected, WindowsProcessSource.ShouldPreserveForeground(windowClass, 10, 20, executable));
@@ -181,6 +186,7 @@ namespace FocusRgb.Platform.Windows.Tests
         [InlineData("Shell_TrayWnd", 10, 20, true)]
         [InlineData("Progman", 10, 20, true)]
         [InlineData("ApplicationFrameWindow", 20, 20, true)]
+        [InlineData("Avalonia-popup", 20, 20, true)]
         [InlineData("ApplicationFrameWindow", 10, 20, false)]
         public void ShouldPreserveForeground_ReturnsExpectedResult(
             string windowClass,
