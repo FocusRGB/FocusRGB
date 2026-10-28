@@ -557,6 +557,36 @@ namespace FocusRgb.App.ViewModels
             ApplicationSettingsStatus = "Application preferences restored to the saved values.";
         }
 
+        internal bool HasUnsavedChanges(EditorDrafts editors) =>
+            editors.HasFlag(EditorDrafts.Settings) && IsApplicationSettingsDirty
+            || editors.HasFlag(EditorDrafts.FocusLibrary) && MappingEditor.IsDirty
+            || editors.HasFlag(EditorDrafts.Profiles) && IsProfileDirty;
+
+        internal async Task<bool> SaveUnsavedChangesAsync(EditorDrafts editors)
+        {
+            if (IsSettingsSavePending || HasSettingsConflict) return false;
+            if (editors.HasFlag(EditorDrafts.Settings) && IsApplicationSettingsDirty
+                && !await SaveApplicationSettingsAsync()) return false;
+            if (editors.HasFlag(EditorDrafts.Profiles) && IsProfileDirty)
+            {
+                await SaveProfileAsync();
+                if (IsProfileDirty) return false;
+            }
+            if (editors.HasFlag(EditorDrafts.FocusLibrary) && MappingEditor.IsDirty)
+            {
+                if (MappingEditor.HasEditor) await SaveEditingFocusAsync(false);
+                else await SaveMappingsAsync();
+            }
+            return !HasUnsavedChanges(editors);
+        }
+
+        internal void DiscardUnsavedChanges(EditorDrafts editors)
+        {
+            if (editors.HasFlag(EditorDrafts.Settings)) CancelApplicationSettings();
+            if (editors.HasFlag(EditorDrafts.FocusLibrary)) MappingEditor.Cancel();
+            if (editors.HasFlag(EditorDrafts.Profiles)) CancelProfile();
+        }
+
         public void ReportSettingsAction(string message) => ApplicationSettingsStatus = message;
 
         public void ReportUnexpectedError(string message) => RuntimeStatusMessage = message;

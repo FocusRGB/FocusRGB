@@ -42,7 +42,7 @@
       </Grid>
     </Border>
 
-    <TabControl Grid.Row="3" TabStripPlacement="Left" Margin="12"
+    <TabControl x:Name="MainTabs" Grid.Row="3" TabStripPlacement="Left" Margin="12"
                 SelectionChanged="MainTabs_OnSelectionChanged">
       <TabItem Header="Focus">
         <Grid Margin="24,16" RowDefinitions="Auto,*" RowSpacing="16">
