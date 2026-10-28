@@ -11,6 +11,41 @@ namespace FocusRgb.App.HeadlessTests
     public sealed class PluginSettingsHeadlessTests
     {
         [AvaloniaFact]
+        public void UnknownFormat_UsesNormalEditorAndRejectsOversizedStoredPath()
+        {
+            using var temporary = new FocusRgb.TestSupport.TempDirectory(nameof(PluginSettingsHeadlessTests));
+            var packages = Path.Combine(temporary.Path, "plugins");
+            var data = Path.Combine(temporary.Path, "data");
+            Directory.CreateDirectory(Path.Combine(packages, "example"));
+            Directory.CreateDirectory(Path.Combine(data, "example"));
+            File.WriteAllText(Path.Combine(packages, "example", PluginConfigurationStore.SchemaFileName),
+                """{"schemaVersion":1,"fields":[{"id":"root","displayName":"Root","type":"string","format":"future-picker","default":"C:/Default"}]}""");
+            File.WriteAllText(Path.Combine(data, "example", "settings.json"),
+                JsonSerializer.Serialize(new { root = new string('x', 4097) }));
+            using var store = new PluginConfigurationStore(packages, data);
+            var loaded = store.Load("example");
+            Assert.True(loaded.IsSuccess, loaded.Error);
+            Assert.NotEmpty(loaded.Notices);
+            Assert.Equal("C:/Default", loaded.Values!["root"].GetString());
+            var window = new PluginSettingsWindow(Plugin("example", true), loaded.Schema!, loaded.Values!);
+            window.Show();
+            try
+            {
+                var editor = window.GetLogicalDescendants().OfType<TextBox>().Single();
+                Assert.Equal("C:/Default", editor.Text);
+                Assert.DoesNotContain(window.GetLogicalDescendants().OfType<Button>(), button => button.Name == "Browse_root");
+                editor.Text = new string('x', 4097);
+                Assert.Null(window.CollectValues());
+                editor.Text = "D:/Valid";
+                Assert.Equal("D:/Valid", window.CollectValues()!["root"].GetString());
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void FolderEditors_BrowseAddRemoveRoundTripAndResetDetectedDefaults()
         {
             var schema = new PluginConfigurationSchema

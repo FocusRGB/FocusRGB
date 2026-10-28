@@ -33,7 +33,7 @@ namespace FocusRgb.App.Tests
         [InlineData("directory-list", "json", "[123]", false)]
         [InlineData("directory-list", "string", "\"path\"", false)]
         [InlineData("directory", "string", "\"\"", true)]
-        [InlineData("unknown", "string", "\"\"", false)]
+        [InlineData("unknown", "string", "\"\"", true)]
         public void FolderFormats_ValidateTypeAndListShape(string format, string type, string defaultJson, bool valid)
         {
             var schema = new PluginConfigurationSchema
