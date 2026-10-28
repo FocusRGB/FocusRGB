@@ -31,8 +31,9 @@ namespace FocusRgb.App.HeadlessTests
                 Assert.Contains(buttons, button => Equals(button.Content, "Install")
                     && button.CommandParameter is OfficialPluginItemViewModel { Id: "uncached" });
                 Assert.Contains(buttons, button => Equals(button.Content, "Update to v2.0.0") && button.IsVisible);
-                Assert.Contains(viewModel.OfficialPlugins, item => item.Id == "installed"
-                    && item.ActionText == "Update to v2.0.0");
+                Assert.DoesNotContain(viewModel.OfficialPlugins, item => item.Id == "installed");
+                Assert.Contains(viewModel.InstalledPlugins, item => item.Id == "installed"
+                    && item.UpdateText == "Update to v2.0.0");
             }
             finally
             {

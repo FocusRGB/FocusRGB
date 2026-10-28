@@ -123,6 +123,8 @@ namespace FocusRgb.App.ViewModels
         public ObservableCollection<string> IntegrationStatuses { get; } = ["No plugins configured."];
         public ObservableCollection<OfficialPluginItemViewModel> OfficialPlugins { get; } = [];
         public bool HasNoOfficialPlugins => OfficialPlugins.Count == 0;
+        public string OfficialPluginsEmptyMessage => _officialPluginCatalog.Count > 0 && HasNoOfficialPlugins
+            ? "All official plugins are installed." : PluginsStatus;
         public ObservableCollection<InstalledPluginItemViewModel> InstalledPlugins { get; } = [];
         public IReadOnlyList<string> CloseButtonBehaviors => CanMinimizeToTray
             ? ["Minimize to system tray", "Exit application"]
@@ -341,7 +343,15 @@ namespace FocusRgb.App.ViewModels
             get => _applicationSettingsStatus;
             private set => Set(ref _applicationSettingsStatus, value);
         }
-        public string PluginsStatus { get => _pluginsStatus; private set => Set(ref _pluginsStatus, value); }
+        public string PluginsStatus
+        {
+            get => _pluginsStatus;
+            private set
+            {
+                Set(ref _pluginsStatus, value);
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OfficialPluginsEmptyMessage)));
+            }
+        }
         public string CustomPluginGitHubUrl { get => _customPluginGitHubUrl; set => Set(ref _customPluginGitHubUrl, value); }
         public bool IsPluginActionPending => Volatile.Read(ref _pluginActionPending) != 0;
         public IReadOnlyList<string> EnabledPluginIds => _settings.Plugins!.Enabled!.ToArray();
@@ -578,9 +588,14 @@ namespace FocusRgb.App.ViewModels
         {
             OfficialPlugins.Clear();
             foreach (var item in _officialPluginCatalog)
-                OfficialPlugins.Add(new OfficialPluginItemViewModel(item, _isPluginCached(item),
-                    _installedPluginInventory.FirstOrDefault(plugin => plugin.Id == item.Id)));
+            {
+                if (!_installedPluginInventory.Any(plugin => plugin.Id == item.Id))
+                {
+                    OfficialPlugins.Add(new OfficialPluginItemViewModel(item, _isPluginCached(item)));
+                }
+            }
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasNoOfficialPlugins)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OfficialPluginsEmptyMessage)));
             InstalledPlugins.Clear();
             foreach (var plugin in _installedPluginInventory)
                 InstalledPlugins.Add(new InstalledPluginItemViewModel(plugin,
