@@ -218,9 +218,11 @@ declares:
   (an object or array);
 - `default`: a value valid for that type;
 - optional `format`: `directory` for a string folder picker, or `directory-list` for a `json`
-  array containing only strings. Stored values remain strings/string arrays; this is a schema-v1
-  host UI extension, not a plugin RPC or contract-version change. Older hosts may reject these
-  optional schemas. Other type/format combinations are rejected;
+  array containing only strings. This is an optional host UI hint: hosts may ignore unknown or
+  missing formats and use the normal editor for the declared type. Values remain plain strings
+  or JSON string arrays, with the same type and size validation. Known formats with incompatible
+  types are rejected. This schema-v1 host extension adds no RPC surface; the contract stays 1.2
+  and requires no new spec tag;
 - optional `minimum` and `maximum`: inclusive numeric bounds, with minimum no greater than maximum.
 
 Schemas are limited to 256 KiB. String values are limited to 4096 characters and each serialized

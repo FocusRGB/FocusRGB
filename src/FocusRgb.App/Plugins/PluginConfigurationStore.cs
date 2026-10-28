@@ -219,8 +219,8 @@ namespace FocusRgb.App.Plugins
                 if (field.Description?.Length > 512) return $"Description for '{field.Id}' is too long.";
                 if (field.Type is not ("string" or "integer" or "number" or "boolean" or "json"))
                     return $"Plugin setting '{field.Id}' has an unsupported type.";
-                if (field.Format is not null && !(field.Format == "directory" && field.Type == "string"
-                    || field.Format == "directory-list" && field.Type == "json"))
+                if (field.Format == "directory" && field.Type != "string"
+                    || field.Format == "directory-list" && field.Type != "json")
                     return $"Plugin setting '{field.Id}' has an unsupported format/type combination.";
                 if (field.Minimum > field.Maximum) return $"Plugin setting '{field.Id}' has an inverted range.";
                 var error = ValidateValue(field, field.Default);
