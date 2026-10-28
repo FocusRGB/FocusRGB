@@ -1,10 +1,69 @@
 using FocusRgb.Platform.Windows;
+using FocusRgb.Core.Configuration;
+using FocusRgb.Core.Selection;
 
 namespace FocusRgb.Platform.Windows.Tests
 {
     /// <summary>Checks deterministic process/focus snapshots without reading the test machine.</summary>
     public sealed class WindowsApplicationObserverTests
     {
+        [Theory]
+        [InlineData("fast", 300)]
+        [InlineData("normal", 750)]
+        [InlineData("smooth", 2000)]
+        public void Observe_TransientKeepsPendingDebounceAndNextRealAppUsesConfiguredDelay(string speed, int delay)
+        {
+            var document = System.Text.Json.Nodes.JsonNode.Parse(SettingsJson.Serialize(SettingsJson.LoadDefaults().Settings!))!;
+            document["application"]!["switchingSpeed"] = speed;
+            foreach (var rule in document["rules"]!.AsArray())
+            {
+                rule!["eligibility"] = "while-focused";
+            }
+            var settings = SettingsJson.Load(document.ToJsonString()).Settings!;
+            var source = new FakeProcessSource { Running = ["Code.exe", "Spotify.exe"], Foreground = "Code.exe" };
+            var observer = new WindowsApplicationObserver(source);
+            var clock = new TestClock();
+            var engine = new SelectionEngine(settings, clock);
+            var now = DateTimeOffset.UtcNow;
+            _ = engine.Select(SelectionMode.Automatic, "default", observer.Observe(), now);
+            clock.Advance(delay / 2);
+            source.PreservePrevious = true;
+            Assert.Equal("Code.exe", observer.Observe().ForegroundExecutable);
+            _ = engine.Select(SelectionMode.Automatic, "default", observer.Observe(), now);
+            clock.Advance(delay - delay / 2);
+            Assert.Equal("programming", engine.Select(SelectionMode.Automatic, "default", observer.Observe(), now).ProfileId);
+            source.PreservePrevious = false;
+            source.Foreground = "Spotify.exe";
+            Assert.Equal("programming", engine.Select(SelectionMode.Automatic, "programming", observer.Observe(), now).ProfileId);
+            clock.Advance(delay - 1);
+            Assert.Equal("programming", engine.Select(SelectionMode.Automatic, "programming", observer.Observe(), now).ProfileId);
+            clock.Advance(1);
+            Assert.Equal("music", engine.Select(SelectionMode.Automatic, "programming", observer.Observe(), now).ProfileId);
+        }
+
+        [Theory]
+        [InlineData("MultitaskingViewFrame", "explorer.exe", true)]
+        [InlineData("XamlExplorerHostIslandWindow", "explorer.exe", true)]
+        [InlineData("ForegroundStaging", "explorer.exe", true)]
+        [InlineData("Windows.UI.Core.CoreWindow", "ShellExperienceHost.exe", true)]
+        [InlineData("Windows.UI.Core.CoreWindow", "ShellHost.exe", true)]
+        [InlineData("Windows.UI.Core.CoreWindow", "Microsoft.Media.Player.exe", false)]
+        [InlineData("OtherWindow", "ShellHost.exe", false)]
+        [InlineData("Windows.UI.Core.CoreWindow", "StartMenuExperienceHost.exe", true)]
+        [InlineData("OtherWindow", "SearchHost.exe", true)]
+        public void ShouldPreserveForeground_FiltersShellWithoutIgnoringRealCoreWindowApps(string windowClass, string executable, bool expected)
+        {
+            Assert.Equal(expected, WindowsProcessSource.ShouldPreserveForeground(windowClass, 10, 20, executable));
+        }
+
+        private sealed class TestClock : TimeProvider
+        {
+            private long _timestamp;
+            public override long TimestampFrequency => 1000;
+            public override long GetTimestamp() => _timestamp;
+            public void Advance(int milliseconds) => _timestamp += milliseconds;
+        }
+
         [Fact]
         public void Observe_ReportsWindowOwner_NotStremioHelper()
         {

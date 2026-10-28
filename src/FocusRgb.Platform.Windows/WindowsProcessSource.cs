@@ -16,13 +16,26 @@ namespace FocusRgb.Platform.Windows
     {
         private static readonly HashSet<string> IgnoredWindowClasses = new(StringComparer.Ordinal)
         {
+            // Shell overlays are navigation, not app changes: keep the real app and its debounce.
+            "MultitaskingViewFrame",
+            "MultitaskingView",
+            "XamlExplorerHostIslandWindow",
+            "XamlExplorerHost",
+            "ForegroundStaging",
+            "TaskView",
             "Progman",
             "Shell_SecondaryTrayWnd",
             "Shell_TrayWnd",
             "WorkerW"
         };
 
+        private static readonly HashSet<string> StartExecutables = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "StartMenuExperienceHost.exe", "SearchHost.exe", "SearchApp.exe"
+        };
+
         private readonly uint _currentProcessId = (uint)Environment.ProcessId;
+        private nint _lastForegroundWindow;
 
         public IReadOnlyCollection<string> GetRunningExecutables()
         {
@@ -59,7 +72,13 @@ namespace FocusRgb.Platform.Windows
                 return new ForegroundProcess(null, false);
             }
 
-            if (ShouldPreserveForeground(GetWindowClass(window), processId, _currentProcessId))
+            var windowClass = GetWindowClass(window);
+            if (window != _lastForegroundWindow)
+            {
+                Debug.WriteLine($"Foreground window: class={windowClass}, processId={processId}");
+                _lastForegroundWindow = window;
+            }
+            if (ShouldPreserveForeground(windowClass, processId, _currentProcessId))
             {
                 return new ForegroundProcess(null, true);
             }
@@ -67,6 +86,10 @@ namespace FocusRgb.Platform.Windows
             try
             {
                 var executable = GetExecutableName(processId);
+                if (ShouldPreserveForeground(windowClass, processId, _currentProcessId, executable))
+                {
+                    return new ForegroundProcess(null, true);
+                }
                 if (!executable.Equals("ApplicationFrameHost.exe", StringComparison.OrdinalIgnoreCase))
                 {
                     return new ForegroundProcess(executable, false);
@@ -109,8 +132,13 @@ namespace FocusRgb.Platform.Windows
         internal static bool ShouldPreserveForeground(
             string windowClass,
             uint processId,
-            uint currentProcessId) =>
-            processId == currentProcessId || IgnoredWindowClasses.Contains(windowClass);
+            uint currentProcessId,
+            string? executable = null) =>
+            processId == currentProcessId || IgnoredWindowClasses.Contains(windowClass)
+            || executable is not null && (StartExecutables.Contains(executable)
+                || windowClass == "Windows.UI.Core.CoreWindow"
+                    && (executable.Equals("ShellExperienceHost.exe", StringComparison.OrdinalIgnoreCase)
+                        || executable.Equals("ShellHost.exe", StringComparison.OrdinalIgnoreCase)));
 
         internal static string ToExecutableName(string processName) =>
             processName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
