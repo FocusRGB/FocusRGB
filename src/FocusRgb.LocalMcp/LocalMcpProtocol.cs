@@ -210,8 +210,8 @@ namespace FocusRgb.LocalMcp
             }
             catch (InvalidDataException exception)
             {
-                await writer.WriteLineAsync(JsonSerializer.Serialize(
-                    Error(null, "invalid-request", exception.Message))).ConfigureAwait(false);
+                await WriteResponseAsync(pipe, writer, Error(null, "invalid-request", exception.Message), cancellationToken)
+                    .ConfigureAwait(false);
                 return;
             }
             if (line is null) return;
@@ -220,10 +220,26 @@ namespace FocusRgb.LocalMcp
             var response = await HandleRequestAsync(line, dispatchCancellation.Token).ConfigureAwait(false);
             await dispatchCancellation.CancelAsync().ConfigureAwait(false);
             await disconnect.ConfigureAwait(false);
+            await WriteResponseAsync(pipe, writer, response, cancellationToken).ConfigureAwait(false);
+        }
+
+        private static async Task WriteResponseAsync(
+            NamedPipeServerStream pipe, StreamWriter writer, LocalMcpResponse response, CancellationToken cancellationToken)
+        {
             using var writeTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             writeTimeout.CancelAfter(LocalMcpProtocol.WriteTimeout);
-            await writer.WriteLineAsync(JsonSerializer.Serialize(response))
-                .WaitAsync(writeTimeout.Token).ConfigureAwait(false);
+            try
+            {
+                // Cancel the I/O itself and await it before disposing its writer.
+                await writer.WriteLineAsync(JsonSerializer.Serialize(response).AsMemory(), writeTimeout.Token)
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+                // A cancelled write can leave buffered characters; disposal must not flush them to a stalled client.
+                pipe.Dispose();
+                throw;
+            }
         }
 
         private static async Task CancelOnDisconnectAsync(
