@@ -182,6 +182,9 @@ namespace FocusRgb.App.Tests
                 var attribute = Assert.Single(typeof(FocusRgbReadTools).GetMethod(name)!
                     .GetCustomAttributes(typeof(ModelContextProtocol.Server.McpServerToolAttribute), false));
                 Assert.True(((ModelContextProtocol.Server.McpServerToolAttribute)attribute).ReadOnly);
+                var description = Assert.Single(typeof(FocusRgbReadTools).GetMethod(name)!
+                    .GetCustomAttributes(typeof(System.ComponentModel.DescriptionAttribute), false));
+                Assert.Contains("Debugging mode", ((System.ComponentModel.DescriptionAttribute)description).Description, StringComparison.Ordinal);
             }
         }
 
