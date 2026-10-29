@@ -85,9 +85,7 @@ namespace FocusRgb.App
         {
             try
             {
-                var directory = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "FocusRGB");
+                var directory = ApplicationDataDirectory.Resolve(desktop.Args ?? []);
                 _store = new LocalStateStore(directory);
                 var startup = await _store.InitializeAsync(DateTimeOffset.UtcNow);
                 if (!startup.IsSuccess)
@@ -519,7 +517,8 @@ namespace FocusRgb.App
         private void StartMcp(McpConfiguration configuration)
         {
             if (_mcpServer is not null) return;
-            _mcpServer = new LocalMcpPipeServer(configuration.Credential!, _mcpCommands!.DispatchAsync);
+            _mcpServer = new LocalMcpPipeServer(configuration.Credential!, _mcpCommands!.DispatchAsync,
+                _mcpConfigurationStore!.DataDirectory);
             _ = _mcpServer.RunAsync().ContinueWith(
                 task => AppLog.Write($"Local MCP listener stopped unexpectedly: {task.Exception?.GetBaseException().Message}"),
                 CancellationToken.None,

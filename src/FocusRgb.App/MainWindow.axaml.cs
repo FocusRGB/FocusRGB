@@ -55,9 +55,7 @@ namespace FocusRgb.App
             _startupRegistration = startupRegistration;
             DataContext = viewModel;
             viewModel.PropertyChanged += GameStatus_OnPropertyChanged;
-            _dataDirectory = dataDirectory ?? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "FocusRGB");
+            _dataDirectory = dataDirectory ?? FocusRgb.LocalMcp.ApplicationDataDirectory.Resolve([]);
             Closing += MainWindow_OnClosing;
             Opened += (_, _) =>
             {

@@ -12,8 +12,11 @@ namespace FocusRgb.LocalMcp
         public McpConfigurationStore(string dataDirectory)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(dataDirectory);
-            _path = Path.Combine(dataDirectory, FileName);
+            DataDirectory = ApplicationDataDirectory.Normalize(dataDirectory);
+            _path = Path.Combine(DataDirectory, FileName);
         }
+
+        public string DataDirectory { get; }
 
         public async Task<McpConfigurationResult> LoadAsync(CancellationToken cancellationToken = default)
         {

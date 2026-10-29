@@ -72,6 +72,16 @@ dotnet build-server shutdown
 
 ## Project Structure
 
+For an isolated desktop instance, run `FocusRGB.exe --data-dir "D:\FocusRGB-test"` (or set
+`FOCUSRGB_DATA_DIR`). The command-line path takes precedence; otherwise the default remains
+`%LOCALAPPDATA%\FocusRGB`. Settings, state, native setup, plugins and their data, caches, logs and
+`mcp.json` all use the selected folder. The instance lock, show-window signal and authenticated MCP
+pipe are scoped to the normalized folder and Windows user. Different folders can run side by side;
+a second launch for the same folder reuses the existing instance. Use the same `--data-dir` or
+environment variable with `FocusRgb.Mcp.exe` to connect to that instance. MCP remains off by default;
+disposable test folders may be pre-seeded with their own `mcp.json` before launch. The adapter cannot
+enable MCP or approve mutations. Do not copy a live instance's credentials into a test folder.
+
 ```text
 FocusRGB.slnx
 sdk/

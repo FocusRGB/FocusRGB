@@ -5,9 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
 
-var dataDirectory = Path.Combine(
-    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-    "FocusRGB");
+var dataDirectory = ApplicationDataDirectory.Resolve(args);
 var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.AddConsole(options => options.LogToStandardErrorThreshold = LogLevel.Trace);
 builder.Services.AddSingleton(new LocalMcpPipeClient(new McpConfigurationStore(dataDirectory)));

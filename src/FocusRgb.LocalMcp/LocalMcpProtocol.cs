@@ -17,15 +17,8 @@ namespace FocusRgb.LocalMcp
         internal static readonly TimeSpan ReadTimeout = TimeSpan.FromSeconds(1);
         internal static readonly TimeSpan WriteTimeout = TimeSpan.FromSeconds(2);
 
-        public static string PipeName
-        {
-            get
-            {
-                var user = WindowsIdentity.GetCurrent().User?.Value
-                    ?? throw new InvalidOperationException("The current Windows user SID is unavailable.");
-                return $"FocusRGB.Mcp.{user}";
-            }
-        }
+        public static string PipeName => PipeNameFor(ApplicationDataDirectory.Default);
+        public static string PipeNameFor(string dataDirectory) => $"FocusRGB.Mcp.{ApplicationDataDirectory.Scope(dataDirectory)}";
     }
 
     public sealed class LocalMcpRequest
@@ -63,18 +56,21 @@ namespace FocusRgb.LocalMcp
         private readonly SemaphoreSlim _connectionSlots = new(MaximumServerInstances, MaximumServerInstances);
         private readonly PipeSecurity _security;
         private readonly NamedPipeServerStream _firstPipe;
+        private readonly string _pipeName;
         private readonly object _pipeGate = new();
         private NamedPipeServerStream? _acceptingPipe;
         private Task? _runTask;
 
         public LocalMcpPipeServer(
             string credential,
-            Func<LocalMcpRequest, CancellationToken, Task<JsonElement>> dispatch)
+            Func<LocalMcpRequest, CancellationToken, Task<JsonElement>> dispatch,
+            string? dataDirectory = null)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(credential);
             ArgumentNullException.ThrowIfNull(dispatch);
             _credential = Convert.FromBase64String(credential);
             _dispatch = dispatch;
+            _pipeName = LocalMcpProtocol.PipeNameFor(dataDirectory ?? ApplicationDataDirectory.Default);
             var user = WindowsIdentity.GetCurrent().User
                 ?? throw new InvalidOperationException("The current Windows user SID is unavailable.");
             _security = new PipeSecurity();
@@ -266,7 +262,7 @@ namespace FocusRgb.LocalMcp
         internal PipeSecurity GetAccessControl() => _firstPipe.GetAccessControl();
 
         private NamedPipeServerStream CreatePipe(bool firstInstance) => NamedPipeServerStreamAcl.Create(
-            LocalMcpProtocol.PipeName,
+            _pipeName,
             PipeDirection.InOut,
             MaximumServerInstances,
             PipeTransmissionMode.Byte,
@@ -359,19 +355,22 @@ namespace FocusRgb.LocalMcp
         private readonly McpConfigurationStore? _configurationStore;
         private readonly string? _credential;
         private readonly string? _expectedServerPath;
+        private readonly string _pipeName;
 
         public LocalMcpPipeClient(McpConfigurationStore configurationStore)
         {
             ArgumentNullException.ThrowIfNull(configurationStore);
             _configurationStore = configurationStore;
+            _pipeName = LocalMcpProtocol.PipeNameFor(configurationStore.DataDirectory);
         }
 
-        internal LocalMcpPipeClient(string credential, string expectedServerPath)
+        internal LocalMcpPipeClient(string credential, string expectedServerPath, string? dataDirectory = null)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(credential);
             ArgumentException.ThrowIfNullOrWhiteSpace(expectedServerPath);
             _credential = credential;
             _expectedServerPath = Path.GetFullPath(expectedServerPath);
+            _pipeName = LocalMcpProtocol.PipeNameFor(dataDirectory ?? ApplicationDataDirectory.Default);
         }
 
         public async Task<JsonElement> QueryAsync(string method, CancellationToken cancellationToken = default)
@@ -391,7 +390,7 @@ namespace FocusRgb.LocalMcp
         {
             var (credential, expectedServerPath) = await GetConnectionAsync(cancellationToken).ConfigureAwait(false);
             using var pipe = new NamedPipeClientStream(
-                ".", LocalMcpProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                ".", _pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
             try
             {
                 await pipe.ConnectAsync(2000, cancellationToken).ConfigureAwait(false);

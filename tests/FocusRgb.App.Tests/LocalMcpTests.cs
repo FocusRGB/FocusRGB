@@ -308,7 +308,7 @@ namespace FocusRgb.App.Tests
                 true, Environment.ProcessPath, TestContext.Current.CancellationToken);
             await using var server = new LocalMcpPipeServer(
                 enabled.Configuration!.Credential!,
-                (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true)));
+                (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true)), _directory);
             _ = server.RunAsync();
             var client = new LocalMcpPipeClient(store);
 

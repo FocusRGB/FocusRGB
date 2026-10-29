@@ -1,4 +1,4 @@
-using System.Security.Principal;
+using FocusRgb.LocalMcp;
 using Avalonia;
 using Avalonia.Threading;
 
@@ -10,9 +10,9 @@ namespace FocusRgb.App
         public static int Main(string[] args)
         {
             if (!OperatingSystem.IsWindows()) return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
-            var user = WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
-            using var showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, $"Local\\FocusRGB.Show.{user}");
-            using var instance = new Mutex(true, $"Local\\FocusRGB.Instance.{user}", out var firstInstance);
+            var scope = ApplicationDataDirectory.Scope(ApplicationDataDirectory.Resolve(args));
+            using var showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, $"Local\\FocusRGB.Show.{scope}");
+            using var instance = new Mutex(true, $"Local\\FocusRGB.Instance.{scope}", out var firstInstance);
             if (!firstInstance)
             {
                 if (!App.ShouldStartMinimized(args, savedPreference: false))
