@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using FocusRgb.App.Diagnostics;
 using FocusRgb.App.ViewModels;
@@ -65,7 +66,17 @@ namespace FocusRgb.App
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
             foreach (var choice in new[] { UnsavedChangesChoice.Save, UnsavedChangesChoice.Discard, UnsavedChangesChoice.Cancel })
             {
-                var button = new Button { Content = choice.ToString(), IsCancel = choice == UnsavedChangesChoice.Cancel };
+                var button = new Button
+                {
+                    Content = choice.ToString(),
+                    IsDefault = choice == UnsavedChangesChoice.Save,
+                    IsCancel = choice == UnsavedChangesChoice.Cancel
+                };
+                if (choice == UnsavedChangesChoice.Save)
+                {
+                    button.Classes.Add("accent");
+                    dialog.Opened += (_, _) => button.Focus(NavigationMethod.Tab);
+                }
                 button.Click += (_, _) => dialog.Close(choice);
                 buttons.Children.Add(button);
             }
