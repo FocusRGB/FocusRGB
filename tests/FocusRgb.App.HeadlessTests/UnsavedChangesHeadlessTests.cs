@@ -1,11 +1,108 @@
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.LogicalTree;
+using Avalonia.Threading;
 using FocusRgb.App.ViewModels;
 
 namespace FocusRgb.App.HeadlessTests
 {
     public sealed class UnsavedChangesHeadlessTests
     {
+        public static IEnumerable<object[]> DialogKeyboardCases()
+        {
+            foreach (var editor in new[] { "Settings", "Focus", "Profiles" })
+            foreach (var close in new[] { false, true })
+            foreach (var action in new[] { "Enter", "Escape", "Close" })
+                yield return new object[] { editor, close, action };
+        }
+
+        [AvaloniaTheory]
+        [MemberData(nameof(DialogKeyboardCases))]
+        public async Task RealDialog_SavesWithEnterAndCancelsWithEscapeOrClose(string editor, bool close, string action)
+        {
+            var model = MainWindowViewModel.CreatePreview();
+            var window = new MainWindow(model);
+            window.Show();
+            try
+            {
+                var tabs = window.FindControl<TabControl>("MainTabs")!;
+                var source = tabs.Items.OfType<TabItem>().Single(tab => Equals(tab.Header, editor));
+                var target = tabs.Items.OfType<TabItem>().Single(tab => Equals(tab.Header, "Games"));
+                tabs.SelectedItem = source;
+                MakeDirty(model, editor);
+                if (close) window.Close();
+                else tabs.SelectedItem = target;
+
+                await RespondToRealDialogAsync(window, action);
+
+                var cancelled = action != "Enter";
+                Assert.Equal(cancelled, model.HasUnsavedChanges(EditorDrafts.All));
+                Assert.Equal(!close || cancelled, window.IsVisible);
+                Assert.Same(close || cancelled ? source : target, tabs.SelectedItem);
+                AssertDraftValues(model, editor, cancelled ? 0 : 2);
+            }
+            finally
+            {
+                foreach (var dialog in window.OwnedWindows.ToArray()) dialog.Close();
+                window.AllowClose();
+                window.Close();
+            }
+        }
+
+        [AvaloniaTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task RealDialog_EnterKeepsDraftAndBlocksActionWhenSaveFails(bool close)
+        {
+            var model = MainWindowViewModel.CreatePreview();
+            var window = new MainWindow(model);
+            window.Show();
+            try
+            {
+                var tabs = window.FindControl<TabControl>("MainTabs")!;
+                var source = tabs.Items.OfType<TabItem>().Single(tab => Equals(tab.Header, "Profiles"));
+                tabs.SelectedItem = source;
+                model.ProfileEffect = "";
+                Assert.True(model.IsProfileDirty);
+                if (close) window.Close();
+                else tabs.SelectedIndex = 0;
+
+                await RespondToRealDialogAsync(window, "Enter");
+
+                Assert.True(window.IsVisible);
+                Assert.Same(source, tabs.SelectedItem);
+                Assert.True(model.IsProfileDirty);
+            }
+            finally
+            {
+                foreach (var dialog in window.OwnedWindows.ToArray()) dialog.Close();
+                window.AllowClose();
+                window.Close();
+            }
+        }
+
+        private static async Task RespondToRealDialogAsync(MainWindow window, string action)
+        {
+            var dialog = Assert.Single(window.OwnedWindows);
+            Assert.Equal("UnsavedChanges", dialog.Name);
+            var save = dialog.GetLogicalDescendants().OfType<Button>().Single(button => Equals(button.Content, "Save"));
+            Assert.True(save.IsDefault);
+            Assert.True(save.IsFocused);
+            Assert.Contains("accent", save.Classes);
+            if (action == "Close") dialog.Close();
+            else
+            {
+                var key = action == "Enter" ? Key.Enter : Key.Escape;
+                var physicalKey = action == "Enter" ? PhysicalKey.Enter : PhysicalKey.Escape;
+                dialog.KeyPress(key, RawInputModifiers.None, physicalKey, null);
+            }
+            await Task.Yield();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(dialog.IsVisible);
+        }
+
         [AvaloniaTheory]
         [InlineData("Settings", 0)]
         [InlineData("Settings", 1)]
