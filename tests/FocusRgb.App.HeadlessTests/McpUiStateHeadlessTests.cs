@@ -16,6 +16,7 @@ namespace FocusRgb.App.HeadlessTests
             {
                 Assert.Equal(HeadlessTestApplication.DataDirectory, FocusRgb.LocalMcp.ApplicationDataDirectory.Resolve([]));
                 Assert.NotEqual(FocusRgb.LocalMcp.ApplicationDataDirectory.Default, HeadlessTestApplication.DataDirectory);
+                model.DebuggingMode = true;
                 model.VerboseLogging = true;
                 window.UnsavedChangesPrompt = () => Task.FromResult(UnsavedChangesChoice.Save);
                 Assert.True(await window.ConfirmUnsavedChangesAsync());
@@ -39,6 +40,7 @@ namespace FocusRgb.App.HeadlessTests
             {
                 var tabs = window.FindControl<TabControl>("MainTabs")!;
                 tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(tab => Equals(tab.Header, "Settings"));
+                model.DebuggingMode = true;
                 model.VerboseLogging = !model.VerboseLogging;
                 model.MappingEditor.BeginCreate();
                 model.ProfileEffect += " draft";

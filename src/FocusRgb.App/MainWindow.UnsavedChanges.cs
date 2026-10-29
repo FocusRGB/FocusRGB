@@ -103,7 +103,7 @@ namespace FocusRgb.App
         private void ApplySavedApplicationPreferences()
         {
             (Application.Current as App)?.ApplyTheme(ViewModel.ApplicationTheme);
-            AppLog.Configure(_dataDirectory, ViewModel.SavedVerboseLogging);
+            AppLog.Configure(_dataDirectory, ViewModel.SavedVerboseLogging, ViewModel.SavedDebuggingMode);
             AppLog.Write("Application preferences saved.");
             _pluginsLoaded = false;
         }

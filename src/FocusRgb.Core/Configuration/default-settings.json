@@ -1,10 +1,11 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "application": {
     "closeButtonBehavior": "minimize-to-tray",
     "startMinimized": false,
     "theme": "system",
     "verboseLogging": false,
+    "debuggingMode": false,
     "showProfileChangePopup": true,
     "switchingSpeed": "normal"
   },

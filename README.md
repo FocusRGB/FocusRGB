@@ -85,6 +85,16 @@ enable MCP or approve mutations. Do not copy a live instance's credentials into 
 Enable **Settings → Local MCP → Enable local MCP tools** in the selected instance before connecting
 the `FocusRgb.Mcp.exe` stdio adapter. Read tools require no approval; every mutation still requires
 explicit, single-use approval in the app. MCP cannot enable itself or approve its own requests.
+
+**Settings → Diagnostics → Debugging mode** is a separate switch, off by default. Save Settings to
+apply it immediately without restarting. Only the five debugging tools below require it: with the
+mode off they return `status: "disabled"`, their trace/start history and recent-log buffer are cleared
+and stop recording, and **Enable basic diagnostic logging** is off and unavailable. The Local MCP
+switch/listener, normal read tools and approval-gated control tools are unaffected. MCP cannot
+change Debugging mode. With the mode on, file logging remains optional; its choice is kept while the
+mode is off and applies again when the mode is turned back on. Settings schema v7 migrates
+existing diagnostic logging on to Debugging mode on; otherwise it starts off, including recovery
+through `settings.last-known-good.json`.
 The existing reads are `listProfiles`, `listApplicationGroups`, `listMappings`, `listPlugins`,
 `listDevices`, `getStatus` and `explainActiveSelection`. Diagnostic reads add:
 
@@ -105,7 +115,7 @@ are conservatively redacted, so some resource identifiers may be omitted. No win
 lines, raw settings, credentials, plugin configuration or log files are returned. Catalog age is
 unknown until discovery is queried; this read does not trigger network discovery. Output timestamps
 describe acknowledged binding calls, not RGB-frame or hardware observations; provider-managed scopes
-do not enumerate physical devices. Diagnostic adapters return `status: "disabled"` with MCP off and
+do not enumerate physical devices. Diagnostic adapters return `status: "disabled"` with MCP or Debugging mode off and
 `status: "unavailable"` when the instance cannot be reached, without exposing local paths or errors.
 These diagnostics add no mutation or plugin-protocol surface.
 

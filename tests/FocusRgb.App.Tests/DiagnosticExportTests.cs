@@ -18,6 +18,7 @@ namespace FocusRgb.App.Tests
             var store = new LocalStateStore(directory.Path);
             var startup = await store.InitializeAsync(DateTimeOffset.UtcNow, TestContext.Current.CancellationToken);
             var viewModel = MainWindowViewModel.CreatePersistent(startup.Snapshot!, store);
+            viewModel.DebuggingMode = enabled;
             viewModel.VerboseLogging = enabled;
             await viewModel.SaveApplicationSettingsAsync(TestContext.Current.CancellationToken);
             Assert.Equal(enabled, viewModel.SavedVerboseLogging);

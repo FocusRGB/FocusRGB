@@ -44,7 +44,7 @@ namespace FocusRgb.Core.Tests
             var loaded = SettingsJson.Load(root.ToJsonString());
             Assert.True(loaded.IsSuccess);
             Assert.True(loaded.Settings!.Application!.ShowProfileChangePopup ?? true);
-            Assert.Equal(6, loaded.Settings.SchemaVersion);
+            Assert.Equal(SettingsJson.CurrentSchemaVersion, loaded.Settings.SchemaVersion);
         }
 
         private static ApplicationStateSnapshot Snapshot(string profile, string mode = "automatic",

@@ -29,6 +29,7 @@ namespace FocusRgb.App.Mcp
         private string _catalogStatus = "Not queried";
         private DateTimeOffset? _catalogRefreshedAt;
         private bool _catalogFromCache;
+        private bool _disposed;
 
         public McpDiagnostics(ApplicationStateService state, Func<IReadOnlyList<InstalledPluginInfo>> plugins,
             Func<IReadOnlyList<PluginRuntimeEntry>>? runtime = null, OutputCoordinator? output = null,
@@ -45,15 +46,30 @@ namespace FocusRgb.App.Mcp
             _output = output;
             _ui = ui;
             _logs = logs;
+            _logs.SetEnabled(true);
+            foreach (var entry in _runtime()) RecordPluginStart(entry);
             state.ObservationEvaluated += OnObservationEvaluated;
         }
 
-        public void Dispose() => _state.ObservationEvaluated -= OnObservationEvaluated;
+        public void Dispose()
+        {
+            lock (_gate)
+            {
+                _disposed = true;
+                _state.ObservationEvaluated -= OnObservationEvaluated;
+                _trace.Clear();
+                _starts.Clear();
+                _logs.SetEnabled(false);
+                _catalogStatus = "Not queried";
+                _catalogRefreshedAt = null;
+            }
+        }
 
         public void RecordCatalog(OfficialPluginCatalogResult catalog)
         {
             lock (_gate)
             {
+                if (_disposed) return;
                 _catalogStatus = DiagnosticText.Clean(catalog.Status)!;
                 _catalogRefreshedAt = catalog.RefreshedAt;
                 _catalogFromCache = catalog.IsFromCache;
@@ -69,6 +85,7 @@ namespace FocusRgb.App.Mcp
 
             lock (_gate)
             {
+                if (_disposed) return;
                 _starts.TryGetValue(entry.PluginId, out var previous);
                 if (previous?.ProcessId == client.ProcessId && previous.StartedAt == client.StartedAt)
                 {
@@ -89,6 +106,7 @@ namespace FocusRgb.App.Mcp
         {
             lock (_gate)
             {
+                if (_disposed) return;
                 _starts.TryGetValue(pluginId, out var previous);
                 if (_starts.Count == 128 && previous is null)
                 {
@@ -111,6 +129,7 @@ namespace FocusRgb.App.Mcp
                 DiagnosticText.Clean(trace.RuleId, 64), DiagnosticText.Clean(trace.Reason, 64), DiagnosticText.Clean(trace.ErrorCode, 64));
             lock (_gate)
             {
+                if (_disposed) return;
                 if (_trace.Count == TraceCapacity)
                 {
                     _trace.Dequeue();

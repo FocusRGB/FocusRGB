@@ -11,19 +11,73 @@ namespace FocusRgb.App.Mcp
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
         private readonly ApplicationStateService _state;
         private readonly Func<IReadOnlyList<InstalledPluginInfo>> _plugins;
+        private readonly object _gate = new();
+        private readonly Func<McpDiagnostics> _createDiagnostics;
+        private McpDiagnostics? _diagnostics;
+        private bool _disposed;
+        private long _settingsRevision = -1;
 
         public McpReadQueryService(
             ApplicationStateService state,
             Func<IReadOnlyList<InstalledPluginInfo>> plugins,
-            McpDiagnostics? diagnostics = null)
+            Func<McpDiagnostics>? createDiagnostics = null)
         {
             _state = state;
             _plugins = plugins;
-            Diagnostics = diagnostics ?? new McpDiagnostics(state, plugins);
+            _createDiagnostics = createDiagnostics ?? (() => new McpDiagnostics(state, plugins));
+            _state.SnapshotChanged += OnSnapshotChanged;
+            OnSnapshotChanged(this, _state.Current);
         }
 
-        public McpDiagnostics Diagnostics { get; }
-        public void Dispose() => Diagnostics.Dispose();
+        public McpDiagnostics? Diagnostics { get { lock (_gate) return _diagnostics; } }
+
+        private void OnSnapshotChanged(object? sender, ApplicationStateSnapshot snapshot)
+        {
+            lock (_gate)
+            {
+                if (_disposed || snapshot.SettingsRevision <= _settingsRevision)
+                {
+                    return;
+                }
+                var current = _state.Current;
+                _settingsRevision = current.SettingsRevision;
+                if (current.Settings.Application?.DebuggingMode == true)
+                {
+                    _diagnostics ??= _createDiagnostics();
+                }
+                else
+                {
+                    _diagnostics?.Dispose();
+                    _diagnostics = null;
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_gate)
+            {
+                _disposed = true;
+                _state.SnapshotChanged -= OnSnapshotChanged;
+                _diagnostics?.Dispose();
+                _diagnostics = null;
+            }
+        }
+
+        private async Task<JsonElement> QueryDiagnosticsAsync(string method, JsonElement? parameters, CancellationToken cancellationToken)
+        {
+            var diagnostics = Diagnostics;
+            if (diagnostics is null)
+            {
+                return JsonSerializer.SerializeToElement(new { status = "disabled" });
+            }
+            var result = await diagnostics.QueryAsync(method, parameters, cancellationToken).ConfigureAwait(false);
+            lock (_gate)
+            {
+                return ReferenceEquals(diagnostics, _diagnostics) ? result
+                    : JsonSerializer.SerializeToElement(new { status = "disabled" });
+            }
+        }
 
         public Task<JsonElement> QueryAsync(string method, CancellationToken cancellationToken)
             => QueryAsync(method, null, cancellationToken);
@@ -31,7 +85,7 @@ namespace FocusRgb.App.Mcp
         public Task<JsonElement> QueryAsync(string method, JsonElement? parameters, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (IsDiagnosticMethod(method)) return Diagnostics.QueryAsync(method, parameters, cancellationToken);
+            if (IsDiagnosticMethod(method)) return QueryDiagnosticsAsync(method, parameters, cancellationToken);
             var snapshot = _state.Current;
             object value = method switch
             {

@@ -46,7 +46,7 @@ namespace FocusRgb.Core.Tests
             root["selection"]!["debounceMs"] = 2000;
             var loaded = SettingsJson.Load(root.ToJsonString());
             Assert.True(loaded.IsSuccess);
-            Assert.Equal(6, loaded.Settings!.SchemaVersion);
+            Assert.Equal(SettingsJson.CurrentSchemaVersion, loaded.Settings!.SchemaVersion);
             Assert.Equal("normal", loaded.Settings.Application!.SwitchingSpeed);
             Assert.Equal(750, loaded.Settings.Selection!.DebounceMs);
             Assert.False(loaded.Settings.Application.IncludeBetaPlugins);

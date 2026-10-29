@@ -56,6 +56,7 @@ namespace FocusRgb.App.ViewModels
         private bool _startMinimized;
         private string _applicationTheme = "System";
         private bool _verboseLogging;
+        private bool _debuggingMode;
         private bool _showProfileChangePopup = true;
         private bool _includeBetaPlugins;
         private string _switchingSpeed = "Normal (750 ms)";
@@ -313,8 +314,27 @@ namespace FocusRgb.App.ViewModels
         public bool VerboseLogging
         {
             get => _verboseLogging;
-            set => SetApplicationSettingsDraft(ref _verboseLogging, value);
+            set
+            {
+                if (SetApplicationSettingsDraft(ref _verboseLogging, value)) RaiseDiagnosticLoggingChanged();
+            }
         }
+        public bool DebuggingMode
+        {
+            get => _debuggingMode;
+            set
+            {
+                if (SetApplicationSettingsDraft(ref _debuggingMode, value)) RaiseDiagnosticLoggingChanged();
+            }
+        }
+        // The logging choice is kept while Debugging mode is off; it only shows and applies while the mode is on.
+        public bool DiagnosticLogging
+        {
+            get => DebuggingMode && VerboseLogging;
+            set => VerboseLogging = value;
+        }
+        private void RaiseDiagnosticLoggingChanged() =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DiagnosticLogging)));
         public bool ShowProfileChangePopup
         {
             get => _showProfileChangePopup;
@@ -361,6 +381,7 @@ namespace FocusRgb.App.ViewModels
         public string SavedCloseButtonBehavior => _settings.Application!.CloseButtonBehavior!;
         public bool SavedStartMinimized => _settings.Application!.StartMinimized!.Value;
         public bool SavedVerboseLogging => _settings.Application!.VerboseLogging!.Value;
+        public bool SavedDebuggingMode => _settings.Application!.DebuggingMode == true;
         public TimeSpan ApplicationObservationInterval => IsAutomatic
             ? TimeSpan.FromSeconds(1)
             : TimeSpan.FromSeconds(5);
@@ -527,6 +548,7 @@ namespace FocusRgb.App.ViewModels
                     StartMinimized = StartMinimized,
                     Theme = ApplicationTheme.ToLowerInvariant(),
                     VerboseLogging = VerboseLogging,
+                    DebuggingMode = DebuggingMode,
                     ShowProfileChangePopup = ShowProfileChangePopup,
                     IncludeBetaPlugins = IncludeBetaPlugins,
                     SwitchingSpeed = SwitchingSpeed.Split(' ')[0].ToLowerInvariant(),
@@ -1969,6 +1991,7 @@ namespace FocusRgb.App.ViewModels
                 : "Exit application";
             StartMinimized = application.StartMinimized!.Value;
             ApplicationTheme = char.ToUpperInvariant(application.Theme![0]) + application.Theme[1..];
+            DebuggingMode = application.DebuggingMode == true;
             VerboseLogging = application.VerboseLogging!.Value;
             ShowProfileChangePopup = application.ShowProfileChangePopup ?? true;
             IncludeBetaPlugins = SavedIncludeBetaPlugins;

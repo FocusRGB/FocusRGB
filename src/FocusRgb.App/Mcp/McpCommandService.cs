@@ -314,6 +314,9 @@ namespace FocusRgb.App.Mcp
             ApplicationStateSnapshot snapshot,
             long expectedRevision)
         {
+            if (snapshot.Settings.Application?.DebuggingMode != candidate.Application?.DebuggingMode)
+                throw new McpCommandException("debugging-mode-changes-not-allowed",
+                    "Debugging mode can be changed only in the FocusRGB app.");
             if (Json(snapshot.Settings.Plugins) != Json(candidate.Plugins))
                 throw new McpCommandException(
                     "plugin-changes-not-allowed",

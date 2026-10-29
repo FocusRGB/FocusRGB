@@ -79,6 +79,8 @@ namespace FocusRgb.Core.Configuration
                 Choice(document.Application.Theme, "application.theme", "system", "light", "dark");
                 if (document.Application.VerboseLogging is null)
                     Error("application.verboseLogging", "required boolean");
+                if (document.Application.DebuggingMode is null)
+                    Error("application.debuggingMode", "required boolean");
                 Choice(document.Application.SwitchingSpeed, "application.switchingSpeed", "fast", "normal", "smooth");
             }
             if (document.Plugins is null)

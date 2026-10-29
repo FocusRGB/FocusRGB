@@ -534,7 +534,8 @@
               <StackPanel Spacing="12">
                 <TextBlock Text="Diagnostics" FontSize="18" FontWeight="SemiBold" />
                 <Button x:Name="AboutButton" Content="About FocusRGB" Click="About_OnClick" />
-                <CheckBox IsChecked="{Binding VerboseLogging}"
+                <CheckBox x:Name="DebuggingModeCheckBox" IsChecked="{Binding DebuggingMode}" Content="Debugging mode" />
+                <CheckBox x:Name="DiagnosticLoggingCheckBox" IsChecked="{Binding DiagnosticLogging}" IsEnabled="{Binding DebuggingMode}"
                           Content="Enable basic diagnostic logging" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <Button Content="Open settings folder" Click="OpenSettingsFolder_OnClick" />

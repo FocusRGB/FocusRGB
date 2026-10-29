@@ -10,28 +10,28 @@ namespace FocusRgb.Mcp
     public sealed class FocusRgbReadTools(LocalMcpPipeClient client)
     {
         [McpServerTool(Name = "getSelectionTrace", ReadOnly = true)]
-        [Description("Reads recent redacted foreground/class observations, debounce state, matching rules and selection reasons. No window titles. limit is clamped to 1–50.")]
+        [Description("Reads recent redacted foreground/class observations, debounce state, matching rules and selection reasons. No window titles. limit is clamped to 1–50. Requires saved Debugging mode; returns disabled when off.")]
         public Task<JsonElement> GetSelectionTraceAsync(int limit = 20, CancellationToken cancellationToken = default) =>
             ReadDiagnosticAsync("getSelectionTrace", new { limit }, cancellationToken);
 
         [McpServerTool(Name = "getPluginRuntime", ReadOnly = true)]
-        [Description("Reads plugin origin, health, PID, start time, restarts, errors, recovery approval and official catalog cache age. limit is clamped to 1–50.")]
+        [Description("Reads plugin origin, health, PID, start time, restarts, errors, recovery approval and official catalog cache age. limit is clamped to 1–50. Requires saved Debugging mode; returns disabled when off.")]
         public Task<JsonElement> GetPluginRuntimeAsync(int limit = 20, CancellationToken cancellationToken = default) =>
             ReadDiagnosticAsync("getPluginRuntime", new { limit }, cancellationToken);
 
         [McpServerTool(Name = "getRecentLogs", ReadOnly = true)]
-        [Description("Reads redacted in-memory logs, even with file logging off. Optional exact level/source filters; limit is clamped to 1–50. Raw plugin payloads are omitted.")]
+        [Description("Reads redacted in-memory logs, even with file logging off. Optional exact level/source filters; limit is clamped to 1–50. Raw plugin payloads are omitted. Requires saved Debugging mode; returns disabled when off.")]
         public Task<JsonElement> GetRecentLogsAsync(int limit = 20, string? level = null, string? source = null,
             CancellationToken cancellationToken = default) =>
             ReadDiagnosticAsync("getRecentLogs", new { limit, level, source }, cancellationToken);
 
         [McpServerTool(Name = "getUiState", ReadOnly = true)]
-        [Description("Reads the selected app tab, dirty editors, dialog/toast names and bounded redacted status messages. No window titles.")]
+        [Description("Reads the selected app tab, dirty editors, dialog/toast names and bounded redacted status messages. No window titles. Requires saved Debugging mode; returns disabled when off.")]
         public Task<JsonElement> GetUiStateAsync(CancellationToken cancellationToken = default) =>
             ReadDiagnosticAsync("getUiState", null, cancellationToken);
 
         [McpServerTool(Name = "getOutputState", ReadOnly = true)]
-        [Description("Reads current writer scopes, rendering authority, profile/effect and last binding acknowledgement time; does not control devices or claim hardware readback.")]
+        [Description("Reads current writer scopes, rendering authority, profile/effect and last binding acknowledgement time; does not control devices or claim hardware readback. Requires saved Debugging mode; returns disabled when off.")]
         public Task<JsonElement> GetOutputStateAsync(int limit = 20, CancellationToken cancellationToken = default) =>
             ReadDiagnosticAsync("getOutputState", new { limit }, cancellationToken);
 

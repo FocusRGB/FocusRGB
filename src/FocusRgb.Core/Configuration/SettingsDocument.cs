@@ -35,6 +35,7 @@ namespace FocusRgb.Core.Configuration
         public bool? StartMinimized { get; init; }
         public string? Theme { get; init; }
         public bool? VerboseLogging { get; init; }
+        public bool? DebuggingMode { get; init; } = false;
         public bool? ShowProfileChangePopup { get; init; } = true;
         public bool? IncludeBetaPlugins { get; init; }
         public string? SwitchingSpeed { get; init; } = "normal";
