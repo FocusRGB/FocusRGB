@@ -45,6 +45,7 @@ namespace FocusRgb.LocalMcp
     }
 
     public sealed class LocalMcpMethodNotFoundException(string message) : ArgumentException(message);
+    public sealed class LocalMcpDisabledException() : InvalidOperationException("Local MCP is disabled in FocusRGB.");
 
     /// <summary>Hosts one authenticated, current-user-only named-pipe listener owned by the app.</summary>
     public sealed class LocalMcpPipeServer : IAsyncDisposable
@@ -434,7 +435,7 @@ namespace FocusRgb.LocalMcp
             if (!loaded.IsSuccess)
                 throw new InvalidOperationException(loaded.ErrorMessage);
             if (loaded.Configuration is not { Enabled: true, Credential: not null, ApplicationPath: not null } enabled)
-                throw new InvalidOperationException("Local MCP is disabled in FocusRGB.");
+                throw new LocalMcpDisabledException();
             return (enabled.Credential, enabled.ApplicationPath);
         }
 

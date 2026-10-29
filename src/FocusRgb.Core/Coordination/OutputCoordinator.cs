@@ -55,6 +55,7 @@ namespace FocusRgb.Core.Coordination
         private readonly HashSet<string> _recoveryBlockedPlugins = new(StringComparer.Ordinal);
         private readonly Dictionary<string, RuntimeNotification> _notifications = new(StringComparer.Ordinal);
         private AppliedBinding? _ownedBinding;
+        private OutputOwnershipSnapshot? _lastOutput;
         private SettingsDocument? _settings;
         private SelectionStateDocument? _state;
         private SelectionReason? _reason;
@@ -73,6 +74,8 @@ namespace FocusRgb.Core.Coordination
 
         public SelectionRuntimeStatus? CurrentStatus { get; private set; }
         public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+        public OutputOwnershipSnapshot? CurrentOutput => Volatile.Read(ref _ownedBinding)?.Output;
+        public DateTimeOffset? LastOutputAt => Volatile.Read(ref _lastOutput)?.AppliedAt;
 
         /// <summary>Applies the current desired profile or its first usable fallback.</summary>
         public Task<SelectionRuntimeStatus> ApplyAsync(
@@ -381,8 +384,12 @@ namespace FocusRgb.Core.Coordination
             }
 
             var applied = ProfileAttempt.Applied(profile.Id!, binding, result);
+            var output = new OutputOwnershipSnapshot(profile.Id!, binding.Plugin!, binding.Id!,
+                binding.RenderingAuthority!, ScopeKeys(binding).AsReadOnly(), effect.Value!.ResourceId,
+                effect.Value.DisplayName, DateTimeOffset.UtcNow, result.Outcome);
+            _lastOutput = output;
             _ownedBinding = new AppliedBinding(
-                profile.Id!, binding.Plugin!, binding.Id!, ScopeKeys(binding), applied.BindingResult);
+                profile.Id!, binding.Plugin!, binding.Id!, ScopeKeys(binding), applied.BindingResult, output);
             return applied;
         }
 
@@ -584,7 +591,8 @@ namespace FocusRgb.Core.Coordination
             string PluginId,
             string BindingId,
             IReadOnlyList<string> ScopeKeys,
-            BindingRuntimeResult BindingResult);
+            BindingRuntimeResult BindingResult,
+            OutputOwnershipSnapshot Output);
 
         private sealed class ResolvedResource
         {
@@ -643,6 +651,10 @@ namespace FocusRgb.Core.Coordination
                 };
         }
     }
+
+    public sealed record OutputOwnershipSnapshot(
+        string ProfileId, string PluginId, string BindingId, string RenderingAuthority,
+        IReadOnlyList<string> Scopes, string? EffectResourceId, string? EffectName, DateTimeOffset AppliedAt, string Outcome);
 
     /// <summary>Reports the selected effective profile without replacing desired intent.</summary>
     public sealed class EffectiveSelection

@@ -15,7 +15,11 @@ namespace FocusRgb.LocalMcp
             string? selected = null;
             for (var index = 0; index < args.Length; index++)
             {
-                if (args[index] != "--data-dir") continue;
+                if (args[index] != "--data-dir")
+                {
+                    continue;
+                }
+
                 if (selected is not null || ++index == args.Length || string.IsNullOrWhiteSpace(args[index])
                     || args[index].StartsWith("--", StringComparison.Ordinal))
                 {

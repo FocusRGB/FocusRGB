@@ -45,6 +45,8 @@ namespace FocusRgb.App.Plugins
         private PluginProcessClient(Process process)
         {
             _process = process;
+            ProcessId = process.Id;
+            StartedAt = new DateTimeOffset(process.StartTime.ToUniversalTime());
             _job = CreateKillOnCloseJob(process);
             _input = process.StandardInput;
             _input.AutoFlush = true;
@@ -61,6 +63,9 @@ namespace FocusRgb.App.Plugins
             _ => "unhealthy"
         };
         public string? PluginId { get; private set; }
+        public int ProcessId { get; }
+        public DateTimeOffset StartedAt { get; }
+        public string? LastErrorCode { get; private set; }
         public event EventHandler? StatusChanged;
         public event EventHandler<string>? LogReceived
         {
@@ -564,6 +569,7 @@ namespace FocusRgb.App.Plugins
 
         private void FailPending(string code, string message)
         {
+            LastErrorCode = code;
             foreach (var request in _pending.ToArray())
             {
                 if (_pending.TryRemove(request.Key, out var completion))
@@ -591,6 +597,7 @@ namespace FocusRgb.App.Plugins
 
         private void MarkUnhealthy()
         {
+            LastErrorCode = "unhealthy";
             var wasHealthy = Health == "healthy";
             SetRecoverableHealth(HealthUnhealthy);
             if (wasHealthy && Health == "unhealthy") RaiseStatusChanged();

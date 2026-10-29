@@ -165,10 +165,15 @@ namespace FocusRgb.App
                     dispatch: action => Dispatcher.UIThread.Post(action));
                 _viewModel = viewModel;
                 _mcpConfigurationStore = new McpConfigurationStore(directory);
+                IReadOnlyList<InstalledPluginInfo> InstalledPlugins() => _pluginInventory.List(
+                    stateService.Current.Settings.Plugins!.Enabled!, _plugins?.Entries ?? []);
                 _mcpQueries = new McpReadQueryService(
                     stateService,
-                    () => _pluginInventory.List(
-                        stateService.Current.Settings.Plugins!.Enabled!, _plugins?.Entries ?? []));
+                    InstalledPlugins,
+                    new McpDiagnostics(stateService, InstalledPlugins, () => _plugins?.Entries ?? [], outputCoordinator,
+                        async () => await Dispatcher.UIThread.InvokeAsync(() =>
+                            _mainWindow?.GetDiagnosticUiState(_profileChangePopup?.IsVisible == true)
+                            ?? new DiagnosticUiState("initializing", false, false, false, false, [], [], []))));
                 _mcpCommands = new McpCommandService(stateService, _mcpQueries);
                 _mcpCommands.ApprovalRequested += McpCommands_OnApprovalRequested;
                 _mcpCommands.ApprovalCleared += McpCommands_OnApprovalCleared;
@@ -176,6 +181,10 @@ namespace FocusRgb.App
                 pluginGateway.AvailabilityChanged += async (_, change) =>
                 {
                     if (_shutdownApproved) return;
+                    if (!change.IsAvailable)
+                    {
+                        _mcpQueries?.Diagnostics.RecordPluginError(change.PluginId, change.ReasonCode);
+                    }
                     try
                     {
                         await outputCoordinator.ReportAvailabilityAsync(
@@ -297,6 +306,7 @@ namespace FocusRgb.App
         public void Dispose()
         {
             _profileChangePopup?.Close();
+            _mcpQueries?.Dispose();
             _pluginDiscovery?.Dispose();
             _pluginInventory?.Dispose();
             _pluginConfigurationStore?.Dispose();
@@ -578,7 +588,7 @@ namespace FocusRgb.App
                     }
                     catch (Exception exception) when (exception is not OperationCanceledException)
                     {
-                        AppLog.Write($"Application observation failed: {exception.Message}");
+                        AppLog.Write($"Application observation failed: {exception.Message}", "error", "selection");
                     }
                     var interval = await Dispatcher.UIThread.InvokeAsync(() =>
                         viewModel.ApplicationObservationInterval);
@@ -715,18 +725,23 @@ namespace FocusRgb.App
                     + (_pluginRestartLimits.ContainsKey(entry.PluginId) ? " Automatic restart stopped." : string.Empty)));
         }
 
-        private static void ConfigurePluginLogging(IEnumerable<PluginRuntimeEntry> entries)
+        private void ConfigurePluginLogging(IEnumerable<PluginRuntimeEntry> entries)
         {
             foreach (var plugin in entries)
             {
                 if (plugin.Client is { } client)
                 {
-                    client.LogReceived += (_, message) => AppLog.Write($"Plugin {plugin.PluginId}: {message}");
+                    _mcpQueries?.Diagnostics.RecordPluginStart(plugin);
+                    client.LogReceived += (_, message) => AppLog.Write($"Plugin {plugin.PluginId}: {message}",
+                        source: plugin.PluginId, retainMessage: false);
                     if (plugin.Handshake?.Sdk is { } sdk)
-                        AppLog.Write($"Plugin {plugin.PluginId} SDK: {sdk.Name} {sdk.Version} ({sdk.Language}).");
+                        AppLog.Write($"Plugin {plugin.PluginId} SDK: {sdk.Name} {sdk.Version} ({sdk.Language}).", source: plugin.PluginId);
                 }
                 else
-                    AppLog.Write($"Plugin {plugin.PluginId} did not start: {plugin.ErrorCode}: {plugin.ErrorMessage}");
+                {
+                    _mcpQueries?.Diagnostics.RecordPluginError(plugin.PluginId, plugin.ErrorCode);
+                    AppLog.Write($"Plugin {plugin.PluginId} did not start: {plugin.ErrorCode}: {plugin.ErrorMessage}", "error", plugin.PluginId);
+                }
             }
         }
 
@@ -735,6 +750,7 @@ namespace FocusRgb.App
             if (_pluginDiscovery is null || _viewModel is null) return;
             var catalog = await _pluginDiscovery.DiscoverAsync(refresh,
                 includePrereleases: _viewModel.SavedIncludeBetaPlugins, cancellationToken: cancellationToken);
+            _mcpQueries?.Diagnostics.RecordCatalog(catalog);
             _viewModel.SetOfficialPlugins(catalog, listing => _pluginPackageCache?.Contains(listing) == true);
             UpdateInstalledPlugins(_viewModel);
         }

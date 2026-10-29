@@ -12,7 +12,16 @@ namespace FocusRgb.Core.Selection
     {
         public IReadOnlyCollection<string> RunningExecutables { get; init; } = [];
         public string? ForegroundExecutable { get; init; }
+        public string? ObservedForegroundExecutable { get; init; }
+        public string? ForegroundWindowClass { get; init; }
+        public bool IgnoredAsTransient { get; init; }
     }
+
+    public sealed record SelectionDebounceState(string? Stable, string? Pending, bool IsPending, int RemainingMs, int DelayMs);
+
+    public sealed record SelectionObservationTrace(
+        DateTimeOffset ObservedAt, ApplicationObservation Observation, SelectionDebounceState Debounce,
+        string Mode, string? ProfileId, string? RuleId, string Reason, string? ErrorCode);
 
     /// <summary>Explains why the selector chose a profile so the UI can report the decision.</summary>
     public sealed class SelectionReason

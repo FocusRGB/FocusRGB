@@ -529,6 +529,7 @@ namespace FocusRgb.App
             };
             var window = new Window
             {
+                Name = "Confirmation",
                 Title = title,
                 Width = 560,
                 SizeToContent = SizeToContent.Height,
@@ -602,7 +603,7 @@ namespace FocusRgb.App
                 var close = new Button { Content = "Close", HorizontalAlignment = HorizontalAlignment.Right };
                 var dialog = new Window
                 {
-                    Title = "About FocusRGB", Width = 360, Height = 180, CanResize = false,
+                    Name = "About", Title = "About FocusRGB", Width = 360, Height = 180, CanResize = false,
                     WindowStartupLocation = WindowStartupLocation.CenterOwner,
                     Content = new StackPanel
                     {

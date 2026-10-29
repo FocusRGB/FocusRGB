@@ -125,7 +125,11 @@ namespace FocusRgb.App.Tests
 
         private static async Task StopAsync(Process process)
         {
-            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+
             await process.WaitForExitAsync();
         }
     }

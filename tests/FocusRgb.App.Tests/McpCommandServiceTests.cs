@@ -156,9 +156,9 @@ namespace FocusRgb.App.Tests
             McpApprovalRequest? approval = null;
             commands.ApprovalRequested += (_, request) => approval = request;
             var credential = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-            await using var server = new LocalMcpPipeServer(credential, commands.DispatchAsync);
+            await using var server = new LocalMcpPipeServer(credential, commands.DispatchAsync, _directory);
             _ = server.RunAsync();
-            var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!);
+            var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!, _directory);
             var pending = client.RequestAsync(
                 "selectProfile", new { profile = "movie" }, TestContext.Current.CancellationToken);
             await WaitForAsync(() => approval is not null);
@@ -512,9 +512,9 @@ namespace FocusRgb.App.Tests
             var approvalSeen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             commands.ApprovalRequested += (_, _) => approvalSeen.TrySetResult();
             var credential = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-            await using var server = new LocalMcpPipeServer(credential, commands.DispatchAsync);
+            await using var server = new LocalMcpPipeServer(credential, commands.DispatchAsync, _directory);
             _ = server.RunAsync();
-            var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!);
+            var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!, _directory);
             using var cancellation = new CancellationTokenSource();
             var request = client.RequestAsync(
                 "selectProfile", new { profile = "movie" }, cancellation.Token);
@@ -534,10 +534,10 @@ namespace FocusRgb.App.Tests
             var approvalSeen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             commands.ApprovalRequested += (_, _) => approvalSeen.TrySetResult();
             var credential = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-            await using var server = new LocalMcpPipeServer(credential, commands.DispatchAsync);
+            await using var server = new LocalMcpPipeServer(credential, commands.DispatchAsync, _directory);
             _ = server.RunAsync();
             using (var pipe = new NamedPipeClientStream(
-                ".", LocalMcpProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous))
+                ".", LocalMcpProtocol.PipeNameFor(_directory), PipeDirection.InOut, PipeOptions.Asynchronous))
             {
                 await pipe.ConnectAsync(TestContext.Current.CancellationToken);
                 using var writer = new StreamWriter(pipe, new UTF8Encoding(false), leaveOpen: true)

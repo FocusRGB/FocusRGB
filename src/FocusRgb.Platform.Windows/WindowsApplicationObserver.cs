@@ -43,9 +43,10 @@ namespace FocusRgb.Platform.Windows
             }
 
             string? foreground = null;
+            ForegroundProcess foregroundProcess = default;
             try
             {
-                var foregroundProcess = _processSource.GetForegroundProcess();
+                foregroundProcess = _processSource.GetForegroundProcess();
                 if (foregroundProcess.PreservePrevious)
                 {
                     foreground = _lastForegroundExecutable;
@@ -69,6 +70,9 @@ namespace FocusRgb.Platform.Windows
             return new ApplicationObservation
             {
                 ForegroundExecutable = foreground,
+                ObservedForegroundExecutable = foregroundProcess.Executable,
+                ForegroundWindowClass = foregroundProcess.WindowClass,
+                IgnoredAsTransient = foregroundProcess.PreservePrevious,
                 RunningExecutables = running.OrderBy(name => name, ExecutableComparer).ToArray()
             };
         }

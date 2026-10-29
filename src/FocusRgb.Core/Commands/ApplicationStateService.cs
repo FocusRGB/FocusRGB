@@ -65,6 +65,7 @@ namespace FocusRgb.Core.Commands
         }
 
         public event EventHandler<ApplicationStateSnapshot>? SnapshotChanged;
+        public event EventHandler<SelectionObservationTrace>? ObservationEvaluated;
 
         public ApplicationStateSnapshot Current
         {
@@ -170,8 +171,16 @@ namespace FocusRgb.Core.Commands
             DateTimeOffset observedAt,
             CancellationToken cancellationToken = default) =>
             RunSelectionCommandAsync(
-                (settings, state) => _selectionCommands.ObserveAsync(
-                    settings, state, _selectionEngine, observation, observedAt, cancellationToken),
+                async (settings, state) =>
+                {
+                    var result = await _selectionCommands.ObserveAsync(
+                        settings, state, _selectionEngine, observation, observedAt, cancellationToken).ConfigureAwait(false);
+                    ObservationEvaluated?.Invoke(this, new SelectionObservationTrace(
+                        observedAt, observation, _selectionEngine.GetDebounceState(), state.Mode!,
+                        result.Status?.Desired.ProfileId, result.Status?.Desired.Reason.RuleId,
+                        result.Status?.Desired.Reason.Kind ?? "failed", result.ErrorCode));
+                    return result;
+                },
                 "observation",
                 cancellationToken,
                 publishUnchanged: false);

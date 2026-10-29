@@ -59,7 +59,7 @@ namespace FocusRgb.App
             if (!IsVisible) ShowFromTray();
             var dialog = new Window
             {
-                Title = "Unsaved changes", Width = 440, Height = 190, CanResize = false,
+                Name = "UnsavedChanges", Title = "Unsaved changes", Width = 440, Height = 190, CanResize = false,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner
             };
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
