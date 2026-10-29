@@ -314,17 +314,27 @@ namespace FocusRgb.App.ViewModels
         public bool VerboseLogging
         {
             get => _verboseLogging;
-            set => SetApplicationSettingsDraft(ref _verboseLogging, DebuggingMode && value);
+            set
+            {
+                if (SetApplicationSettingsDraft(ref _verboseLogging, value)) RaiseDiagnosticLoggingChanged();
+            }
         }
         public bool DebuggingMode
         {
             get => _debuggingMode;
             set
             {
-                SetApplicationSettingsDraft(ref _debuggingMode, value);
-                if (!value) VerboseLogging = false;
+                if (SetApplicationSettingsDraft(ref _debuggingMode, value)) RaiseDiagnosticLoggingChanged();
             }
         }
+        // The logging choice is kept while Debugging mode is off; it only shows and applies while the mode is on.
+        public bool DiagnosticLogging
+        {
+            get => DebuggingMode && VerboseLogging;
+            set => VerboseLogging = value;
+        }
+        private void RaiseDiagnosticLoggingChanged() =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DiagnosticLogging)));
         public bool ShowProfileChangePopup
         {
             get => _showProfileChangePopup;

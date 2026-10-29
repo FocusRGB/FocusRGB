@@ -148,7 +148,7 @@ namespace FocusRgb.App.Tests
             Assert.NotNull(queries.Diagnostics);
             Assert.True(await model.SaveApplicationSettingsAsync(TestContext.Current.CancellationToken));
             Assert.Null(queries.Diagnostics);
-            Assert.False(model.SavedVerboseLogging);
+            Assert.True(model.SavedVerboseLogging);
         }
 
         [Fact]

@@ -91,7 +91,8 @@ apply it immediately without restarting. Only the five debugging tools below req
 mode off they return `status: "disabled"`, their trace/start history and recent-log buffer are cleared
 and stop recording, and **Enable basic diagnostic logging** is off and unavailable. The Local MCP
 switch/listener, normal read tools and approval-gated control tools are unaffected. MCP cannot
-change Debugging mode. With the mode on, file logging remains optional. Settings schema v7 migrates
+change Debugging mode. With the mode on, file logging remains optional; its choice is kept while the
+mode is off and applies again when the mode is turned back on. Settings schema v7 migrates
 existing diagnostic logging on to Debugging mode on; otherwise it starts off, including recovery
 through `settings.last-known-good.json`.
 The existing reads are `listProfiles`, `listApplicationGroups`, `listMappings`, `listPlugins`,

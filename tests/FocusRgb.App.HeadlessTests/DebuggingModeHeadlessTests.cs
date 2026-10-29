@@ -7,7 +7,7 @@ namespace FocusRgb.App.HeadlessTests
     public sealed class DebuggingModeHeadlessTests
     {
         [AvaloniaFact]
-        public async Task Settings_LoggingIsDisabledUntilModeEnabledAndOnlySaveAppliesDraft()
+        public async Task Settings_LoggingIsDisabledUntilModeEnabledAndKeepsChoiceWhenModeReturns()
         {
             var model = MainWindowViewModel.CreatePreview();
             var window = new MainWindow(model);
@@ -41,7 +41,10 @@ namespace FocusRgb.App.HeadlessTests
                 Assert.True(model.SavedDebuggingMode);
                 Assert.True(await model.SaveApplicationSettingsAsync(TestContext.Current.CancellationToken));
                 Assert.False(model.SavedDebuggingMode);
-                Assert.False(model.SavedVerboseLogging);
+                Assert.True(model.SavedVerboseLogging);
+                mode.IsChecked = true;
+                Assert.True(logging.IsEnabled);
+                Assert.True(logging.IsChecked);
             }
             finally { window.AllowClose(); window.Close(); }
         }

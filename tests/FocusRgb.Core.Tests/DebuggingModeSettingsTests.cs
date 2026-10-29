@@ -42,14 +42,17 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public void Defaults_DisableDebuggingAndRejectLoggingWithoutMode()
+        public void Defaults_DisableDebuggingAndKeepLoggingChoiceWithoutMode()
         {
             var defaults = SettingsJson.LoadDefaults().Settings!;
             Assert.False(defaults.Application!.DebuggingMode);
             Assert.False(defaults.Application.VerboseLogging);
-            var invalid = JsonNode.Parse(SettingsJson.Serialize(defaults))!;
-            invalid["application"]!["verboseLogging"] = true;
-            Assert.False(SettingsJson.Load(invalid.ToJsonString()).IsSuccess);
+            var withoutMode = JsonNode.Parse(SettingsJson.Serialize(defaults))!;
+            withoutMode["application"]!["verboseLogging"] = true;
+            var kept = SettingsJson.Load(withoutMode.ToJsonString());
+            Assert.True(kept.IsSuccess);
+            Assert.True(kept.Settings!.Application!.VerboseLogging);
+            Assert.False(kept.Settings.Application.DebuggingMode);
         }
     }
 }
