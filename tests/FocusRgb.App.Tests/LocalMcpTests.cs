@@ -15,6 +15,63 @@ namespace FocusRgb.App.Tests
     [Collection(nameof(LocalMcpTestGroup))]
     public sealed class LocalMcpTests : IDisposable
     {
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Pipe_ClientPreservesLargeReplyOrErrorAfterServerDisconnects(bool error)
+        {
+            var payload = new string('\u4e2d', 8 * 1024);
+            var credential = Credential();
+            using var stopping = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            using var pipe = new NamedPipeServerStream(LocalMcpProtocol.PipeNameFor(_directory),
+                PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 4096, 64 * 1024);
+            var serving = Task.Run(async () =>
+            {
+                for (var attempt = 0; attempt < 20; attempt++)
+                {
+                    await pipe.WaitForConnectionAsync(stopping.Token);
+                    using var reader = new StreamReader(pipe, new UTF8Encoding(false), leaveOpen: true);
+                    var request = JsonSerializer.Deserialize<LocalMcpRequest>((await reader.ReadLineAsync(stopping.Token))!)!;
+                    var response = new LocalMcpResponse
+                    {
+                        Id = request.Id,
+                        Result = error ? null : JsonSerializer.SerializeToElement(new { payload }),
+                        Error = error ? new LocalMcpError { Code = "fixture-error", Message = payload } : null
+                    };
+                    await pipe.WriteAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response) + "\n"), stopping.Token);
+                    pipe.WaitForPipeDrain();
+                    pipe.Disconnect();
+                }
+            }, stopping.Token);
+            var client = CreateClient(credential, Environment.ProcessPath!);
+            try
+            {
+                for (var attempt = 0; attempt < 20; attempt++)
+                {
+                    if (error)
+                    {
+                        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                            client.QueryAsync("large-error", TestContext.Current.CancellationToken));
+                        Assert.Equal("fixture-error: " + payload, exception.Message);
+                    }
+                    else
+                    {
+                        var result = await client.QueryAsync("large-reply", TestContext.Current.CancellationToken);
+                        Assert.Equal(payload, result.GetProperty("payload").GetString());
+                    }
+                }
+            }
+            finally
+            {
+                await stopping.CancelAsync();
+                pipe.Dispose();
+                try { await serving; }
+                catch (OperationCanceledException) when (stopping.IsCancellationRequested) { }
+                catch (ObjectDisposedException) when (stopping.IsCancellationRequested) { }
+                catch (IOException) when (stopping.IsCancellationRequested) { }
+            }
+        }
+
         private readonly string _directory = Path.Combine(
             Path.GetTempPath(), "FocusRgb.Tests", Guid.NewGuid().ToString("N"));
 

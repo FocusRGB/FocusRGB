@@ -403,12 +403,8 @@ namespace FocusRgb.LocalMcp
             }
             VerifyServer(pipe, expectedServerPath);
             using var reader = new StreamReader(pipe, new UTF8Encoding(false), false, 4096, leaveOpen: true);
-            using var writer = new StreamWriter(pipe, new UTF8Encoding(false), 4096, leaveOpen: true)
-            {
-                AutoFlush = true
-            };
             var id = Guid.NewGuid().ToString("N");
-            await writer.WriteLineAsync(JsonSerializer.Serialize(new LocalMcpRequest
+            var request = JsonSerializer.Serialize(new LocalMcpRequest
             {
                 ProtocolVersion = LocalMcpProtocol.Version,
                 Id = id,
@@ -416,7 +412,9 @@ namespace FocusRgb.LocalMcp
                 ClientName = clientName,
                 Method = method,
                 Parameters = parameters is null ? null : JsonSerializer.SerializeToElement(parameters, JsonOptions)
-            })).ConfigureAwait(false);
+            }) + "\n";
+            // Pipe writes are unbuffered; no writer remains to flush after the server disconnects.
+            await pipe.WriteAsync(Encoding.UTF8.GetBytes(request), cancellationToken).ConfigureAwait(false);
             var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false)
                 ?? throw new IOException("FocusRGB closed the local MCP connection without a response.");
             var response = JsonSerializer.Deserialize<LocalMcpResponse>(line)
