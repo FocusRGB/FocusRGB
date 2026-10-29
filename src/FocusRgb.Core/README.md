@@ -42,7 +42,7 @@ Application authority and reserved game/device scope shapes can validate, but th
 claim runtime support.
 
 `NativeSetupJson.CreateDefault()` returns an independent empty app-default snapshot, and
-`LocalStateStore` handles its storage. Slices 21–22 add native rendering and output. The snapshot
+`LocalStateStore` handles its storage. Slices 20–21 add native rendering and output. The snapshot
 is not derived from provider bindings. Runtime intent is stored separately in `state.json`.
 
 ## Selecting a profile
