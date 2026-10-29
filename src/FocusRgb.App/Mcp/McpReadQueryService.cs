@@ -6,7 +6,7 @@ using FocusRgb.LocalMcp;
 namespace FocusRgb.App.Mcp
 {
     /// <summary>Projects immutable application-owned state for the read-only local MCP boundary.</summary>
-    public sealed class McpReadQueryService
+    public sealed class McpReadQueryService : IDisposable
     {
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
         private readonly ApplicationStateService _state;
@@ -14,15 +14,24 @@ namespace FocusRgb.App.Mcp
 
         public McpReadQueryService(
             ApplicationStateService state,
-            Func<IReadOnlyList<InstalledPluginInfo>> plugins)
+            Func<IReadOnlyList<InstalledPluginInfo>> plugins,
+            McpDiagnostics? diagnostics = null)
         {
             _state = state;
             _plugins = plugins;
+            Diagnostics = diagnostics ?? new McpDiagnostics(state, plugins);
         }
 
+        public McpDiagnostics Diagnostics { get; }
+        public void Dispose() => Diagnostics.Dispose();
+
         public Task<JsonElement> QueryAsync(string method, CancellationToken cancellationToken)
+            => QueryAsync(method, null, cancellationToken);
+
+        public Task<JsonElement> QueryAsync(string method, JsonElement? parameters, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (IsDiagnosticMethod(method)) return Diagnostics.QueryAsync(method, parameters, cancellationToken);
             var snapshot = _state.Current;
             object value = method switch
             {
@@ -69,5 +78,8 @@ namespace FocusRgb.App.Mcp
             };
             return Task.FromResult(JsonSerializer.SerializeToElement(value, JsonOptions));
         }
+
+        public static bool IsDiagnosticMethod(string method) => method is
+            "getSelectionTrace" or "getPluginRuntime" or "getRecentLogs" or "getUiState" or "getOutputState";
     }
 }

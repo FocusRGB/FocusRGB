@@ -70,6 +70,45 @@ dotnet build-server shutdown
 
 ---
 
+## Local MCP and isolated instances
+
+For an isolated desktop instance, run `FocusRGB.exe --data-dir "D:\FocusRGB-test"` (or set
+`FOCUSRGB_DATA_DIR`). The command-line path takes precedence; otherwise the default remains
+`%LOCALAPPDATA%\FocusRGB`. Settings, state, native setup, plugins and their data, caches, logs and
+`mcp.json` all use the selected folder. The instance lock, show-window signal and authenticated MCP
+pipe are scoped to the normalized folder and Windows user. Different folders can run side by side;
+a second launch for the same folder reuses the existing instance. Use the same `--data-dir` or
+environment variable with `FocusRgb.Mcp.exe` to connect to that instance. MCP remains off by default;
+disposable test folders may be pre-seeded with their own `mcp.json` before launch. The adapter cannot
+enable MCP or approve mutations. Do not copy a live instance's credentials into a test folder.
+
+Enable **Settings → Local MCP → Enable local MCP tools** in the selected instance before connecting
+the `FocusRgb.Mcp.exe` stdio adapter. Read tools require no approval; every mutation still requires
+explicit, single-use approval in the app. MCP cannot enable itself or approve its own requests.
+The existing reads are `listProfiles`, `listApplicationGroups`, `listMappings`, `listPlugins`,
+`listDevices`, `getStatus` and `explainActiveSelection`. Diagnostic reads add:
+
+| Tool | Read-only result |
+|---|---|
+| `getSelectionTrace(limit=20)` | Recent observed process/class, retained foreground, transient filtering, actual debounce state, matched rule/profile and reason. No window titles. |
+| `getPluginRuntime(limit=20)` | Plugin origin, health, PID, start time, successful restarts observed this session, last error code, recovery approval, and the last queried official catalog's status/cache age. |
+| `getRecentLogs(limit=20, level=null, source=null)` | Redacted in-memory host events, even with file logging off. Level/source filters are exact (level ignores case). Raw plugin log payloads are omitted. |
+| `getUiState()` | Selected tab, dirty Settings/Focus Library/Profiles editors, visibility, dialog/toast names and latest status messages. |
+| `getOutputState(limit=20)` | Current writer scopes, rendering authority, active profile/effect and last binding acknowledgement time. It never controls devices or claims physical output readback. |
+
+Trace and log buffers each retain at most 200 entries per process; restart counters retain at most
+128 plugin IDs. `limit` is clamped to 1–50;
+responses are capped at 32 KiB, text at 256 characters (identifiers have smaller caps), dialogs and
+toasts at 8 each, and UI status messages at 10. Truncation is reported; request fewer entries if the
+response-size cap is reached. Paths/URLs, credential-bearing messages and opaque token-like strings
+are conservatively redacted, so some resource identifiers may be omitted. No window titles, command
+lines, raw settings, credentials, plugin configuration or log files are returned. Catalog age is
+unknown until discovery is queried; this read does not trigger network discovery. Output timestamps
+describe acknowledged binding calls, not RGB-frame or hardware observations; provider-managed scopes
+do not enumerate physical devices. Diagnostic adapters return `status: "disabled"` with MCP off and
+`status: "unavailable"` when the instance cannot be reached, without exposing local paths or errors.
+These diagnostics add no mutation or plugin-protocol surface.
+
 ## Project Structure
 
 ```text

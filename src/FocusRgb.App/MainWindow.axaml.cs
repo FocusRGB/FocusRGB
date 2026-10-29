@@ -55,9 +55,7 @@ namespace FocusRgb.App
             _startupRegistration = startupRegistration;
             DataContext = viewModel;
             viewModel.PropertyChanged += GameStatus_OnPropertyChanged;
-            _dataDirectory = dataDirectory ?? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "FocusRGB");
+            _dataDirectory = dataDirectory ?? FocusRgb.LocalMcp.ApplicationDataDirectory.Resolve([]);
             Closing += MainWindow_OnClosing;
             Opened += (_, _) =>
             {
@@ -531,6 +529,7 @@ namespace FocusRgb.App
             };
             var window = new Window
             {
+                Name = "Confirmation",
                 Title = title,
                 Width = 560,
                 SizeToContent = SizeToContent.Height,
@@ -604,7 +603,7 @@ namespace FocusRgb.App
                 var close = new Button { Content = "Close", HorizontalAlignment = HorizontalAlignment.Right };
                 var dialog = new Window
                 {
-                    Title = "About FocusRGB", Width = 360, Height = 180, CanResize = false,
+                    Name = "About", Title = "About FocusRGB", Width = 360, Height = 180, CanResize = false,
                     WindowStartupLocation = WindowStartupLocation.CenterOwner,
                     Content = new StackPanel
                     {

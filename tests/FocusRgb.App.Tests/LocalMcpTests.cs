@@ -25,15 +25,15 @@ namespace FocusRgb.App.Tests
             for (var attempt = 0; attempt < 3; attempt++)
             {
                 var credential = Credential();
-                var server = new LocalMcpPipeServer(credential, (request, _) => Task.FromResult(
+                var server = CreateServer(credential, (request, _) => Task.FromResult(
                     request.Method == "blocked" ? largeResponse : JsonSerializer.SerializeToElement("ready")));
                 using var stalled = new NamedPipeClientStream(
-                    ".", LocalMcpProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                    ".", LocalMcpProtocol.PipeNameFor(_directory), PipeDirection.InOut, PipeOptions.Asynchronous);
                 var run = server.RunAsync();
                 try
                 {
                     // Use a later pipe instance: shutdown separately disposes the first listener.
-                    var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!);
+                    var client = CreateClient(credential, Environment.ProcessPath!);
                     await client.QueryAsync("warmup", TestContext.Current.CancellationToken);
                     await StartBlockedResponseAsync(stalled, credential);
                 }
@@ -53,13 +53,13 @@ namespace FocusRgb.App.Tests
         {
             var credential = Credential();
             var largeResponse = JsonSerializer.SerializeToElement(new string('x', 1024 * 1024));
-            await using var server = new LocalMcpPipeServer(credential, (request, _) => Task.FromResult(
+            await using var server = CreateServer(credential, (request, _) => Task.FromResult(
                 request.Method == "blocked" ? largeResponse : JsonSerializer.SerializeToElement("ready")));
             _ = server.RunAsync();
-            var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!);
+            var client = CreateClient(credential, Environment.ProcessPath!);
             await client.QueryAsync("warmup", TestContext.Current.CancellationToken);
             using var stalled = new NamedPipeClientStream(
-                ".", LocalMcpProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                ".", LocalMcpProtocol.PipeNameFor(_directory), PipeDirection.InOut, PipeOptions.Asynchronous);
             await StartBlockedResponseAsync(stalled, credential);
             if (disconnect)
             {
@@ -132,11 +132,11 @@ namespace FocusRgb.App.Tests
         public async Task Pipe_AuthenticatesAndDispatchesAReadQuery()
         {
             var credential = Credential();
-            await using var server = new LocalMcpPipeServer(
+            await using var server = CreateServer(
                 credential,
                 (request, _) => Task.FromResult(JsonSerializer.SerializeToElement(new { method = request.Method })));
             _ = server.RunAsync();
-            var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!);
+            var client = CreateClient(credential, Environment.ProcessPath!);
 
             var result = await client.QueryAsync("getStatus", TestContext.Current.CancellationToken);
 
@@ -168,11 +168,11 @@ namespace FocusRgb.App.Tests
                 }
             ]);
             var credential = Credential();
-            await using var server = new LocalMcpPipeServer(
+            await using var server = CreateServer(
                 credential,
                 (request, cancellationToken) => queries.QueryAsync(request.Method!, cancellationToken));
             _ = server.RunAsync();
-            var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!);
+            var client = CreateClient(credential, Environment.ProcessPath!);
             var tools = new FocusRgbReadTools(client);
 
             var profiles = await tools.ListProfilesAsync(TestContext.Current.CancellationToken);
@@ -199,7 +199,7 @@ namespace FocusRgb.App.Tests
         public async Task Pipe_RejectsWrongCredentialBeforeDispatch()
         {
             var dispatched = false;
-            await using var server = new LocalMcpPipeServer(
+            await using var server = CreateServer(
                 Credential(),
                 (_, _) =>
                 {
@@ -207,7 +207,7 @@ namespace FocusRgb.App.Tests
                     return Task.FromResult(JsonSerializer.SerializeToElement(true));
                 });
             _ = server.RunAsync();
-            var client = new LocalMcpPipeClient(Credential(), Environment.ProcessPath!);
+            var client = CreateClient(Credential(), Environment.ProcessPath!);
 
             var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 client.QueryAsync("getStatus", TestContext.Current.CancellationToken));
@@ -220,12 +220,12 @@ namespace FocusRgb.App.Tests
         public async Task Pipe_RejectsMalformedRequestAndUnexpectedServerPath()
         {
             var credential = Credential();
-            await using var server = new LocalMcpPipeServer(
+            await using var server = CreateServer(
                 credential,
                 (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true)));
             _ = server.RunAsync();
             using (var pipe = new NamedPipeClientStream(
-                ".", LocalMcpProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous))
+                ".", LocalMcpProtocol.PipeNameFor(_directory), PipeDirection.InOut, PipeOptions.Asynchronous))
             {
                 await pipe.ConnectAsync(TestContext.Current.CancellationToken);
                 using var writer = new StreamWriter(pipe, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
@@ -237,7 +237,7 @@ namespace FocusRgb.App.Tests
             }
 
             var wrongPath = Path.Combine(Path.GetTempPath(), "not-focusrgb.exe");
-            var client = new LocalMcpPipeClient(credential, wrongPath);
+            var client = CreateClient(credential, wrongPath);
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
                 client.QueryAsync("getStatus", TestContext.Current.CancellationToken));
         }
@@ -245,12 +245,12 @@ namespace FocusRgb.App.Tests
         [Fact]
         public async Task Pipe_AllowsOnlyOneListenerAndStopsCleanly()
         {
-            await using var first = new LocalMcpPipeServer(
+            await using var first = CreateServer(
                 Credential(),
                 (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true)));
             _ = first.RunAsync();
 
-            var error = Record.Exception(() => new LocalMcpPipeServer(
+            var error = Record.Exception(() => CreateServer(
                 Credential(),
                 (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true))));
 
@@ -260,7 +260,7 @@ namespace FocusRgb.App.Tests
         [Fact]
         public async Task Pipe_AclAllowsOnlyTheCurrentUser()
         {
-            await using var server = new LocalMcpPipeServer(
+            await using var server = CreateServer(
                 Credential(),
                 (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true)));
             var currentUser = WindowsIdentity.GetCurrent().User!;
@@ -278,22 +278,22 @@ namespace FocusRgb.App.Tests
         public async Task Pipe_SurvivesAbruptDisconnectAndReadTimeout()
         {
             var credential = Credential();
-            await using var server = new LocalMcpPipeServer(
+            await using var server = CreateServer(
                 credential,
                 (request, _) => Task.FromResult(JsonSerializer.SerializeToElement(request.Method)));
             _ = server.RunAsync();
             using (var disconnected = new NamedPipeClientStream(
-                ".", LocalMcpProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous))
+                ".", LocalMcpProtocol.PipeNameFor(_directory), PipeDirection.InOut, PipeOptions.Asynchronous))
             {
                 await disconnected.ConnectAsync(TestContext.Current.CancellationToken);
             }
-            var client = new LocalMcpPipeClient(credential, Environment.ProcessPath!);
+            var client = CreateClient(credential, Environment.ProcessPath!);
             Assert.Equal(
                 "after-disconnect",
                 (await client.QueryAsync("after-disconnect", TestContext.Current.CancellationToken)).GetString());
 
             using var stalled = new NamedPipeClientStream(
-                ".", LocalMcpProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                ".", LocalMcpProtocol.PipeNameFor(_directory), PipeDirection.InOut, PipeOptions.Asynchronous);
             await stalled.ConnectAsync(TestContext.Current.CancellationToken);
             Assert.Equal(
                 "after-timeout",
@@ -306,16 +306,16 @@ namespace FocusRgb.App.Tests
             var store = new McpConfigurationStore(_directory);
             var enabled = await store.SetEnabledAsync(
                 true, Environment.ProcessPath, TestContext.Current.CancellationToken);
-            await using var server = new LocalMcpPipeServer(
+            await using var server = CreateServer(
                 enabled.Configuration!.Credential!,
-                (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true)));
+                (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true)), _directory);
             _ = server.RunAsync();
-            var client = new LocalMcpPipeClient(store);
+            var client = CreateClient(store);
 
             Assert.True((await client.QueryAsync(
                 "getStatus", TestContext.Current.CancellationToken)).GetBoolean());
             await store.SetEnabledAsync(false, cancellationToken: TestContext.Current.CancellationToken);
-            var disabled = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            var disabled = await Assert.ThrowsAsync<LocalMcpDisabledException>(() =>
                 client.QueryAsync("getStatus", TestContext.Current.CancellationToken));
 
             Assert.Contains("disabled", disabled.Message, StringComparison.OrdinalIgnoreCase);
@@ -326,7 +326,7 @@ namespace FocusRgb.App.Tests
         {
             using var cancellation = new CancellationTokenSource();
             await cancellation.CancelAsync();
-            var client = new LocalMcpPipeClient(Credential(), Environment.ProcessPath!);
+            var client = CreateClient(Credential(), Environment.ProcessPath!);
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
                 client.QueryAsync("getStatus", cancellation.Token));
@@ -335,13 +335,19 @@ namespace FocusRgb.App.Tests
         [Fact]
         public async Task Pipe_ReportsWhenTheAppIsNotListening()
         {
-            var client = new LocalMcpPipeClient(Credential(), Environment.ProcessPath!);
+            var client = CreateClient(Credential(), Environment.ProcessPath!);
 
             var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 client.QueryAsync("getStatus", TestContext.Current.CancellationToken));
 
             Assert.Contains("not running", error.Message, StringComparison.OrdinalIgnoreCase);
         }
+
+        private LocalMcpPipeServer CreateServer(string credential, Func<LocalMcpRequest, CancellationToken, Task<JsonElement>> dispatch, string? directory = null) =>
+            new(credential, dispatch, directory ?? _directory);
+
+        private LocalMcpPipeClient CreateClient(string credential, string expectedPath) => new(credential, expectedPath, _directory);
+        private static LocalMcpPipeClient CreateClient(McpConfigurationStore store) => new(store);
 
         private static string Credential() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 

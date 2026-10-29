@@ -8,6 +8,7 @@ namespace FocusRgb.App.Diagnostics
         private const long MaxLogBytes = 1024 * 1024;
         private static readonly object Gate = new();
         private static string? _path;
+        internal static RecentLogBuffer Recent { get; } = new();
 
         public static void Configure(string dataDirectory, bool enabled)
         {
@@ -15,8 +16,9 @@ namespace FocusRgb.App.Diagnostics
                 _path = enabled ? Path.Combine(dataDirectory, "logs", "focusrgb.log") : null;
         }
 
-        public static void Write(string message)
+        public static void Write(string message, string level = "info", string source = "app", bool retainMessage = true)
         {
+            Recent.Add(message, level, source, retainMessage);
             lock (Gate)
             {
                 if (_path is null) return;

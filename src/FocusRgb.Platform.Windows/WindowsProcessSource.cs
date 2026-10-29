@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace FocusRgb.Platform.Windows
 {
-    internal readonly record struct ForegroundProcess(string? Executable, bool PreservePrevious);
+    internal readonly record struct ForegroundProcess(string? Executable, bool PreservePrevious, string? WindowClass = null);
 
     internal interface IWindowsProcessSource
     {
@@ -80,7 +80,10 @@ namespace FocusRgb.Platform.Windows
             }
             if (ShouldPreserveForeground(windowClass, processId, _currentProcessId))
             {
-                return new ForegroundProcess(null, true);
+                string? name = null;
+                try { name = GetExecutableName(processId); }
+                catch (Exception exception) when (IsExpectedProcessFailure(exception)) { }
+                return new ForegroundProcess(name, true, windowClass);
             }
 
             try
@@ -88,17 +91,17 @@ namespace FocusRgb.Platform.Windows
                 var executable = GetExecutableName(processId);
                 if (ShouldPreserveForeground(windowClass, processId, _currentProcessId, executable))
                 {
-                    return new ForegroundProcess(null, true);
+                    return new ForegroundProcess(executable, true, windowClass);
                 }
                 if (!executable.Equals("ApplicationFrameHost.exe", StringComparison.OrdinalIgnoreCase))
                 {
-                    return new ForegroundProcess(executable, false);
+                    return new ForegroundProcess(executable, false, windowClass);
                 }
 
                 processId = SelectForegroundProcessId(executable, processId, GetChildWindows(window));
                 return processId == _currentProcessId
-                    ? new ForegroundProcess(null, true)
-                    : new ForegroundProcess(GetExecutableName(processId), false);
+                    ? new ForegroundProcess(null, true, windowClass)
+                    : new ForegroundProcess(GetExecutableName(processId), false, windowClass);
             }
             catch (Exception exception) when (IsExpectedProcessFailure(exception))
             {

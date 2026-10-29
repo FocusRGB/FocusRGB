@@ -212,6 +212,14 @@ namespace FocusRgb.Core.Selection
             _hasStableObservation = true;
         }
 
+        public SelectionDebounceState GetDebounceState()
+        {
+            var delay = SwitchingSpeedPresets.Milliseconds(_settings.Application!.SwitchingSpeed);
+            var pending = _lastMode == SelectionMode.Automatic && _hasPendingForeground;
+            return new SelectionDebounceState(_stableForeground, pending ? _pendingForeground : null,
+                pending, pending ? Math.Max(0, delay - (int)Math.Min(delay, _timeProvider.GetElapsedTime(_pendingSince).TotalMilliseconds)) : 0, delay);
+        }
+
         private void ResetFocusTracking()
         {
             _stableForeground = null;

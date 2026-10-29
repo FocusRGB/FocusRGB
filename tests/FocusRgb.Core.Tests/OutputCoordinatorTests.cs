@@ -27,6 +27,10 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("desired", status.Effective.Source);
             Assert.Equal("applied", applied.Outcome);
             Assert.Equal("fake-aurora", Assert.Single(gateway.Applied).Effect!.ResourceId);
+            Assert.Equal("fake-output", coordinator.CurrentOutput!.PluginId);
+            Assert.Equal("provider", coordinator.CurrentOutput.RenderingAuthority);
+            Assert.Equal(["provider-managed"], coordinator.CurrentOutput.Scopes);
+            Assert.Equal(coordinator.CurrentOutput.AppliedAt, coordinator.LastOutputAt);
         }
 
         [Fact]
@@ -44,6 +48,8 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("fallback", status.Effective.Source);
             Assert.Equal("unavailable", Assert.Single(status.Applied!.Bindings).Outcome);
             Assert.Equal("plugin-absent", Assert.Single(status.Effective.Skipped).ReasonCode);
+            Assert.Null(coordinator.CurrentOutput);
+            Assert.Null(coordinator.LastOutputAt);
             Assert.Equal("native-output-unavailable", Assert.Single(status.Pending).ReasonCode);
         }
 

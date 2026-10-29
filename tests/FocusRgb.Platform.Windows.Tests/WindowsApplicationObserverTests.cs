@@ -7,6 +7,21 @@ namespace FocusRgb.Platform.Windows.Tests
     /// <summary>Checks deterministic process/focus snapshots without reading the test machine.</summary>
     public sealed class WindowsApplicationObserverTests
     {
+        [Fact]
+        public void Observe_RecordsRawProcessAndClassWhileKeepingThePreviousApp()
+        {
+            var source = new FakeProcessSource { Foreground = "Code.exe", WindowClass = "RealApp" };
+            var observer = new WindowsApplicationObserver(source);
+            _ = observer.Observe();
+            source.Foreground = "explorer.exe";
+            source.WindowClass = "XamlExplorerHostIslandWindow";
+            source.PreservePrevious = true;
+            var observation = observer.Observe();
+            Assert.Equal("Code.exe", observation.ForegroundExecutable);
+            Assert.Equal("explorer.exe", observation.ObservedForegroundExecutable);
+            Assert.Equal("XamlExplorerHostIslandWindow", observation.ForegroundWindowClass);
+            Assert.True(observation.IgnoredAsTransient);
+        }
         [Theory]
         [InlineData("fast", 300)]
         [InlineData("normal", 750)]
@@ -209,6 +224,7 @@ namespace FocusRgb.Platform.Windows.Tests
             public IReadOnlyCollection<string> Running { get; set; } = [];
             public string? Foreground { get; set; }
             public bool PreservePrevious { get; set; }
+            public string? WindowClass { get; set; }
             public Exception? RunningError { get; init; }
             public Exception? ForegroundError { get; init; }
 
@@ -217,7 +233,7 @@ namespace FocusRgb.Platform.Windows.Tests
 
             public ForegroundProcess GetForegroundProcess() =>
                 ForegroundError is null
-                    ? new ForegroundProcess(Foreground, PreservePrevious)
+                    ? new ForegroundProcess(Foreground, PreservePrevious, WindowClass)
                     : throw ForegroundError;
         }
     }

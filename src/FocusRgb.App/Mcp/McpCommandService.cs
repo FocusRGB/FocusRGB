@@ -51,7 +51,7 @@ namespace FocusRgb.App.Mcp
         {
             ArgumentNullException.ThrowIfNull(request);
             if (IsReadMethod(request.Method!))
-                return await _queries.QueryAsync(request.Method!, cancellationToken).ConfigureAwait(false);
+                return await _queries.QueryAsync(request.Method!, request.Parameters, cancellationToken).ConfigureAwait(false);
 
             PreparedCommand prepared;
             try
@@ -464,7 +464,8 @@ namespace FocusRgb.App.Mcp
 
         private static bool IsReadMethod(string method) => method is
             "listProfiles" or "listApplicationGroups" or "listMappings" or "listPlugins"
-            or "listDevices" or "getStatus" or "explainActiveSelection";
+            or "listDevices" or "getStatus" or "explainActiveSelection"
+            || McpReadQueryService.IsDiagnosticMethod(method);
 
         private static JsonElement Result(ApplicationCommandResult result) =>
             result.IsSuccess
