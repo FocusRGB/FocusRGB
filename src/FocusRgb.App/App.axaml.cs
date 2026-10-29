@@ -95,7 +95,8 @@ namespace FocusRgb.App
                 }
 
                 var trayAvailable = OperatingSystem.IsWindows();
-                AppLog.Configure(directory, startup.Snapshot!.Settings.Application!.VerboseLogging == true);
+                AppLog.Configure(directory, startup.Snapshot!.Settings.Application!.VerboseLogging == true,
+                    startup.Snapshot.Settings.Application.DebuggingMode == true);
                 AppLog.Write($"Started; settings source={startup.Snapshot.SettingsSource}.");
                 var pluginGateway = new PluginRuntimeGateway([]);
                 _pluginGateway = pluginGateway;
@@ -139,6 +140,19 @@ namespace FocusRgb.App
                     initialOutput,
                     startup.Snapshot.GameCatalog);
                 _applicationState = stateService;
+                var loggingGate = new object();
+                long loggingSettingsRevision = -1;
+                stateService.SnapshotChanged += (_, snapshot) =>
+                {
+                    lock (loggingGate)
+                    {
+                        if (snapshot.SettingsRevision <= loggingSettingsRevision) return;
+                        var current = stateService.Current;
+                        loggingSettingsRevision = current.SettingsRevision;
+                        var application = current.Settings.Application;
+                        AppLog.Configure(directory, application?.VerboseLogging == true, application?.DebuggingMode == true);
+                    }
+                };
                 var popupDecision = new FocusRgb.Core.Selection.ProfileChangePopupDecision();
                 popupDecision.Update(stateService.Current);
                 stateService.SnapshotChanged += (_, snapshot) => Dispatcher.UIThread.Post(() =>
@@ -170,7 +184,7 @@ namespace FocusRgb.App
                 _mcpQueries = new McpReadQueryService(
                     stateService,
                     InstalledPlugins,
-                    new McpDiagnostics(stateService, InstalledPlugins, () => _plugins?.Entries ?? [], outputCoordinator,
+                    () => new McpDiagnostics(stateService, InstalledPlugins, () => _plugins?.Entries ?? [], outputCoordinator,
                         async () => await Dispatcher.UIThread.InvokeAsync(() =>
                             _mainWindow?.GetDiagnosticUiState(_profileChangePopup?.IsVisible == true)
                             ?? new DiagnosticUiState("initializing", false, false, false, false, [], [], []))));
@@ -183,7 +197,7 @@ namespace FocusRgb.App
                     if (_shutdownApproved) return;
                     if (!change.IsAvailable)
                     {
-                        _mcpQueries?.Diagnostics.RecordPluginError(change.PluginId, change.ReasonCode);
+                        _mcpQueries?.Diagnostics?.RecordPluginError(change.PluginId, change.ReasonCode);
                     }
                     try
                     {
@@ -731,7 +745,7 @@ namespace FocusRgb.App
             {
                 if (plugin.Client is { } client)
                 {
-                    _mcpQueries?.Diagnostics.RecordPluginStart(plugin);
+                    _mcpQueries?.Diagnostics?.RecordPluginStart(plugin);
                     client.LogReceived += (_, message) => AppLog.Write($"Plugin {plugin.PluginId}: {message}",
                         source: plugin.PluginId, retainMessage: false);
                     if (plugin.Handshake?.Sdk is { } sdk)
@@ -739,7 +753,7 @@ namespace FocusRgb.App
                 }
                 else
                 {
-                    _mcpQueries?.Diagnostics.RecordPluginError(plugin.PluginId, plugin.ErrorCode);
+                    _mcpQueries?.Diagnostics?.RecordPluginError(plugin.PluginId, plugin.ErrorCode);
                     AppLog.Write($"Plugin {plugin.PluginId} did not start: {plugin.ErrorCode}: {plugin.ErrorMessage}", "error", plugin.PluginId);
                 }
             }
@@ -750,7 +764,7 @@ namespace FocusRgb.App
             if (_pluginDiscovery is null || _viewModel is null) return;
             var catalog = await _pluginDiscovery.DiscoverAsync(refresh,
                 includePrereleases: _viewModel.SavedIncludeBetaPlugins, cancellationToken: cancellationToken);
-            _mcpQueries?.Diagnostics.RecordCatalog(catalog);
+            _mcpQueries?.Diagnostics?.RecordCatalog(catalog);
             _viewModel.SetOfficialPlugins(catalog, listing => _pluginPackageCache?.Contains(listing) == true);
             UpdateInstalledPlugins(_viewModel);
         }

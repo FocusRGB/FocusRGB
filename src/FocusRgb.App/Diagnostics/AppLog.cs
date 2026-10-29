@@ -10,10 +10,13 @@ namespace FocusRgb.App.Diagnostics
         private static string? _path;
         internal static RecentLogBuffer Recent { get; } = new();
 
-        public static void Configure(string dataDirectory, bool enabled)
+        public static void Configure(string dataDirectory, bool enabled, bool debuggingMode = false)
         {
             lock (Gate)
-                _path = enabled ? Path.Combine(dataDirectory, "logs", "focusrgb.log") : null;
+            {
+                _path = debuggingMode && enabled ? Path.Combine(dataDirectory, "logs", "focusrgb.log") : null;
+                Recent.SetEnabled(debuggingMode);
+            }
         }
 
         public static void Write(string message, string level = "info", string source = "app", bool retainMessage = true)

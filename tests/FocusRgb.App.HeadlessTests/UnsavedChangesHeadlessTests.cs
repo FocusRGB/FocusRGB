@@ -260,7 +260,7 @@ namespace FocusRgb.App.HeadlessTests
         {
             switch (editor)
             {
-                case "Settings": model.VerboseLogging = !model.VerboseLogging; break;
+                case "Settings": model.DebuggingMode = true; model.VerboseLogging = true; break;
                 case "Focus": model.MappingEditor.BeginCreate(); break;
                 case "Profiles":
                     model.EditingProfile = model.Profiles.First(profile => profile.Id != "default");

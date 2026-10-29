@@ -7,13 +7,28 @@ namespace FocusRgb.App.Diagnostics
         private readonly object _gate = new();
         private readonly Queue<DiagnosticLogLine> _lines = new();
         public const int Capacity = 200;
+        private bool _enabled;
+
+        public void SetEnabled(bool enabled)
+        {
+            lock (_gate)
+            {
+                _enabled = enabled;
+                if (!enabled)
+                {
+                    _lines.Clear();
+                    _lines.TrimExcess();
+                }
+            }
+        }
 
         public void Add(string message, string level, string source, bool retainMessage = true)
         {
-            var line = new DiagnosticLogLine(DateTimeOffset.UtcNow, DiagnosticText.Clean(level, 16)!,
-                DiagnosticText.Clean(source, 64)!, retainMessage ? DiagnosticText.Clean(message)! : "Plugin log event (payload omitted).");
             lock (_gate)
             {
+                if (!_enabled) return;
+                var line = new DiagnosticLogLine(DateTimeOffset.UtcNow, DiagnosticText.Clean(level, 16)!,
+                    DiagnosticText.Clean(source, 64)!, retainMessage ? DiagnosticText.Clean(message)! : "Plugin log event (payload omitted).");
                 if (_lines.Count == Capacity)
                 {
                     _lines.Dequeue();

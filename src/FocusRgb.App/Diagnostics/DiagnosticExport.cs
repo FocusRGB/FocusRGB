@@ -24,6 +24,7 @@ namespace FocusRgb.App.Diagnostics
                 closeBehavior = viewModel.SavedCloseButtonBehavior,
                 startMinimized = viewModel.SavedStartMinimized,
                 verboseLogging = viewModel.SavedVerboseLogging,
+                debuggingMode = viewModel.SavedDebuggingMode,
                 rawLogsIncluded = false
             });
         }

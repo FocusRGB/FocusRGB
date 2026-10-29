@@ -23,6 +23,7 @@ namespace FocusRgb.App.Tests
             viewModel.CloseButtonBehavior = "Exit application";
             viewModel.StartMinimized = true;
             viewModel.ApplicationTheme = "Dark";
+            viewModel.DebuggingMode = true;
             viewModel.VerboseLogging = true;
             viewModel.ShowProfileChangePopup = false;
             viewModel.IncludeBetaPlugins = false;

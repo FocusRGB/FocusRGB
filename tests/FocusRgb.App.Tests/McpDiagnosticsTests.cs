@@ -59,7 +59,12 @@ namespace FocusRgb.App.Tests
             var store = new LocalStateStore(temporary.Path);
             var startup = await store.InitializeAsync(DateTimeOffset.UtcNow, TestContext.Current.CancellationToken);
             var state = new ApplicationStateService(startup.Snapshot!.Settings, startup.Snapshot.State, startup.Snapshot.Desired.Reason, store);
+            var settings = JsonNode.Parse(SettingsJson.Serialize(state.Current.Settings))!;
+            settings["application"]!["debuggingMode"] = true;
+            Assert.True((await state.ApplySettingsAsync(SettingsJson.Load(settings.ToJsonString()).Settings!,
+                state.Current.SettingsRevision, "ui", TestContext.Current.CancellationToken)).IsSuccess);
             var logs = new RecentLogBuffer();
+            logs.SetEnabled(true);
             for (var index = 0; index < 230; index++)
             {
                 logs.Add($"Event {index}", "warning", "selection");
@@ -76,7 +81,7 @@ namespace FocusRgb.App.Tests
                 () => Task.FromResult(new DiagnosticUiState("Settings", true, true, true, false,
                     Enumerable.Repeat("Password=private-value", 20).ToArray(), Enumerable.Repeat("C:/Private/toast", 20).ToArray(),
                     Enumerable.Repeat(new DiagnosticUiStatus("settings", "Authorization: Bearer private-value"), 30).ToArray())), logs);
-            using var queries = new McpReadQueryService(state, () => [], diagnostics);
+            using var queries = new McpReadQueryService(state, () => [], () => diagnostics);
             var commands = new McpCommandService(state, queries);
             var at = DateTimeOffset.UtcNow;
             for (var index = 0; index < 230; index++)
@@ -184,10 +189,11 @@ namespace FocusRgb.App.Tests
         public void AppLog_RetainsRedactedEventsWhenFileLoggingIsOff()
         {
             using var temporary = new TempDirectory(nameof(McpDiagnosticsTests));
-            AppLog.Configure(temporary.Path, false);
+            AppLog.Configure(temporary.Path, false, debuggingMode: true);
             AppLog.Write("Password=private-value", "warning", "off-test");
             Assert.Contains("redacted", AppLog.Recent.Read(1, "warning", "off-test").Single().Message, StringComparison.Ordinal);
             Assert.False(Directory.Exists(Path.Combine(temporary.Path, "logs")));
+            AppLog.Configure(temporary.Path, false);
         }
 
         [Fact]
