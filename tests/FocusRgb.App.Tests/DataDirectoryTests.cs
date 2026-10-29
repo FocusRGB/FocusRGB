@@ -8,6 +8,17 @@ namespace FocusRgb.App.Tests
     public sealed class DataDirectoryTests
     {
         [Fact]
+        public void InstanceLock_RefusesACompetingFolderHolderUntilReleased()
+        {
+            using var temporary = new TempDirectory(nameof(DataDirectoryTests));
+            using (ApplicationDataDirectory.AcquireInstanceLock(temporary.Path))
+            {
+                Assert.Throws<IOException>(() => ApplicationDataDirectory.AcquireInstanceLock(temporary.Path + "/./"));
+            }
+            using var acquired = ApplicationDataDirectory.AcquireInstanceLock(temporary.Path);
+            Assert.True(acquired.CanWrite);
+        }
+        [Fact]
         public void Resolve_CommandLineWinsAndEquivalentFoldersShareIdentity()
         {
             using var temporary = new TempDirectory(nameof(DataDirectoryTests));

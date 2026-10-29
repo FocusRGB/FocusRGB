@@ -29,6 +29,13 @@ namespace FocusRgb.LocalMcp
 
         public static string Normalize(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
 
+        public static FileStream AcquireInstanceLock(string dataDirectory)
+        {
+            Directory.CreateDirectory(dataDirectory);
+            // A file lock also rejects directory aliases that have different named-mutex hashes.
+            return new FileStream(Path.Combine(dataDirectory, ".instance.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        }
+
         public static string Scope(string dataDirectory)
         {
             var path = Normalize(dataDirectory).ToUpperInvariant();

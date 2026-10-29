@@ -10,7 +10,8 @@ namespace FocusRgb.App
         public static int Main(string[] args)
         {
             if (!OperatingSystem.IsWindows()) return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
-            var scope = ApplicationDataDirectory.Scope(ApplicationDataDirectory.Resolve(args));
+            var directory = ApplicationDataDirectory.Resolve(args);
+            var scope = ApplicationDataDirectory.Scope(directory);
             using var showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, $"Local\\FocusRGB.Show.{scope}");
             using var instance = new Mutex(true, $"Local\\FocusRGB.Instance.{scope}", out var firstInstance);
             if (!firstInstance)
@@ -22,6 +23,17 @@ namespace FocusRgb.App
                 return 0;
             }
 
+            FileStream dataLock;
+            try
+            {
+                dataLock = ApplicationDataDirectory.AcquireInstanceLock(directory);
+            }
+            catch (IOException exception) when ((exception.HResult & 0xffff) is 32 or 33)
+            {
+                instance.ReleaseMutex();
+                return 0;
+            }
+            using var heldDataLock = dataLock;
             using var listenerCancellation = new CancellationTokenSource();
             var listener = Task.Run(() =>
             {
