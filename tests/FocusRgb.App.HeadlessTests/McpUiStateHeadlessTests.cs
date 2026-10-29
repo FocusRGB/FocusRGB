@@ -7,6 +7,28 @@ namespace FocusRgb.App.HeadlessTests
     public sealed class McpUiStateHeadlessTests
     {
         [AvaloniaFact]
+        public async Task SettingsSave_WritesOnlyInsideTheDisposableProcessDataFolder()
+        {
+            var window = new MainWindow(MainWindowViewModel.CreatePreview());
+            var model = (MainWindowViewModel)window.DataContext!;
+            window.Show();
+            try
+            {
+                Assert.Equal(HeadlessTestApplication.DataDirectory, FocusRgb.LocalMcp.ApplicationDataDirectory.Resolve([]));
+                Assert.NotEqual(FocusRgb.LocalMcp.ApplicationDataDirectory.Default, HeadlessTestApplication.DataDirectory);
+                model.VerboseLogging = true;
+                window.UnsavedChangesPrompt = () => Task.FromResult(UnsavedChangesChoice.Save);
+                Assert.True(await window.ConfirmUnsavedChangesAsync());
+                Assert.True(File.Exists(Path.Combine(HeadlessTestApplication.DataDirectory, "logs", "focusrgb.log")));
+            }
+            finally
+            {
+                window.AllowClose();
+                window.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public async Task DiagnosticUiState_ReportsEditorFlagsAndDialogNamesWithoutTitles()
         {
             var model = MainWindowViewModel.CreatePreview();
