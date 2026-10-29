@@ -163,7 +163,7 @@ namespace FocusRgb.Core.Tests
 
         [Theory]
         [InlineData(0)]
-        [InlineData(7)]
+        [InlineData(8)]
         public void Load_RejectsUnsupportedVersion_WithoutMigrationOrPersistence(int version)
         {
             var root = Defaults();
