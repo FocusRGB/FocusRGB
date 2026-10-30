@@ -406,7 +406,9 @@ namespace FocusRgb.Core.Commands
                                     _settings = savedCandidate;
                                     _selectionState = currentState;
                                     _selectionReason = currentReason;
-                                    _selectionEngine = new SelectionEngine(savedCandidate, _gameCatalog);
+                                    var updatedEngine = new SelectionEngine(savedCandidate, _gameCatalog);
+                                    updatedEngine.CopyRetainedFocusFrom(_selectionEngine);
+                                    _selectionEngine = updatedEngine;
                                     _settingsRevision++;
                                 }
                                 var reapplied = await _selectionCommands.ReapplyAsync(
