@@ -35,6 +35,8 @@ namespace FocusRgb.App
             WindowDecorations = WindowDecorations.None;
             IsHitTestVisible = false;
             Focusable = false;
+            TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
+            Background = Brushes.Transparent;
             Transitions = new Transitions { new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(150) } };
             _panel = new Border { CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Child = _message };
             Content = _panel;
@@ -54,7 +56,8 @@ namespace FocusRgb.App
             _message.FontSize = settings.Size switch { "small" => 12, "large" => 18, _ => 14 };
             _panel.Padding = new Thickness(settings.Size switch { "small" => 12, "large" => 24, _ => 18 });
             var light = settings.Background == "light";
-            Background = _panel.Background = new SolidColorBrush(Color.Parse(settings.Background switch
+            Background = Brushes.Transparent;
+            _panel.Background = new SolidColorBrush(Color.Parse(settings.Background switch
             {
                 "light" => "#F3F4F6", "blue" => "#2452A1", _ => "#1F2937"
             }));
