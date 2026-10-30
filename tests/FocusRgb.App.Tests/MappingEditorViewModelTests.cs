@@ -26,7 +26,7 @@ namespace FocusRgb.App.Tests
 
             Assert.Equal([original[2], original[0], original[1]], editor.Mappings);
             Assert.Equal([1, 2, 3], editor.Mappings.Select(row => row.Position));
-            Assert.True(editor.IsDirty);
+            Assert.False(editor.IsDirty);
             Assert.Equal(1, editor.PreviewRevision);
             Assert.Equal(1, changes);
             Assert.False(editor.CommitReorder());
@@ -40,7 +40,7 @@ namespace FocusRgb.App.Tests
         {
             var editor = MainWindowViewModel.CreatePreview().MappingEditor;
             editor.LivePreview = true;
-            if (alreadyDirty) editor.Move(editor.Mappings[0], 1);
+            if (alreadyDirty) editor.Mappings[0].Eligibility = "while-running";
             var original = editor.Mappings.ToArray();
             var revision = editor.PreviewRevision;
             Assert.True(editor.BeginReorder(original[0]));
@@ -70,7 +70,7 @@ namespace FocusRgb.App.Tests
             Assert.Equal(expected, editor.ReorderIndex);
             Assert.Equal(changed, editor.CommitReorder());
             Assert.Same(item, editor.Mappings[expected]);
-            Assert.Equal(changed, editor.IsDirty);
+            Assert.False(editor.IsDirty);
         }
 
         [Fact]
@@ -97,17 +97,17 @@ namespace FocusRgb.App.Tests
             Assert.Equal(expected, MainWindow.MappingAutoScrollDelta(pointerY, 200));
 
         [Theory]
-        [InlineData(0, -1, 0, false)]
-        [InlineData(0, 1, 1, true)]
-        [InlineData(2, 1, 2, false)]
-        [InlineData(2, -1, 1, true)]
-        public void Move_ChangesOneStepAndStopsAtEdges(int start, int offset, int expected, bool dirty)
+        [InlineData(0, -1, 0)]
+        [InlineData(0, 1, 1)]
+        [InlineData(2, 1, 2)]
+        [InlineData(2, -1, 1)]
+        public void Move_ChangesOneStepAndStopsAtEdges(int start, int offset, int expected)
         {
             var editor = MainWindowViewModel.CreatePreview().MappingEditor;
             var item = editor.Mappings[start];
             editor.Move(item, offset);
             Assert.Same(item, editor.Mappings[expected]);
-            Assert.Equal(dirty, editor.IsDirty);
+            Assert.False(editor.IsDirty);
             Assert.Equal([1, 2, 3], editor.Mappings.Select(row => row.Position));
             Assert.All(editor.Mappings, row =>
             {
@@ -197,7 +197,7 @@ namespace FocusRgb.App.Tests
 
             Assert.Equal(["music", "programming", "movie"], editor.Mappings.Select(mapping => mapping.Id));
             Assert.Equal([1, 2, 3], editor.Mappings.Select(mapping => mapping.Position));
-            Assert.True(editor.IsDirty);
+            Assert.False(editor.IsDirty);
         }
 
         [Fact]

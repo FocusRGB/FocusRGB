@@ -17,6 +17,7 @@ namespace FocusRgb.App.Tests
             var loaded = await store.InitializeAsync(DateTimeOffset.UtcNow, TestContext.Current.CancellationToken);
             var model = MainWindowViewModel.CreatePersistent(loaded.Snapshot!, store);
             var editor = model.MappingEditor;
+            editor.PropertyChanged += (_, _) => Assert.False(editor.IsDirty);
             var middle = editor.Mappings[1];
             if (offset == 0)
             {
@@ -26,7 +27,9 @@ namespace FocusRgb.App.Tests
             }
             else editor.Move(middle, offset);
             var expected = editor.Mappings.Select(item => item.Id).ToArray();
-            await model.SaveMappingOrderAsync(TestContext.Current.CancellationToken);
+            var save = model.SaveMappingOrderAsync(TestContext.Current.CancellationToken);
+            Assert.False(editor.IsDirty);
+            await save;
             Assert.False(editor.IsDirty);
             var restarted = await store.InitializeAsync(DateTimeOffset.UtcNow, TestContext.Current.CancellationToken);
             Assert.Equal(expected, restarted.Snapshot!.Settings.Rules!.Select(rule => rule.Id));
