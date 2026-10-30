@@ -407,7 +407,9 @@ namespace FocusRgb.App.ViewModels
 
         internal void NotifyDraftChanged()
         {
-            IsDirty = !Mappings.Select(mapping => mapping.CreateSnapshot()).SequenceEqual(_appliedMappings);
+            // Order saves automatically; only rule content and membership belong to the draft.
+            IsDirty = !Mappings.Select(mapping => mapping.CreateSnapshot()).OrderBy(mapping => mapping.Id, StringComparer.Ordinal)
+                .SequenceEqual(_appliedMappings.OrderBy(mapping => mapping.Id, StringComparer.Ordinal));
             OnPropertyChanged(nameof(IsDirty));
             PreviewStatus = IsDirty
                 ? LivePreview ? "Draft preview updated in the editor; output is sent after Save." : "Draft changes are waiting for Save."

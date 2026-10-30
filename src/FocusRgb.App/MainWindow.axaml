@@ -183,7 +183,7 @@
                 <TextBlock x:Name="FocusSaveStatus" Text="{Binding MappingEditor.PreviewStatus}">
                   <TextBlock.Transitions><Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.25" /></Transitions></TextBlock.Transitions>
                 </TextBlock>
-                <TextBlock Text="Unsaved draft" IsVisible="{Binding MappingEditor.IsDirty}" Foreground="#FBBF24" FontWeight="SemiBold" />
+                <TextBlock x:Name="FocusDraftStatusText" Text="Unsaved draft" IsVisible="{Binding MappingEditor.IsDirty}" Foreground="#FBBF24" FontWeight="SemiBold" />
               </StackPanel>
             </Grid>
           </Grid>
