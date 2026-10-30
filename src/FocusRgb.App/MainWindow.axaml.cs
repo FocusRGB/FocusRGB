@@ -780,12 +780,6 @@ namespace FocusRgb.App
             ViewModel.MappingEditor.BeginCreate();
         }
 
-        private void EditSelectedFocus_OnClick(object? sender, RoutedEventArgs e)
-        {
-            if (ViewModel.MappingEditor.SelectedMapping is { } item) ViewModel.MappingEditor.BeginEdit(item);
-            ResetFocusStatus();
-        }
-
         private void MoveMappingUp_OnClick(object? sender, RoutedEventArgs e) =>
             MoveFromButton(sender, -1);
 
