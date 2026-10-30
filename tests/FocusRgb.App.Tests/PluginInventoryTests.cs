@@ -7,6 +7,19 @@ namespace FocusRgb.App.Tests
     {
         private readonly TempDirectory _temporaryDirectory = new(nameof(PluginInventoryTests));
 
+        [Theory]
+        [InlineData("steam", "Steam")]
+        [InlineData("signalrgb", "SignalRGB")]
+        [InlineData("custom-plugin", "custom-plugin")]
+        public void List_PreservesKnownBrandCasingWithoutChangingIds(string id, string displayName)
+        {
+            Directory.CreateDirectory(Path.Combine(_temporaryDirectory.Path, id));
+            using var inventory = new PluginInventory(_temporaryDirectory.Path);
+            var plugin = Assert.Single(inventory.List([], []));
+            Assert.Equal(id, plugin.Id);
+            Assert.Equal(displayName, plugin.DisplayName);
+        }
+
         [Fact]
         public async Task List_LabelsManualFolderCustom_UntilOfficialInstallIsRecorded()
         {

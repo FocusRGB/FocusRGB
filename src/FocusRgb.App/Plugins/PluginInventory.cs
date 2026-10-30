@@ -77,7 +77,12 @@ namespace FocusRgb.App.Plugins
             return new InstalledPluginInfo
             {
                 Id = pluginId,
-                DisplayName = package.Manifest?.Id ?? pluginId,
+                DisplayName = pluginId switch
+                {
+                    "steam" => "Steam",
+                    "signalrgb" => "SignalRGB",
+                    _ => package.Manifest?.Id ?? pluginId
+                },
                 Version = package.Manifest?.Version,
                 Manifest = package.Manifest,
                 HasConfiguration = PluginConfigurationStore.TryReadSchema(

@@ -11,6 +11,24 @@ namespace FocusRgb.App.HeadlessTests
     public sealed class PluginSettingsHeadlessTests
     {
         [AvaloniaFact]
+        public void Configure_UsesInstalledPluginDisplayNameInHeaderAndTitle()
+        {
+            using var temporary = new FocusRgb.TestSupport.TempDirectory(nameof(PluginSettingsHeadlessTests));
+            Directory.CreateDirectory(Path.Combine(temporary.Path, "steam"));
+            using var inventory = new PluginInventory(temporary.Path);
+            var plugin = Assert.Single(inventory.List([], []));
+            var window = new PluginSettingsWindow(plugin, new PluginConfigurationSchema { SchemaVersion = 1, Fields = [] },
+                new Dictionary<string, JsonElement>());
+            window.Show();
+            try
+            {
+                Assert.Equal("Steam settings", window.Title);
+                Assert.Equal("Steam", window.FindControl<TextBlock>("PluginNameText")!.Text);
+            }
+            finally { window.Close(); }
+        }
+
+        [AvaloniaFact]
         public void UnknownFormat_UsesNormalEditorAndRejectsOversizedStoredPath()
         {
             using var temporary = new FocusRgb.TestSupport.TempDirectory(nameof(PluginSettingsHeadlessTests));
