@@ -14,12 +14,30 @@ namespace FocusRgb.App.HeadlessTests
         {
             var model = MainWindowViewModel.CreatePreview();
             var window = new MainWindow(model);
+            window.GetLogicalDescendants().OfType<TabItem>()
+                .Single(tab => Equals(tab.Header, "Games")).IsSelected = true;
             window.Show();
             try
             {
                 var toggle = window.FindControl<ToggleSwitch>("GameExecutableSourceSwitch")!;
                 var files = window.FindControl<StackPanel>("GameFilePathControls")!;
                 var running = window.FindControl<Grid>("GameRunningApplicationControls")!;
+                var fileLabel = window.FindControl<TextBlock>("GameFilePathSourceLabel")!;
+                var runningLabel = window.FindControl<TextBlock>("GameRunningApplicationsSourceLabel")!;
+                Assert.Equal("From file path", fileLabel.Text);
+                Assert.Equal("From running applications", runningLabel.Text);
+                foreach (var fromRunning in new[] { false, true })
+                {
+                    toggle.IsChecked = fromRunning;
+                    window.UpdateLayout();
+                    Assert.True(fileLabel.IsEffectivelyVisible);
+                    Assert.True(runningLabel.IsEffectivelyVisible);
+                    Assert.True(fileLabel.Bounds.Right <= toggle.Bounds.Left);
+                    Assert.True(toggle.Bounds.Right <= runningLabel.Bounds.Left);
+                    Assert.Equal(!fromRunning, files.IsEffectivelyVisible);
+                    Assert.Equal(fromRunning, running.IsEffectivelyVisible);
+                }
+                toggle.IsChecked = false;
                 Assert.True(files.IsVisible);
                 Assert.False(running.IsVisible);
                 model.AddDraftGameExecutable("Picked.exe");
