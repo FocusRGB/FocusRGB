@@ -37,8 +37,16 @@ namespace FocusRgb.Core.Configuration
         public bool? VerboseLogging { get; init; }
         public bool? DebuggingMode { get; init; } = false;
         public bool? ShowProfileChangePopup { get; init; } = true;
+        public NotificationSettings? Notification { get; init; } = new();
         public bool? IncludeBetaPlugins { get; init; }
         public string? SwitchingSpeed { get; init; } = "normal";
+    }
+
+    public sealed class NotificationSettings : ExtensibleConfiguration
+    {
+        public string? Size { get; init; } = "medium";
+        public string? Background { get; init; } = "dark";
+        public int? DurationSeconds { get; init; } = 3;
     }
 
     /// <summary>Controls unmatched applications, focus stability, and first-run profile selection.</summary>

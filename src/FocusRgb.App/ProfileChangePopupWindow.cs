@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using FocusRgb.Core.Configuration;
 
 namespace FocusRgb.App
 {
@@ -14,10 +15,17 @@ namespace FocusRgb.App
     {
         private readonly TextBlock _message = new() { TextWrapping = TextWrapping.Wrap };
         private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(50) };
-        private DateTimeOffset _shownAt;
+        private readonly TimeProvider _clock;
+        private readonly Border _panel;
+        private long _shownAt;
+        private TimeSpan _displayDuration = TimeSpan.FromSeconds(3);
+        private (string? Size, string? Background, int? Duration)? _appearance;
 
-        public ProfileChangePopupWindow()
+        public ProfileChangePopupWindow() : this(TimeProvider.System) { }
+
+        internal ProfileChangePopupWindow(TimeProvider clock)
         {
+            _clock = clock;
             Width = 420;
             SizeToContent = SizeToContent.Height;
             CanResize = false;
@@ -27,21 +35,39 @@ namespace FocusRgb.App
             WindowDecorations = WindowDecorations.None;
             IsHitTestVisible = false;
             Focusable = false;
-            Background = Brushes.Transparent;
-            TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
             Transitions = new Transitions { new DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(150) } };
-            var panel = new Border { Padding = new Thickness(18), CornerRadius = new CornerRadius(12), Child = _message };
-            panel.Bind(BackgroundProperty, this.GetResourceObservable("ThemeControlMidBrush"));
-            _message.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("ThemeForegroundBrush"));
-            Content = panel;
+            _panel = new Border { CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Child = _message };
+            Content = _panel;
+            Configure(new NotificationSettings());
             AutomationProperties.SetLiveSetting(_message, AutomationLiveSetting.Polite);
-            _timer.Tick += (_, _) =>
-            {
-                var elapsed = DateTimeOffset.UtcNow - _shownAt;
-                if (elapsed >= TimeSpan.FromSeconds(2)) Dismiss();
-                else if (elapsed >= TimeSpan.FromMilliseconds(1850)) Opacity = 0;
-            };
+            _timer.Tick += (_, _) => UpdateDismissal();
             Closed += (_, _) => _timer.Stop();
+        }
+
+        public void Configure(NotificationSettings? settings)
+        {
+            settings ??= new NotificationSettings();
+            var appearance = (settings.Size, settings.Background, settings.DurationSeconds);
+            if (_appearance == appearance) return;
+            _appearance = appearance;
+            Width = settings.Size switch { "small" => 320, "large" => 520, _ => 420 };
+            _message.FontSize = settings.Size switch { "small" => 12, "large" => 18, _ => 14 };
+            _panel.Padding = new Thickness(settings.Size switch { "small" => 12, "large" => 24, _ => 18 });
+            var light = settings.Background == "light";
+            Background = _panel.Background = new SolidColorBrush(Color.Parse(settings.Background switch
+            {
+                "light" => "#F3F4F6", "blue" => "#2452A1", _ => "#1F2937"
+            }));
+            _panel.BorderBrush = light ? Brushes.DarkSlateGray : Brushes.LightGray;
+            _message.Foreground = light ? Brushes.Black : Brushes.White;
+            _displayDuration = TimeSpan.FromSeconds(settings.DurationSeconds is 2 or 3 or 5 ? settings.DurationSeconds.Value : 3);
+        }
+
+        internal void UpdateDismissal()
+        {
+            var elapsed = _clock.GetElapsedTime(_shownAt);
+            if (elapsed >= _displayDuration + TimeSpan.FromMilliseconds(150)) Dismiss();
+            else if (elapsed >= _displayDuration) Opacity = 0;
         }
 
         public void Present(string text)
@@ -66,7 +92,7 @@ namespace FocusRgb.App
                 Position = new PixelPoint(area.X + (area.Width - (int)(Width * screen.Scaling)) / 2,
                     area.Bottom - (int)((Math.Max(Bounds.Height, 90) + 32) * screen.Scaling));
             }
-            _shownAt = DateTimeOffset.UtcNow;
+            _shownAt = _clock.GetTimestamp();
             Opacity = 1;
             _timer.Start();
         }

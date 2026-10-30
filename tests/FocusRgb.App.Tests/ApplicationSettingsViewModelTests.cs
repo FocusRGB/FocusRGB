@@ -26,6 +26,9 @@ namespace FocusRgb.App.Tests
             viewModel.DebuggingMode = true;
             viewModel.VerboseLogging = true;
             viewModel.ShowProfileChangePopup = false;
+            viewModel.NotificationSize = "Large";
+            viewModel.NotificationBackground = "Light";
+            viewModel.NotificationDurationSeconds = 5;
             viewModel.IncludeBetaPlugins = false;
             viewModel.SwitchingSpeed = "Fast (300 ms)";
 
@@ -38,6 +41,9 @@ namespace FocusRgb.App.Tests
             Assert.Equal("dark", restarted.Snapshot.Settings.Application.Theme);
             Assert.True(restarted.Snapshot.Settings.Application.VerboseLogging);
             Assert.False(restarted.Snapshot.Settings.Application.ShowProfileChangePopup);
+            Assert.Equal("large", restarted.Snapshot.Settings.Application.Notification!.Size);
+            Assert.Equal("light", restarted.Snapshot.Settings.Application.Notification.Background);
+            Assert.Equal(5, restarted.Snapshot.Settings.Application.Notification.DurationSeconds);
             Assert.False(restarted.Snapshot.Settings.Application.IncludeBetaPlugins);
             Assert.False(viewModel.SavedIncludeBetaPlugins);
             Assert.Equal("fast", restarted.Snapshot.Settings.Application.SwitchingSpeed);

@@ -82,6 +82,17 @@ namespace FocusRgb.Core.Configuration
                 if (document.Application.DebuggingMode is null)
                     Error("application.debuggingMode", "required boolean");
                 Choice(document.Application.SwitchingSpeed, "application.switchingSpeed", "fast", "normal", "smooth");
+                if (document.Application.Notification is not { } notification)
+                {
+                    Error("application.notification", "required object");
+                }
+                else
+                {
+                    Choice(notification.Size, "application.notification.size", "small", "medium", "large");
+                    Choice(notification.Background, "application.notification.background", "dark", "light", "blue");
+                    if (notification.DurationSeconds is not (2 or 3 or 5))
+                        Error("application.notification.durationSeconds", "must be 2, 3 or 5 seconds");
+                }
             }
             if (document.Plugins is null)
             {

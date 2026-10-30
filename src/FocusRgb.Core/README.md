@@ -52,6 +52,8 @@ manual profile ID, an `ApplicationObservation`, and its timestamp to `Select`. A
 uses case-insensitive executable matching and saved rule order; the first eligible rule wins.
 Focus-only rules wait for `application.switchingSpeed` (Fast 300 ms, Normal 750 ms, Smooth 2000 ms);
 schema v6 migrates existing settings to Normal. Schema v7 adds default-off `application.debuggingMode`;
+schema v8 adds `application.notification` (size, opaque background preset and duration) while preserving
+the independent debugging/logging choices in v7.
 older settings with diagnostic logging enabled migrate with Debugging mode enabled. Recovery through
 `settings.last-known-good.json` applies the same migration. The legacy `selection.debounceMs` field is retained
 for document compatibility; the application preset controls selection. Ignored foreground executables preserve the

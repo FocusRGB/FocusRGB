@@ -159,11 +159,13 @@ namespace FocusRgb.App
                 {
                     if (_shutdownApproved) return;
                     var announcement = popupDecision.Update(snapshot);
+                    _profileChangePopup?.Configure(snapshot.Settings.Application?.Notification);
                     if (snapshot.Settings.Application?.ShowProfileChangePopup == false)
                         _profileChangePopup?.Dismiss();
                     if (announcement is not null)
                     {
                         _profileChangePopup ??= new ProfileChangePopupWindow();
+                        _profileChangePopup.Configure(snapshot.Settings.Application?.Notification);
                         _profileChangePopup.Present(announcement);
                     }
                 });

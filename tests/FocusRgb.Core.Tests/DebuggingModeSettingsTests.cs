@@ -19,7 +19,7 @@ namespace FocusRgb.Core.Tests
             legacy["application"]!["switchingSpeed"] = "fast";
             var migrated = SettingsJson.Load(legacy.ToJsonString());
             Assert.True(migrated.IsSuccess);
-            Assert.Equal(7, migrated.Settings!.SchemaVersion);
+            Assert.Equal(SettingsJson.CurrentSchemaVersion, migrated.Settings!.SchemaVersion);
             Assert.Equal(logging, migrated.Settings.Application!.DebuggingMode);
             Assert.Equal(logging, migrated.Settings.Application.VerboseLogging);
             Assert.Equal("fast", migrated.Settings.Application.SwitchingSpeed);
@@ -36,7 +36,7 @@ namespace FocusRgb.Core.Tests
             foreach (var file in new[] { LocalStateStore.SettingsFileName, LocalStateStore.SettingsRecoveryFileName })
             {
                 var saved = SettingsJson.Load(await File.ReadAllTextAsync(Path.Combine(directory.Path, file), TestContext.Current.CancellationToken));
-                Assert.Equal(7, saved.Settings!.SchemaVersion);
+                Assert.Equal(SettingsJson.CurrentSchemaVersion, saved.Settings!.SchemaVersion);
                 Assert.Equal(logging, saved.Settings.Application!.DebuggingMode);
             }
         }
