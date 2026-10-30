@@ -1328,6 +1328,36 @@ namespace FocusRgb.App.ViewModels
         public Task SaveMappingsAsync(CancellationToken cancellationToken = default) =>
             SaveMappingsCoreAsync(false, false, cancellationToken);
 
+        public async Task SaveMappingOrderAsync(CancellationToken cancellationToken = default)
+        {
+            if (!BeginSettingsSave()) return;
+            try
+            {
+                var saved = _settings.Rules!.ToDictionary(rule => rule.Id!, StringComparer.Ordinal);
+                if (MappingEditor.Mappings.Any(item => !saved.ContainsKey(item.Id)))
+                {
+                    MappingEditor.ReportSaveFailure("Save or cancel the new Focus before reordering.");
+                    return;
+                }
+                // Save only list membership/order; keep the separate Focus editor draft untouched.
+                var rules = MappingEditor.Mappings.Select(item => saved[item.Id]).ToList();
+                var error = await SaveCandidateAsync(WithMappings(_settings.ApplicationGroups!, rules), cancellationToken);
+                if (error is not null)
+                {
+                    MappingEditor.RestoreSavedOrder();
+                    MappingEditor.ReportSaveFailure(error);
+                    return;
+                }
+                MappingEditor.AcceptSavedOrder();
+            }
+            catch (OperationCanceledException)
+            {
+                MappingEditor.RestoreSavedOrder();
+                throw;
+            }
+            finally { EndSettingsSave(); }
+        }
+
         public Task SaveEditingFocusAsync(bool saveAs, CancellationToken cancellationToken = default) =>
             SaveMappingsCoreAsync(true, saveAs, cancellationToken);
 

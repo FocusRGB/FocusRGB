@@ -786,11 +786,13 @@ namespace FocusRgb.App
         private void MoveMappingDown_OnClick(object? sender, RoutedEventArgs e) =>
             MoveFromButton(sender, 1);
 
-        private void MoveFromButton(object? sender, int offset)
+        private async void MoveFromButton(object? sender, int offset)
         {
+            if (ViewModel.IsSettingsSavePending) return;
             if (sender is Button { CommandParameter: MappingEditorItemViewModel item })
             {
                 AnimateFocusMove(() => ViewModel.MappingEditor.Move(item, offset));
+                await RunUiActionAsync(() => ViewModel.SaveMappingOrderAsync());
             }
         }
 
@@ -824,10 +826,14 @@ namespace FocusRgb.App
             ResetFocusStatus();
         }
 
-        private void RemoveMapping_OnClick(object? sender, RoutedEventArgs e)
+        private async void RemoveMapping_OnClick(object? sender, RoutedEventArgs e)
         {
+            if (ViewModel.IsSettingsSavePending) return;
             if (sender is Button { CommandParameter: MappingEditorItemViewModel item })
+            {
                 ViewModel.MappingEditor.Remove(item);
+                await RunUiActionAsync(() => ViewModel.SaveMappingOrderAsync());
+            }
         }
 
         private async void ApplyMappings_OnClick(object? sender, RoutedEventArgs e) => await SaveFocusAsync(false);

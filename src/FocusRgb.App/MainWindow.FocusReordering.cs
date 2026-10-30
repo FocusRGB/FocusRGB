@@ -189,6 +189,7 @@ namespace FocusRgb.App
 
         private void FinishMappingDrag(bool commit)
         {
+            var changed = false;
             _mappingHoldTimer?.Dispose();
             _mappingScrollTimer?.Dispose();
             _mappingHoldTimer = _mappingScrollTimer = null;
@@ -206,7 +207,7 @@ namespace FocusRgb.App
                     }
                     if (commit && ReferenceEquals(_mappingDragEditor, ViewModel.MappingEditor))
                     {
-                        _mappingDragEditor!.CommitReorder();
+                        changed = _mappingDragEditor!.CommitReorder();
                     }
                     else
                     {
@@ -220,6 +221,7 @@ namespace FocusRgb.App
             _mappingDragRows = [];
             _mappingScroll = null;
             pointer?.Capture(null);
+            if (changed) _ = RunUiActionAsync(() => ViewModel.SaveMappingOrderAsync());
         }
     }
 }

@@ -99,7 +99,7 @@ namespace FocusRgb.App.HeadlessTests
                 Assert.Null(captured.Captured);
                 Assert.Null(editor.ReorderingMapping);
                 Assert.Equal(finish == "drop" ? [original[2], original[0], original[1]] : original, editor.Mappings);
-                Assert.Equal(finish == "drop", editor.IsDirty);
+                Assert.False(editor.IsDirty);
                 Assert.Equal(finish == "drop" ? 1 : 0, editor.PreviewRevision);
                 Assert.False(rows[2].GetVisualDescendants().OfType<Border>().Single(border => border.Name == "FocusLiftSurface").IsVisible);
             }
@@ -162,7 +162,7 @@ namespace FocusRgb.App.HeadlessTests
                 Assert.All(rows, row => Assert.Equal(Colors.Transparent, Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color));
                 down.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert.Same(first, viewModel.MappingEditor.Mappings[1]);
-                Assert.True(viewModel.MappingEditor.IsDirty);
+                Assert.False(viewModel.MappingEditor.IsDirty);
             }
             finally
             {

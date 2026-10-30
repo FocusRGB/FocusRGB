@@ -333,6 +333,27 @@ namespace FocusRgb.App.ViewModels
 
         public void ReportSaveFailure(string message) => PreviewStatus = message;
 
+        public void AcceptSavedOrder()
+        {
+            var saved = _appliedMappings.ToDictionary(item => item.Id, StringComparer.Ordinal);
+            _appliedMappings = Mappings.Select(item => saved[item.Id]).ToList();
+            AppliedRevision++;
+            IsDirty = false;
+            OnPropertyChanged(nameof(AppliedMappings));
+            OnPropertyChanged(nameof(AppliedRevision));
+            OnPropertyChanged(nameof(IsDirty));
+            PreviewStatus = "Focus order saved.";
+        }
+
+        public void RestoreSavedOrder()
+        {
+            var selected = SelectedMapping?.Id;
+            RestoreDraft(_appliedMappings);
+            SelectedMapping = Mappings.FirstOrDefault(item => item.Id == selected) ?? Mappings.FirstOrDefault();
+            IsDirty = false;
+            OnPropertyChanged(nameof(IsDirty));
+        }
+
         public void Move(MappingEditorItemViewModel item, int offset)
         {
             var currentIndex = Mappings.IndexOf(item);
