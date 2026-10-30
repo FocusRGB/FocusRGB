@@ -58,6 +58,9 @@ namespace FocusRgb.App.ViewModels
         private bool _verboseLogging;
         private bool _debuggingMode;
         private bool _showProfileChangePopup = true;
+        private string _notificationSize = "Medium";
+        private string _notificationBackground = "Dark";
+        private int _notificationDurationSeconds = 3;
         private bool _includeBetaPlugins;
         private string _switchingSpeed = "Normal (750 ms)";
         private bool _isApplicationSettingsDirty;
@@ -340,6 +343,12 @@ namespace FocusRgb.App.ViewModels
             get => _showProfileChangePopup;
             set => SetApplicationSettingsDraft(ref _showProfileChangePopup, value);
         }
+        public IReadOnlyList<string> NotificationSizes { get; } = ["Small", "Medium", "Large"];
+        public IReadOnlyList<string> NotificationBackgrounds { get; } = ["Dark", "Light", "Blue"];
+        public IReadOnlyList<int> NotificationDurations { get; } = [2, 3, 5];
+        public string NotificationSize { get => _notificationSize; set => SetApplicationSettingsDraft(ref _notificationSize, value); }
+        public string NotificationBackground { get => _notificationBackground; set => SetApplicationSettingsDraft(ref _notificationBackground, value); }
+        public int NotificationDurationSeconds { get => _notificationDurationSeconds; set => SetApplicationSettingsDraft(ref _notificationDurationSeconds, value); }
         public bool IncludeBetaPlugins
         {
             get => _includeBetaPlugins;
@@ -550,6 +559,12 @@ namespace FocusRgb.App.ViewModels
                     VerboseLogging = VerboseLogging,
                     DebuggingMode = DebuggingMode,
                     ShowProfileChangePopup = ShowProfileChangePopup,
+                    Notification = new NotificationSettings
+                    {
+                        Size = NotificationSize.ToLowerInvariant(), Background = NotificationBackground.ToLowerInvariant(),
+                        DurationSeconds = NotificationDurationSeconds,
+                        AdditionalProperties = _settings.Application!.Notification?.AdditionalProperties
+                    },
                     IncludeBetaPlugins = IncludeBetaPlugins,
                     SwitchingSpeed = SwitchingSpeed.Split(' ')[0].ToLowerInvariant(),
                     AdditionalProperties = _settings.Application!.AdditionalProperties
@@ -1994,6 +2009,9 @@ namespace FocusRgb.App.ViewModels
             DebuggingMode = application.DebuggingMode == true;
             VerboseLogging = application.VerboseLogging!.Value;
             ShowProfileChangePopup = application.ShowProfileChangePopup ?? true;
+            NotificationSize = application.Notification!.Size switch { "small" => "Small", "large" => "Large", _ => "Medium" };
+            NotificationBackground = application.Notification.Background switch { "light" => "Light", "blue" => "Blue", _ => "Dark" };
+            NotificationDurationSeconds = application.Notification.DurationSeconds!.Value;
             IncludeBetaPlugins = SavedIncludeBetaPlugins;
             SwitchingSpeed = application.SwitchingSpeed switch
             {

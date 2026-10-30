@@ -29,7 +29,7 @@ namespace FocusRgb.App.HeadlessTests
                 Assert.True(registration.Enabled);
                 Assert.Equal(1, registration.Changes);
                 Assert.False(viewModel.SavedStartMinimized);
-                Assert.Equal(7, SettingsJson.CurrentSchemaVersion);
+                Assert.Equal(8, SettingsJson.CurrentSchemaVersion);
                 settings.GetLogicalDescendants().OfType<Button>().Single(button => Equals(button.Content, "Cancel"))
                     .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert.True(registration.Enabled);

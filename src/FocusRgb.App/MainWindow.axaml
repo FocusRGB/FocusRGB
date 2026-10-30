@@ -521,6 +521,14 @@
               <StackPanel Spacing="12">
                 <TextBlock Text="Appearance" FontSize="18" FontWeight="SemiBold" />
                 <CheckBox IsChecked="{Binding ShowProfileChangePopup}" Content="Show Focus change notifications" />
+                <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                  <TextBlock Text="Notification size" VerticalAlignment="Center" />
+                  <ComboBox x:Name="NotificationSizePicker" Grid.Column="1" ItemsSource="{Binding NotificationSizes}" SelectedItem="{Binding NotificationSize}" AutomationProperties.Name="Notification size" />
+                  <TextBlock Grid.Row="1" Text="Notification background" VerticalAlignment="Center" />
+                  <ComboBox x:Name="NotificationBackgroundPicker" Grid.Row="1" Grid.Column="1" ItemsSource="{Binding NotificationBackgrounds}" SelectedItem="{Binding NotificationBackground}" AutomationProperties.Name="Notification background" />
+                  <TextBlock Grid.Row="2" Text="Display duration (seconds)" VerticalAlignment="Center" />
+                  <ComboBox x:Name="NotificationDurationPicker" Grid.Row="2" Grid.Column="1" ItemsSource="{Binding NotificationDurations}" SelectedItem="{Binding NotificationDurationSeconds}" AutomationProperties.Name="Notification display duration in seconds" />
+                </Grid>
                 <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
                   <TextBlock Text="Theme" VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1" ItemsSource="{Binding ApplicationThemes}"
