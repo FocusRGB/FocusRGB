@@ -13,9 +13,9 @@ namespace FocusRgb.Core.Tests
             var decision = new ProfileChangePopupDecision();
             Assert.Null(decision.Update(Snapshot("default")));
             var announcement = decision.Update(Snapshot("movie"));
-            Assert.Contains("Movie", announcement, StringComparison.Ordinal);
+            Assert.Equal("Focus: Default (No matching app)\nOutput: None", announcement);
             Assert.EndsWith("\nOutput: None", announcement, StringComparison.Ordinal);
-            Assert.Contains("Music", decision.Update(Snapshot("music")), StringComparison.Ordinal);
+            Assert.Equal("Focus: Default (No matching app)\nOutput: None", decision.Update(Snapshot("music")));
             Assert.Contains("No matching app", decision.Update(Snapshot("default")), StringComparison.Ordinal);
             Assert.Null(decision.Update(Snapshot("default")));
         }
@@ -77,7 +77,7 @@ namespace FocusRgb.Core.Tests
 
             var announcement = decision.Update(Snapshot("movie", runtimeStatus: status));
 
-            Assert.Equal($"Focus: Default (No matching app)\nProfile: Movie\nOutput: {expected}", announcement);
+            Assert.Equal($"Focus: Default (No matching app)\nOutput: {expected}", announcement);
             Assert.DoesNotContain("unverified", announcement, StringComparison.Ordinal);
         }
 

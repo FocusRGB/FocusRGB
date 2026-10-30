@@ -42,7 +42,7 @@ namespace FocusRgb.App.HeadlessTests
             try
             {
                 popup.Configure(new NotificationSettings { Size = size, Background = background, DurationSeconds = seconds });
-                popup.Present("Focus: Test\nProfile: Test\nOutput: SignalRGB");
+                popup.Present("Focus: Test\nOutput: SignalRGB");
                 var border = Assert.IsType<Border>(popup.Content);
                 Assert.Equal(0, Assert.IsAssignableFrom<ISolidColorBrush>(popup.Background).Color.A);
                 Assert.Contains(WindowTransparencyLevel.Transparent, popup.TransparencyLevelHint);
@@ -84,16 +84,16 @@ namespace FocusRgb.App.HeadlessTests
             var popup = new ProfileChangePopupWindow();
             try
             {
-                popup.Present($"Focus: Media\nProfile: Movie\nOutput: {outputName}");
+                popup.Present($"Focus: Media\nOutput: {outputName}");
                 Assert.True(popup.IsVisible);
                 Assert.False(popup.ShowActivated);
                 Assert.False(popup.ShowInTaskbar);
                 Assert.False(popup.IsHitTestVisible);
                 Assert.False(popup.Focusable);
                 Assert.True(popup.Topmost);
-                popup.Present($"Focus: Player\nProfile: Music\nOutput: {outputName}");
+                popup.Present($"Focus: Player\nOutput: {outputName}");
                 var message = Assert.IsType<TextBlock>(Assert.IsType<Border>(popup.Content).Child);
-                Assert.Equal($"Focus: Player\nProfile: Music\nOutput: {outputName}", message.Text);
+                Assert.Equal($"Focus: Player\nOutput: {outputName}", message.Text);
                 Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(message));
                 Assert.Equal(message.Text, AutomationProperties.GetName(message));
                 popup.Dismiss();

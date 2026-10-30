@@ -21,7 +21,6 @@ namespace FocusRgb.Core.Selection
                 return null;
 
             var settings = snapshot.Settings;
-            var profile = settings.Profiles!.First(item => item.Id == profileId);
             var rule = settings.Rules!.FirstOrDefault(item => item.Id == snapshot.SelectionReason.RuleId);
             var group = settings.ApplicationGroups!.FirstOrDefault(item => item.Id == rule?.ApplicationGroup);
             var game = snapshot.GameCatalog.Games?.FirstOrDefault(item =>
@@ -36,7 +35,7 @@ namespace FocusRgb.Core.Selection
                 .FirstOrDefault(binding => binding.Outcome is "applied" or "unverified")?.PluginId;
             var outputName = string.Equals(pluginId, "signalrgb", StringComparison.OrdinalIgnoreCase)
                 ? "SignalRGB" : pluginId ?? "None";
-            return $"Focus: {focusName}\nProfile: {profile.DisplayName}\nOutput: {outputName}";
+            return $"Focus: {focusName}\nOutput: {outputName}";
         }
     }
 }

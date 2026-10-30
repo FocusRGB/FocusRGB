@@ -30,7 +30,7 @@ namespace FocusRgb.Core.Tests
             clock.Advance(1);
             var committed = engine.Select(SelectionMode.Automatic, "default", observation, DateTimeOffset.UtcNow);
             var announcement = toast.Update(Snapshot(settings, committed.ProfileId, committed.Reason));
-            Assert.StartsWith("Focus: Code work\nProfile: Programming", announcement, StringComparison.Ordinal);
+            Assert.Equal("Focus: Code work\nOutput: None", announcement);
             Assert.Null(toast.Update(Snapshot(settings, committed.ProfileId, committed.Reason)));
         }
 
