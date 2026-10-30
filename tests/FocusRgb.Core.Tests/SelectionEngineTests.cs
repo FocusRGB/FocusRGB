@@ -41,6 +41,116 @@ namespace FocusRgb.Core.Tests
 
         private static readonly DateTimeOffset Start = new(2026, 10, 12, 12, 0, 0, TimeSpan.Zero);
 
+        [Theory]
+        [InlineData("chrome.exe")]
+        [InlineData("explorer.exe")]
+        [InlineData(null)]
+        public void Select_UnmappedForegroundRetainsTaskUntilItsOriginatingExecutableExits(string? foreground)
+        {
+            var clock = new TestTimeProvider();
+            var engine = new SelectionEngine(Settings(
+                Rule("code-focus", "programming", "while-focused", 100, "Code.exe"),
+                Rule("background-music", "music", "while-running", 100, "Spotify.exe")), clock);
+            Stabilize(engine, clock, "Code.exe", "Code.exe", "Spotify.exe");
+            for (var index = 0; index < 5; index++)
+            {
+                clock.Advance(TimeSpan.FromSeconds(2));
+                var retained = engine.Select(SelectionMode.Automatic, "programming",
+                    Observation(index % 2 == 0 ? foreground : "Code.exe", "Code.exe", "Spotify.exe"), Start);
+                Assert.Equal("programming", retained.ProfileId);
+                Assert.Equal("code-focus", retained.Reason.RuleId);
+                clock.Advance(TimeSpan.FromSeconds(2));
+                var stable = engine.Select(SelectionMode.Automatic, "programming",
+                    Observation(index % 2 == 0 ? foreground : "Code.exe", "Code.exe", "Spotify.exe"), Start);
+                Assert.Equal("programming", stable.ProfileId);
+            }
+            var fallback = engine.Select(SelectionMode.Automatic, "programming", Observation(foreground, "Spotify.exe"), Start);
+            Assert.Equal("music", fallback.ProfileId);
+            Assert.Equal("background-music", fallback.Reason.RuleId);
+            Assert.Equal("default", engine.Select(SelectionMode.Automatic, "music", Observation(foreground), Start).ProfileId);
+        }
+
+        [Fact]
+        public void Select_UnmappedInterruptsPendingMappedTransitionWithoutBackgroundPreemption()
+        {
+            var clock = new TestTimeProvider();
+            var engine = new SelectionEngine(Settings(
+                Rule("code-focus", "programming", "while-focused", 100, "Code.exe"),
+                Rule("movie-focus", "movie", "while-focused", 100, "Movie.exe"),
+                Rule("music", "music", "while-running", 100, "Spotify.exe")), clock);
+            Stabilize(engine, clock, "Code.exe", "Code.exe");
+            var current = "programming";
+            foreach (var foreground in new[] { "Movie.exe", "chrome.exe", "Movie.exe" })
+            {
+                var decision = engine.Select(SelectionMode.Automatic, current,
+                    Observation(foreground, "Code.exe", "Movie.exe", "Spotify.exe"), Start);
+                Assert.Equal(current, decision.ProfileId);
+                clock.Advance(TimeSpan.FromMilliseconds(500));
+            }
+            var before = engine.Select(SelectionMode.Automatic, current, Observation("Movie.exe", "Code.exe", "Movie.exe", "Spotify.exe"), Start);
+            Assert.Equal(current, before.ProfileId);
+            clock.Advance(TimeSpan.FromMilliseconds(300));
+            var after = engine.Select(SelectionMode.Automatic, current, Observation("Movie.exe", "Code.exe", "Movie.exe", "Spotify.exe"), Start);
+            Assert.Equal("movie", after.ProfileId);
+        }
+
+        [Theory]
+        [InlineData("default")]
+        [InlineData("programming")]
+        public void Select_UnmappedStartupDoesNotActivateBackgroundRules(string savedProfile)
+        {
+            var clock = new TestTimeProvider();
+            var engine = new SelectionEngine(Settings(Rule("music", "music", "while-running", 100, "Spotify.exe")), clock);
+            for (var index = 0; index < 4; index++)
+            {
+                var decision = engine.Select(SelectionMode.Automatic, savedProfile, Observation("chrome.exe", "Spotify.exe"), Start);
+                Assert.Equal(savedProfile, decision.ProfileId);
+                clock.Advance(TimeSpan.FromSeconds(5));
+            }
+        }
+
+        [Fact]
+        public void Select_NewHigherPriorityBackgroundRuleCannotPreemptUnmappedFocus()
+        {
+            var clock = new TestTimeProvider();
+            var engine = new SelectionEngine(Settings(
+                Rule("music", "music", "while-running", 100, "Spotify.exe"),
+                Rule("code", "programming", "while-focused", 100, "Code.exe")), clock);
+            Stabilize(engine, clock, "Code.exe", "Code.exe");
+            for (var index = 0; index < 3; index++)
+            {
+                Assert.Equal("programming", engine.Select(SelectionMode.Automatic, "programming",
+                    Observation("chrome.exe", "CODE.EXE", "Spotify.exe"), Start).ProfileId);
+                clock.Advance(TimeSpan.FromSeconds(3));
+            }
+            Assert.Equal("music", engine.Select(SelectionMode.Automatic, "programming", Observation("chrome.exe", "Spotify.exe"), Start).ProfileId);
+        }
+
+        [Fact]
+        public void Select_RetainedOwnerIsTheFocusedExecutableNotAnotherMemberOfItsGroup()
+        {
+            var clock = new TestTimeProvider();
+            var engine = new SelectionEngine(Settings(Rule("code", "programming", "while-focused", 100, "Code.exe", "devenv.exe")), clock);
+            Stabilize(engine, clock, "devenv.exe", "Code.exe", "devenv.exe");
+            Assert.Equal("programming", engine.Select(SelectionMode.Automatic, "programming", Observation("chrome.exe", "Code.exe", "devenv.exe"), Start).ProfileId);
+            Assert.Equal("default", engine.Select(SelectionMode.Automatic, "programming", Observation("chrome.exe", "Code.exe"), Start).ProfileId);
+            Assert.Equal("default", engine.Select(SelectionMode.Automatic, "default", Observation("Code.exe", "Code.exe"), Start).ProfileId);
+            clock.Advance(TimeSpan.FromSeconds(2));
+            Assert.Equal("programming", engine.Select(SelectionMode.Automatic, "default", Observation("Code.exe", "Code.exe"), Start).ProfileId);
+        }
+
+        [Fact]
+        public void Select_RetainsKnownGameButInvalidatesItWhenCatalogMatchIsRemoved()
+        {
+            var clock = new TestTimeProvider();
+            var engine = new SelectionEngine(GameSettings(GameRule("game", "movie", "while-focused", "example", "first")),
+                Catalog(Game("example", "first", "First", true, "Game.exe")), clock);
+            Stabilize(engine, clock, "Game.exe", "Game.exe");
+            Assert.Equal("movie", engine.Select(SelectionMode.Automatic, "movie", Observation("chrome.exe", "Game.exe"), Start).ProfileId);
+            engine.UpdateGameCatalog(Catalog());
+            Assert.Equal("default", engine.Select(SelectionMode.Automatic, "movie", Observation("chrome.exe", "Game.exe"), Start).ProfileId);
+        }
+
         [Fact]
         public void Select_ReturnsFirstSavedEligibleRule_RegardlessOfLegacyPriority()
         {
@@ -159,7 +269,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public void Select_ReturnsDefault_WhenNoRuleIsEligible()
+        public void Select_RetainsSavedProfile_WhenStartupForegroundIsUnmapped()
         {
             var clock = new TestTimeProvider();
             var engine = new SelectionEngine(Settings(
@@ -173,8 +283,8 @@ namespace FocusRgb.Core.Tests
 
             Assert.Equal("music", pending.ProfileId);
             Assert.Equal("observation-pending", pending.Reason.Kind);
-            Assert.Equal("default", decision.ProfileId);
-            Assert.Equal("unmatched-default", decision.Reason.Kind);
+            Assert.Equal("music", decision.ProfileId);
+            Assert.Equal("observation-pending", decision.Reason.Kind);
         }
 
         [Fact]
@@ -356,7 +466,7 @@ namespace FocusRgb.Core.Tests
             var shared = engine.Select(SelectionMode.Automatic, "default",
                 Observation(null, "shared.exe", "UnityCrashHandler64.exe"), Start);
             var second = engine.Select(SelectionMode.Automatic, "default",
-                Observation(null, "shared.exe", "Second.exe"), Start);
+                Observation("Second.exe", "shared.exe", "Second.exe"), Start);
 
             Assert.Equal("default", shared.ProfileId);
             Assert.Equal("music", second.ProfileId);
