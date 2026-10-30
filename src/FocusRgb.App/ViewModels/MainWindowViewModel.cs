@@ -69,6 +69,7 @@ namespace FocusRgb.App.ViewModels
         private string _pluginsStatus = "Open this page to load official plugins.";
         private string _gameName = "";
         private string _manualGameExecutable = "";
+        private bool _gameExecutableFromRunningApplications;
         private string? _selectedGameExecutable;
         private string _gameEditorStatus = "Manual and discovered games are stored locally.";
         private string _customPluginGitHubUrl = "";
@@ -276,6 +277,16 @@ namespace FocusRgb.App.ViewModels
             }
         }
         public bool CanEditGame => EditingGame is null || EditingGame.IsManual;
+        public bool GameExecutableFromRunningApplications
+        {
+            get => _gameExecutableFromRunningApplications;
+            set
+            {
+                if (!Set(ref _gameExecutableFromRunningApplications, value)) return;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GameExecutableFromFilePath)));
+            }
+        }
+        public bool GameExecutableFromFilePath => !GameExecutableFromRunningApplications;
         public bool CanRemoveGame => EditingGame?.IsManual == true;
         public string? SelectedDraftExecutable { get => _selectedDraftExecutable; set => Set(ref _selectedDraftExecutable, value); }
         public string? SelectedDetectedExecutable { get => _selectedDetectedExecutable; set => Set(ref _selectedDetectedExecutable, value); }
