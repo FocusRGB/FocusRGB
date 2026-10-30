@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "application": {
     "closeButtonBehavior": "minimize-to-tray",
     "startMinimized": false,
@@ -7,6 +7,7 @@
     "verboseLogging": false,
     "debuggingMode": false,
     "showProfileChangePopup": true,
+    "notification": { "size": "medium", "background": "dark", "durationSeconds": 3 },
     "switchingSpeed": "normal"
   },
   "plugins": {

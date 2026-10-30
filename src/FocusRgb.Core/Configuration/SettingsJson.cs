@@ -5,7 +5,7 @@ namespace FocusRgb.Core.Configuration
     /// <summary>Reads and validates settings in memory before LocalStateStore persists them.</summary>
     public static class SettingsJson
     {
-        public const int CurrentSchemaVersion = 7;
+        public const int CurrentSchemaVersion = 8;
 
         public static SettingsLoadResult Load(string json)
         {
@@ -13,7 +13,7 @@ namespace FocusRgb.Core.Configuration
             try
             {
                 var document = JsonSerializer.Deserialize<SettingsDocument>(json, ConfigurationJson.Options);
-                if (document?.SchemaVersion is 1 or 2 or 3 or 4 or 5 or 6)
+                if (document?.SchemaVersion is 1 or 2 or 3 or 4 or 5 or 6 or 7)
                 {
                     var groups = document.SchemaVersion < 4
                         ? document.ApplicationGroups?.Select(group => new ApplicationGroupSettings
@@ -37,7 +37,7 @@ namespace FocusRgb.Core.Configuration
                         SchemaVersion = CurrentSchemaVersion,
                         Application = document.SchemaVersion == 1
                             ? CreateDefaultApplicationSettings()
-                            : MigrateApplication(document.Application, document.SchemaVersion == 6),
+                            : MigrateApplication(document.Application, document.SchemaVersion!.Value),
                         Plugins = document.SchemaVersion is 1 or 2
                             ? CreateDefaultPluginSettings()
                             : document.Plugins,
@@ -91,16 +91,17 @@ namespace FocusRgb.Core.Configuration
 
         public static PluginSettings CreateDefaultPluginSettings() => new() { Enabled = [] };
 
-        private static ApplicationSettings? MigrateApplication(ApplicationSettings? application, bool preserveSpeed) => application is null ? null : new()
+        private static ApplicationSettings? MigrateApplication(ApplicationSettings? application, int schemaVersion) => application is null ? null : new()
         {
             CloseButtonBehavior = application.CloseButtonBehavior,
             StartMinimized = application.StartMinimized,
             Theme = application.Theme,
             VerboseLogging = application.VerboseLogging,
-            DebuggingMode = application.VerboseLogging == true,
+            DebuggingMode = schemaVersion >= 7 ? application.DebuggingMode : application.VerboseLogging == true,
             ShowProfileChangePopup = application.ShowProfileChangePopup,
+            Notification = application.Notification ?? new NotificationSettings(),
             IncludeBetaPlugins = application.IncludeBetaPlugins,
-            SwitchingSpeed = preserveSpeed ? application.SwitchingSpeed : "normal",
+            SwitchingSpeed = schemaVersion >= 6 ? application.SwitchingSpeed : "normal",
             AdditionalProperties = application.AdditionalProperties
         };
 
