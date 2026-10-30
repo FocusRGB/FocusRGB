@@ -70,6 +70,15 @@ dotnet build-server shutdown
 
 ---
 
+## Focus notifications
+
+Automatic Focus notifications use an opaque, bordered box. Under **Settings → Appearance**, choose
+Small/Medium/Large, a Dark/Light/Blue background, and a 2/3/5-second duration. Defaults are Medium,
+Dark and 3 seconds. Save applies these preferences; Cancel restores saved values. Notifications
+remain passive and click-through, and are suppressed for manual selection and startup.
+Settings schema v8 adds `application.notification` and preserves existing debugging, logging and
+switching-speed preferences, including last-known-good recovery.
+
 ## Local MCP and isolated instances
 
 For an isolated desktop instance, run `FocusRGB.exe --data-dir "D:\FocusRGB-test"` (or set
