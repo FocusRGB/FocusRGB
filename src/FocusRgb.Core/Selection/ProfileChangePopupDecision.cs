@@ -32,7 +32,11 @@ namespace FocusRgb.Core.Selection
                     ?? (rule?.Match?.Game is { Launcher: "*", Id: "*" } ? "Any known game" : null)
                     ?? rule?.Id ?? "Automatic selection";
             var focusName = snapshot.SelectionReason.Kind == "unmatched-default" ? $"Default ({reason})" : reason;
-            return $"Focus: {focusName}\nProfile: {profile.DisplayName}\n{snapshot.RuntimeStatus?.AppliedDetail ?? "Output unavailable"}";
+            var pluginId = snapshot.RuntimeStatus?.Applied?.Bindings
+                .FirstOrDefault(binding => binding.Outcome is "applied" or "unverified")?.PluginId;
+            var outputName = string.Equals(pluginId, "signalrgb", StringComparison.OrdinalIgnoreCase)
+                ? "SignalRGB" : pluginId ?? "None";
+            return $"Focus: {focusName}\nProfile: {profile.DisplayName}\nOutput: {outputName}";
         }
     }
 }

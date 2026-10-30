@@ -42,7 +42,7 @@ namespace FocusRgb.App.HeadlessTests
             try
             {
                 popup.Configure(new NotificationSettings { Size = size, Background = background, DurationSeconds = seconds });
-                popup.Present("Focus: Test\nProfile: Test\nOutput unverified");
+                popup.Present("Focus: Test\nProfile: Test\nOutput: SignalRGB");
                 var border = Assert.IsType<Border>(popup.Content);
                 Assert.Equal(0, Assert.IsAssignableFrom<ISolidColorBrush>(popup.Background).Color.A);
                 Assert.Contains(WindowTransparencyLevel.Transparent, popup.TransparencyLevelHint);
@@ -76,22 +76,24 @@ namespace FocusRgb.App.HeadlessTests
             public void Advance(int milliseconds) => _milliseconds += milliseconds;
         }
 
-        [AvaloniaFact]
-        public void Present_ReusesPassiveWindowAndPublishesLiveAnnouncement()
+        [AvaloniaTheory]
+        [InlineData("SignalRGB")]
+        [InlineData("None")]
+        public void Present_ReusesPassiveWindowAndPublishesLiveAnnouncement(string outputName)
         {
             var popup = new ProfileChangePopupWindow();
             try
             {
-                popup.Present("Movie · Media\nUnverified");
+                popup.Present($"Focus: Media\nProfile: Movie\nOutput: {outputName}");
                 Assert.True(popup.IsVisible);
                 Assert.False(popup.ShowActivated);
                 Assert.False(popup.ShowInTaskbar);
                 Assert.False(popup.IsHitTestVisible);
                 Assert.False(popup.Focusable);
                 Assert.True(popup.Topmost);
-                popup.Present("Music · Player\nUnverified");
+                popup.Present($"Focus: Player\nProfile: Music\nOutput: {outputName}");
                 var message = Assert.IsType<TextBlock>(Assert.IsType<Border>(popup.Content).Child);
-                Assert.Equal("Music · Player\nUnverified", message.Text);
+                Assert.Equal($"Focus: Player\nProfile: Music\nOutput: {outputName}", message.Text);
                 Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(message));
                 Assert.Equal(message.Text, AutomationProperties.GetName(message));
                 popup.Dismiss();
