@@ -15,6 +15,28 @@ namespace FocusRgb.App.Tests
             new(2026, 10, 24, 12, 0, 0, TimeSpan.Zero);
         private readonly TempDirectory _tempDirectory = new(nameof(GameCatalogViewModelTests));
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ExecutableSource_SavesEitherModeWithoutLosingPreviouslyAddedNames(bool running)
+        {
+            var store = new LocalStateStore(_tempDirectory.Path);
+            var loaded = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            var model = MainWindowViewModel.CreatePersistent(loaded.Snapshot!, store);
+            model.StartNewManualGame();
+            model.GameName = "Test game";
+            model.GameExecutableFromRunningApplications = running;
+            if (running)
+            {
+                model.SelectedDetectedExecutable = "Running.exe";
+                model.AddDetectedGameExecutable();
+            }
+            else model.AddDraftGameExecutable("Picked.exe");
+            await model.SaveManualGameAsync(TestContext.Current.CancellationToken);
+            var restarted = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.Equal(new[] { running ? "Running.exe" : "Picked.exe" }, Assert.Single(restarted.Snapshot!.GameCatalog.Games!).Executables);
+        }
+
         [Fact]
         public async Task Discovery_SelectsFirstGameOnRefreshAndRestart()
         {

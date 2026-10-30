@@ -10,6 +10,36 @@ namespace FocusRgb.App.HeadlessTests
     public sealed class GameCatalogHeadlessTests
     {
         [AvaloniaFact]
+        public void ExecutableSource_SwitchesInputsAndRetainsManualFallbackAndDraft()
+        {
+            var model = MainWindowViewModel.CreatePreview();
+            var window = new MainWindow(model);
+            window.Show();
+            try
+            {
+                var toggle = window.FindControl<ToggleSwitch>("GameExecutableSourceSwitch")!;
+                var files = window.FindControl<StackPanel>("GameFilePathControls")!;
+                var running = window.FindControl<Grid>("GameRunningApplicationControls")!;
+                Assert.True(files.IsVisible);
+                Assert.False(running.IsVisible);
+                model.AddDraftGameExecutable("Picked.exe");
+                toggle.IsChecked = true;
+                Assert.False(files.IsVisible);
+                Assert.True(running.IsVisible);
+                model.DetectedExecutables.Add("Running.exe");
+                model.SelectedDetectedExecutable = "Running.exe";
+                model.AddDetectedGameExecutable();
+                toggle.IsChecked = false;
+                Assert.True(files.IsVisible);
+                Assert.False(running.IsVisible);
+                model.ManualGameExecutable = "Typed.exe";
+                model.AddManualGameExecutable();
+                Assert.Equal(["Picked.exe", "Running.exe", "Typed.exe"], model.DraftGameExecutables);
+            }
+            finally { window.AllowClose(); window.Close(); }
+        }
+
+        [AvaloniaFact]
         public async Task GamesStatus_FadesAfterThreeSecondsAndRestartsForRepeatedValidation()
         {
             var viewModel = MainWindowViewModel.CreatePreview();
