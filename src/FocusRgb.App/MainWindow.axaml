@@ -113,7 +113,7 @@
                   <TextBlock Text="Your Focus Library is empty." />
                   <Button x:Name="CreateEmptyFocusButton" Content="Create a new Focus" Click="CreateFocus_OnClick" />
                 </StackPanel>
-                <ListBox x:Name="FocusList" IsVisible="{Binding !MappingEditor.IsEmpty}" ItemsSource="{Binding MappingEditor.Mappings}" SelectedItem="{Binding MappingEditor.SelectedMapping}">
+                <ListBox x:Name="FocusList" IsEnabled="{Binding !IsSettingsSavePending}" IsVisible="{Binding !MappingEditor.IsEmpty}" ItemsSource="{Binding MappingEditor.Mappings}" SelectedItem="{Binding MappingEditor.SelectedMapping}">
                   <ListBox.ItemsPanel>
                     <ItemsPanelTemplate><StackPanel /></ItemsPanelTemplate>
                   </ListBox.ItemsPanel>
@@ -185,10 +185,6 @@
                   <TextBlock.Transitions><Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.25" /></Transitions></TextBlock.Transitions>
                 </TextBlock>
                 <TextBlock Text="Unsaved draft" IsVisible="{Binding MappingEditor.IsDirty}" Foreground="#FBBF24" FontWeight="SemiBold" />
-              </StackPanel>
-              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                <Button Content="Cancel" Click="CancelMappings_OnClick" />
-                <Button Content="Save order" Click="ApplyMappings_OnClick" IsEnabled="{Binding !IsSettingsSavePending}" />
               </StackPanel>
             </Grid>
           </Grid>
