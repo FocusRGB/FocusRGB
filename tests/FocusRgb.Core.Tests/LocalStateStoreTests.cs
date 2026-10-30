@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Persistence;
+using FocusRgb.TestSupport;
 
 namespace FocusRgb.Core.Tests
 {
@@ -9,10 +10,8 @@ namespace FocusRgb.Core.Tests
     public sealed class LocalStateStoreTests : IDisposable
     {
         private static readonly DateTimeOffset Start = new(2026, 10, 12, 14, 0, 0, TimeSpan.Zero);
-        private readonly string _directory = Path.Combine(
-            Path.GetTempPath(),
-            "FocusRgb.Core.Tests",
-            Guid.NewGuid().ToString("N"));
+        private readonly TempDirectory _tempDirectory = new(nameof(LocalStateStoreTests));
+        private string _directory => _tempDirectory.Path;
 
         [Fact]
         public async Task InitializeAsync_CreatesManualDefault_WhenFilesAreMissing()
@@ -29,10 +28,22 @@ namespace FocusRgb.Core.Tests
             Assert.True(File.Exists(PathFor(LocalStateStore.SettingsRecoveryFileName)));
             Assert.True(File.Exists(PathFor(LocalStateStore.StateFileName)));
             Assert.True(File.Exists(PathFor(LocalStateStore.NativeSetupFileName)));
+            Assert.True(File.Exists(PathFor(LocalStateStore.GameCatalogFileName)));
         }
 
         [Fact]
-        public async Task InitializeAsync_MigratesSchemaOneSettingsAndPersistsVersionTwo()
+        public async Task InitializeAsync_NormalizesFirstRunTimestampToUtc()
+        {
+            var local = new DateTimeOffset(2026, 10, 16, 12, 0, 0, TimeSpan.FromHours(2));
+
+            var result = await Store().InitializeAsync(local, TestContext.Current.CancellationToken);
+
+            Assert.Equal(TimeSpan.Zero, result.Snapshot!.State.UpdatedAt!.Value.Offset);
+            Assert.Equal(local.UtcDateTime, result.Snapshot.State.UpdatedAt.Value.UtcDateTime);
+        }
+
+        [Fact]
+        public async Task InitializeAsync_MigratesSchemaOneSettingsAndPersistsCurrentVersion()
         {
             var firstRun = await Store().InitializeAsync(Start, TestContext.Current.CancellationToken);
             Assert.True(firstRun.IsSuccess);
@@ -54,7 +65,28 @@ namespace FocusRgb.Core.Tests
             Assert.Equal("system", restarted.Snapshot.Settings.Application!.Theme);
             Assert.Equal(SettingsJson.CurrentSchemaVersion, persisted["schemaVersion"]!.GetValue<int>());
             Assert.NotNull(persisted["application"]);
+            Assert.NotNull(persisted["plugins"]);
             Assert.Single(Directory.GetFiles(_directory, "settings.json.schema-1-*.backup"));
+        }
+
+        [Fact]
+        public async Task InitializeAsync_MigratesSchemaTwoAndKeepsBackup()
+        {
+            var firstRun = await Store().InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(firstRun.IsSuccess);
+            var legacy = JsonNode.Parse(SettingsJson.Serialize(firstRun.Snapshot!.Settings))!;
+            legacy["schemaVersion"] = 2;
+            legacy.AsObject().Remove("plugins");
+            await File.WriteAllTextAsync(
+                PathFor(LocalStateStore.SettingsFileName),
+                legacy.ToJsonString(),
+                TestContext.Current.CancellationToken);
+
+            var restarted = await Store().InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess);
+            Assert.Empty(restarted.Snapshot!.Settings.Plugins!.Enabled!);
+            Assert.Single(Directory.GetFiles(_directory, "settings.json.schema-2-*.backup"));
         }
 
         [Fact]
@@ -225,8 +257,10 @@ namespace FocusRgb.Core.Tests
                     Theme = "dark",
                     VerboseLogging = current.Application.VerboseLogging
                 },
+                Plugins = current.Plugins,
                 Selection = current.Selection,
                 Profiles = current.Profiles,
+                ApplicationGroups = current.ApplicationGroups,
                 Rules = current.Rules,
                 AdditionalProperties = current.AdditionalProperties
             };
@@ -371,8 +405,10 @@ namespace FocusRgb.Core.Tests
             {
                 SchemaVersion = current.SchemaVersion,
                 Application = current.Application,
+                Plugins = current.Plugins,
                 Selection = current.Selection,
                 Profiles = current.Profiles,
+                ApplicationGroups = current.ApplicationGroups,
                 Rules = current.Rules,
                 AdditionalProperties = new Dictionary<string, JsonElement>
                 {
@@ -385,6 +421,51 @@ namespace FocusRgb.Core.Tests
             Assert.False(result.IsSuccess);
             Assert.Equal(previous, await File.ReadAllTextAsync(PathFor(LocalStateStore.SettingsFileName), TestContext.Current.CancellationToken));
             Assert.Empty(Directory.GetFiles(_directory, ".settings.json.*.tmp"));
+        }
+
+        [Fact]
+        public async Task InitializeAsync_CleansStaleTemporaryFiles()
+        {
+            var store = Store();
+            Assert.True((await store.InitializeAsync(Start, TestContext.Current.CancellationToken)).IsSuccess);
+            var stale = Path.Combine(_directory, ".state.json.abandoned.tmp");
+            await File.WriteAllTextAsync(stale, "partial", TestContext.Current.CancellationToken);
+            File.SetLastWriteTimeUtc(stale, DateTime.UtcNow.AddMinutes(-1));
+
+            var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess, restarted.Error?.Message);
+            Assert.False(File.Exists(stale));
+        }
+
+        [Fact]
+        public async Task InitializeAsync_DoesNotDeleteFreshTemporaryFiles()
+        {
+            var store = Store();
+            Assert.True((await store.InitializeAsync(Start, TestContext.Current.CancellationToken)).IsSuccess);
+            var active = Path.Combine(_directory, ".state.json.active.tmp");
+            await File.WriteAllTextAsync(active, "partial", TestContext.Current.CancellationToken);
+
+            var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess, restarted.Error?.Message);
+            Assert.True(File.Exists(active));
+        }
+
+        [Fact]
+        public async Task InitializeAsync_RetriesBrieflyLockedSettingsFile()
+        {
+            var store = Store();
+            Assert.True((await store.InitializeAsync(Start, TestContext.Current.CancellationToken)).IsSuccess);
+            var path = PathFor(LocalStateStore.SettingsFileName);
+            await using var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+
+            var restart = store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+            await Task.Delay(100, TestContext.Current.CancellationToken);
+            await locked.DisposeAsync();
+            var result = await restart;
+
+            Assert.True(result.IsSuccess, result.Error?.Message);
         }
 
         [Fact]
@@ -421,12 +502,121 @@ namespace FocusRgb.Core.Tests
             Assert.Null(json["output"]);
         }
 
+        [Fact]
+        public async Task GameCatalog_SaveAndRestart_PreservesLauncherScopedManualEntry()
+        {
+            var store = Store();
+            await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            var catalog = new GameCatalogDocument
+            {
+                SchemaVersion = GameCatalogJson.CurrentSchemaVersion,
+                Games =
+                [
+                    new GameCatalogEntry
+                    {
+                        Launcher = GameCatalogJson.ManualLauncher,
+                        Id = "local-game",
+                        DisplayName = "Local game",
+                        Executables = ["Local.exe"],
+                        Available = true
+                    }
+                ]
+            };
+
+            var saved = await store.SaveGameCatalogAsync(catalog, TestContext.Current.CancellationToken);
+            var restarted = await Store().InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(saved.IsSuccess);
+            Assert.Equal("local-game", Assert.Single(restarted.Snapshot!.GameCatalog.Games!).Id);
+        }
+
+        [Fact]
+        public async Task GameCatalog_CorruptFile_IsArchivedAndReplacedWithoutChangingSettings()
+        {
+            var store = Store();
+            var first = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(
+                PathFor(LocalStateStore.GameCatalogFileName), "{", TestContext.Current.CancellationToken);
+
+            var restarted = await Store().InitializeAsync(
+                Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess);
+            Assert.Empty(restarted.Snapshot!.GameCatalog.Games!);
+            Assert.Equal(first.Snapshot!.Settings.Profiles!.Count, restarted.Snapshot.Settings.Profiles!.Count);
+            Assert.Single(Directory.GetFiles(_directory, "games.json.corrupt-*"));
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GameCatalog_RestoresManualGamesWhenCurrentFileIsMissingOrCorrupt(bool missing)
+        {
+            var store = new LocalStateStore(_directory);
+            await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            var catalog = new GameCatalogDocument
+            {
+                SchemaVersion = 1,
+                Games = [new GameCatalogEntry
+                {
+                    Launcher = "manual", Id = "local-game", DisplayName = "Local", Available = true,
+                    Executables = ["Local.exe"]
+                }]
+            };
+            Assert.True((await store.SaveGameCatalogAsync(catalog, TestContext.Current.CancellationToken)).IsSuccess);
+            if (missing)
+            {
+                File.Delete(PathFor(LocalStateStore.GameCatalogFileName));
+            }
+            else
+            {
+                await File.WriteAllTextAsync(PathFor(LocalStateStore.GameCatalogFileName), "{",
+                    TestContext.Current.CancellationToken);
+            }
+
+            var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(restarted.IsSuccess, restarted.Error?.Message);
+            Assert.Equal("local-game", Assert.Single(restarted.Snapshot!.GameCatalog.Games!).Id);
+        }
+
+        [Theory]
+        [InlineData(true, "{")]
+        [InlineData(false, "{")]
+        [InlineData(true, "{\"schemaVersion\":1,\"games\":null}")]
+        [InlineData(false, "{\"schemaVersion\":1,\"games\":null}")]
+        public async Task GameCatalog_ArchivesInvalidRecoveryAndStartsWithDefaults(bool currentMissing, string recoveryJson)
+        {
+            var store = new LocalStateStore(_directory);
+            await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            if (currentMissing)
+            {
+                File.Delete(PathFor(LocalStateStore.GameCatalogFileName));
+            }
+            else
+            {
+                await File.WriteAllTextAsync(PathFor(LocalStateStore.GameCatalogFileName), "{",
+                    TestContext.Current.CancellationToken);
+            }
+            await File.WriteAllTextAsync(PathFor(LocalStateStore.GameCatalogRecoveryFileName), recoveryJson,
+                TestContext.Current.CancellationToken);
+
+            var startup = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
+
+            Assert.True(startup.IsSuccess, startup.Error?.Message);
+            Assert.Empty(startup.Snapshot!.GameCatalog.Games!);
+            var notice = Assert.Single(startup.Snapshot.Recoveries, notice =>
+                notice.FileName == LocalStateStore.GameCatalogRecoveryFileName);
+            Assert.NotNull(notice.ArchivedPath);
+            Assert.Equal(recoveryJson, await File.ReadAllTextAsync(notice.ArchivedPath,
+                TestContext.Current.CancellationToken));
+            Assert.True(GameCatalogJson.Load(await File.ReadAllTextAsync(
+                PathFor(LocalStateStore.GameCatalogFileName), TestContext.Current.CancellationToken)).IsSuccess);
+        }
+
         public void Dispose()
         {
-            if (Directory.Exists(_directory))
-            {
-                Directory.Delete(_directory, recursive: true);
-            }
+            _tempDirectory.Dispose();
         }
 
         private LocalStateStore Store() => new(_directory);
@@ -455,8 +645,10 @@ namespace FocusRgb.Core.Tests
                 Theme = theme,
                 VerboseLogging = settings.Application.VerboseLogging
             },
+            Plugins = settings.Plugins,
             Selection = settings.Selection,
             Profiles = settings.Profiles,
+            ApplicationGroups = settings.ApplicationGroups,
             Rules = settings.Rules,
             AdditionalProperties = settings.AdditionalProperties
         };

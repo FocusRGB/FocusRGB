@@ -15,9 +15,17 @@ namespace FocusRgb.Core.Configuration
     {
         public int? SchemaVersion { get; init; }
         public ApplicationSettings? Application { get; init; }
+        public PluginSettings? Plugins { get; init; }
         public SelectionSettings? Selection { get; init; }
         public List<ProfileSettings>? Profiles { get; init; }
+        public List<ApplicationGroupSettings>? ApplicationGroups { get; init; }
         public List<RuleSettings>? Rules { get; init; }
+    }
+
+    /// <summary>Records the local plugin packages the user explicitly allowed the app to launch.</summary>
+    public sealed class PluginSettings : ExtensibleConfiguration
+    {
+        public List<string>? Enabled { get; init; }
     }
 
     /// <summary>Stores desktop lifecycle, appearance, and diagnostic preferences.</summary>
@@ -27,6 +35,18 @@ namespace FocusRgb.Core.Configuration
         public bool? StartMinimized { get; init; }
         public string? Theme { get; init; }
         public bool? VerboseLogging { get; init; }
+        public bool? DebuggingMode { get; init; } = false;
+        public bool? ShowProfileChangePopup { get; init; } = true;
+        public NotificationSettings? Notification { get; init; } = new();
+        public bool? IncludeBetaPlugins { get; init; }
+        public string? SwitchingSpeed { get; init; } = "normal";
+    }
+
+    public sealed class NotificationSettings : ExtensibleConfiguration
+    {
+        public string? Size { get; init; } = "medium";
+        public string? Background { get; init; } = "dark";
+        public int? DurationSeconds { get; init; } = 3;
     }
 
     /// <summary>Controls unmatched applications, focus stability, and first-run profile selection.</summary>
@@ -79,10 +99,19 @@ namespace FocusRgb.Core.Configuration
         public string? Profile { get; init; }
     }
 
+    /// <summary>Stores a reusable named set of executable identities for application mappings.</summary>
+    public sealed class ApplicationGroupSettings : ExtensibleConfiguration
+    {
+        public string? Id { get; init; }
+        public string? DisplayName { get; init; }
+        public List<string>? Executables { get; init; }
+    }
+
     /// <summary>Maps an application group to a profile; array order is the sole priority.</summary>
     public sealed class RuleSettings : ExtensibleConfiguration
     {
         public string? Id { get; init; }
+        public string? ApplicationGroup { get; init; }
         public string? Profile { get; init; }
         public ApplicationMatch? Match { get; init; }
         public string? Eligibility { get; init; }

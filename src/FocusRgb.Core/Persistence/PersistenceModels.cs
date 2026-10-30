@@ -36,6 +36,7 @@ namespace FocusRgb.Core.Persistence
         public required SettingsDocument Settings { get; init; }
         public required SelectionStateDocument State { get; init; }
         public required NativeSetupDocument NativeSetup { get; init; }
+        public required GameCatalogDocument GameCatalog { get; init; }
         public required SelectionDecision Desired { get; init; }
         public required string SettingsSource { get; init; }
         public IReadOnlyList<RecoveryNotice> Recoveries { get; init; } = [];

@@ -8,18 +8,21 @@ using FocusRgb.Core.Selection;
 namespace FocusRgb.Core.Persistence
 {
     /// <summary>
-    /// Stores the three local documents atomically in a caller-selected cross-platform directory.
+    /// Stores the app-owned local documents atomically in a caller-selected cross-platform directory.
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Design",
         "CA1001:Types that own disposable fields should be disposable",
         Justification = "The process-lifetime semaphore has no unmanaged resource.")]
-    public sealed class LocalStateStore : ISelectionStateStore
+    public sealed class LocalStateStore : IApplicationStateStore
     {
         public const string SettingsFileName = "settings.json";
         public const string SettingsRecoveryFileName = "settings.last-known-good.json";
         public const string StateFileName = "state.json";
+        public const string PreviewJournalFileName = "preview.json";
         public const string NativeSetupFileName = "native-setup.json";
+        public const string GameCatalogFileName = "games.json";
+        public const string GameCatalogRecoveryFileName = "games.last-known-good.json";
 
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates =
             new(StringComparer.OrdinalIgnoreCase);
@@ -29,7 +32,7 @@ namespace FocusRgb.Core.Persistence
         public LocalStateStore(string directory)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(directory);
-            _directory = Path.GetFullPath(directory);
+            _directory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
             _gate = Gates.GetOrAdd(_directory, static _ => new SemaphoreSlim(1, 1));
         }
 
@@ -39,10 +42,17 @@ namespace FocusRgb.Core.Persistence
             CancellationToken cancellationToken = default)
         {
             await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            var currentFile = SettingsFileName;
             try
             {
                 Directory.CreateDirectory(_directory);
+                CleanupTemporaryFiles();
                 var recoveries = new List<RecoveryNotice>();
+                if (File.Exists(PathFor(PreviewJournalFileName)))
+                {
+                    recoveries.Add(ArchiveInvalid(PreviewJournalFileName, "interrupted", now,
+                        [new ConfigurationError { Path = "preview", Message = "An interrupted output preview was discarded. Only saved selection intent is restored." }]));
+                }
 
                 var settingsResult = await LoadSettingsAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
                 if (!settingsResult.IsSuccess)
@@ -51,16 +61,25 @@ namespace FocusRgb.Core.Persistence
                 }
 
                 var settings = settingsResult.Settings!;
+                currentFile = StateFileName;
                 var stateResult = await LoadStateAsync(settings, now, recoveries, cancellationToken).ConfigureAwait(false);
                 if (!stateResult.IsSuccess)
                 {
                     return StartupResult.Fail(stateResult.Error!);
                 }
 
+                currentFile = NativeSetupFileName;
                 var nativeResult = await LoadNativeSetupAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
                 if (!nativeResult.IsSuccess)
                 {
                     return StartupResult.Fail(nativeResult.Error!);
+                }
+
+                currentFile = GameCatalogFileName;
+                var gameResult = await LoadGameCatalogAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
+                if (!gameResult.IsSuccess)
+                {
+                    return StartupResult.Fail(gameResult.Error!);
                 }
 
                 var state = stateResult.State!;
@@ -69,6 +88,7 @@ namespace FocusRgb.Core.Persistence
                     Settings = settings,
                     State = state,
                     NativeSetup = nativeResult.NativeSetup!,
+                    GameCatalog = gameResult.Catalog!,
                     SettingsSource = settingsResult.Source!,
                     Desired = new SelectionDecision
                     {
@@ -80,12 +100,68 @@ namespace FocusRgb.Core.Persistence
             }
             catch (Exception exception) when (IsPersistenceException(exception))
             {
-                return StartupResult.Fail(Error("startup", exception));
+                return StartupResult.Fail(Error(currentFile, exception));
             }
             finally
             {
                 _gate.Release();
             }
+        }
+
+        /// <summary>Journals a temporary override without replacing saved selection intent.</summary>
+        public async Task<SaveResult> SavePreviewJournalAsync(string? profileId, CancellationToken cancellationToken = default)
+        {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                if (profileId is not null)
+                    return await SerializeAndWriteAsync(PreviewJournalFileName,
+                        () => JsonSerializer.Serialize(new { profileId, restore = "saved-selection-only" }), cancellationToken)
+                        .ConfigureAwait(false);
+                File.Delete(PathFor(PreviewJournalFileName));
+                return SaveResult.Ok();
+            }
+            catch (Exception exception) when (IsPersistenceException(exception))
+            {
+                return SaveResult.Fail(Error(PreviewJournalFileName, exception));
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        /// <summary>Saves the cached and manually entered game catalog.</summary>
+        public async Task<SaveResult> SaveGameCatalogAsync(
+            GameCatalogDocument catalog,
+            CancellationToken cancellationToken = default)
+        {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return await SaveGameCatalogCoreAsync(catalog, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        private async Task<SaveResult> SaveGameCatalogCoreAsync(
+            GameCatalogDocument catalog,
+            CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(catalog);
+            var errors = GameCatalogJson.Validate(catalog);
+            if (errors.Count > 0) return Invalid(GameCatalogFileName, errors);
+            var saved = await SerializeAndWriteAsync(
+                GameCatalogFileName,
+                () => GameCatalogJson.Serialize(catalog),
+                cancellationToken).ConfigureAwait(false);
+            if (!saved.IsSuccess) return saved;
+            var recovery = await SerializeAndWriteAsync(GameCatalogRecoveryFileName,
+                () => GameCatalogJson.Serialize(catalog), cancellationToken).ConfigureAwait(false);
+            return recovery.IsSuccess ? SaveResult.Ok() : SaveResult.Ok(recovery.Error);
         }
 
         /// <summary>Saves validated user settings without changing selection or native fallback files.</summary>
@@ -215,13 +291,14 @@ namespace FocusRgb.Core.Persistence
                     : SettingsStartupResult.Fail(save.Error!);
             }
 
-            var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+            var json = await ReadAllTextAsync(SettingsFileName, cancellationToken).ConfigureAwait(false);
             var loaded = SettingsJson.Load(json);
             if (loaded.IsSuccess)
             {
-                if (ReadSchemaVersion(json) == 1)
+                var loadedVersion = ReadSchemaVersion(json);
+                if (loadedVersion < SettingsJson.CurrentSchemaVersion)
                 {
-                    BackupFile(SettingsFileName, "schema-1", now);
+                    BackupFile(SettingsFileName, $"schema-{loadedVersion}", now);
                     var save = await SaveSettingsCoreAsync(loaded.Settings!, cancellationToken).ConfigureAwait(false);
                     if (!save.IsSuccess) return SettingsStartupResult.Fail(save.Error!);
                 }
@@ -270,7 +347,7 @@ namespace FocusRgb.Core.Persistence
                 return await SaveFirstRunStateAsync(settings, now, SelectionReason.FirstRun(), cancellationToken).ConfigureAwait(false);
             }
 
-            var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+            var json = await ReadAllTextAsync(StateFileName, cancellationToken).ConfigureAwait(false);
             var loaded = StateJson.Load(json);
             if (!loaded.IsSuccess)
             {
@@ -280,7 +357,7 @@ namespace FocusRgb.Core.Persistence
                 }
 
                 recoveries.Add(ArchiveInvalid(StateFileName, "corrupt", now, loaded.Errors));
-                return await SaveFirstRunStateAsync(settings, now, SelectionReason.FirstRun(), cancellationToken).ConfigureAwait(false);
+                return await SaveFirstRunStateAsync(settings, now, SelectionReason.InvalidStateReset(), cancellationToken).ConfigureAwait(false);
             }
 
             var referenceErrors = StateJson.ValidateProfileReferences(loaded.State!, settings);
@@ -303,7 +380,7 @@ namespace FocusRgb.Core.Persistence
             SelectionReason reason,
             CancellationToken cancellationToken)
         {
-            var state = StateJson.CreateFirstRun(settings.Selection!.DefaultProfile!, now);
+            var state = StateJson.CreateFirstRun(settings.Selection!.DefaultProfile!, now.ToUniversalTime());
             var save = await SaveStateCoreAsync(state, settings, cancellationToken).ConfigureAwait(false);
             return save.IsSuccess
                 ? StateStartupResult.Ok(state, reason)
@@ -325,7 +402,7 @@ namespace FocusRgb.Core.Persistence
                     : NativeStartupResult.Fail(save.Error!);
             }
 
-            var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+            var json = await ReadAllTextAsync(NativeSetupFileName, cancellationToken).ConfigureAwait(false);
             var loaded = NativeSetupJson.Load(json);
             if (loaded.IsSuccess)
             {
@@ -342,6 +419,76 @@ namespace FocusRgb.Core.Persistence
             return result.IsSuccess
                 ? NativeStartupResult.Ok(replacement)
                 : NativeStartupResult.Fail(result.Error!);
+        }
+
+        private async Task<GameCatalogStartupResult> LoadGameCatalogAsync(
+            DateTimeOffset now,
+            List<RecoveryNotice> recoveries,
+            CancellationToken cancellationToken)
+        {
+            var path = PathFor(GameCatalogFileName);
+            if (!File.Exists(path))
+            {
+                var recovered = await RecoverGameCatalogAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
+                if (recovered is not null) return recovered;
+                var initial = GameCatalogJson.CreateDefault();
+                var save = await SaveGameCatalogCoreAsync(initial, cancellationToken).ConfigureAwait(false);
+                return save.IsSuccess
+                    ? GameCatalogStartupResult.Ok(initial)
+                    : GameCatalogStartupResult.Fail(save.Error!);
+            }
+
+            var json = await ReadAllTextAsync(GameCatalogFileName, cancellationToken).ConfigureAwait(false);
+            var loaded = GameCatalogJson.Load(json);
+            if (loaded.IsSuccess)
+            {
+                var refreshed = await SerializeAndWriteAsync(GameCatalogRecoveryFileName,
+                    () => GameCatalogJson.Serialize(loaded.Catalog!), cancellationToken).ConfigureAwait(false);
+                if (!refreshed.IsSuccess)
+                {
+                    recoveries.Add(new RecoveryNotice
+                    {
+                        FileName = GameCatalogRecoveryFileName,
+                        Message = $"Could not refresh the game catalog recovery copy: {refreshed.Error!.Message}"
+                    });
+                }
+                return GameCatalogStartupResult.Ok(loaded.Catalog!);
+            }
+            if (HasUnsupportedVersion(json, GameCatalogJson.CurrentSchemaVersion))
+                return GameCatalogStartupResult.Fail(InvalidDocument(GameCatalogFileName, loaded.Errors));
+
+            recoveries.Add(ArchiveInvalid(GameCatalogFileName, "corrupt", now, loaded.Errors));
+            var recovery = await RecoverGameCatalogAsync(now, recoveries, cancellationToken).ConfigureAwait(false);
+            if (recovery is not null) return recovery;
+            var replacement = GameCatalogJson.CreateDefault();
+            var result = await SaveGameCatalogCoreAsync(replacement, cancellationToken).ConfigureAwait(false);
+            return result.IsSuccess
+                ? GameCatalogStartupResult.Ok(replacement)
+                : GameCatalogStartupResult.Fail(result.Error!);
+        }
+
+        private async Task<GameCatalogStartupResult?> RecoverGameCatalogAsync(
+            DateTimeOffset now,
+            List<RecoveryNotice> recoveries,
+            CancellationToken cancellationToken)
+        {
+            if (!File.Exists(PathFor(GameCatalogRecoveryFileName))) return null;
+            var json = await ReadAllTextAsync(GameCatalogRecoveryFileName, cancellationToken).ConfigureAwait(false);
+            var loaded = GameCatalogJson.Load(json);
+            if (!loaded.IsSuccess)
+            {
+                recoveries.Add(ArchiveInvalid(GameCatalogRecoveryFileName, "corrupt", now, loaded.Errors));
+                return null;
+            }
+            var restored = await SerializeAndWriteAsync(GameCatalogFileName,
+                () => GameCatalogJson.Serialize(loaded.Catalog!), cancellationToken).ConfigureAwait(false);
+            if (!restored.IsSuccess) return GameCatalogStartupResult.Fail(restored.Error!);
+            recoveries.Add(new RecoveryNotice
+            {
+                FileName = GameCatalogFileName,
+                Message = "Restored game catalog from its last-known-good copy."
+            });
+            return GameCatalogStartupResult.Ok(loaded.Catalog!);
         }
 
         private async Task<SaveResult> SerializeAndWriteAsync(
@@ -369,7 +516,9 @@ namespace FocusRgb.Core.Persistence
                     stream.Flush(flushToDisk: true);
                 }
 
-                File.Move(tempPath, PathFor(fileName), overwrite: true);
+                await RetryPersistenceAsync(
+                    () => File.Move(tempPath, PathFor(fileName), overwrite: true),
+                    cancellationToken).ConfigureAwait(false);
                 return SaveResult.Ok();
             }
             catch (OperationCanceledException)
@@ -434,7 +583,7 @@ namespace FocusRgb.Core.Persistence
         {
             var path = PathFor(SettingsRecoveryFileName);
             if (!File.Exists(path)) return null;
-            var json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+            var json = await ReadAllTextAsync(SettingsRecoveryFileName, cancellationToken).ConfigureAwait(false);
             var loaded = SettingsJson.Load(json);
             if (loaded.IsSuccess)
             {
@@ -449,6 +598,58 @@ namespace FocusRgb.Core.Persistence
 
             recoveries.Add(ArchiveInvalid(SettingsRecoveryFileName, "corrupt", now, loaded.Errors));
             return null;
+        }
+
+        private async Task<string> ReadAllTextAsync(string fileName, CancellationToken cancellationToken) =>
+            await RetryPersistenceAsync(
+                () => File.ReadAllTextAsync(PathFor(fileName), cancellationToken),
+                cancellationToken).ConfigureAwait(false);
+
+        private static async Task<T> RetryPersistenceAsync<T>(
+            Func<Task<T>> action,
+            CancellationToken cancellationToken)
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    return await action().ConfigureAwait(false);
+                }
+                catch (Exception exception) when (attempt < 4
+                    && exception is IOException or UnauthorizedAccessException)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(25 << attempt), cancellationToken).ConfigureAwait(false);
+                }
+            }
+        }
+
+        private static async Task RetryPersistenceAsync(Action action, CancellationToken cancellationToken) =>
+            await RetryPersistenceAsync(() =>
+            {
+                action();
+                return Task.FromResult(true);
+            }, cancellationToken).ConfigureAwait(false);
+
+        private void CleanupTemporaryFiles()
+        {
+            foreach (var fileName in new[]
+            {
+                SettingsFileName, SettingsRecoveryFileName, StateFileName, NativeSetupFileName, GameCatalogFileName,
+                GameCatalogRecoveryFileName
+            })
+            {
+                foreach (var path in Directory.EnumerateFiles(_directory, $".{fileName}.*.tmp"))
+                {
+                    try
+                    {
+                        if (DateTime.UtcNow - File.GetLastWriteTimeUtc(path) < TimeSpan.FromSeconds(5)) continue;
+                        File.Delete(path);
+                    }
+                    catch (Exception exception) when (IsPersistenceException(exception))
+                    {
+                    }
+                }
+            }
         }
 
         private static int? ReadSchemaVersion(string json)
@@ -539,6 +740,15 @@ namespace FocusRgb.Core.Persistence
                 NativeSetup = nativeSetup
             };
             public static NativeStartupResult Fail(PersistenceError error) => new() { Error = error };
+        }
+
+        private sealed class GameCatalogStartupResult
+        {
+            public bool IsSuccess => Catalog is not null;
+            public GameCatalogDocument? Catalog { get; private init; }
+            public PersistenceError? Error { get; private init; }
+            public static GameCatalogStartupResult Ok(GameCatalogDocument catalog) => new() { Catalog = catalog };
+            public static GameCatalogStartupResult Fail(PersistenceError error) => new() { Error = error };
         }
     }
 }

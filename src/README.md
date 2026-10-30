@@ -1,20 +1,25 @@
 # FocusRGB source
 
-Application source for FocusRGB, created by slice 01 in `../docs/implementation-slices.md`.
-The solution file is `../FocusRGB.slnx`.
+The UI calls automatic application/game rules **Focuses** and presents them in the **Focus Library**.
+Internal rule/mapping identifiers and settings serialization remain unchanged.
+
+Application source for FocusRGB. Delivery status is tracked on the
+[project board](https://github.com/orgs/FocusRGB/projects/1), with archived plans indexed by
+[issue #83](https://github.com/FocusRGB/FocusRGB/issues/83). The solution file is
+`../FocusRGB.slnx`; the normative plugin contract is `../sdk/spec/plugin-protocol.md`.
 
 | Project | Purpose | May reference |
 |---|---|---|
-| `FocusRgb.Contracts/` | Provider-neutral plugin messages, capabilities, results, and resource IDs | Nothing project-specific |
-| `FocusRgb.PluginSdk/` (slice 14) | Plugin-side protocol/runtime helpers published as a versioned package | Contracts |
-| `FocusRgb.Core/` | Profiles, selection, persistence, commands, fallback, and ownership | Contracts |
-| `FocusRgb.Platform.Windows/` | Windows focus/process detection, later screen capture (`net10.0-windows`) | Contracts, Core |
-| `FocusRgb.App/` | Avalonia tray/settings UI and plugin host wiring; builds `FocusRGB.exe` (`net10.0-windows`) | Contracts, Core, Platform |
+| `FocusRgb.Core/` | Internal host protocol types, profiles, selection, persistence, commands, fallback, and ownership | Nothing project-specific |
+| `FocusRgb.Platform.Windows/` | Windows focus/process detection, later screen capture (`net10.0-windows`) | Core |
+| `FocusRgb.LocalMcp/` | Authenticated Windows named-pipe boundary shared by the app and MCP adapter | Nothing project-specific |
+| `FocusRgb.Mcp/` | Official-SDK stdio MCP adapter; builds `FocusRgb.Mcp.exe` (`net10.0-windows`) | LocalMcp |
+| `FocusRgb.App/` | Avalonia tray/settings UI and plugin host wiring; builds `FocusRGB.exe` (`net10.0-windows`) | Core, Platform, LocalMcp |
 
-Contracts, PluginSdk, and Core target portable .NET 10 without Windows APIs. No project here
-references an integration. Production plugins live in independent
-`FocusRGB-Plugin-<Name>` repositories and consume the published SDK; the main repository keeps
-only its fake conformance fixture under tests. Build output goes to the ignored
+Core targets portable .NET 10 without Windows APIs and is not packable. No project here
+references an integration or SDK source. Production plugins live in independent
+`FocusRGB-Plugin-<Name>` repositories and consume packages from [`FocusRGB-SDK`](https://github.com/FocusRGB/FocusRGB-SDK); the main
+repository keeps only its raw fake conformance fixture under tests. Build output goes to the ignored
 `../build/artifacts/` directory (set by `../Directory.Build.props`).
-`../tests/FocusRgb.Core.Tests/DependencyBoundaryTests.cs` fails the build's tests if Contracts
-or Core gain a platform target, a package, or a forbidden project reference.
+`../tests/FocusRgb.Core.Tests/DependencyBoundaryTests.cs` fails the build's tests if Core gains
+a platform target, a package, or a forbidden project reference.

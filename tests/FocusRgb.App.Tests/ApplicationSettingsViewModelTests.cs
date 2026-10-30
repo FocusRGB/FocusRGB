@@ -1,15 +1,17 @@
 using FocusRgb.App.Diagnostics;
 using FocusRgb.App.ViewModels;
+using FocusRgb.Core.Commands;
 using FocusRgb.Core.Configuration;
 using FocusRgb.Core.Persistence;
+using FocusRgb.TestSupport;
 
 namespace FocusRgb.App.Tests
 {
     public sealed class ApplicationSettingsViewModelTests : IDisposable
     {
         private static readonly DateTimeOffset Start = new(2026, 10, 14, 16, 0, 0, TimeSpan.Zero);
-        private readonly string _directory = Path.Combine(
-            Path.GetTempPath(), "FocusRgb.App.Tests", Guid.NewGuid().ToString("N"));
+        private readonly TempDirectory _tempDirectory = new(nameof(ApplicationSettingsViewModelTests));
+        private string _directory => _tempDirectory.Path;
 
         [Fact]
         public async Task SaveApplicationSettingsAsync_PersistsPreferencesWithoutChangingSelectionState()
@@ -21,7 +23,14 @@ namespace FocusRgb.App.Tests
             viewModel.CloseButtonBehavior = "Exit application";
             viewModel.StartMinimized = true;
             viewModel.ApplicationTheme = "Dark";
+            viewModel.DebuggingMode = true;
             viewModel.VerboseLogging = true;
+            viewModel.ShowProfileChangePopup = false;
+            viewModel.NotificationSize = "Large";
+            viewModel.NotificationBackground = "Light";
+            viewModel.NotificationDurationSeconds = 5;
+            viewModel.IncludeBetaPlugins = false;
+            viewModel.SwitchingSpeed = "Fast (300 ms)";
 
             var saved = await viewModel.SaveApplicationSettingsAsync(TestContext.Current.CancellationToken);
             var restarted = await store.InitializeAsync(Start.AddMinutes(1), TestContext.Current.CancellationToken);
@@ -31,6 +40,13 @@ namespace FocusRgb.App.Tests
             Assert.True(restarted.Snapshot.Settings.Application.StartMinimized);
             Assert.Equal("dark", restarted.Snapshot.Settings.Application.Theme);
             Assert.True(restarted.Snapshot.Settings.Application.VerboseLogging);
+            Assert.False(restarted.Snapshot.Settings.Application.ShowProfileChangePopup);
+            Assert.Equal("large", restarted.Snapshot.Settings.Application.Notification!.Size);
+            Assert.Equal("light", restarted.Snapshot.Settings.Application.Notification.Background);
+            Assert.Equal(5, restarted.Snapshot.Settings.Application.Notification.DurationSeconds);
+            Assert.False(restarted.Snapshot.Settings.Application.IncludeBetaPlugins);
+            Assert.False(viewModel.SavedIncludeBetaPlugins);
+            Assert.Equal("fast", restarted.Snapshot.Settings.Application.SwitchingSpeed);
             Assert.Equal(stateBefore, await File.ReadAllTextAsync(statePath, TestContext.Current.CancellationToken));
             Assert.Equal(effectBefore, restarted.Snapshot.Settings.Profiles!
                 .Single(profile => profile.Id == "default").Bindings![0].Effect!.DisplayName);
@@ -63,12 +79,16 @@ namespace FocusRgb.App.Tests
 
             viewModel.CloseButtonBehavior = "Exit application";
             viewModel.ApplicationTheme = "Dark";
+            Assert.True(viewModel.IncludeBetaPlugins);
+            viewModel.IncludeBetaPlugins = false;
+            Assert.True(viewModel.SavedIncludeBetaPlugins);
 
             Assert.True(viewModel.ShouldMinimizeOnClose);
             Assert.True(viewModel.IsApplicationSettingsDirty);
             viewModel.CancelApplicationSettings();
             Assert.Equal("Minimize to system tray", viewModel.CloseButtonBehavior);
             Assert.Equal("System", viewModel.ApplicationTheme);
+            Assert.True(viewModel.IncludeBetaPlugins);
             Assert.False(viewModel.IsApplicationSettingsDirty);
         }
 
@@ -86,6 +106,119 @@ namespace FocusRgb.App.Tests
             Assert.Equal(["Exit application"], viewModel.CloseButtonBehaviors);
             Assert.Equal("Exit application", viewModel.CloseButtonBehavior);
             Assert.False(viewModel.ShouldMinimizeOnClose);
+        }
+
+        [Fact]
+        public async Task SetPluginEnabledAsync_PersistsOnlyRequestedPluginState()
+        {
+            var (viewModel, store) = await CreateAsync();
+
+            Assert.Null(await viewModel.SetPluginEnabledAsync(
+                "test-plugin", true, TestContext.Current.CancellationToken));
+            Assert.Equal(["test-plugin"], viewModel.EnabledPluginIds);
+
+            var enabled = await store.InitializeAsync(
+                Start.AddMinutes(1), TestContext.Current.CancellationToken);
+            Assert.Equal(["test-plugin"], enabled.Snapshot!.Settings.Plugins!.Enabled);
+
+            Assert.Null(await viewModel.SetPluginEnabledAsync(
+                "test-plugin", false, TestContext.Current.CancellationToken));
+            Assert.Empty(viewModel.EnabledPluginIds);
+        }
+
+        [Fact]
+        public async Task ExternalSettingsChange_RefreshesACleanEditor()
+        {
+            var (viewModel, service) = await CreateWithServiceAsync();
+
+            var changed = WithTheme(service.Current.Settings, "dark");
+            var applied = await service.ApplySettingsAsync(
+                changed,
+                service.Current.SettingsRevision,
+                "mcp",
+                TestContext.Current.CancellationToken);
+
+            Assert.True(applied.IsSuccess);
+            Assert.False(viewModel.HasSettingsConflict);
+            Assert.Equal("Dark", viewModel.ApplicationTheme);
+        }
+
+        [Fact]
+        public async Task ExternalProfileRemoval_PreservesDirtyProjectionUntilExplicitReload()
+        {
+            var (viewModel, service) = await CreateWithServiceAsync();
+            var removed = viewModel.Profiles.Single(profile => profile.Id == "movie");
+            viewModel.EditingProfile = removed;
+            viewModel.ProfileName = "Unsaved draft";
+
+            var applied = await service.ApplySettingsAsync(
+                WithoutProfile(service.Current.Settings, "movie"),
+                service.Current.SettingsRevision,
+                "mcp",
+                TestContext.Current.CancellationToken);
+
+            Assert.True(applied.IsSuccess);
+            Assert.True(viewModel.HasSettingsConflict);
+            Assert.Equal("Unsaved draft", viewModel.ProfileName);
+            Assert.Contains("Reload", viewModel.ProfileEditorStatus, StringComparison.Ordinal);
+            viewModel.CancelProfile();
+            viewModel.EditingProfile = viewModel.Profiles.Single(profile => profile.Id == "music");
+            viewModel.EditingProfile = removed;
+            Assert.Equal("Movie", viewModel.ProfileName);
+
+            var pluginError = await viewModel.SetPluginEnabledAsync(
+                "test-plugin", true, TestContext.Current.CancellationToken);
+            Assert.Contains("Settings changed elsewhere", pluginError, StringComparison.Ordinal);
+
+            var second = await service.ApplySettingsAsync(
+                WithTheme(service.Current.Settings, "dark"),
+                service.Current.SettingsRevision,
+                "mcp",
+                TestContext.Current.CancellationToken);
+            Assert.True(second.IsSuccess);
+            Assert.True(viewModel.HasSettingsConflict);
+            Assert.Contains(viewModel.Profiles, profile => profile.Id == "movie");
+
+            viewModel.ReloadSettingsAfterConflict();
+            Assert.False(viewModel.HasSettingsConflict);
+            Assert.DoesNotContain(viewModel.Profiles, profile => profile.Id == "movie");
+            Assert.Equal("Dark", viewModel.ApplicationTheme);
+        }
+
+        [Fact]
+        public async Task SavedIncludeBetaPlugins_UsesCurrentServiceSettings_WhenEditorHasConflict()
+        {
+            var (viewModel, service) = await CreateWithServiceAsync();
+            viewModel.ProfileName = "Unsaved draft";
+            var applied = await service.ApplySettingsAsync(
+                WithTheme(service.Current.Settings, "dark", includeBetaPlugins: false),
+                service.Current.SettingsRevision, "mcp", TestContext.Current.CancellationToken);
+
+            Assert.True(applied.IsSuccess);
+            Assert.True(viewModel.HasSettingsConflict);
+            Assert.True(viewModel.IncludeBetaPlugins);
+            Assert.False(viewModel.SavedIncludeBetaPlugins);
+        }
+
+        [Fact]
+        public async Task ExternalSettingsChange_PreservesNewGroupDraftWithoutASelection()
+        {
+            var (viewModel, service) = await CreateWithServiceAsync();
+            viewModel.EditingApplicationGroup = null;
+            viewModel.ApplicationGroupName = "New group";
+            viewModel.AddDraftExecutable("NewApp.exe");
+
+            var applied = await service.ApplySettingsAsync(
+                WithTheme(service.Current.Settings, "dark"),
+                service.Current.SettingsRevision,
+                "mcp",
+                TestContext.Current.CancellationToken);
+
+            Assert.True(applied.IsSuccess);
+            Assert.True(viewModel.HasSettingsConflict);
+            Assert.Null(viewModel.EditingApplicationGroup);
+            Assert.Equal("New group", viewModel.ApplicationGroupName);
+            Assert.Equal(["NewApp.exe"], viewModel.DraftExecutables);
         }
 
         [Fact]
@@ -129,9 +262,55 @@ namespace FocusRgb.App.Tests
             return (MainWindowViewModel.CreatePersistent(startup.Snapshot!, store), store);
         }
 
+        private async Task<(MainWindowViewModel ViewModel, ApplicationStateService Service)> CreateWithServiceAsync()
+        {
+            var store = new LocalStateStore(_directory);
+            var startup = await store.InitializeAsync(Start, TestContext.Current.CancellationToken);
+            Assert.True(startup.IsSuccess, startup.Error?.Message);
+            var service = new ApplicationStateService(
+                startup.Snapshot!.Settings,
+                startup.Snapshot.State,
+                startup.Snapshot.Desired.Reason,
+                store);
+            return (MainWindowViewModel.CreatePersistent(
+                startup.Snapshot, store, applicationState: service), service);
+        }
+
+        private static SettingsDocument WithTheme(SettingsDocument settings, string theme, bool? includeBetaPlugins = null) => new()
+        {
+            SchemaVersion = settings.SchemaVersion,
+            Application = new ApplicationSettings
+            {
+                CloseButtonBehavior = settings.Application!.CloseButtonBehavior,
+                StartMinimized = settings.Application.StartMinimized,
+                Theme = theme,
+                VerboseLogging = settings.Application.VerboseLogging,
+                IncludeBetaPlugins = includeBetaPlugins ?? settings.Application.IncludeBetaPlugins,
+                AdditionalProperties = settings.Application.AdditionalProperties
+            },
+            Plugins = settings.Plugins,
+            Selection = settings.Selection,
+            Profiles = settings.Profiles,
+            ApplicationGroups = settings.ApplicationGroups,
+            Rules = settings.Rules,
+            AdditionalProperties = settings.AdditionalProperties
+        };
+
+        private static SettingsDocument WithoutProfile(SettingsDocument settings, string profileId) => new()
+        {
+            SchemaVersion = settings.SchemaVersion,
+            Application = settings.Application,
+            Plugins = settings.Plugins,
+            Selection = settings.Selection,
+            Profiles = settings.Profiles!.Where(profile => profile.Id != profileId).ToList(),
+            ApplicationGroups = settings.ApplicationGroups,
+            Rules = settings.Rules!.Where(rule => rule.Profile != profileId).ToList(),
+            AdditionalProperties = settings.AdditionalProperties
+        };
+
         public void Dispose()
         {
-            if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
+            _tempDirectory.Dispose();
         }
     }
 }

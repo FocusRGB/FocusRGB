@@ -1,7 +1,7 @@
 # FocusRgb.Core
 
-Portable .NET 10 application logic. Configuration, pure profile selection, and atomic local
-selection commands are implemented; coordination and output remain later slices. Only shared Contracts
+Portable .NET 10 application logic. Configuration, pure profile selection, atomic local
+selection commands, and provider-neutral output coordination are implemented. Only shared Contracts
 may be referenced. There are no provider SDKs, platform APIs, or lighting calls here.
 
 ```text
@@ -13,6 +13,8 @@ Configuration/
   default-settings.json     editable acceptance mappings, embedded as seed data
 Commands/
   SelectionCommandService.cs persisted select-profile, set-mode, save, and local status
+Coordination/
+  OutputCoordinator.cs       desired/applied/fallback state, ownership, and recovery consent
 Selection/
   SelectionModels.cs        observation, mode, decision, and reason types
   SelectionEngine.cs        manual/automatic arbitration and focus debounce
@@ -33,14 +35,14 @@ The `default` profile ID is protected: validation requires it and requires
 `selection.defaultProfile` to keep referencing it. Seeded unmatched selection is always
 `default-profile`.
 
-Missing fields stay distinguishable from valid zero/false values. Settings schema version 1 is
-migrated to version 2 with default application preferences; version 2 is the current write
-format. Unsupported newer versions are preserved and reported rather than overwritten.
+Missing fields stay distinguishable from valid zero/false values. Settings schema versions 1
+and 2 migrate to version 3 with application preferences and disabled-by-default plugin
+enablement. Unsupported newer versions are preserved and reported rather than overwritten.
 Application authority and reserved game/device scope shapes can validate, but this does not
 claim runtime support.
 
 `NativeSetupJson.CreateDefault()` returns an independent empty app-default snapshot, and
-`LocalStateStore` handles its storage. Slices 10–16 add native rendering/output. The snapshot
+`LocalStateStore` handles its storage. Slices 20–21 add native rendering and output. The snapshot
 is not derived from provider bindings. Runtime intent is stored separately in `state.json`.
 
 ## Selecting a profile
@@ -48,17 +50,27 @@ is not derived from provider bindings. Runtime intent is stored separately in `s
 Construct `SelectionEngine` with validated settings, then pass `SelectionMode`, the retained
 manual profile ID, an `ApplicationObservation`, and its timestamp to `Select`. Automatic mode
 uses case-insensitive executable matching and saved rule order; the first eligible rule wins.
-Focus-only rules wait for `debounceMs`; ignored foreground executables preserve the
-previous stable focus. A process must still appear in `RunningExecutables`, so exit removes
-eligibility immediately. No eligible rule returns protected Default. The result reports
+Focus-only rules wait for `application.switchingSpeed` (Fast 300 ms, Normal 750 ms, Smooth 2000 ms);
+schema v6 migrates existing settings to Normal. Schema v7 adds default-off `application.debuggingMode`;
+schema v8 adds `application.notification` (size, opaque background preset and duration) while preserving
+the independent debugging/logging choices in v7.
+older settings with diagnostic logging enabled migrate with Debugging mode enabled. Recovery through
+`settings.last-known-good.json` applies the same migration. The legacy `selection.debounceMs` field is retained
+for document compatibility; the application preset controls selection. Ignored foreground executables preserve the
+previous stable focus. An unmapped window keeps the supplied current profile while its originating
+matched executable is still running, without letting background rules preempt that task. It also
+cancels an interrupted mapped-app debounce. When that executable exits or its catalog match is
+removed, selection falls back to the first eligible while-running rule or protected Default.
+The result reports
 `manual`, `rule` (with its rule ID), `observation-pending`, or `unmatched-default`. On startup
 and whenever manual mode returns to automatic, the engine clears old focus history and retains
-the supplied current profile until the first foreground observation is stable. While-running
-rules can still win immediately.
+the supplied current profile until a mapped application gains focus. While-running rules can still
+win immediately on a mapped foreground; unmapped startup windows keep the saved profile. Settings
+updates retain the last settled task/source while validating it against the updated rules/catalog.
 
 The caller owns process observation and time. The selector does not read the OS or call an
 integration or device. `LocalStateStore` persists its desired result independently of output.
-Windows observations arrive in slice 19; slice 20 wires them to automatic selection and persistence.
+Windows observations arrive in slice 12; slice 13 wires them to automatic selection and persistence.
 
 ## Persisting startup state
 
@@ -88,12 +100,13 @@ The Windows app stores these files under `%LOCALAPPDATA%\FocusRGB`.
 
 ## Running local selection commands
 
-Construct `SelectionCommandService` with an `ISelectionStateStore`. `SelectProfileAsync`,
-`SetModeAsync`, and `SaveCurrentAsync` validate and save the replacement state before returning
-it to the caller, so a failed write never changes visible runtime intent. `GetStatus` reports the
-desired profile and reason while explicitly leaving applied output empty until an integration or
-native output exists. The Avalonia UI uses this service; the future local MCP adapter can call the
-same boundary without referencing desktop controls.
+Construct `SelectionCommandService` with an `ISelectionStateStore` and optional
+`OutputCoordinator`. `SelectProfileAsync` and `SetModeAsync` save replacement intent before output,
+so failed persistence never changes lighting. The coordinator resolves provider resources and
+capabilities, prevents an unconfirmed second writer, walks validated fallbacks, and reports
+native fallback as pending until native output exists. Recovered plugins remain blocked behind a
+coalesced Accept/Decline notification; Accept reapplies current intent. The Avalonia UI uses this
+service, and the future local MCP adapter can call the same boundary without desktop controls.
 
 ## Adding a profile
 

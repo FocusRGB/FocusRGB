@@ -11,12 +11,17 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/FocusRgb.App/FocusRgb.App.csproj" />
-    <Project Path="src/FocusRgb.Contracts/FocusRgb.Contracts.csproj" />
     <Project Path="src/FocusRgb.Core/FocusRgb.Core.csproj" />
+    <Project Path="src/FocusRgb.LocalMcp/FocusRgb.LocalMcp.csproj" />
+    <Project Path="src/FocusRgb.Mcp/FocusRgb.Mcp.csproj" />
     <Project Path="src/FocusRgb.Platform.Windows/FocusRgb.Platform.Windows.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/FocusRgb.App.HeadlessTests/FocusRgb.App.HeadlessTests.csproj" />
     <Project Path="tests/FocusRgb.App.Tests/FocusRgb.App.Tests.csproj" />
     <Project Path="tests/FocusRgb.Core.Tests/FocusRgb.Core.Tests.csproj" />
+    <Project Path="tests/FocusRgb.FakePlugin/FocusRgb.FakePlugin.csproj" />
+    <Project Path="tests/FocusRgb.Platform.Windows.Tests/FocusRgb.Platform.Windows.Tests.csproj" />
+    <Project Path="tests/FocusRgb.TestSupport/FocusRgb.TestSupport.csproj" />
   </Folder>
 </Solution>

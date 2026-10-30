@@ -1,0 +1,419 @@
+using System.IO.Pipes;
+using System.Security.Cryptography;
+using System.Security.Principal;
+using System.Text;
+using System.Text.Json;
+using FocusRgb.App.Mcp;
+using FocusRgb.App.Plugins;
+using FocusRgb.Core.Commands;
+using FocusRgb.Core.Persistence;
+using FocusRgb.LocalMcp;
+using FocusRgb.Mcp;
+
+namespace FocusRgb.App.Tests
+{
+    [Collection(nameof(LocalMcpTestGroup))]
+    public sealed class LocalMcpTests : IDisposable
+    {
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Pipe_ClientPreservesLargeReplyOrErrorAfterServerDisconnects(bool error)
+        {
+            var payload = new string('\u4e2d', 8 * 1024);
+            var credential = Credential();
+            using var stopping = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            using var pipe = new NamedPipeServerStream(LocalMcpProtocol.PipeNameFor(_directory),
+                PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 4096, 64 * 1024);
+            var serving = Task.Run(async () =>
+            {
+                for (var attempt = 0; attempt < 20; attempt++)
+                {
+                    await pipe.WaitForConnectionAsync(stopping.Token);
+                    using var reader = new StreamReader(pipe, new UTF8Encoding(false), leaveOpen: true);
+                    var request = JsonSerializer.Deserialize<LocalMcpRequest>((await reader.ReadLineAsync(stopping.Token))!)!;
+                    var response = new LocalMcpResponse
+                    {
+                        Id = request.Id,
+                        Result = error ? null : JsonSerializer.SerializeToElement(new { payload }),
+                        Error = error ? new LocalMcpError { Code = "fixture-error", Message = payload } : null
+                    };
+                    await pipe.WriteAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response) + "\n"), stopping.Token);
+                    pipe.WaitForPipeDrain();
+                    pipe.Disconnect();
+                }
+            }, stopping.Token);
+            var client = CreateClient(credential, Environment.ProcessPath!);
+            try
+            {
+                for (var attempt = 0; attempt < 20; attempt++)
+                {
+                    if (error)
+                    {
+                        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                            client.QueryAsync("large-error", TestContext.Current.CancellationToken));
+                        Assert.Equal("fixture-error: " + payload, exception.Message);
+                    }
+                    else
+                    {
+                        var result = await client.QueryAsync("large-reply", TestContext.Current.CancellationToken);
+                        Assert.Equal(payload, result.GetProperty("payload").GetString());
+                    }
+                }
+            }
+            finally
+            {
+                await stopping.CancelAsync();
+                pipe.Dispose();
+                try { await serving; }
+                catch (OperationCanceledException) when (stopping.IsCancellationRequested) { }
+                catch (ObjectDisposedException) when (stopping.IsCancellationRequested) { }
+                catch (IOException) when (stopping.IsCancellationRequested) { }
+            }
+        }
+
+        private readonly string _directory = Path.Combine(
+            Path.GetTempPath(), "FocusRgb.Tests", Guid.NewGuid().ToString("N"));
+
+        [Fact]
+        public async Task Pipe_ShutdownCancelsBlockedResponseWriteBeforeDisposingWriter()
+        {
+            var largeResponse = JsonSerializer.SerializeToElement(new string('x', 1024 * 1024));
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                var credential = Credential();
+                var server = CreateServer(credential, (request, _) => Task.FromResult(
+                    request.Method == "blocked" ? largeResponse : JsonSerializer.SerializeToElement("ready")));
+                using var stalled = new NamedPipeClientStream(
+                    ".", LocalMcpProtocol.PipeNameFor(_directory), PipeDirection.InOut, PipeOptions.Asynchronous);
+                var run = server.RunAsync();
+                try
+                {
+                    // Use a later pipe instance: shutdown separately disposes the first listener.
+                    var client = CreateClient(credential, Environment.ProcessPath!);
+                    await client.QueryAsync("warmup", TestContext.Current.CancellationToken);
+                    await StartBlockedResponseAsync(stalled, credential);
+                }
+                finally
+                {
+                    // Keep the client open and undrained until server shutdown has completed.
+                    await server.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+                }
+                Assert.True(run.IsCompletedSuccessfully || run.IsCanceled);
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Pipe_SurvivesBlockedResponseTimeoutAndClientDisconnect(bool disconnect)
+        {
+            var credential = Credential();
+            var largeResponse = JsonSerializer.SerializeToElement(new string('x', 1024 * 1024));
+            await using var server = CreateServer(credential, (request, _) => Task.FromResult(
+                request.Method == "blocked" ? largeResponse : JsonSerializer.SerializeToElement("ready")));
+            _ = server.RunAsync();
+            var client = CreateClient(credential, Environment.ProcessPath!);
+            await client.QueryAsync("warmup", TestContext.Current.CancellationToken);
+            using var stalled = new NamedPipeClientStream(
+                ".", LocalMcpProtocol.PipeNameFor(_directory), PipeDirection.InOut, PipeOptions.Asynchronous);
+            await StartBlockedResponseAsync(stalled, credential);
+            if (disconnect)
+            {
+                stalled.Dispose();
+            }
+            else
+            {
+                // The production write deadline is two seconds; do not drain and unblock it.
+                await Task.Delay(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+                await Assert.ThrowsAsync<IOException>(() => stalled.WriteAsync(new byte[1], TestContext.Current.CancellationToken)
+                    .AsTask().WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken));
+            }
+            Assert.Equal("ready", (await client.QueryAsync("probe", TestContext.Current.CancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken)).GetString());
+        }
+
+        private static async Task StartBlockedResponseAsync(NamedPipeClientStream pipe, string credential)
+        {
+            await pipe.ConnectAsync(2000, TestContext.Current.CancellationToken);
+            var request = JsonSerializer.Serialize(new LocalMcpRequest
+            {
+                ProtocolVersion = LocalMcpProtocol.Version, Id = "blocked", Credential = credential, Method = "blocked"
+            }) + "\n";
+            await pipe.WriteAsync(Encoding.UTF8.GetBytes(request), TestContext.Current.CancellationToken);
+            var firstByte = new byte[1];
+            Assert.Equal(1, await pipe.ReadAsync(firstByte, TestContext.Current.CancellationToken).AsTask()
+                .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        }
+
+        [Fact]
+        public async Task Configuration_MissingAndInvalidFilesFailClosed()
+        {
+            var store = new McpConfigurationStore(_directory);
+
+            var missing = await store.LoadAsync(TestContext.Current.CancellationToken);
+            Directory.CreateDirectory(_directory);
+            await File.WriteAllTextAsync(
+                Path.Combine(_directory, McpConfigurationStore.FileName),
+                "{\"schemaVersion\":1,\"enabled\":true}",
+                TestContext.Current.CancellationToken);
+            var invalid = await store.LoadAsync(TestContext.Current.CancellationToken);
+
+            Assert.True(missing.IsSuccess);
+            Assert.False(missing.Configuration!.Enabled);
+            Assert.False(invalid.IsSuccess);
+        }
+
+        [Fact]
+        public async Task Configuration_EnableCreatesCredentialAndDisablePersistsOff()
+        {
+            var store = new McpConfigurationStore(_directory);
+
+            var missingPath = await store.SetEnabledAsync(
+                true, cancellationToken: TestContext.Current.CancellationToken);
+            var enabled = await store.SetEnabledAsync(
+                true, Environment.ProcessPath, TestContext.Current.CancellationToken);
+            var disabled = await store.SetEnabledAsync(
+                false, cancellationToken: TestContext.Current.CancellationToken);
+            var reloaded = await store.LoadAsync(TestContext.Current.CancellationToken);
+
+            Assert.False(missingPath.IsSuccess);
+            Assert.True(enabled.IsSuccess);
+            Assert.Equal(32, Convert.FromBase64String(enabled.Configuration!.Credential!).Length);
+            Assert.True(disabled.IsSuccess);
+            Assert.False(reloaded.Configuration!.Enabled);
+            Assert.Equal(enabled.Configuration.Credential, reloaded.Configuration.Credential);
+        }
+
+        [Fact]
+        public async Task Pipe_AuthenticatesAndDispatchesAReadQuery()
+        {
+            var credential = Credential();
+            await using var server = CreateServer(
+                credential,
+                (request, _) => Task.FromResult(JsonSerializer.SerializeToElement(new { method = request.Method })));
+            _ = server.RunAsync();
+            var client = CreateClient(credential, Environment.ProcessPath!);
+
+            var result = await client.QueryAsync("getStatus", TestContext.Current.CancellationToken);
+
+            Assert.Equal("getStatus", result.GetProperty("method").GetString());
+        }
+
+        [Fact]
+        public async Task ReadTools_QueryApplicationOwnedStateAcrossEveryTool()
+        {
+            var stateStore = new LocalStateStore(_directory);
+            var startup = await stateStore.InitializeAsync(
+                new DateTimeOffset(2026, 10, 22, 12, 0, 0, TimeSpan.Zero),
+                TestContext.Current.CancellationToken);
+            var state = new ApplicationStateService(
+                startup.Snapshot!.Settings,
+                startup.Snapshot.State,
+                startup.Snapshot.Desired.Reason,
+                stateStore);
+            var queries = new McpReadQueryService(state, () =>
+            [
+                new InstalledPluginInfo
+                {
+                    Id = "fake-output",
+                    DisplayName = "Fake output",
+                    Version = "1.0.0",
+                    IsOfficial = true,
+                    IsEnabled = true,
+                    IsRunning = true
+                }
+            ]);
+            var credential = Credential();
+            await using var server = CreateServer(
+                credential,
+                (request, cancellationToken) => queries.QueryAsync(request.Method!, cancellationToken));
+            _ = server.RunAsync();
+            var client = CreateClient(credential, Environment.ProcessPath!);
+            var tools = new FocusRgbReadTools(client);
+
+            var profiles = await tools.ListProfilesAsync(TestContext.Current.CancellationToken);
+            var groups = await tools.ListApplicationGroupsAsync(TestContext.Current.CancellationToken);
+            var mappings = await tools.ListMappingsAsync(TestContext.Current.CancellationToken);
+            var plugins = await tools.ListPluginsAsync(TestContext.Current.CancellationToken);
+            var devices = await tools.ListDevicesAsync(TestContext.Current.CancellationToken);
+            var status = await tools.GetStatusAsync(TestContext.Current.CancellationToken);
+            var explanation = await tools.ExplainActiveSelectionAsync(TestContext.Current.CancellationToken);
+            var unknown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                client.QueryAsync("unknown", TestContext.Current.CancellationToken));
+
+            Assert.NotEmpty(profiles.EnumerateArray());
+            Assert.NotEmpty(groups.EnumerateArray());
+            Assert.Equal(0, mappings.EnumerateArray().First().GetProperty("order").GetInt32());
+            Assert.Equal("fake-output", plugins.EnumerateArray().Single().GetProperty("id").GetString());
+            Assert.NotEmpty(devices.EnumerateArray());
+            Assert.Equal("manual", status.GetProperty("selectionState").GetProperty("mode").GetString());
+            Assert.Equal("default", explanation.GetProperty("desiredProfile").GetString());
+            Assert.Contains("method-not-found", unknown.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task Pipe_RejectsWrongCredentialBeforeDispatch()
+        {
+            var dispatched = false;
+            await using var server = CreateServer(
+                Credential(),
+                (_, _) =>
+                {
+                    dispatched = true;
+                    return Task.FromResult(JsonSerializer.SerializeToElement(true));
+                });
+            _ = server.RunAsync();
+            var client = CreateClient(Credential(), Environment.ProcessPath!);
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                client.QueryAsync("getStatus", TestContext.Current.CancellationToken));
+
+            Assert.Contains("unauthorized", error.Message, StringComparison.Ordinal);
+            Assert.False(dispatched);
+        }
+
+        [Fact]
+        public async Task Pipe_RejectsMalformedRequestAndUnexpectedServerPath()
+        {
+            var credential = Credential();
+            await using var server = CreateServer(
+                credential,
+                (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true)));
+            _ = server.RunAsync();
+            using (var pipe = new NamedPipeClientStream(
+                ".", LocalMcpProtocol.PipeNameFor(_directory), PipeDirection.InOut, PipeOptions.Asynchronous))
+            {
+                await pipe.ConnectAsync(TestContext.Current.CancellationToken);
+                using var writer = new StreamWriter(pipe, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
+                using var reader = new StreamReader(pipe, new UTF8Encoding(false), leaveOpen: true);
+                await writer.WriteLineAsync("not-json");
+                var response = JsonSerializer.Deserialize<LocalMcpResponse>(
+                    (await reader.ReadLineAsync(TestContext.Current.CancellationToken))!);
+                Assert.Equal("invalid-request", response!.Error!.Code);
+            }
+
+            var wrongPath = Path.Combine(Path.GetTempPath(), "not-focusrgb.exe");
+            var client = CreateClient(credential, wrongPath);
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                client.QueryAsync("getStatus", TestContext.Current.CancellationToken));
+        }
+
+        [Fact]
+        public async Task Pipe_AllowsOnlyOneListenerAndStopsCleanly()
+        {
+            await using var first = CreateServer(
+                Credential(),
+                (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true)));
+            _ = first.RunAsync();
+
+            var error = Record.Exception(() => CreateServer(
+                Credential(),
+                (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true))));
+
+            Assert.True(error is IOException or UnauthorizedAccessException, error?.ToString());
+        }
+
+        [Fact]
+        public async Task Pipe_AclAllowsOnlyTheCurrentUser()
+        {
+            await using var server = CreateServer(
+                Credential(),
+                (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true)));
+            var currentUser = WindowsIdentity.GetCurrent().User!;
+
+            var rules = server.GetAccessControl()
+                .GetAccessRules(includeExplicit: true, includeInherited: false, typeof(SecurityIdentifier))
+                .Cast<PipeAccessRule>()
+                .ToList();
+
+            Assert.NotEmpty(rules);
+            Assert.All(rules, rule => Assert.Equal(currentUser, rule.IdentityReference));
+        }
+
+        [Fact]
+        public async Task Pipe_SurvivesAbruptDisconnectAndReadTimeout()
+        {
+            var credential = Credential();
+            await using var server = CreateServer(
+                credential,
+                (request, _) => Task.FromResult(JsonSerializer.SerializeToElement(request.Method)));
+            _ = server.RunAsync();
+            using (var disconnected = new NamedPipeClientStream(
+                ".", LocalMcpProtocol.PipeNameFor(_directory), PipeDirection.InOut, PipeOptions.Asynchronous))
+            {
+                await disconnected.ConnectAsync(TestContext.Current.CancellationToken);
+            }
+            var client = CreateClient(credential, Environment.ProcessPath!);
+            Assert.Equal(
+                "after-disconnect",
+                (await client.QueryAsync("after-disconnect", TestContext.Current.CancellationToken)).GetString());
+
+            using var stalled = new NamedPipeClientStream(
+                ".", LocalMcpProtocol.PipeNameFor(_directory), PipeDirection.InOut, PipeOptions.Asynchronous);
+            await stalled.ConnectAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(
+                "after-timeout",
+                (await client.QueryAsync("after-timeout", TestContext.Current.CancellationToken)).GetString());
+        }
+
+        [Fact]
+        public async Task Client_ReloadsTheUiControlledConfigurationForEveryQuery()
+        {
+            var store = new McpConfigurationStore(_directory);
+            var enabled = await store.SetEnabledAsync(
+                true, Environment.ProcessPath, TestContext.Current.CancellationToken);
+            await using var server = CreateServer(
+                enabled.Configuration!.Credential!,
+                (_, _) => Task.FromResult(JsonSerializer.SerializeToElement(true)), _directory);
+            _ = server.RunAsync();
+            var client = CreateClient(store);
+
+            Assert.True((await client.QueryAsync(
+                "getStatus", TestContext.Current.CancellationToken)).GetBoolean());
+            await store.SetEnabledAsync(false, cancellationToken: TestContext.Current.CancellationToken);
+            var disabled = await Assert.ThrowsAsync<LocalMcpDisabledException>(() =>
+                client.QueryAsync("getStatus", TestContext.Current.CancellationToken));
+
+            Assert.Contains("disabled", disabled.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task Pipe_HonorsCancellationWhenTheAppIsNotListening()
+        {
+            using var cancellation = new CancellationTokenSource();
+            await cancellation.CancelAsync();
+            var client = CreateClient(Credential(), Environment.ProcessPath!);
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                client.QueryAsync("getStatus", cancellation.Token));
+        }
+
+        [Fact]
+        public async Task Pipe_ReportsWhenTheAppIsNotListening()
+        {
+            var client = CreateClient(Credential(), Environment.ProcessPath!);
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                client.QueryAsync("getStatus", TestContext.Current.CancellationToken));
+
+            Assert.Contains("not running", error.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private LocalMcpPipeServer CreateServer(string credential, Func<LocalMcpRequest, CancellationToken, Task<JsonElement>> dispatch, string? directory = null) =>
+            new(credential, dispatch, directory ?? _directory);
+
+        private LocalMcpPipeClient CreateClient(string credential, string expectedPath) => new(credential, expectedPath, _directory);
+        private static LocalMcpPipeClient CreateClient(McpConfigurationStore store) => new(store);
+
+        private static string Credential() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+
+        public void Dispose()
+        {
+            if (Directory.Exists(_directory)) Directory.Delete(_directory, true);
+        }
+    }
+
+    [CollectionDefinition(nameof(LocalMcpTestGroup), DisableParallelization = true)]
+    public sealed class LocalMcpTestGroup;
+}

@@ -7,7 +7,7 @@ namespace FocusRgb.Core.Tests
     public sealed class SettingsTests
     {
         private static readonly string[] ProfileIds = ["default", "programming", "movie", "music"];
-        private static readonly string[] EffectNames = ["Aurora", "Aurora", "Screen Ambient", "Logarithmic Visualizer"];
+        private static readonly string[] EffectNames = ["Aurora", "Aurora", "Screen Ambience", "Logarithmic Visualizer"];
         private static readonly string[] RuleOrder = ["programming", "movie", "music"];
 
         [Fact]
@@ -29,7 +29,9 @@ namespace FocusRgb.Core.Tests
                 Assert.Equal("native-setup", Assert.Single(profile.Fallback!).Kind);
             });
             var rules = Assert.IsType<List<RuleSettings>>(result.Settings.Rules);
+            var groups = Assert.IsType<List<ApplicationGroupSettings>>(result.Settings.ApplicationGroups);
             Assert.Equal(RuleOrder, rules.Select(r => r.Id));
+            Assert.Equal(RuleOrder, groups.Select(group => group.Id));
             Assert.Equal("default", result.Settings.Selection!.DefaultProfile);
             Assert.Equal("default-profile", result.Settings.Selection.Unmatched);
             Assert.Equal(SettingsJson.CurrentSchemaVersion, result.Settings.SchemaVersion);
@@ -37,11 +39,13 @@ namespace FocusRgb.Core.Tests
             Assert.False(result.Settings.Application.StartMinimized);
             Assert.Equal("system", result.Settings.Application.Theme);
             Assert.False(result.Settings.Application.VerboseLogging);
-            Assert.Equal(["Code.exe", "devenv.exe"], rules[0].Match!.Executables);
+            Assert.Empty(result.Settings.Plugins!.Enabled!);
+            Assert.Equal(["Code.exe", "devenv.exe"], groups[0].Executables);
             Assert.Equal(["PotPlayerMini64.exe", "PotPlayerMini.exe", "stremio-shell-ng.exe"],
-                rules[1].Match!.Executables);
+                groups[1].Executables);
             Assert.Equal(["Microsoft.Media.Player.exe", "wmplayer.exe", "Spotify.exe"],
-                rules[2].Match!.Executables);
+                groups[2].Executables);
+            Assert.Equal(RuleOrder, rules.Select(rule => rule.ApplicationGroup));
         }
 
         [Theory]
@@ -53,6 +57,7 @@ namespace FocusRgb.Core.Tests
         [InlineData("profiles.0.bindings.0.effect.displayName", "", "profiles[0].bindings[0].effect.displayName")]
         [InlineData("profiles.0.bindings.0.effect.resourceId", " ", "profiles[0].bindings[0].effect.resourceId")]
         [InlineData("rules.0.profile", "missing", "rules[0].profile")]
+        [InlineData("rules.0.applicationGroup", "missing", "rules[0].applicationGroup")]
         [InlineData("rules.1.id", "programming", "rules[1].id")]
         [InlineData("rules.0.eligibility", "WhileFocused", "rules[0].eligibility")]
         [InlineData("selection.defaultProfile", "missing", "selection.defaultProfile")]
@@ -69,18 +74,38 @@ namespace FocusRgb.Core.Tests
         }
 
         [Theory]
+        [InlineData("profiles.0.displayName")]
+        [InlineData("applicationGroups.0.displayName")]
+        [InlineData("profiles.0.bindings.0.effect.displayName")]
+        public void Load_RejectsControlCharactersAndOversizedDisplayNames(string field)
+        {
+            var withControl = Defaults();
+            Set(withControl, field, JsonValue.Create("Trusted\nForged approval line"));
+            AssertError(withControl, field.Replace(".0.", "[0].", StringComparison.Ordinal)
+                .Replace("profiles.0", "profiles[0]", StringComparison.Ordinal)
+                .Replace("applicationGroups.0", "applicationGroups[0]", StringComparison.Ordinal)
+                .Replace("bindings.0", "bindings[0]", StringComparison.Ordinal));
+
+            var oversized = Defaults();
+            Set(oversized, field, JsonValue.Create(new string('x', 129)));
+            Assert.False(SettingsJson.Load(oversized.ToJsonString()).IsSuccess);
+        }
+
+        [Theory]
         [InlineData("schemaVersion", "schemaVersion")]
         [InlineData("application", "application")]
         [InlineData("application.startMinimized", "application.startMinimized")]
         [InlineData("application.verboseLogging", "application.verboseLogging")]
+        [InlineData("plugins", "plugins")]
+        [InlineData("plugins.enabled", "plugins.enabled")]
         [InlineData("selection", "selection")]
         [InlineData("profiles", "profiles")]
+        [InlineData("applicationGroups", "applicationGroups")]
         [InlineData("rules", "rules")]
         [InlineData("profiles.0.bindings", "profiles[0].bindings")]
         [InlineData("profiles.0.bindings.0.effect", "profiles[0].bindings[0].effect")]
         [InlineData("profiles.0.bindings.0.deviceScope", "profiles[0].bindings[0].deviceScope")]
         [InlineData("rules.0.enabled", "rules[0].enabled")]
-        [InlineData("rules.0.match", "rules[0].match")]
         public void Load_RejectsMissingField_WithoutPartialSettings(string field, string errorPath)
         {
             var root = Defaults();
@@ -92,8 +117,9 @@ namespace FocusRgb.Core.Tests
         [InlineData("profiles.0", "profiles[0]")]
         [InlineData("profiles.0.bindings.0", "profiles[0].bindings[0]")]
         [InlineData("profiles.0.fallback.0", "profiles[0].fallback[0]")]
+        [InlineData("applicationGroups.0", "applicationGroups[0]")]
         [InlineData("rules.0", "rules[0]")]
-        [InlineData("rules.0.match.executables.0", "rules[0].match.executables[0]")]
+        [InlineData("applicationGroups.0.executables.0", "applicationGroups[0].executables[0]")]
         public void Load_RejectsNullArrayEntry_WithFieldPath(string field, string errorPath)
         {
             var root = Defaults();
@@ -137,7 +163,7 @@ namespace FocusRgb.Core.Tests
 
         [Theory]
         [InlineData(0)]
-        [InlineData(3)]
+        [InlineData(9)]
         public void Load_RejectsUnsupportedVersion_WithoutMigrationOrPersistence(int version)
         {
             var root = Defaults();
@@ -146,7 +172,7 @@ namespace FocusRgb.Core.Tests
         }
 
         [Fact]
-        public void Load_MigratesSchemaOneApplicationPreferencesToDocumentedDefaults()
+        public void Load_MigratesSchemaOneApplicationAndPluginPreferencesToDocumentedDefaults()
         {
             var root = Defaults();
             root["schemaVersion"] = 1;
@@ -160,16 +186,138 @@ namespace FocusRgb.Core.Tests
             Assert.False(result.Settings.Application.StartMinimized);
             Assert.Equal("system", result.Settings.Application.Theme);
             Assert.False(result.Settings.Application.VerboseLogging);
+            Assert.Empty(result.Settings.Plugins!.Enabled!);
         }
 
         [Fact]
-        public void Load_RejectsNegativeDebounce_AndEmptyMatcher()
+        public void Load_MigratesSchemaTwoWithPluginsDisabledByDefault()
+        {
+            var root = Defaults();
+            root["schemaVersion"] = 2;
+            root.AsObject().Remove("plugins");
+
+            var result = SettingsJson.Load(root.ToJsonString());
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(SettingsJson.CurrentSchemaVersion, result.Settings!.SchemaVersion);
+            Assert.Empty(result.Settings.Plugins!.Enabled!);
+        }
+
+        [Fact]
+        public void Load_MigratesSchemaThreeInlineExecutablesToReusableGroups()
+        {
+            var root = Defaults();
+            root["schemaVersion"] = 3;
+            root["plugins"]!["enabled"] = JsonNode.Parse("""["fake-output"]""");
+            var executablesById = root["applicationGroups"]!.AsArray().ToDictionary(
+                group => group!["id"]!.GetValue<string>(),
+                group => group!["executables"]!.DeepClone());
+            root.AsObject().Remove("applicationGroups");
+            foreach (var node in root["rules"]!.AsArray())
+            {
+                var rule = node!.AsObject();
+                var id = rule["applicationGroup"]!.GetValue<string>();
+                rule.Remove("applicationGroup");
+                rule["match"] = new JsonObject { ["executables"] = executablesById[id] };
+            }
+            root["rules"]![0]!["match"]!["executables"]![0] = "Code";
+            root["rules"]![0]!["match"]!["executables"]!.AsArray().Add("code.EXE");
+            root["rules"]![0]!["match"]!["executables"]!.AsArray().Add(" tool.bat ");
+            root["rules"]![0]!["match"]!["game"] = JsonNode.Parse("""{"launcher":"example","id":"sample-game"}""");
+            root["rules"]!.AsArray().Add(JsonNode.Parse("""
+                {"id":"empty-legacy","profile":"default","match":{"executables":[]},"eligibility":"while-running","enabled":false}
+                """));
+
+            var result = SettingsJson.Load(root.ToJsonString());
+
+            Assert.True(result.IsSuccess);
+            var group = Assert.Single(result.Settings!.ApplicationGroups!, item => item.Id == "programming");
+            Assert.Equal(["Code.exe", "devenv.exe", "tool.exe"], group.Executables);
+            Assert.Equal("programming", result.Settings.Rules![0].ApplicationGroup);
+            Assert.Null(result.Settings.Rules[0].Match);
+            var game = Assert.Single(result.Settings.Rules, rule => rule.Match?.Game is not null);
+            Assert.Equal("sample-game", game.Match!.Game!.Id);
+            Assert.NotEqual("programming", game.Id);
+            Assert.DoesNotContain(result.Settings.Rules, rule => rule.Id == "empty-legacy");
+            Assert.Equal(["fake-output"], result.Settings.Plugins!.Enabled);
+        }
+
+        [Fact]
+        public void Load_MigratesSchemaFourUnresolvedSeededMovieEffectName()
+        {
+            var root = Defaults();
+            root["schemaVersion"] = 4;
+            var effect = root["profiles"]![2]!["bindings"]![0]!["effect"]!;
+            effect["displayName"] = "Screen Ambient";
+
+            var result = SettingsJson.Load(root.ToJsonString());
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(SettingsJson.CurrentSchemaVersion, result.Settings!.SchemaVersion);
+            Assert.Equal("Screen Ambience", result.Settings.Profiles![2].Bindings![0].Effect!.DisplayName);
+        }
+
+        [Fact]
+        public void Load_PreservesResolvedSchemaFourMovieEffectName()
+        {
+            var root = Defaults();
+            root["schemaVersion"] = 4;
+            var effect = root["profiles"]![2]!["bindings"]![0]!["effect"]!;
+            effect["resourceId"] = "custom-screen-ambient";
+            effect["displayName"] = "Screen Ambient";
+
+            var result = SettingsJson.Load(root.ToJsonString());
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal("Screen Ambient", result.Settings!.Profiles![2].Bindings![0].Effect!.DisplayName);
+        }
+
+        [Fact]
+        public void Load_RejectsDuplicateEnabledPlugins()
+        {
+            var root = Defaults();
+            root["plugins"]!["enabled"] = JsonNode.Parse("""["fake-output","fake-output"]""");
+
+            AssertError(root, "plugins.enabled[1]");
+        }
+
+        [Fact]
+        public void Load_RejectsInvalidEnabledPluginId()
+        {
+            var root = Defaults();
+            root["plugins"]!["enabled"] = JsonNode.Parse("""["Bad ID"]""");
+
+            AssertError(root, "plugins.enabled[0]");
+        }
+
+        [Fact]
+        public void Load_RejectsNegativeDebounce_AndEmptyApplicationGroup()
         {
             var root = Defaults();
             Set(root, "selection.debounceMs", JsonValue.Create(-1));
-            Set(root, "rules.0.match.executables", new JsonArray());
             AssertError(root, "selection.debounceMs");
-            AssertError(root, "rules[0].match");
+
+            Set(root, "selection.debounceMs", JsonValue.Create(2000));
+            Set(root, "applicationGroups.0.executables", new JsonArray());
+            AssertError(root, "applicationGroups[0].executables");
+        }
+
+        [Fact]
+        public void Load_RejectsApplicationGroupEntryWithoutExeSuffix()
+        {
+            var root = Defaults();
+            Set(root, "applicationGroups.0.executables.0", JsonValue.Create("Code"));
+
+            AssertError(root, "applicationGroups[0].executables[0]");
+        }
+
+        [Fact]
+        public void Load_RejectsDuplicateApplicationGroupExecutableIgnoringCase()
+        {
+            var root = Defaults();
+            root["applicationGroups"]![0]!["executables"]!.AsArray().Add("code.EXE");
+
+            AssertError(root, "applicationGroups[0].executables[2]");
         }
 
         [Fact]
@@ -235,7 +383,8 @@ namespace FocusRgb.Core.Tests
             var root = Defaults();
             Set(root, "profiles.0.bindings.0.renderingAuthority", JsonValue.Create("application"));
             Set(root, "profiles.0.bindings.0.effect", null);
-            Set(root, "rules.0.match", JsonNode.Parse("""{"game":{"launcher":"steam","id":"570"}}"""));
+            Set(root, "rules.0.applicationGroup", null);
+            Set(root, "rules.0.match", JsonNode.Parse("""{"game":{"launcher":"example","id":"sample-game"}}"""));
             Assert.True(SettingsJson.Load(root.ToJsonString()).IsSuccess);
         }
 

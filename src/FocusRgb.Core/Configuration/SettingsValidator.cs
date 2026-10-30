@@ -14,6 +14,13 @@ namespace FocusRgb.Core.Configuration
                     Error(path, "required non-empty string");
                 }
             }
+            void DisplayName(string? value, string path)
+            {
+                Required(value, path);
+                if (value is null) return;
+                if (value.Length > 128) Error(path, "must be 128 characters or fewer");
+                if (value.Any(char.IsControl)) Error(path, "must not contain control characters");
+            }
             void Id(string? value, string path)
             {
                 if (!IsId(value))
@@ -35,10 +42,15 @@ namespace FocusRgb.Core.Configuration
                     Error(path, "required for provider authority");
                     return;
                 }
-                Required(value.DisplayName, path + ".displayName");
+                DisplayName(value.DisplayName, path + ".displayName");
                 if (value.ResourceId is not null && string.IsNullOrWhiteSpace(value.ResourceId))
                 {
                     Error(path + ".resourceId", "must be null or a non-empty opaque ID");
+                }
+                else if (value.ResourceId is { } resourceId
+                    && (resourceId.Length > 512 || resourceId.Any(char.IsControl)))
+                {
+                    Error(path + ".resourceId", "must be 512 characters or fewer without control characters");
                 }
             }
 
@@ -67,6 +79,45 @@ namespace FocusRgb.Core.Configuration
                 Choice(document.Application.Theme, "application.theme", "system", "light", "dark");
                 if (document.Application.VerboseLogging is null)
                     Error("application.verboseLogging", "required boolean");
+                if (document.Application.DebuggingMode is null)
+                    Error("application.debuggingMode", "required boolean");
+                Choice(document.Application.SwitchingSpeed, "application.switchingSpeed", "fast", "normal", "smooth");
+                if (document.Application.Notification is not { } notification)
+                {
+                    Error("application.notification", "required object");
+                }
+                else
+                {
+                    Choice(notification.Size, "application.notification.size", "small", "medium", "large");
+                    Choice(notification.Background, "application.notification.background", "dark", "light", "blue");
+                    if (notification.DurationSeconds is not (2 or 3 or 5))
+                        Error("application.notification.durationSeconds", "must be 2, 3 or 5 seconds");
+                }
+            }
+            if (document.Plugins is null)
+            {
+                Error("plugins", "required object");
+            }
+            else if (document.Plugins.Enabled is null)
+            {
+                Error("plugins.enabled", "required array");
+            }
+            else
+            {
+                var enabled = new HashSet<string>(StringComparer.Ordinal);
+                for (var i = 0; i < document.Plugins.Enabled.Count; i++)
+                {
+                    var pluginId = document.Plugins.Enabled[i];
+                    Id(pluginId, $"plugins.enabled[{i}]");
+                    if (pluginId == GameCatalogJson.ManualLauncher)
+                    {
+                        Error($"plugins.enabled[{i}]", $"'{GameCatalogJson.ManualLauncher}' is reserved for manual games");
+                    }
+                    if (pluginId is not null && !enabled.Add(pluginId))
+                    {
+                        Error($"plugins.enabled[{i}]", "duplicate plugin ID '" + pluginId + "'");
+                    }
+                }
             }
             var profiles = new Dictionary<string, ProfileSettings>(StringComparer.Ordinal);
             if (document.Profiles is null)
@@ -85,7 +136,7 @@ namespace FocusRgb.Core.Configuration
                         continue;
                     }
                     Id(profile.Id, path + ".id");
-                    Required(profile.DisplayName, path + ".displayName");
+                    DisplayName(profile.DisplayName, path + ".displayName");
                     if (profile.Id is not null && !profiles.TryAdd(profile.Id, profile))
                     {
                         Error(path + ".id", "duplicate profile ID '" + profile.Id + "'");
@@ -175,6 +226,47 @@ namespace FocusRgb.Core.Configuration
                 }
                 ValidateNames(document.Selection.IgnoredExecutables, "selection.ignoredExecutables", false, Error);
             }
+            var applicationGroups = new HashSet<string>(StringComparer.Ordinal);
+            if (document.ApplicationGroups is null)
+            {
+                Error("applicationGroups", "required array (may be empty)");
+            }
+            else
+            {
+                for (var i = 0; i < document.ApplicationGroups.Count; i++)
+                {
+                    var group = document.ApplicationGroups[i];
+                    var path = $"applicationGroups[{i}]";
+                    if (group is null)
+                    {
+                        Error(path, "required application group object");
+                        continue;
+                    }
+                    Id(group.Id, path + ".id");
+                    DisplayName(group.DisplayName, path + ".displayName");
+                    ValidateNames(group.Executables, path + ".executables", true, Error);
+                    if (group.Executables is not null)
+                    {
+                        var executableNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        for (var executableIndex = 0; executableIndex < group.Executables.Count; executableIndex++)
+                        {
+                            if (!string.IsNullOrWhiteSpace(group.Executables[executableIndex])
+                                && !group.Executables[executableIndex].EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                            {
+                                Error($"{path}.executables[{executableIndex}]", "must end in .exe");
+                            }
+                            else if (!executableNames.Add(group.Executables[executableIndex]))
+                            {
+                                Error($"{path}.executables[{executableIndex}]", "duplicate executable name");
+                            }
+                        }
+                    }
+                    if (group.Id is not null && !applicationGroups.Add(group.Id))
+                    {
+                        Error(path + ".id", "duplicate application group ID '" + group.Id + "'");
+                    }
+                }
+            }
             if (document.Rules is null)
             {
                 Error("rules", "required array (may be empty)");
@@ -196,29 +288,38 @@ namespace FocusRgb.Core.Configuration
                     {
                         Error(path + ".id", "duplicate rule ID '" + rule.Id + "'");
                     }
+                    if (rule.ApplicationGroup is not null && !applicationGroups.Contains(rule.ApplicationGroup))
+                    {
+                        Error(path + ".applicationGroup", "unknown application group '" + rule.ApplicationGroup + "'");
+                    }
                     ProfileReference(rule.Profile, path + ".profile");
                     Choice(rule.Eligibility, path + ".eligibility", "while-running", "while-focused");
                     if (rule.Enabled is null)
                     {
                         Error(path + ".enabled", "required boolean");
                     }
-                    if (rule.Match is null)
+                    if (rule.Match?.Executables is not null)
                     {
-                        Error(path + ".match", "required matcher object");
-                        continue;
+                        Error(path + ".match.executables", "use applicationGroup for executable matching");
                     }
-                    if (rule.Match.Executables is not null)
-                    {
-                        ValidateNames(rule.Match.Executables, path + ".match.executables", false, Error);
-                    }
-                    if (rule.Match.Game is not null)
+                    if (rule.Match?.Game is not null)
                     {
                         Required(rule.Match.Game.Launcher, path + ".match.game.launcher");
                         Required(rule.Match.Game.Id, path + ".match.game.id");
+                        var launcherWildcard = rule.Match.Game.Launcher == "*";
+                        var idWildcard = rule.Match.Game.Id == "*";
+                        if (launcherWildcard != idWildcard)
+                        {
+                            Error(path + ".match.game", "only the (*, *) matcher may use wildcards");
+                        }
                     }
-                    if ((rule.Match.Executables?.Count ?? 0) == 0 && rule.Match.Game is null)
+                    if (rule.ApplicationGroup is null && rule.Match?.Game is null)
                     {
-                        Error(path + ".match", "at least one matcher is required");
+                        Error(path, "applicationGroup or game matcher is required");
+                    }
+                    if (rule.ApplicationGroup is not null && rule.Match?.Game is not null)
+                    {
+                        Error(path, "applicationGroup and game matcher cannot be combined");
                     }
                 }
             }
