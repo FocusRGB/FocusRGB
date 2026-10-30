@@ -21,7 +21,7 @@ namespace FocusRgb.App.HeadlessTests
                 clock.Advance(2500);
                 popup.UpdateDismissal();
                 Assert.True(popup.IsVisible);
-                clock.Advance(500);
+                clock.Advance(650);
                 popup.UpdateDismissal();
                 Assert.False(popup.IsVisible);
             }
@@ -51,7 +51,7 @@ namespace FocusRgb.App.HeadlessTests
                 Assert.Equal(width, popup.Width);
                 Assert.Equal(background == "light" ? Colors.Black : Colors.White,
                     Assert.IsAssignableFrom<ISolidColorBrush>(Assert.IsType<TextBlock>(border.Child).Foreground).Color);
-                clock.Advance(seconds * 1000 - 151);
+                clock.Advance(seconds * 1000 - 1);
                 popup.UpdateDismissal();
                 Assert.True(popup.IsVisible);
                 Assert.Equal(1, popup.GetBaseValue(Avalonia.Visual.OpacityProperty).Value);

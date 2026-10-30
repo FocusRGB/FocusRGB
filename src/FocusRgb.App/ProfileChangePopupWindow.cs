@@ -66,8 +66,8 @@ namespace FocusRgb.App
         internal void UpdateDismissal()
         {
             var elapsed = _clock.GetElapsedTime(_shownAt);
-            if (elapsed >= _displayDuration) Dismiss();
-            else if (elapsed >= _displayDuration - TimeSpan.FromMilliseconds(150)) Opacity = 0;
+            if (elapsed >= _displayDuration + TimeSpan.FromMilliseconds(150)) Dismiss();
+            else if (elapsed >= _displayDuration) Opacity = 0;
         }
 
         public void Present(string text)
