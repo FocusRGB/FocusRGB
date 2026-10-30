@@ -351,8 +351,12 @@
                            IsVisible="{Binding EditingGame.HasAmbiguousExecutables}"
                            TextWrapping="Wrap" />
                 <StackPanel x:Name="GameEditControls" Spacing="10" IsEnabled="{Binding CanEditGame}">
-                  <ToggleSwitch x:Name="GameExecutableSourceSwitch" IsChecked="{Binding GameExecutableFromRunningApplications}"
-                                OffContent="From file path" OnContent="From running applications" AutomationProperties.Name="Game executable source" />
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock x:Name="GameFilePathSourceLabel" Text="From file path" VerticalAlignment="Center" />
+                    <ToggleSwitch x:Name="GameExecutableSourceSwitch" IsChecked="{Binding GameExecutableFromRunningApplications}"
+                                  AutomationProperties.Name="Game executable source" />
+                    <TextBlock x:Name="GameRunningApplicationsSourceLabel" Text="From running applications" VerticalAlignment="Center" />
+                  </StackPanel>
                   <StackPanel x:Name="GameFilePathControls" IsVisible="{Binding GameExecutableFromFilePath}" Orientation="Horizontal" Spacing="8">
                     <Button Content="Add executable…" Click="BrowseGameExecutable_OnClick" />
                   </StackPanel>
