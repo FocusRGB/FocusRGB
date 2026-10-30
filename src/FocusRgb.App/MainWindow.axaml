@@ -495,21 +495,21 @@
             <Border Padding="18" CornerRadius="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
               <StackPanel Spacing="12">
                 <TextBlock Text="General" FontSize="18" FontWeight="SemiBold" />
-                <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="12">
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="12">
                   <TextBlock Text="Close button" VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1" ItemsSource="{Binding CloseButtonBehaviors}"
                             AutomationProperties.Name="Close button behavior"
                             SelectedItem="{Binding CloseButtonBehavior}" />
-                  <TextBlock Grid.Row="1" Text="Start minimized" VerticalAlignment="Center" />
-                  <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding StartMinimized}"
-                            Content="Hide in the tray after launch" />
-                  <TextBlock Grid.Row="2" Text="Start with Windows" VerticalAlignment="Center" />
-                  <CheckBox x:Name="StartWithWindowsCheckBox" Grid.Row="2" Grid.Column="1"
-                            Content="Start in the tray when I sign in" IsEnabled="False"
+                  <TextBlock Grid.Row="1" Text="Run Focus when system starts" VerticalAlignment="Center" />
+                  <CheckBox x:Name="StartWithWindowsCheckBox" Grid.Row="1" Grid.Column="1"
+                            AutomationProperties.Name="Run Focus when system starts" IsEnabled="False"
                             IsCheckedChanged="StartWithWindows_OnCheckedChanged" />
+                  <TextBlock Grid.Row="2" Text="Start minimized" VerticalAlignment="Center" />
+                  <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding StartMinimized}"
+                            AutomationProperties.Name="Start minimized" />
                 </Grid>
                 <TextBlock x:Name="StartupStatusText" TextWrapping="Wrap" />
-                <TextBlock Text="Start with Windows changes take effect immediately. Start minimized controls ordinary launches."
+                <TextBlock Text="Run Focus when system starts takes effect immediately. Start minimized controls ordinary launches."
                            Opacity="0.65" TextWrapping="Wrap" />
                 <CheckBox x:Name="IncludeBetaPluginsCheckBox" IsChecked="{Binding IncludeBetaPlugins}" Content="Include beta plugins"
                           AutomationProperties.Name="Include beta plugins" />
