@@ -35,6 +35,7 @@ namespace FocusRgb.App
             ArgumentNullException.ThrowIfNull(values);
             _schema = schema;
             _defaults = defaults ?? PluginConfigurationStore.Defaults(schema);
+            Title = $"{SafeDisplayText(plugin.DisplayName)} settings";
             this.FindControl<TextBlock>("PluginNameText")!.Text = SafeDisplayText(plugin.DisplayName);
             this.FindControl<TextBlock>("PluginDetailsText")!.Text =
                 $"{plugin.Id} · {plugin.Version ?? "unknown version"}"
