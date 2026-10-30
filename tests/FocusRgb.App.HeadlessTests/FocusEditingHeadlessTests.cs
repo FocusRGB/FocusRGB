@@ -22,6 +22,7 @@ namespace FocusRgb.App.HeadlessTests
                 var item = viewModel.MappingEditor.Mappings[0];
                 window.FindControl<ListBox>("FocusList")!.SelectedItem = item;
                 Assert.False(viewModel.MappingEditor.HasEditor);
+                Assert.DoesNotContain(window.GetLogicalDescendants().OfType<Button>(), button => Equals(button.Content, "Edit selected Focus"));
                 window.GetLogicalDescendants().OfType<Button>()
                     .First(button => Equals(button.Content, "Edit") && ReferenceEquals(button.CommandParameter, item))
                     .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
