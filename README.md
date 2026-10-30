@@ -21,6 +21,11 @@ FocusRGB automatically switches lighting profiles based on the active applicatio
 ## Key Features
 
 Use the **Focus** tab to select a profile manually or manage automatic **Focuses** in the **Focus Library**.
+
+In automatic mode, switching to an unmapped app keeps the last active Focus. While an unmapped app
+is foreground, background rules take over only after the executable that established that Focus
+exits. Mapped apps retain normal rule priority and focus debounce. An unmapped startup window keeps the
+saved profile until a mapped app gains focus.
 Each Focus links an application or game to a lighting profile. See the [user guides](https://github.com/FocusRGB/FocusRGB/wiki).
 
 - **Context-Aware Lighting:** Seamlessly switches profiles using ordered priority rules—either while an application is running or only while it has focus.

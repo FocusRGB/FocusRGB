@@ -57,12 +57,16 @@ the independent debugging/logging choices in v7.
 older settings with diagnostic logging enabled migrate with Debugging mode enabled. Recovery through
 `settings.last-known-good.json` applies the same migration. The legacy `selection.debounceMs` field is retained
 for document compatibility; the application preset controls selection. Ignored foreground executables preserve the
-previous stable focus. A process must still appear in `RunningExecutables`, so exit removes
-eligibility immediately. No eligible rule returns protected Default. The result reports
+previous stable focus. An unmapped window keeps the supplied current profile while its originating
+matched executable is still running, without letting background rules preempt that task. It also
+cancels an interrupted mapped-app debounce. When that executable exits or its catalog match is
+removed, selection falls back to the first eligible while-running rule or protected Default.
+The result reports
 `manual`, `rule` (with its rule ID), `observation-pending`, or `unmatched-default`. On startup
 and whenever manual mode returns to automatic, the engine clears old focus history and retains
-the supplied current profile until the first foreground observation is stable. While-running
-rules can still win immediately.
+the supplied current profile until a mapped application gains focus. While-running rules can still
+win immediately on a mapped foreground; unmapped startup windows keep the saved profile. Settings
+updates retain the last settled task/source while validating it against the updated rules/catalog.
 
 The caller owns process observation and time. The selector does not read the OS or call an
 integration or device. `LocalStateStore` persists its desired result independently of output.
