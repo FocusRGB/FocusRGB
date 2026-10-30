@@ -10,6 +10,7 @@ namespace FocusRgb.Platform.Windows
 
         private readonly IWindowsProcessSource _processSource;
         private string? _lastForegroundExecutable;
+        private string[] _runningExecutables = [];
 
         public WindowsApplicationObserver()
             : this(new WindowsProcessSource())
@@ -24,17 +25,22 @@ namespace FocusRgb.Platform.Windows
         /// <summary>
         /// Captures one best-effort observation; inaccessible or disappearing processes are omitted.
         /// </summary>
-        public ApplicationObservation Observe()
+        public ApplicationObservation Observe(bool refreshRunningExecutables = true)
         {
-            var running = new HashSet<string>(ExecutableComparer);
+            var running = new HashSet<string>(_runningExecutables, ExecutableComparer);
             try
             {
-                foreach (var executable in _processSource.GetRunningExecutables())
+                if (refreshRunningExecutables)
                 {
-                    if (!string.IsNullOrWhiteSpace(executable))
+                    running.Clear();
+                    foreach (var executable in _processSource.GetRunningExecutables())
                     {
-                        running.Add(executable);
+                        if (!string.IsNullOrWhiteSpace(executable))
+                        {
+                            running.Add(executable);
+                        }
                     }
+                    _runningExecutables = running.ToArray();
                 }
             }
             catch (Exception exception) when (IsExpectedProcessFailure(exception))
