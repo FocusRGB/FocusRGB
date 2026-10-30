@@ -591,12 +591,17 @@ namespace FocusRgb.App
             _observationTask = Task.Run(async () =>
             {
                 var observer = new WindowsApplicationObserver();
+                long? lastProcessScan = null;
                 while (true)
                 {
                     cancellation.Token.ThrowIfCancellationRequested();
                     try
                     {
-                        var observation = observer.Observe();
+                        // Poll foreground cheaply; enumerate all processes at most once per second.
+                        var refreshProcesses = lastProcessScan is null
+                            || System.Diagnostics.Stopwatch.GetElapsedTime(lastProcessScan.Value) >= TimeSpan.FromSeconds(1);
+                        var observation = observer.Observe(refreshProcesses);
+                        if (refreshProcesses) lastProcessScan = System.Diagnostics.Stopwatch.GetTimestamp();
                         await await Dispatcher.UIThread.InvokeAsync<Task>(() =>
                             viewModel.ObserveApplicationsAsync(observation, cancellation.Token));
                     }

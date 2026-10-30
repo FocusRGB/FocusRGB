@@ -8,6 +8,20 @@ namespace FocusRgb.Platform.Windows.Tests
     public sealed class WindowsApplicationObserverTests
     {
         [Fact]
+        public void Observe_ReusesProcessSnapshotButAlwaysRefreshesForeground()
+        {
+            var source = new FakeProcessSource { Running = ["Code.exe"], Foreground = "Code.exe" };
+            var observer = new WindowsApplicationObserver(source);
+            observer.Observe();
+            source.Running = ["Spotify.exe"];
+            source.Foreground = "Spotify.exe";
+            var cached = observer.Observe(refreshRunningExecutables: false);
+            Assert.Equal("Spotify.exe", cached.ForegroundExecutable);
+            Assert.Contains("Code.exe", cached.RunningExecutables);
+            Assert.DoesNotContain("Code.exe", observer.Observe().RunningExecutables);
+        }
+
+        [Fact]
         public void Observe_RecordsRawProcessAndClassWhileKeepingThePreviousApp()
         {
             var source = new FakeProcessSource { Foreground = "Code.exe", WindowClass = "RealApp" };

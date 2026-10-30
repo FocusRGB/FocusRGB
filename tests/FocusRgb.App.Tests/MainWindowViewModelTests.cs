@@ -174,7 +174,7 @@ namespace FocusRgb.App.Tests
 
                 Assert.Equal(TimeSpan.FromSeconds(5), viewModel.ApplicationObservationInterval);
                 await viewModel.SetModeAsync(manual: false, TestContext.Current.CancellationToken);
-                Assert.Equal(TimeSpan.FromSeconds(1), viewModel.ApplicationObservationInterval);
+                Assert.Equal(TimeSpan.FromMilliseconds(100), viewModel.ApplicationObservationInterval);
                 var observation = new ApplicationObservation { RunningExecutables = ["Code.exe"] };
                 await viewModel.ObserveApplicationsAsync(observation, TestContext.Current.CancellationToken);
                 viewModel.ReportUnexpectedError("Keep this status");

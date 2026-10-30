@@ -383,7 +383,7 @@ namespace FocusRgb.App.ViewModels
         public bool SavedVerboseLogging => _settings.Application!.VerboseLogging!.Value;
         public bool SavedDebuggingMode => _settings.Application!.DebuggingMode == true;
         public TimeSpan ApplicationObservationInterval => IsAutomatic
-            ? TimeSpan.FromSeconds(1)
+            ? TimeSpan.FromMilliseconds(100)
             : TimeSpan.FromSeconds(5);
 
         public bool IsManual

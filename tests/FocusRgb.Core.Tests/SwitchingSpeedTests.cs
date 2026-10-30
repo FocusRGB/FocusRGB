@@ -10,6 +10,26 @@ namespace FocusRgb.Core.Tests
         [InlineData("fast", 300)]
         [InlineData("normal", 750)]
         [InlineData("smooth", 2000)]
+        public void Polling_CommitsWithinOneShortTickOfConfiguredDelay(string preset, int delay)
+        {
+            var json = Defaults();
+            json["application"]!["switchingSpeed"] = preset;
+            var clock = new Clock();
+            var engine = new SelectionEngine(SettingsJson.Load(json.ToJsonString()).Settings!, clock);
+            var elapsed = 0;
+            while (engine.Select(SelectionMode.Automatic, "default", Observation("Code.exe"), DateTimeOffset.UtcNow).ProfileId == "default")
+            {
+                Assert.True(elapsed <= delay + 100);
+                clock.Advance(100);
+                elapsed += 100;
+            }
+            Assert.InRange(elapsed, delay, delay + 100);
+        }
+
+        [Theory]
+        [InlineData("fast", 300)]
+        [InlineData("normal", 750)]
+        [InlineData("smooth", 2000)]
         public void Select_RequiresStableForegroundForEntirePreset(string speed, int milliseconds)
         {
             var root = Defaults();
