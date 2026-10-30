@@ -44,7 +44,9 @@ namespace FocusRgb.App.HeadlessTests
                 popup.Configure(new NotificationSettings { Size = size, Background = background, DurationSeconds = seconds });
                 popup.Present("Focus: Test\nProfile: Test\nOutput unverified");
                 var border = Assert.IsType<Border>(popup.Content);
-                Assert.Equal(255, Assert.IsAssignableFrom<ISolidColorBrush>(popup.Background).Color.A);
+                Assert.Equal(0, Assert.IsAssignableFrom<ISolidColorBrush>(popup.Background).Color.A);
+                Assert.Contains(WindowTransparencyLevel.Transparent, popup.TransparencyLevelHint);
+                Assert.Equal(12, border.CornerRadius.TopLeft);
                 Assert.Equal(255, Assert.IsAssignableFrom<ISolidColorBrush>(border.Background).Color.A);
                 Assert.Equal(255, Assert.IsAssignableFrom<ISolidColorBrush>(border.BorderBrush).Color.A);
                 Assert.Equal(1, border.BorderThickness.Left);
